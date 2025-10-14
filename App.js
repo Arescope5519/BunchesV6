@@ -10,6 +10,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Modal,
+  BackHandler,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -26,46 +27,39 @@ try {
 export default function App() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingRecipes, setLoadingRecipes] = useState(true);
   const [recipes, setRecipes] = useState([]);
+  const [folders, setFolders] = useState(['All Recipes', 'Favorites']);
+  const [currentFolder, setCurrentFolder] = useState('All Recipes');
   const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const [previewRecipe, setPreviewRecipe] = useState(null);
+  const [editingRecipe, setEditingRecipe] = useState(null);
+  const [showFolderManager, setShowFolderManager] = useState(false);
 
   // Initialize extractor once
   const extractor = useRef(new RecipeExtractor()).current;
 
   /**
    * Extract URL from mixed text
-   * Handles: "Check out this recipe! https://example.com/recipe blah blah"
    */
   const extractUrlFromText = (text) => {
     if (!text) return null;
-
-    // If it's already a clean URL, return it
     if (text.startsWith('http://') || text.startsWith('https://')) {
       const firstSpace = text.indexOf(' ');
       if (firstSpace === -1) return text.trim();
       return text.substring(0, firstSpace).trim();
     }
-
-    // Extract URL from mixed text using regex
     const urlRegex = /(https?:\/\/[^\s]+)/i;
     const match = text.match(urlRegex);
-
     if (match) {
       let url = match[1];
-      // Remove trailing punctuation
       url = url.replace(/[.,;:!?)\]}>]+$/, '');
-      console.log('🔍 Extracted URL from text:', url);
       return url;
     }
-
-    console.log('⚠️ No URL found in text:', text);
     return null;
   };
 
   /**
-   * Extract recipe using standalone JavaScript extractor
-   * NO SERVER REQUIRED!
+   * Extract recipe from URL
    */
   const extractRecipe = async (recipeUrl = url, autoSave = false) => {
     if (!recipeUrl) {
@@ -77,7 +71,6 @@ export default function App() {
     console.log('🔍 Extracting recipe from:', recipeUrl);
 
     try {
-      // Call standalone extractor
       const result = await extractor.extract(recipeUrl);
 
       if (result.success) {
@@ -86,19 +79,15 @@ export default function App() {
           url: recipeUrl,
           ...result.data,
           extractedAt: new Date().toISOString(),
-          source: result.source
+          source: result.source,
+          folder: 'All Recipes',
+          isFavorite: false,
         };
 
-        console.log('✅ Extraction successful:', recipe.title);
-        console.log('📊 Method:', recipe.extraction_method);
-        console.log('🎯 Confidence:', recipe.confidence);
-
         if (autoSave) {
-          // Auto-save and show preview
           await saveRecipe(recipe);
-          setPreviewRecipe(recipe);
+          setSelectedRecipe(recipe);
         } else {
-          // Show save confirmation
           Alert.alert(
             'Recipe Extracted! 🎉',
             `${recipe.title}\n\nMethod: ${result.source}\nConfidence: ${(recipe.confidence * 100).toFixed(0)}%\n\nSave this recipe?`,
@@ -108,23 +97,17 @@ export default function App() {
                 text: 'Save',
                 onPress: async () => {
                   await saveRecipe(recipe);
-                  setPreviewRecipe(recipe);
+                  setSelectedRecipe(recipe);
                 }
               }
             ]
           );
         }
-
         setUrl('');
       } else {
-        console.log('❌ Extraction failed:', result.error);
-        Alert.alert(
-          'Extraction Failed',
-          result.error || 'Unable to extract recipe from this URL.\n\nTry a different recipe site.'
-        );
+        Alert.alert('Extraction Failed', result.error || 'Unable to extract recipe');
       }
     } catch (error) {
-      console.error('💥 Error:', error);
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
@@ -132,52 +115,128 @@ export default function App() {
   };
 
   /**
-   * Save recipe to storage
+   * Save recipe - FIX: Wait for recipes to load before saving
    */
   const saveRecipe = async (recipe) => {
+    // Wait for recipes to load if they haven't yet
+    while (loadingRecipes) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     const updatedRecipes = [recipe, ...recipes];
     await AsyncStorage.setItem('recipes', JSON.stringify(updatedRecipes));
     setRecipes(updatedRecipes);
+    console.log('✅ Recipe saved! Total recipes:', updatedRecipes.length);
   };
 
   /**
-   * Load saved recipes from AsyncStorage
+   * Update existing recipe (for editing)
+   */
+  const updateRecipe = async (updatedRecipe) => {
+    const updatedRecipes = recipes.map(r =>
+      r.id === updatedRecipe.id ? updatedRecipe : r
+    );
+    await AsyncStorage.setItem('recipes', JSON.stringify(updatedRecipes));
+    setRecipes(updatedRecipes);
+    setEditingRecipe(null);
+    setSelectedRecipe(updatedRecipe);
+  };
+
+  /**
+   * Load saved recipes and folders
    */
   const loadRecipes = async () => {
     try {
+      setLoadingRecipes(true);
       const stored = await AsyncStorage.getItem('recipes');
+      const storedFolders = await AsyncStorage.getItem('folders');
+
       if (stored) {
         const parsed = JSON.parse(stored);
         setRecipes(parsed);
         console.log(`📚 Loaded ${parsed.length} recipes`);
       }
+
+      if (storedFolders) {
+        const parsedFolders = JSON.parse(storedFolders);
+        setFolders(parsedFolders);
+      }
     } catch (error) {
       console.error('Failed to load recipes:', error);
+    } finally {
+      setLoadingRecipes(false);
     }
   };
 
   /**
-   * Delete a recipe
+   * Delete recipe
    */
   const deleteRecipe = async (recipeId) => {
-    Alert.alert(
-      'Delete Recipe?',
-      'This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updated = recipes.filter(r => r.id !== recipeId);
-            await AsyncStorage.setItem('recipes', JSON.stringify(updated));
-            setRecipes(updated);
-            setSelectedRecipe(null);
-            setPreviewRecipe(null);
-          }
+    Alert.alert('Delete Recipe?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = recipes.filter(r => r.id !== recipeId);
+          await AsyncStorage.setItem('recipes', JSON.stringify(updated));
+          setRecipes(updated);
+          setSelectedRecipe(null);
         }
-      ]
+      }
+    ]);
+  };
+
+  /**
+   * Move recipe to folder
+   */
+  const moveToFolder = async (recipeId, newFolder) => {
+    const updatedRecipes = recipes.map(r =>
+      r.id === recipeId ? { ...r, folder: newFolder } : r
     );
+    await AsyncStorage.setItem('recipes', JSON.stringify(updatedRecipes));
+    setRecipes(updatedRecipes);
+  };
+
+  /**
+   * Toggle favorite
+   */
+  const toggleFavorite = async (recipeId) => {
+    const updatedRecipes = recipes.map(r =>
+      r.id === recipeId ? { ...r, isFavorite: !r.isFavorite } : r
+    );
+    await AsyncStorage.setItem('recipes', JSON.stringify(updatedRecipes));
+    setRecipes(updatedRecipes);
+  };
+
+  /**
+   * Add new folder
+   */
+  const addFolder = () => {
+    Alert.prompt(
+      'New Folder',
+      'Enter folder name:',
+      async (folderName) => {
+        if (folderName && !folders.includes(folderName)) {
+          const newFolders = [...folders, folderName];
+          setFolders(newFolders);
+          await AsyncStorage.setItem('folders', JSON.stringify(newFolders));
+        }
+      }
+    );
+  };
+
+  /**
+   * Get filtered recipes
+   */
+  const getFilteredRecipes = () => {
+    if (currentFolder === 'All Recipes') {
+      return recipes;
+    } else if (currentFolder === 'Favorites') {
+      return recipes.filter(r => r.isFavorite);
+    } else {
+      return recipes.filter(r => r.folder === currentFolder);
+    }
   };
 
   /**
@@ -185,10 +244,8 @@ export default function App() {
    */
   const handleSharedUrl = (sharedData) => {
     console.log('📨 Received shared data:', sharedData);
-
     let sharedUrl = null;
 
-    // Extract URL from various formats
     if (typeof sharedData === 'string') {
       sharedUrl = extractUrlFromText(sharedData);
     } else if (sharedData.weblink) {
@@ -200,42 +257,30 @@ export default function App() {
     }
 
     if (sharedUrl) {
-      console.log('✅ Extracted URL:', sharedUrl);
-      // DON'T show in input field - keep it clean
       setUrl('');
-      // Auto-extract immediately
       setTimeout(() => extractRecipe(sharedUrl, true), 500);
     } else {
-      console.log('❌ Could not extract URL from shared data');
       Alert.alert('Error', 'Could not extract recipe URL from shared content');
     }
   };
 
   /**
-   * Setup share intent listener (if available)
+   * Setup share intent listener
    */
   useEffect(() => {
     loadRecipes();
 
-    // Only setup share listener if library is available
     if (ReceiveSharingIntent) {
       try {
-        // Handle share when app is CLOSED and opened via share
         ReceiveSharingIntent.getReceivedFiles(
           (files) => {
-            console.log('📨 Initial share (app was closed):', files);
             if (files && files.length > 0) {
               handleSharedUrl(files[0]);
             }
-          },
-          (error) => {
-            console.log('❌ Initial share error:', error);
           }
         );
 
-        // Handle share when app is ALREADY OPEN
         const subscription = ReceiveSharingIntent.addEventListener('url', (event) => {
-          console.log('📨 New share (app was open):', event);
           if (event && event.url) {
             handleSharedUrl(event.url);
           }
@@ -250,71 +295,51 @@ export default function App() {
       } catch (error) {
         console.log('⚠️ Could not setup share listener:', error.message);
       }
-    } else {
-      console.log('ℹ️ Share from browser will work after running: npx expo run:android');
     }
   }, []);
 
   /**
-   * View extraction statistics
+   * Handle Android back button
    */
-  const viewStats = () => {
-    const stats = extractor.getStats();
-    const total = Object.values(stats).reduce((a, b) => {
-      return typeof b === 'number' ? a + b : a;
-    }, 0);
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (editingRecipe) {
+        setEditingRecipe(null);
+        return true;
+      }
+      if (selectedRecipe) {
+        setSelectedRecipe(null);
+        return true;
+      }
+      if (showFolderManager) {
+        setShowFolderManager(false);
+        return true;
+      }
+      return false; // Let default back behavior work
+    });
 
-    const message = `
-Total Extractions: ${total}
+    return () => backHandler.remove();
+  }, [editingRecipe, selectedRecipe, showFolderManager]);
 
-📊 By Method:
-- JSON-LD: ${stats.json_ld} (${stats.percentages?.json_ld || '0%'})
-- Microdata: ${stats.microdata} (${stats.percentages?.microdata || '0%'})
-- WordPress: ${stats.wp_plugin} (${stats.percentages?.wp_plugin || '0%'})
-- Site-Specific: ${stats.site_specific} (${stats.percentages?.site_specific || '0%'})
-- Failed: ${stats.failed} (${stats.percentages?.failed || '0%'})
-    `.trim();
-
-    Alert.alert('Extraction Statistics', message);
-  };
-
-  /**
-   * Clear all recipes
-   */
-  const clearAllRecipes = () => {
-    Alert.alert(
-      'Clear All Recipes?',
-      'This will delete all saved recipes. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear All',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.setItem('recipes', JSON.stringify([]));
-            setRecipes([]);
-            Alert.alert('Cleared', 'All recipes deleted');
-          }
-        }
-      ]
-    );
-  };
+  const filteredRecipes = getFilteredRecipes();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
+    <View style={styles.container}>
+      <StatusBar style="light" hidden={true} />
 
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Bunches</Text>
-        <Text style={styles.subtitle}>Recipe Extractor</Text>
+        <TouchableOpacity onPress={() => setShowFolderManager(true)}>
+          <Text style={styles.manageButton}>📁 Folders</Text>
+        </TouchableOpacity>
       </View>
 
       {/* URL Input */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Paste recipe URL here..."
+          placeholder="Paste recipe URL..."
           value={url}
           onChangeText={setUrl}
           autoCapitalize="none"
@@ -335,146 +360,228 @@ Total Extractions: ${total}
         </TouchableOpacity>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.actionButton} onPress={viewStats}>
-          <Text style={styles.actionButtonText}>📊 Stats</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={clearAllRecipes}>
-          <Text style={styles.actionButtonText}>🗑️ Clear All</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Share Info Banner (if not available yet) */}
-      {!ReceiveSharingIntent && (
-        <View style={styles.infoBanner}>
-          <Text style={styles.infoBannerText}>
-            ℹ️ Share from browser will work after rebuild
-          </Text>
-        </View>
-      )}
-
-      {/* Loading Indicator */}
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Extracting recipe...</Text>
-        </View>
-      )}
-
-      {/* Recipe List */}
-      <View style={styles.listHeader}>
-        <Text style={styles.listTitle}>Saved Recipes ({recipes.length})</Text>
-      </View>
-
-      <ScrollView style={styles.recipeList}>
-        {recipes.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No recipes yet</Text>
-            <Text style={styles.emptyStateSubtext}>
-              Share a recipe from your browser or paste a URL above
+      {/* Folder Tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderTabs}>
+        {folders.map((folder) => (
+          <TouchableOpacity
+            key={folder}
+            style={[
+              styles.folderTab,
+              currentFolder === folder && styles.folderTabActive
+            ]}
+            onPress={() => setCurrentFolder(folder)}
+          >
+            <Text style={[
+              styles.folderTabText,
+              currentFolder === folder && styles.folderTabTextActive
+            ]}>
+              {folder} ({folder === 'Favorites'
+                ? recipes.filter(r => r.isFavorite).length
+                : folder === 'All Recipes'
+                ? recipes.length
+                : recipes.filter(r => r.folder === folder).length})
             </Text>
-          </View>
-        ) : (
-          recipes.map((recipe) => (
-            <TouchableOpacity
-              key={recipe.id}
-              style={styles.recipeCard}
-              onPress={() => setSelectedRecipe(recipe)}
-            >
-              <Text style={styles.recipeTitle}>{recipe.title}</Text>
-              <Text style={styles.recipeMeta}>
-                {recipe.source} • {(recipe.confidence * 100).toFixed(0)}% confidence
-              </Text>
-              <Text style={styles.recipeUrl} numberOfLines={1}>
-                {recipe.url}
-              </Text>
-            </TouchableOpacity>
-          ))
-        )}
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
-      {/* Recipe Preview Modal (Shows after extraction) */}
-      {previewRecipe && (
-        <Modal
-          animationType="slide"
-          transparent={false}
-          visible={!!previewRecipe}
-          onRequestClose={() => setPreviewRecipe(null)}
-        >
-          <SafeAreaView style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setPreviewRecipe(null)}>
-                <Text style={styles.modalCloseButton}>✓ Done</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalHeaderTitle}>Recipe Saved!</Text>
-              <TouchableOpacity onPress={() => deleteRecipe(previewRecipe.id)}>
-                <Text style={styles.modalDeleteButton}>🗑️</Text>
-              </TouchableOpacity>
+      {/* Recipe List */}
+      {loadingRecipes ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading recipes...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.recipeList}>
+          {filteredRecipes.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No recipes yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Share a recipe from your browser or paste a URL above
+              </Text>
             </View>
-            <ScrollView style={styles.modalContent}>
-              <RecipeDetailView recipe={previewRecipe} />
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
+          ) : (
+            filteredRecipes.map((recipe) => (
+              <TouchableOpacity
+                key={recipe.id}
+                style={styles.recipeCard}
+                onPress={() => setSelectedRecipe(recipe)}
+              >
+                <View style={styles.recipeCardHeader}>
+                  <Text style={styles.recipeTitle}>{recipe.title}</Text>
+                  <TouchableOpacity onPress={() => toggleFavorite(recipe.id)}>
+                    <Text style={styles.favoriteIcon}>
+                      {recipe.isFavorite ? '⭐' : '☆'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.recipeMeta}>
+                  {recipe.source} • {recipe.folder}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
       )}
 
-      {/* Recipe Detail Modal (For viewing saved recipes) */}
-      {selectedRecipe && (
-        <Modal
-          animationType="slide"
-          transparent={false}
-          visible={!!selectedRecipe}
-          onRequestClose={() => setSelectedRecipe(null)}
-        >
-          <SafeAreaView style={styles.modalContainer}>
+      {/* Folder Manager Modal */}
+      <Modal visible={showFolderManager} animationType="slide">
+        <View style={styles.modalContainer}>
+          <StatusBar style="light" hidden={true} />
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowFolderManager(false)}>
+              <Text style={styles.modalCloseButton}>✕ Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalHeaderTitle}>Manage Folders</Text>
+            <TouchableOpacity onPress={addFolder}>
+              <Text style={styles.addFolderButton}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            {folders.map((folder) => (
+              <TouchableOpacity
+                key={folder}
+                style={styles.folderItem}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setCurrentFolder(folder);
+                  setShowFolderManager(false);
+                }}
+              >
+                <Text style={styles.folderItemText}>
+                  📁 {folder} ({folder === 'Favorites'
+                    ? recipes.filter(r => r.isFavorite).length
+                    : folder === 'All Recipes'
+                    ? recipes.length
+                    : recipes.filter(r => r.folder === folder).length} recipes)
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Recipe Detail Modal */}
+      {selectedRecipe && !editingRecipe && (
+        <Modal visible={!!selectedRecipe} animationType="slide">
+          <View style={styles.modalContainer}>
+            <StatusBar style="light" hidden={true} />
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setSelectedRecipe(null)}>
                 <Text style={styles.modalCloseButton}>✕ Close</Text>
               </TouchableOpacity>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity onPress={() => deleteRecipe(selectedRecipe.id)}>
-                <Text style={styles.modalDeleteButton}>🗑️ Delete</Text>
-              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  onPress={() => setEditingRecipe({...selectedRecipe})}
+                  style={styles.iconButton}
+                >
+                  <Text style={styles.iconButtonText}>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => toggleFavorite(selectedRecipe.id)}
+                  style={styles.iconButton}
+                >
+                  <Text style={styles.iconButtonText}>
+                    {selectedRecipe.isFavorite ? '⭐' : '☆'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      'Move to Folder',
+                      'Select folder:',
+                      folders.filter(f => f !== 'All Recipes' && f !== 'Favorites').map(folder => ({
+                        text: folder,
+                        onPress: () => moveToFolder(selectedRecipe.id, folder)
+                      })).concat([{ text: 'Cancel', style: 'cancel' }])
+                    );
+                  }}
+                  style={styles.iconButton}
+                >
+                  <Text style={styles.iconButtonText}>📁</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => deleteRecipe(selectedRecipe.id)}
+                  style={styles.iconButton}
+                >
+                  <Text style={styles.iconButtonText}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <ScrollView style={styles.modalContent}>
               <RecipeDetailView recipe={selectedRecipe} />
             </ScrollView>
-          </SafeAreaView>
+          </View>
         </Modal>
       )}
-    </SafeAreaView>
+
+      {/* Recipe Edit Modal */}
+      {editingRecipe && (
+        <Modal visible={!!editingRecipe} animationType="slide">
+          <View style={styles.modalContainer}>
+            <StatusBar style="light" hidden={true} />
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setEditingRecipe(null)}>
+                <Text style={styles.modalCloseButton}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Edit Recipe</Text>
+              <TouchableOpacity onPress={() => updateRecipe(editingRecipe)}>
+                <Text style={styles.saveButton}>Save</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              <Text style={styles.editLabel}>Title</Text>
+              <TextInput
+                style={styles.editInput}
+                value={editingRecipe.title}
+                onChangeText={(text) => setEditingRecipe({...editingRecipe, title: text})}
+              />
+
+              <Text style={styles.editLabel}>Ingredients (one per line)</Text>
+              <TextInput
+                style={[styles.editInput, styles.editTextArea]}
+                value={Object.values(editingRecipe.ingredients).flat().join('\n')}
+                onChangeText={(text) => {
+                  const lines = text.split('\n').filter(l => l.trim());
+                  setEditingRecipe({
+                    ...editingRecipe,
+                    ingredients: { main: lines }
+                  });
+                }}
+                multiline
+              />
+
+              <Text style={styles.editLabel}>Instructions (one per line)</Text>
+              <TextInput
+                style={[styles.editInput, styles.editTextArea]}
+                value={editingRecipe.instructions.join('\n')}
+                onChangeText={(text) => {
+                  const lines = text.split('\n').filter(l => l.trim());
+                  setEditingRecipe({...editingRecipe, instructions: lines});
+                }}
+                multiline
+              />
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
+    </View>
   );
 }
 
-/**
- * Recipe Detail View Component (Reusable)
- */
 function RecipeDetailView({ recipe }) {
   return (
     <>
-      {/* Recipe Title */}
       <Text style={styles.modalTitle}>{recipe.title}</Text>
 
-      {/* Meta Info */}
       {(recipe.prep_time || recipe.cook_time || recipe.servings) && (
         <View style={styles.metaContainer}>
-          {recipe.prep_time && (
-            <Text style={styles.metaText}>⏱️ Prep: {recipe.prep_time}</Text>
-          )}
-          {recipe.cook_time && (
-            <Text style={styles.metaText}>🔥 Cook: {recipe.cook_time}</Text>
-          )}
-          {recipe.total_time && (
-            <Text style={styles.metaText}>⏰ Total: {recipe.total_time}</Text>
-          )}
-          {recipe.servings && (
-            <Text style={styles.metaText}>🍽️ Serves: {recipe.servings}</Text>
-          )}
+          {recipe.prep_time && <Text style={styles.metaText}>⏱️ Prep: {recipe.prep_time}</Text>}
+          {recipe.cook_time && <Text style={styles.metaText}>🔥 Cook: {recipe.cook_time}</Text>}
+          {recipe.servings && <Text style={styles.metaText}>🍽️ Serves: {recipe.servings}</Text>}
         </View>
       )}
 
-      {/* Ingredients */}
       <Text style={styles.sectionTitle}>Ingredients</Text>
       {Object.entries(recipe.ingredients).map(([section, items]) => (
         <View key={section} style={styles.ingredientSection}>
@@ -482,32 +589,22 @@ function RecipeDetailView({ recipe }) {
             <Text style={styles.subsectionTitle}>{section}</Text>
           )}
           {items.map((item, idx) => (
-            <Text key={idx} style={styles.ingredientItem}>
-              • {item}
-            </Text>
+            <Text key={idx} style={styles.ingredientItem}>• {item}</Text>
           ))}
         </View>
       ))}
 
-      {/* Instructions */}
-      {recipe.instructions && recipe.instructions.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Instructions</Text>
-          {recipe.instructions.map((step, idx) => (
-            <View key={idx} style={styles.instructionStep}>
-              <Text style={styles.stepNumber}>{idx + 1}</Text>
-              <Text style={styles.stepText}>{step}</Text>
-            </View>
-          ))}
-        </>
-      )}
+      <Text style={styles.sectionTitle}>Instructions</Text>
+      {recipe.instructions.map((step, idx) => (
+        <View key={idx} style={styles.instructionStep}>
+          <Text style={styles.stepNumber}>{idx + 1}</Text>
+          <Text style={styles.stepText}>{step}</Text>
+        </View>
+      ))}
 
-      {/* Source */}
       <View style={styles.sourceContainer}>
         <Text style={styles.sourceLabel}>Source:</Text>
-        <Text style={styles.sourceUrl} numberOfLines={2}>
-          {recipe.url}
-        </Text>
+        <Text style={styles.sourceUrl}>{recipe.url}</Text>
       </View>
     </>
   );
@@ -520,19 +617,21 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#007AFF',
-    padding: 20,
-    paddingTop: 10,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
   },
-  subtitle: {
-    fontSize: 14,
+  manageButton: {
     color: '#fff',
-    opacity: 0.9,
-    marginTop: 4,
+    fontSize: 16,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -554,71 +653,44 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     justifyContent: 'center',
-    minWidth: 100,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
   },
-  actionRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 15,
-    paddingBottom: 10,
-    gap: 10,
-  },
-  actionButton: {
-    flex: 1,
+  folderTabs: {
     backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  infoBanner: {
-    backgroundColor: '#FFF3CD',
-    padding: 12,
-    marginHorizontal: 15,
-    marginBottom: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFE69C',
-  },
-  infoBannerText: {
-    fontSize: 12,
-    color: '#856404',
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666',
-    fontSize: 14,
-  },
-  listHeader: {
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: '#f5f5f5',
   },
-  listTitle: {
-    fontSize: 18,
+  folderTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 10,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  folderTabActive: {
+    backgroundColor: '#007AFF',
+  },
+  folderTabText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  folderTabTextActive: {
+    color: '#fff',
     fontWeight: '600',
   },
   recipeList: {
     flex: 1,
+    padding: 15,
   },
   emptyState: {
-    padding: 40,
     alignItems: 'center',
+    padding: 40,
   },
   emptyStateText: {
     fontSize: 18,
@@ -632,29 +704,43 @@ const styles = StyleSheet.create({
   },
   recipeCard: {
     backgroundColor: '#fff',
-    marginHorizontal: 15,
-    marginVertical: 6,
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 10,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
+  recipeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   recipeTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+    color: '#333',
+    flex: 1,
+  },
+  favoriteIcon: {
+    fontSize: 20,
+    marginLeft: 10,
   },
   recipeMeta: {
     fontSize: 12,
     color: '#666',
-    marginBottom: 4,
+    marginTop: 4,
   },
-  recipeUrl: {
-    fontSize: 11,
-    color: '#999',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
   },
   modalContainer: {
     flex: 1,
@@ -664,23 +750,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    backgroundColor: '#007AFF',
+    paddingTop: 20,
+    paddingBottom: 15,
+    paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#28a745',
+    borderBottomColor: '#0066CC',
   },
   modalCloseButton: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#fff',
     fontWeight: '600',
   },
-  modalDeleteButton: {
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  addFolderButton: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  iconButton: {
+    padding: 5,
+  },
+  iconButtonText: {
     fontSize: 20,
-    color: '#FF3B30',
+  },
+  saveButton: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
   },
   modalContent: {
     flex: 1,
@@ -694,11 +799,8 @@ const styles = StyleSheet.create({
   metaContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 15,
     marginBottom: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    gap: 15,
   },
   metaText: {
     fontSize: 14,
@@ -716,14 +818,13 @@ const styles = StyleSheet.create({
   subsectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 10,
-    marginBottom: 5,
-    color: '#007AFF',
+    marginBottom: 8,
+    color: '#333',
   },
   ingredientItem: {
     fontSize: 15,
-    lineHeight: 24,
-    paddingLeft: 5,
+    marginBottom: 5,
+    color: '#333',
   },
   instructionStep: {
     flexDirection: 'row',
@@ -737,25 +838,51 @@ const styles = StyleSheet.create({
     minWidth: 25,
   },
   stepText: {
-    flex: 1,
     fontSize: 15,
-    lineHeight: 22,
+    flex: 1,
+    color: '#333',
   },
   sourceContainer: {
-    marginTop: 30,
-    marginBottom: 20,
+    marginTop: 20,
     padding: 15,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f9f9f9',
     borderRadius: 8,
   },
   sourceLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   sourceUrl: {
     fontSize: 12,
     color: '#007AFF',
+  },
+  folderItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  folderItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  editLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 15,
+    marginBottom: 8,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  editTextArea: {
+    minHeight: 150,
+    textAlignVertical: 'top',
   },
 });
