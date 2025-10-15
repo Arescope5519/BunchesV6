@@ -1,6 +1,8 @@
 /**
- * Color Constants
- * Extracted from your current App.js styles
+ * FILENAME: src/constants/colors.js
+ * PURPOSE: Centralized color definitions
+ * CHANGES: Added highlightYellow for editing mode
+ * USED BY: All components and screens
  */
 
 export const colors = {
@@ -34,6 +36,7 @@ export const colors = {
   favorite: '#FFD700',
   shadow: '#000',
   overlay: 'rgba(0, 0, 0, 0.5)',
+  highlightYellow: '#FFF9C4', // For swap mode highlighting
 
   // Accent
   purple: '#5856D6',

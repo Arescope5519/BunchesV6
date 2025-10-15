@@ -1,11 +1,11 @@
 /**
- * useShareIntent Hook
- * Handles shared URLs from browser via Android Share functionality
- * Extracted from your App.js
+ * FILENAME: src/hooks/useShareIntent.js
+ * PURPOSE: Handles shared URLs from browser via Android Share functionality
+ * CHANGES: Removed debug alerts, enabled auto-extraction
+ * USED BY: src/screens/HomeScreen.js
  */
 
 import { useEffect } from 'react';
-import { Alert } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -18,10 +18,10 @@ try {
 
 export const useShareIntent = (onUrlReceived) => {
   /**
-   * Handle shared URLs from browser - DEBUG VERSION
+   * Handle shared URLs from browser
    */
   const handleSharedUrl = (sharedData) => {
-    console.log('📨 Received shared data:', sharedData);
+    console.log('📨 Received shared data from browser');
 
     let sharedUrl = null;
 
@@ -36,16 +36,14 @@ export const useShareIntent = (onUrlReceived) => {
       sharedUrl = extractUrlFromText(sharedData.contentUri);
     }
 
-    // Show the URL in the bar first (for debugging)
+    // Call the callback with extracted URL
     if (sharedUrl) {
-      Alert.alert('Debug', `Extracted URL: ${sharedUrl}`);
-
-      // Call the callback with extracted URL
+      console.log('✅ URL extracted:', sharedUrl);
       if (onUrlReceived) {
         onUrlReceived(sharedUrl);
       }
     } else {
-      Alert.alert('Error', `Could not extract URL. Received: ${JSON.stringify(sharedData)}`);
+      console.error('❌ Could not extract URL from shared data');
     }
   };
 

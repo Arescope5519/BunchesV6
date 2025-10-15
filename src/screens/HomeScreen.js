@@ -1,7 +1,9 @@
 /**
- * HomeScreen
- * Main application screen
- * Refactored from your App.js
+ * FILENAME: src/screens/HomeScreen.js
+ * PURPOSE: Main application screen
+ * CHANGES: Added updateRecipe prop to RecipeDetail component
+ * DEPENDENCIES: All hooks, RecipeDetail component, colors
+ * USED BY: App.js
  */
 
 import React, { useState, useEffect } from 'react';
@@ -28,6 +30,9 @@ import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 // Components
 import RecipeDetail from '../components/RecipeDetail';
 
+// Utils
+import { checkBuildExpiration, getBuildInfo } from '../utils/BuildExpiration';
+
 // Constants
 import colors from '../constants/colors';
 
@@ -48,6 +53,7 @@ export const HomeScreen = () => {
     selectedRecipe,
     setSelectedRecipe,
     saveRecipe,
+    updateRecipe,
     deleteRecipe,
     toggleFavorite,
     moveToFolder: moveRecipeToFolder,
@@ -79,8 +85,8 @@ export const HomeScreen = () => {
   // Share intent handler
   useShareIntent((sharedUrl) => {
     setUrl(sharedUrl);
-    // Auto-extract temporarily disabled for debugging
-    // setTimeout(() => extractRecipe(sharedUrl, true), 500);
+    // Auto-extract recipe when shared from browser
+    setTimeout(() => extractRecipe(sharedUrl, true), 500);
   });
 
   // Folder operations with recipe updates
@@ -135,19 +141,6 @@ export const HomeScreen = () => {
   // Android back button handler
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (editingFolder) {
-        setEditingFolder(null);
-        setEditingFolderName('');
-        return true;
-      }
-      if (showMoveToFolder) {
-        setShowMoveToFolder(false);
-        return true;
-      }
-      if (showAddFolder) {
-        setShowAddFolder(false);
-        return true;
-      }
       if (selectedRecipe) {
         setSelectedRecipe(null);
         return true;
@@ -156,23 +149,46 @@ export const HomeScreen = () => {
         setShowFolderManager(false);
         return true;
       }
+      if (showAddFolder) {
+        setShowAddFolder(false);
+        return true;
+      }
+      if (showMoveToFolder) {
+        setShowMoveToFolder(false);
+        return true;
+      }
+      if (editingFolder) {
+        setEditingFolder(null);
+        return true;
+      }
       return false;
     });
 
     return () => backHandler.remove();
-  }, [editingFolder, showMoveToFolder, showAddFolder, selectedRecipe, showFolderManager]);
+  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder]);
+
+  // Check build expiration on mount
+  useEffect(() => {
+    checkBuildExpiration();
+  }, []);
 
   const filteredRecipes = getFilteredRecipes(currentFolder);
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" hidden={true} />
+      <StatusBar style="light" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Bunches</Text>
-        <TouchableOpacity onPress={() => setShowFolderManager(true)}>
-          <Text style={styles.manageButton}>📁 Folders</Text>
+        <View>
+          <Text style={styles.headerTitle}>BunchesV6</Text>
+          <Text style={styles.buildInfo}>{getBuildInfo()}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => setShowFolderManager(true)}
+          style={styles.folderButton}
+        >
+          <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
         </TouchableOpacity>
       </View>
 
@@ -183,76 +199,22 @@ export const HomeScreen = () => {
           placeholder="Paste recipe URL..."
           value={url}
           onChangeText={setUrl}
+          onSubmitEditing={() => extractRecipe(url, false)}
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="url"
-          editable={!loading}
         />
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
           onPress={() => extractRecipe(url, false)}
-          disabled={loading}
+          style={styles.extractButton}
+          disabled={loading || !url}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Extract</Text>
+            <Text style={styles.extractButtonText}>Extract</Text>
           )}
         </TouchableOpacity>
       </View>
-
-      {/* Folder Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderTabs}>
-        {folders.map((folder) => {
-          const count = folder === 'Favorites'
-            ? recipes.filter(r => r.isFavorite).length
-            : folder === 'All Recipes'
-            ? recipes.length
-            : recipes.filter(r => r.folder === folder).length;
-
-          return (
-            <TouchableOpacity
-              key={folder}
-              style={[
-                styles.folderTab,
-                currentFolder === folder && styles.folderTabActive
-              ]}
-              onPress={() => setCurrentFolder(folder)}
-              delayLongPress={300}
-              onLongPress={() => {
-                if (folder !== 'All Recipes' && folder !== 'Favorites') {
-                  Alert.alert(
-                    folder,
-                    'Choose an action:',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Rename',
-                        onPress: () => {
-                          setEditingFolder(folder);
-                          setEditingFolderName(folder);
-                        }
-                      },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: () => deleteFolder(folder)
-                      }
-                    ]
-                  );
-                }
-              }}
-            >
-              <Text style={[
-                styles.folderTabText,
-                currentFolder === folder && styles.folderTabTextActive
-              ]}>
-                {folder} ({count})
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
 
       {/* Recipe List */}
       {loadingRecipes ? (
@@ -291,8 +253,8 @@ export const HomeScreen = () => {
                     </Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.recipeMeta}>
-                  {recipe.source} • {recipe.folder}
+                <Text style={styles.recipeMeta} numberOfLines={1}>
+                  {recipe.folder} • {recipe.ingredients ? Object.values(recipe.ingredients).flat().length : 0} ingredients
                 </Text>
               </TouchableOpacity>
             ))
@@ -313,10 +275,10 @@ export const HomeScreen = () => {
               <Text style={styles.addFolderHeaderButton}>+ New</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.folderManagerContent}>
+          <ScrollView style={styles.modalContent}>
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Folders</Text>
-              {['All Recipes', 'Favorites'].map((folder) => (
+              {folders.filter(f => f === 'All Recipes' || f === 'Favorites').map((folder) => (
                 <TouchableOpacity
                   key={folder}
                   style={[
@@ -330,7 +292,7 @@ export const HomeScreen = () => {
                 >
                   <View style={styles.folderManagerItemLeft}>
                     <Text style={styles.folderManagerIcon}>
-                      {folder === 'All Recipes' ? '📚' : '⭐'}
+                      {folder === 'Favorites' ? '⭐' : '📚'}
                     </Text>
                     <Text style={[
                       styles.folderManagerItemText,
@@ -463,7 +425,7 @@ export const HomeScreen = () => {
               </View>
             </View>
             <ScrollView style={styles.modalContent}>
-              <RecipeDetail recipe={selectedRecipe} />
+              <RecipeDetail recipe={selectedRecipe} onUpdate={updateRecipe} />
               <View style={styles.bottomSpacer} />
             </ScrollView>
           </View>
@@ -537,7 +499,6 @@ export const HomeScreen = () => {
               <Text style={styles.addFolderTitle}>Rename Folder</Text>
               <TextInput
                 style={styles.addFolderInput}
-                placeholder="New folder name"
                 value={editingFolderName}
                 onChangeText={setEditingFolderName}
                 autoFocus
@@ -574,103 +535,85 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.primary,
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: colors.white,
+    color: '#fff',
   },
-  manageButton: {
-    color: colors.white,
-    fontSize: 16,
+  buildInfo: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+  },
+  folderButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  folderButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: colors.white,
     gap: 10,
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 8,
-    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    fontSize: 14,
   },
-  button: {
+  extractButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 12,
     borderRadius: 8,
     justifyContent: 'center',
+    minWidth: 80,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.white,
+  extractButtonText: {
+    color: '#fff',
     fontWeight: '600',
-  },
-  folderTabs: {
-    backgroundColor: colors.white,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    maxHeight: 28,
-  },
-  folderTab: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 5,
-    borderRadius: 8,
-    backgroundColor: colors.borderVeryLight,
-    height: 24,
-    justifyContent: 'center',
-  },
-  folderTabActive: {
-    backgroundColor: colors.primary,
-  },
-  folderTabText: {
-    fontSize: 13,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  folderTabTextActive: {
-    color: colors.white,
-    fontWeight: '600',
+    fontSize: 14,
   },
   recipeList: {
     flex: 1,
-    padding: 15,
+    paddingHorizontal: 15,
   },
   emptyState: {
+    paddingVertical: 60,
     alignItems: 'center',
-    padding: 40,
   },
   emptyStateText: {
     fontSize: 18,
-    color: colors.textTertiary,
+    fontWeight: '600',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: colors.textLight,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   recipeCard: {
-    backgroundColor: colors.white,
+    backgroundColor: '#fff',
     padding: 10,
     borderRadius: 8,
     marginBottom: 8,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -711,7 +654,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#fff',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -726,17 +669,17 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     fontSize: 16,
-    color: colors.white,
+    color: '#fff',
     fontWeight: '600',
   },
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.white,
+    color: '#fff',
   },
   addFolderHeaderButton: {
     fontSize: 16,
-    color: colors.white,
+    color: '#fff',
     fontWeight: '600',
   },
   modalActions: {
@@ -756,31 +699,25 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 60,
   },
-  folderManagerContent: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   folderSection: {
-    marginTop: 20,
-    marginBottom: 10,
+    marginBottom: 25,
   },
   folderSectionTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
+    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
   },
   folderManagerItem: {
-    backgroundColor: colors.white,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderVeryLight,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 4,
+    backgroundColor: colors.lightGray,
   },
   folderManagerItemActive: {
     backgroundColor: colors.primaryLight,
@@ -788,68 +725,63 @@ const styles = StyleSheet.create({
   folderManagerItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 10,
   },
   folderManagerIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 18,
   },
   folderManagerItemText: {
-    fontSize: 17,
+    fontSize: 15,
     color: colors.text,
-    flex: 1,
   },
   folderManagerItemTextActive: {
     fontWeight: '600',
     color: colors.primary,
   },
   folderManagerCount: {
-    fontSize: 16,
-    color: colors.textTertiary,
+    fontSize: 13,
+    color: colors.textSecondary,
     fontWeight: '600',
-    marginLeft: 10,
   },
   emptyFolders: {
-    backgroundColor: colors.white,
-    padding: 40,
+    paddingVertical: 30,
     alignItems: 'center',
   },
   emptyFoldersText: {
-    fontSize: 16,
-    color: colors.textTertiary,
+    fontSize: 15,
+    color: colors.textSecondary,
     marginBottom: 5,
   },
   emptyFoldersSubtext: {
-    fontSize: 14,
-    color: colors.textLight,
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   addFolderModal: {
-    backgroundColor: colors.white,
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 20,
-    width: '100%',
+    width: '80%',
     maxWidth: 400,
   },
   addFolderTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    textAlign: 'center',
+    color: colors.text,
   },
   addFolderInput: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
+    fontSize: 15,
+    marginBottom: 15,
   },
   addFolderButtons: {
     flexDirection: 'row',
@@ -862,29 +794,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: colors.borderVeryLight,
+    backgroundColor: colors.lightGray,
   },
   cancelButtonText: {
     color: colors.text,
-    fontSize: 16,
     fontWeight: '600',
+    fontSize: 15,
   },
   createButton: {
     backgroundColor: colors.primary,
   },
   createButtonText: {
-    color: colors.white,
-    fontSize: 16,
+    color: '#fff',
     fontWeight: '600',
+    fontSize: 15,
   },
   folderItem: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    backgroundColor: colors.white,
+    borderBottomColor: colors.border,
   },
   folderItemText: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text,
   },
 });
