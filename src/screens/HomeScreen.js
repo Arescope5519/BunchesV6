@@ -18,6 +18,9 @@ import {
   StyleSheet,
   Modal,
   BackHandler,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -29,9 +32,6 @@ import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
-
-// Utils
-import { checkBuildExpiration, getBuildInfo } from '../utils/BuildExpiration';
 
 // Constants
 import colors from '../constants/colors';
@@ -70,16 +70,18 @@ export const HomeScreen = () => {
     getCustomFolders,
   } = useFolders();
 
-  const { loading, extractRecipe } = useRecipeExtraction((recipe, shouldSave) => {
-    if (shouldSave) {
-      saveRecipe(recipe);
+  const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
+    // Always save recipes from extraction
+    console.log('💾 Saving recipe:', recipe.title);
+    const saved = await saveRecipe(recipe);
+    if (saved) {
+      console.log('✅ Recipe saved successfully');
       setSelectedRecipe(recipe);
-      setUrl('');
     } else {
-      saveRecipe(recipe);
-      setSelectedRecipe(recipe);
-      setUrl('');
+      console.error('❌ Failed to save recipe');
+      Alert.alert('Error', 'Failed to save recipe. Please try again.');
     }
+    setUrl('');
   });
 
   // Share intent handler
@@ -138,9 +140,23 @@ export const HomeScreen = () => {
     }
   };
 
-  // Android back button handler
+  // Android back button handler - handles all modals and screens
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Priority order for back button
+      if (showMoveToFolder) {
+        setShowMoveToFolder(false);
+        return true;
+      }
+      if (editingFolder) {
+        setEditingFolder(null);
+        setEditingFolderName('');
+        return true;
+      }
+      if (showAddFolder) {
+        setShowAddFolder(false);
+        return true;
+      }
       if (selectedRecipe) {
         setSelectedRecipe(null);
         return true;
@@ -149,41 +165,21 @@ export const HomeScreen = () => {
         setShowFolderManager(false);
         return true;
       }
-      if (showAddFolder) {
-        setShowAddFolder(false);
-        return true;
-      }
-      if (showMoveToFolder) {
-        setShowMoveToFolder(false);
-        return true;
-      }
-      if (editingFolder) {
-        setEditingFolder(null);
-        return true;
-      }
       return false;
     });
 
     return () => backHandler.remove();
   }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder]);
 
-  // Check build expiration on mount
-  useEffect(() => {
-    checkBuildExpiration();
-  }, []);
-
   const filteredRecipes = getFilteredRecipes(currentFolder);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>BunchesV6</Text>
-          <Text style={styles.buildInfo}>{getBuildInfo()}</Text>
-        </View>
+        <Text style={styles.headerTitle}>BunchesV6</Text>
         <TouchableOpacity
           onPress={() => setShowFolderManager(true)}
           style={styles.folderButton}
@@ -375,7 +371,11 @@ export const HomeScreen = () => {
       {/* Recipe Detail Modal */}
       {selectedRecipe && (
         <Modal visible={!!selectedRecipe} animationType="slide">
-          <View style={styles.modalContainer}>
+          <KeyboardAvoidingView
+            style={styles.modalContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+          >
             <StatusBar style="light" hidden={true} />
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setSelectedRecipe(null)}>
@@ -428,7 +428,7 @@ export const HomeScreen = () => {
               <RecipeDetail recipe={selectedRecipe} onUpdate={updateRecipe} />
               <View style={styles.bottomSpacer} />
             </ScrollView>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       )}
 
@@ -484,7 +484,7 @@ export const HomeScreen = () => {
                 style={[styles.addFolderButton, styles.cancelButton]}
                 onPress={() => setShowMoveToFolder(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -524,7 +524,7 @@ export const HomeScreen = () => {
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.primary,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 15,
     paddingHorizontal: 15,
     flexDirection: 'row',
@@ -546,11 +546,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-  },
-  buildInfo: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 2,
   },
   folderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -661,7 +656,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    paddingTop: 20,
+    paddingTop: 50,
     paddingBottom: 15,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
@@ -697,7 +692,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   bottomSpacer: {
-    height: 60,
+    height: 120,
   },
   folderSection: {
     marginBottom: 25,

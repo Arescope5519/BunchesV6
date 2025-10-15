@@ -9,10 +9,21 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import colors from '../constants/colors';
+import {
+  parseRecipeIngredients,
+  scaleRecipeIngredients,
+  convertRecipeIngredients
+} from '../utils/IngredientParser';
 
 export const RecipeDetail = ({ recipe, onUpdate }) => {
   // Local editable copy of recipe
   const [localRecipe, setLocalRecipe] = useState(recipe);
+
+  // Scaling and conversion state
+  const [scaleFactor, setScaleFactor] = useState(1);
+  const [useMetric, setUseMetric] = useState(false);
+  const [parsedIngredients, setParsedIngredients] = useState(null);
+  const [displayedIngredients, setDisplayedIngredients] = useState(null);
 
   // Editing state
   const [editingItem, setEditingItem] = useState(null); // { type, sectionKey, index, value }
@@ -23,7 +34,37 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
   // Update local recipe when prop changes
   useEffect(() => {
     setLocalRecipe(recipe);
+    // Parse ingredients when recipe changes
+    const parsed = parseRecipeIngredients(recipe.ingredients);
+    setParsedIngredients(parsed);
   }, [recipe]);
+
+  // Update displayed ingredients when scale or unit system changes
+  useEffect(() => {
+    if (!parsedIngredients) return;
+
+    // First scale
+    let ingredients = scaleRecipeIngredients(parsedIngredients, scaleFactor);
+
+    // Then convert units if needed
+    if (useMetric) {
+      ingredients = convertRecipeIngredients(parsedIngredients, true);
+      // Scale after conversion
+      const parsedConverted = {};
+      for (const [section, items] of Object.entries(ingredients)) {
+        parsedConverted[section] = items.map(item => {
+          if (typeof item === 'string') {
+            const { parseIngredient } = require('../utils/IngredientParser');
+            return parseIngredient(item);
+          }
+          return item;
+        });
+      }
+      ingredients = scaleRecipeIngredients(parsedConverted, scaleFactor);
+    }
+
+    setDisplayedIngredients(ingredients);
+  }, [parsedIngredients, scaleFactor, useMetric]);
 
   /**
    * Handle long press on ingredient/instruction/section
@@ -280,7 +321,47 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
         </TouchableOpacity>
       </View>
 
-      {Object.entries(localRecipe.ingredients).map(([section, items]) => (
+      {/* Scale and Unit Controls */}
+      <View style={styles.controlsContainer}>
+        <View style={styles.scaleControls}>
+          <Text style={styles.controlLabel}>Scale:</Text>
+          <TouchableOpacity
+            style={[styles.scaleButton, scaleFactor === 0.5 && styles.scaleButtonActive]}
+            onPress={() => setScaleFactor(0.5)}
+          >
+            <Text style={[styles.scaleButtonText, scaleFactor === 0.5 && styles.scaleButtonTextActive]}>½×</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.scaleButton, scaleFactor === 1 && styles.scaleButtonActive]}
+            onPress={() => setScaleFactor(1)}
+          >
+            <Text style={[styles.scaleButtonText, scaleFactor === 1 && styles.scaleButtonTextActive]}>1×</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.scaleButton, scaleFactor === 2 && styles.scaleButtonActive]}
+            onPress={() => setScaleFactor(2)}
+          >
+            <Text style={[styles.scaleButtonText, scaleFactor === 2 && styles.scaleButtonTextActive]}>2×</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.scaleButton, scaleFactor === 3 && styles.scaleButtonActive]}
+            onPress={() => setScaleFactor(3)}
+          >
+            <Text style={[styles.scaleButtonText, scaleFactor === 3 && styles.scaleButtonTextActive]}>3×</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.unitToggle}
+          onPress={() => setUseMetric(!useMetric)}
+        >
+          <Text style={styles.unitToggleText}>
+            {useMetric ? '📏 Metric' : '📏 Imperial'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
         <View key={section} style={styles.ingredientSection}>
           {section !== 'main' && (
             <TouchableOpacity
@@ -307,10 +388,15 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
             </TouchableOpacity>
           )}
 
-          {items.map((item, idx) => (
+          {items.map((item, idx) => {
+            // Get the original ingredient for editing
+            const originalItem = localRecipe.ingredients[section]?.[idx] || item;
+            const displayItem = typeof item === 'string' ? item : item.original || originalItem;
+
+            return (
             <View key={`${section}-${idx}`}>
               <TouchableOpacity
-                onLongPress={() => handleLongPress('ingredient', section, idx, item)}
+                onLongPress={() => handleLongPress('ingredient', section, idx, originalItem)}
                 onPress={() => {
                   if (swapMode && swapMode.type === 'ingredient') {
                     handleSwapWith('ingredient', section, idx);
@@ -337,7 +423,7 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
                       swapMode?.index === idx && styles.highlightedItem
                     ]}
                   >
-                    • {item}
+                    • {displayItem}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -380,7 +466,7 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
                 </View>
               )}
             </View>
-          ))}
+          )})}
         </View>
       ))}
 
@@ -511,6 +597,60 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+  },
+  scaleControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  controlLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginRight: 4,
+  },
+  scaleButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  scaleButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  scaleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  scaleButtonTextActive: {
+    color: colors.white,
+  },
+  unitToggle: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  unitToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
   },
   ingredientSection: {
     marginBottom: 15,
