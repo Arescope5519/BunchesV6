@@ -1,7 +1,8 @@
 /**
  * FILENAME: src/utils/IngredientParser.js
- * PURPOSE: Parse ingredients to extract quantities, units, and scale recipes
- * FEATURES: Ingredient parsing, recipe scaling, unit conversion
+ * PURPOSE: Parse ingredients AND scale them anywhere in recipe text
+ * NEW FEATURE: Detects and scales ingredients in instructions too!
+ * DEPENDENCIES: None
  */
 
 // ========== UNIT CONVERSION TABLES ==========
@@ -340,6 +341,107 @@ export function convertIngredientUnits(parsedIngredient, toMetric = true) {
   return `${formattedQuantity} ${convertedUnit} ${parsedIngredient.ingredient}`;
 }
 
+// ========== NEW: TEXT INGREDIENT DETECTION & SCALING ==========
+
+/**
+ * 🆕 Detect and scale ingredients ANYWHERE in text (like instructions)
+ * Example: "Add 2 cups flour and mix with 1/2 teaspoon salt"
+ *       → "Add 4 cups flour and mix with 1 teaspoon salt" (when multiplier = 2)
+ *
+ * This searches for ingredient patterns throughout the text and scales them
+ */
+export function scaleIngredientsInText(text, multiplier) {
+  if (!text || multiplier === 1) return text;
+
+  // Build comprehensive regex patterns that match ingredients ANYWHERE in text
+  const unitPattern = '(?:cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\\. oz)';
+
+  const fractionPattern = '(?:[¼½¾⅓⅔⅛⅜⅝⅞]|\\d+\\/\\d+)';
+
+  let result = text;
+
+  // Pattern 1: Whole number + optional fraction + unit (e.g., "2 1/2 cups" or "2½ cups")
+  // Must handle word boundaries but NOT require start of string
+  const pattern1 = new RegExp(
+    `(\\d+)\\s+(${fractionPattern})\\s+(${unitPattern})(?:s)?\\b`,
+    'gi'
+  );
+
+  result = result.replace(pattern1, (match, whole, fraction, unit) => {
+    let quantity = parseFloat(whole);
+
+    // Handle unicode fractions
+    const unicodeFrac = Object.entries(UNICODE_FRACTIONS).find(
+      ([key, val]) => val === fraction
+    );
+    if (unicodeFrac) {
+      quantity += fractionToDecimal(unicodeFrac[0]);
+    } else if (fraction.includes('/')) {
+      const frac = fractionToDecimal(fraction);
+      if (frac) quantity += frac;
+    }
+
+    const scaled = quantity * multiplier;
+    const formatted = formatQuantity(scaled);
+
+    return `${formatted} ${unit}`;
+  });
+
+  // Pattern 2: Just fraction + unit (e.g., "1/2 cup" or "½ teaspoon")
+  const pattern2 = new RegExp(
+    `\\b(${fractionPattern})\\s+(${unitPattern})(?:s)?\\b`,
+    'gi'
+  );
+
+  result = result.replace(pattern2, (match, fraction, unit) => {
+    let quantity = 0;
+
+    // Handle unicode fractions
+    const unicodeFrac = Object.entries(UNICODE_FRACTIONS).find(
+      ([key, val]) => val === fraction
+    );
+    if (unicodeFrac) {
+      quantity = fractionToDecimal(unicodeFrac[0]);
+    } else if (fraction.includes('/')) {
+      quantity = fractionToDecimal(fraction);
+    }
+
+    if (!quantity) return match; // If we couldn't parse, return original
+
+    const scaled = quantity * multiplier;
+    const formatted = formatQuantity(scaled);
+
+    return `${formatted} ${unit}`;
+  });
+
+  // Pattern 3: Whole number + unit (e.g., "2 cups" or "3 tablespoons")
+  const pattern3 = new RegExp(
+    `\\b(\\d+(?:\\.\\d+)?)\\s+(${unitPattern})(?:s)?\\b`,
+    'gi'
+  );
+
+  result = result.replace(pattern3, (match, number, unit) => {
+    const quantity = parseFloat(number);
+    const scaled = quantity * multiplier;
+    const formatted = formatQuantity(scaled);
+
+    return `${formatted} ${unit}`;
+  });
+
+  // Pattern 4: Common ingredient words (e.g., "2 eggs", "3 onions")
+  const commonIngredientWords = /\b(\d+(?:\.\d+)?)\s+(egg|eggs|onion|onions|clove|cloves|potato|potatoes|carrot|carrots|tomato|tomatoes|apple|apples|banana|bananas)\b/gi;
+
+  result = result.replace(commonIngredientWords, (match, quantity, ingredient) => {
+    const num = parseFloat(quantity);
+    const scaled = num * multiplier;
+    const formatted = formatQuantity(scaled);
+
+    return `${formatted} ${ingredient}`;
+  });
+
+  return result;
+}
+
 /**
  * Parse all ingredients in a recipe
  */
@@ -367,6 +469,17 @@ export function scaleRecipeIngredients(parsedIngredients, multiplier) {
 }
 
 /**
+ * 🆕 Scale all instructions by detecting ingredients in text
+ */
+export function scaleRecipeInstructions(instructions, multiplier) {
+  if (!instructions || !Array.isArray(instructions)) {
+    return instructions;
+  }
+
+  return instructions.map(instruction => scaleIngredientsInText(instruction, multiplier));
+}
+
+/**
  * Convert all ingredients in a recipe to different unit system
  */
 export function convertRecipeIngredients(parsedIngredients, toMetric = true) {
@@ -385,6 +498,8 @@ export default {
   convertIngredientUnits,
   parseRecipeIngredients,
   scaleRecipeIngredients,
+  scaleRecipeInstructions,  // 🆕 New function!
+  scaleIngredientsInText,   // 🆕 New function!
   convertRecipeIngredients,
   formatQuantity,
 };

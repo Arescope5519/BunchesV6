@@ -1,8 +1,8 @@
 /**
  * FILENAME: src/components/RecipeDetail.js
  * PURPOSE: Display and edit recipe details
- * CHANGES: Fixed swap functionality and add below bugs
- * DEPENDENCIES: React, React Native components, colors
+ * NEW: Now scales ingredients in instructions too!
+ * DEPENDENCIES: React, React Native components, colors, IngredientParser
  * USED BY: src/screens/HomeScreen.js
  */
 
@@ -12,10 +12,11 @@ import colors from '../constants/colors';
 import {
   parseRecipeIngredients,
   scaleRecipeIngredients,
+  scaleRecipeInstructions,
   convertRecipeIngredients
 } from '../utils/IngredientParser';
 
-export const RecipeDetail = ({ recipe, onUpdate }) => {
+const RecipeDetail = ({ recipe, onUpdate }) => {
   // Local editable copy of recipe
   const [localRecipe, setLocalRecipe] = useState(recipe);
 
@@ -24,32 +25,32 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
   const [useMetric, setUseMetric] = useState(false);
   const [parsedIngredients, setParsedIngredients] = useState(null);
   const [displayedIngredients, setDisplayedIngredients] = useState(null);
+  const [displayedInstructions, setDisplayedInstructions] = useState(null);
 
   // Editing state
-  const [editingItem, setEditingItem] = useState(null); // { type, sectionKey, index, value }
-  const [swapMode, setSwapMode] = useState(null); // { type, sectionKey, index }
-  const [addingBelow, setAddingBelow] = useState(null); // { type, sectionKey, index }
+  const [editingItem, setEditingItem] = useState(null);
+  const [swapMode, setSwapMode] = useState(null);
+  const [addingBelow, setAddingBelow] = useState(null);
   const [newItemValue, setNewItemValue] = useState('');
+  const [showAddSection, setShowAddSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [movingSectionMode, setMovingSectionMode] = useState(null);
 
   // Update local recipe when prop changes
   useEffect(() => {
     setLocalRecipe(recipe);
-    // Parse ingredients when recipe changes
     const parsed = parseRecipeIngredients(recipe.ingredients);
     setParsedIngredients(parsed);
   }, [recipe]);
 
-  // Update displayed ingredients when scale or unit system changes
+  // Scale ingredients and instructions
   useEffect(() => {
     if (!parsedIngredients) return;
 
-    // First scale
     let ingredients = scaleRecipeIngredients(parsedIngredients, scaleFactor);
 
-    // Then convert units if needed
     if (useMetric) {
       ingredients = convertRecipeIngredients(parsedIngredients, true);
-      // Scale after conversion
       const parsedConverted = {};
       for (const [section, items] of Object.entries(ingredients)) {
         parsedConverted[section] = items.map(item => {
@@ -64,21 +65,16 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
     }
 
     setDisplayedIngredients(ingredients);
-  }, [parsedIngredients, scaleFactor, useMetric]);
+    const scaledInstructions = scaleRecipeInstructions(localRecipe.instructions, scaleFactor);
+    setDisplayedInstructions(scaledInstructions);
+  }, [parsedIngredients, scaleFactor, useMetric, localRecipe.instructions]);
 
-  /**
-   * Handle long press on ingredient/instruction/section
-   */
   const handleLongPress = (type, sectionKey, index, value) => {
-    console.log('Long press:', type, sectionKey, index, value);
     setEditingItem({ type, sectionKey, index, value });
     setSwapMode(null);
     setAddingBelow(null);
   };
 
-  /**
-   * Save edited text
-   */
   const saveEdit = () => {
     if (!editingItem) return;
 
@@ -94,7 +90,6 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
       items[index] = value;
       updated.instructions = items;
     } else if (type === 'section') {
-      // Rename section header
       const oldKey = sectionKey;
       const newKey = value;
       const ingredients = { ...updated.ingredients };
@@ -108,91 +103,82 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
     setEditingItem(null);
   };
 
-  /**
-   * Delete item
-   */
   const handleDelete = () => {
-    if (!editingItem) {
-      console.log('No editing item to delete');
-      return;
-    }
-
-    console.log('Delete button pressed for:', editingItem);
+    if (!editingItem) return;
 
     Alert.alert(
       'Delete Item?',
       'This cannot be undone.',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => console.log('Delete cancelled')
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            console.log('Delete confirmed');
             const { type, sectionKey, index } = editingItem;
             let updated = { ...localRecipe };
 
             if (type === 'ingredient') {
               const items = [...updated.ingredients[sectionKey]];
               items.splice(index, 1);
-
-              // If section is now empty and not 'main', delete the section
+              updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
               if (items.length === 0 && sectionKey !== 'main') {
-                const ingredients = { ...updated.ingredients };
-                delete ingredients[sectionKey];
-                updated.ingredients = ingredients;
-              } else {
-                updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
+                delete updated.ingredients[sectionKey];
               }
             } else if (type === 'instruction') {
               const items = [...updated.instructions];
               items.splice(index, 1);
               updated.instructions = items;
             } else if (type === 'section') {
-              // Delete entire section
               const ingredients = { ...updated.ingredients };
               delete ingredients[sectionKey];
               updated.ingredients = ingredients;
             }
 
-            console.log('Updating recipe after delete');
             setLocalRecipe(updated);
             onUpdate(updated);
             setEditingItem(null);
-          }
-        }
-      ],
-      { cancelable: true }
+          },
+        },
+      ]
     );
   };
 
-  /**
-   * Start swap mode
-   */
   const startSwap = () => {
     if (!editingItem) return;
-    console.log('Starting swap mode for:', editingItem);
     setSwapMode({ ...editingItem });
-    setEditingItem(null); // Clear editing to allow tapping other items
+    setEditingItem(null);
   };
 
-  /**
-   * Handle swap selection
-   */
+  const cancelSwap = () => {
+    setSwapMode(null);
+  };
+
   const handleSwapWith = (type, sectionKey, index) => {
-    if (!swapMode) {
-      console.log('No swap mode active');
+    if (!swapMode && !movingSectionMode) return;
+
+    // Handle move section mode
+    if (movingSectionMode && type === 'section') {
+      const movingSection = movingSectionMode.sectionKey;
+      const entries = Object.entries(localRecipe.ingredients);
+      const sourceIdx = entries.findIndex(([key]) => key === movingSection);
+      const targetIdx = entries.findIndex(([key]) => key === sectionKey);
+
+      [entries[sourceIdx], entries[targetIdx]] = [entries[targetIdx], entries[sourceIdx]];
+
+      const updated = { ...localRecipe };
+      updated.ingredients = Object.fromEntries(entries);
+
+      setLocalRecipe(updated);
+      onUpdate(updated);
+      setMovingSectionMode(null);
       return;
     }
 
-    console.log('Attempting swap:', { type, sectionKey, index }, 'with', swapMode);
+    if (!swapMode) return;
 
     if (swapMode.type !== type) {
-      Alert.alert('Cannot Swap', "Can't swap ingredients with instructions");
+      Alert.alert('Cannot Swap', "Can't swap different types");
       return;
     }
 
@@ -200,21 +186,24 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
-      // Can only swap within same section
       if (sourceSectionKey !== sectionKey) {
         Alert.alert('Cannot Swap', 'Can only swap ingredients within the same section');
         return;
       }
-
       const items = [...updated.ingredients[sectionKey]];
-      console.log('Swapping ingredients:', sourceIndex, '<->', index);
       [items[sourceIndex], items[index]] = [items[index], items[sourceIndex]];
       updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
     } else if (type === 'instruction') {
       const items = [...updated.instructions];
-      console.log('Swapping instructions:', sourceIndex, '<->', index);
       [items[sourceIndex], items[index]] = [items[index], items[sourceIndex]];
       updated.instructions = items;
+    } else if (type === 'section') {
+      const entries = Object.entries(updated.ingredients);
+      const sourceIdx = entries.findIndex(([key]) => key === sourceSectionKey);
+      const targetIdx = entries.findIndex(([key]) => key === sectionKey);
+
+      [entries[sourceIdx], entries[targetIdx]] = [entries[targetIdx], entries[sourceIdx]];
+      updated.ingredients = Object.fromEntries(entries);
     }
 
     setLocalRecipe(updated);
@@ -222,36 +211,25 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
     setSwapMode(null);
   };
 
-  /**
-   * Start adding below
-   */
   const startAddBelow = () => {
     if (!editingItem) return;
-    console.log('Starting add below for:', editingItem);
     setAddingBelow({ ...editingItem });
     setNewItemValue('');
   };
 
-  /**
-   * Save new item
-   */
   const saveNewItem = () => {
-    if (!addingBelow || !newItemValue.trim()) {
-      console.log('Cannot save - no addingBelow or empty value');
-      return;
-    }
+    if (!addingBelow || !newItemValue.trim()) return;
 
     const { type, sectionKey, index } = addingBelow;
-    console.log('Saving new item below:', type, sectionKey, index, newItemValue);
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
       const items = [...updated.ingredients[sectionKey]];
-      items.splice(index + 1, 0, newItemValue.trim());
+      items.splice(index + 1, 0, newItemValue);
       updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
     } else if (type === 'instruction') {
       const items = [...updated.instructions];
-      items.splice(index + 1, 0, newItemValue.trim());
+      items.splice(index + 1, 0, newItemValue);
       updated.instructions = items;
     }
 
@@ -261,67 +239,153 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
     setNewItemValue('');
   };
 
-  /**
-   * Cancel adding below
-   */
   const cancelAddBelow = () => {
     setAddingBelow(null);
     setNewItemValue('');
-    setEditingItem(null);
   };
 
-  /**
-   * Add new section
-   */
   const addNewSection = () => {
-    Alert.prompt(
-      'New Section',
-      'Enter section name:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: (sectionName) => {
-            if (sectionName && sectionName.trim()) {
-              const updated = {
-                ...localRecipe,
-                ingredients: {
-                  ...localRecipe.ingredients,
-                  [sectionName.trim()]: []
-                }
-              };
-              setLocalRecipe(updated);
-              onUpdate(updated);
-            }
-          }
-        }
-      ],
-      'plain-text'
-    );
+    setShowAddSection(true);
+    setNewSectionName('');
   };
 
-  if (!localRecipe) return null;
+  const saveNewSection = () => {
+    if (newSectionName && newSectionName.trim()) {
+      const updated = {
+        ...localRecipe,
+        ingredients: {
+          ...localRecipe.ingredients,
+          [newSectionName.trim()]: []
+        }
+      };
+      setLocalRecipe(updated);
+      onUpdate(updated);
+      setShowAddSection(false);
+      setNewSectionName('');
+    }
+  };
+
+  const cancelAddSection = () => {
+    setShowAddSection(false);
+    setNewSectionName('');
+  };
+
+  const moveSectionUp = (sectionKey) => {
+    const entries = Object.entries(localRecipe.ingredients);
+    const currentIndex = entries.findIndex(([key]) => key === sectionKey);
+    if (currentIndex <= 0) return;
+
+    [entries[currentIndex - 1], entries[currentIndex]] = [entries[currentIndex], entries[currentIndex - 1]];
+
+    const updated = { ...localRecipe };
+    updated.ingredients = Object.fromEntries(entries);
+    setLocalRecipe(updated);
+    onUpdate(updated);
+  };
+
+  const moveSectionDown = (sectionKey) => {
+    const entries = Object.entries(localRecipe.ingredients);
+    const currentIndex = entries.findIndex(([key]) => key === sectionKey);
+    if (currentIndex < 0 || currentIndex >= entries.length - 1) return;
+
+    [entries[currentIndex], entries[currentIndex + 1]] = [entries[currentIndex + 1], entries[currentIndex]];
+
+    const updated = { ...localRecipe };
+    updated.ingredients = Object.fromEntries(entries);
+    setLocalRecipe(updated);
+    onUpdate(updated);
+  };
+
+  const moveSectionAboveIngredient = (targetSection, targetIndex) => {
+    if (!movingSectionMode) return;
+
+    const movingSection = movingSectionMode.sectionKey;
+    const newIngredients = {};
+    const movingSectionItems = localRecipe.ingredients[movingSection] || [];
+
+    Object.entries(localRecipe.ingredients).forEach(([key, items]) => {
+      if (key !== movingSection) {
+        newIngredients[key] = [...items];
+      }
+    });
+
+    if (targetSection !== movingSection) {
+      const targetItems = newIngredients[targetSection];
+      const beforeSplit = targetItems.slice(0, targetIndex);
+      const afterSplit = targetItems.slice(targetIndex);
+
+      newIngredients[targetSection] = beforeSplit;
+      newIngredients[movingSection] = [...movingSectionItems, ...afterSplit];
+    }
+
+    const updated = { ...localRecipe, ingredients: newIngredients };
+    setLocalRecipe(updated);
+    onUpdate(updated);
+    setMovingSectionMode(null);
+  };
+
+  const cancelMoveSection = () => {
+    setMovingSectionMode(null);
+  };
 
   return (
     <>
-      <Text style={styles.modalTitle}>{localRecipe.title}</Text>
+      <Text style={styles.recipeTitle}>{localRecipe.title}</Text>
 
-      {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.servings) && (
-        <View style={styles.metaContainer}>
-          {localRecipe.prep_time && <Text style={styles.metaText}>⏱️ Prep: {localRecipe.prep_time}</Text>}
-          {localRecipe.cook_time && <Text style={styles.metaText}>🔥 Cook: {localRecipe.cook_time}</Text>}
-          {localRecipe.servings && <Text style={styles.metaText}>🍽️ Serves: {localRecipe.servings}</Text>}
+      {swapMode && (
+        <View style={styles.swapBanner}>
+          <Text style={styles.swapBannerText}>
+            🔄 Tap another {swapMode.type} to swap
+          </Text>
+          <TouchableOpacity onPress={cancelSwap}>
+            <Text style={styles.swapBannerCancel}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {movingSectionMode && (
+        <View style={styles.swapBanner}>
+          <Text style={styles.swapBannerText}>
+            📍 Tap an ingredient to move "{movingSectionMode.sectionKey}" above it
+          </Text>
+          <TouchableOpacity onPress={cancelMoveSection}>
+            <Text style={styles.swapBannerCancel}>✕</Text>
+          </TouchableOpacity>
         </View>
       )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Ingredients</Text>
-        <TouchableOpacity onPress={addNewSection} style={styles.addSectionButton}>
+        <TouchableOpacity
+          onPress={addNewSection}
+          activeOpacity={0.6}
+          style={styles.addSectionButton}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        >
           <Text style={styles.addSectionText}>+ Section</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Scale and Unit Controls */}
+      {showAddSection && (
+        <View style={styles.addSectionContainer}>
+          <Text style={styles.addSectionLabel}>New Section:</Text>
+          <TextInput
+            style={styles.addSectionInput}
+            placeholder="Section name (e.g., 'Topping', 'Optional')"
+            value={newSectionName}
+            onChangeText={setNewSectionName}
+            onSubmitEditing={saveNewSection}
+            autoFocus
+          />
+          <TouchableOpacity onPress={saveNewSection} style={styles.saveButton}>
+            <Text style={styles.saveButtonText}>✓</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={cancelAddSection} style={styles.cancelButton}>
+            <Text style={styles.cancelButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.controlsContainer}>
         <View style={styles.scaleControls}>
           <Text style={styles.controlLabel}>Scale:</Text>
@@ -361,54 +425,237 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
         </TouchableOpacity>
       </View>
 
-      {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
+      {displayedIngredients && Object.entries(displayedIngredients).map(([section, items], sectionIndex) => (
         <View key={section} style={styles.ingredientSection}>
           {section !== 'main' && (
-            <TouchableOpacity
-              onLongPress={() => handleLongPress('section', section, 0, section)}
-              delayLongPress={300}
-            >
-              {editingItem?.type === 'section' && editingItem?.sectionKey === section ? (
-                <TextInput
-                  style={styles.subsectionTitleInput}
-                  value={editingItem.value}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                  onBlur={saveEdit}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.subsectionTitle,
-                    swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
-                  ]}
+            <View>
+              <View style={styles.sectionHeaderRow}>
+                <TouchableOpacity
+                  onLongPress={() => handleLongPress('section', section, 0, section)}
+                  onPress={() => {
+                    if (swapMode && swapMode.type === 'section') {
+                      handleSwapWith('section', section, 0);
+                    } else if (movingSectionMode) {
+                      handleSwapWith('section', section, 0);
+                    }
+                  }}
+                  delayLongPress={300}
+                  style={{ flex: 1 }}
                 >
-                  {section}
-                </Text>
+                  {editingItem?.type === 'section' && editingItem?.sectionKey === section ? (
+                    <TextInput
+                      style={styles.subsectionTitleInput}
+                      value={editingItem.value}
+                      onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                      onBlur={saveEdit}
+                      autoFocus
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.subsectionTitle,
+                        swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
+                      ]}
+                    >
+                      {section}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {editingItem?.type === 'section' && editingItem?.sectionKey === section && (
+                  <View style={styles.sectionArrows}>
+                    <TouchableOpacity
+                      onPress={() => moveSectionUp(section)}
+                      style={styles.arrowButton}
+                      disabled={sectionIndex === 0 || (sectionIndex === 1 && Object.keys(displayedIngredients)[0] === 'main')}
+                    >
+                      <Text style={styles.arrowText}>▲</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => moveSectionDown(section)}
+                      style={styles.arrowButton}
+                      disabled={sectionIndex === Object.keys(displayedIngredients).length - 1}
+                    >
+                      <Text style={styles.arrowText}>▼</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {editingItem?.type === 'section' && editingItem?.sectionKey === section && (
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const sectionToDelete = section;
+                      setEditingItem(null);
+                      setTimeout(() => {
+                        Alert.alert(
+                          'Delete Section?',
+                          `This will delete "${sectionToDelete}" and all its ingredients.`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: () => {
+                                const updated = { ...localRecipe };
+                                const ingredients = { ...updated.ingredients };
+                                delete ingredients[sectionToDelete];
+                                updated.ingredients = ingredients;
+                                setLocalRecipe(updated);
+                                onUpdate(updated);
+                              },
+                            },
+                          ]
+                        );
+                      }, 100);
+                    }}
+                    style={styles.actionButton}
+                  >
+                    <Text style={styles.actionButtonText}>❌ Delete</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      const currentSection = section;
+                      setEditingItem(null);
+                      setTimeout(() => {
+                        setMovingSectionMode({ sectionKey: currentSection });
+                      }, 100);
+                    }}
+                    style={styles.actionButton}
+                  >
+                    <Text style={styles.actionButtonText}>📍 Move</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      const currentSection = section;
+                      setEditingItem(null);
+                      setTimeout(() => {
+                        setSwapMode({ type: 'section', sectionKey: currentSection, index: 0 });
+                      }, 100);
+                    }}
+                    style={styles.actionButton}
+                  >
+                    <Text style={styles.actionButtonText}>🔄 Swap</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      saveEdit();
+                      setEditingItem(null);
+                    }}
+                    style={[styles.actionButton, styles.doneButton]}
+                  >
+                    <Text style={[styles.actionButtonText, styles.doneButtonText]}>✓ Done</Text>
+                  </TouchableOpacity>
+                </View>
               )}
-            </TouchableOpacity>
+            </View>
           )}
 
           {items.map((item, idx) => {
-            // Get the original ingredient for editing
             const originalItem = localRecipe.ingredients[section]?.[idx] || item;
             const displayItem = typeof item === 'string' ? item : item.original || originalItem;
 
             return (
-            <View key={`${section}-${idx}`}>
-              <TouchableOpacity
-                onLongPress={() => handleLongPress('ingredient', section, idx, originalItem)}
-                onPress={() => {
-                  if (swapMode && swapMode.type === 'ingredient') {
-                    handleSwapWith('ingredient', section, idx);
-                  }
-                }}
-                delayLongPress={300}
-              >
+              <View key={`${section}-${idx}`}>
+                <TouchableOpacity
+                  onLongPress={() => handleLongPress('ingredient', section, idx, originalItem)}
+                  onPress={() => {
+                    if (swapMode && swapMode.type === 'ingredient') {
+                      handleSwapWith('ingredient', section, idx);
+                    } else if (movingSectionMode) {
+                      moveSectionAboveIngredient(section, idx);
+                    }
+                  }}
+                  delayLongPress={300}
+                >
+                  {editingItem?.type === 'ingredient' &&
+                   editingItem?.sectionKey === section &&
+                   editingItem?.index === idx ? (
+                    <TextInput
+                      style={styles.ingredientItemInput}
+                      value={editingItem.value}
+                      onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                      onBlur={saveEdit}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.ingredientItem,
+                        (swapMode?.type === 'ingredient' &&
+                        swapMode?.sectionKey === section &&
+                        swapMode?.index === idx) || movingSectionMode ? styles.highlightedItem : null
+                      ]}
+                    >
+                      • {displayItem}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
                 {editingItem?.type === 'ingredient' &&
                  editingItem?.sectionKey === section &&
-                 editingItem?.index === idx ? (
+                 editingItem?.index === idx && (
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
+                      <Text style={styles.actionButtonText}>❌ Delete</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
+                      <Text style={styles.actionButtonText}>🔄 Swap</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
+                      <Text style={styles.actionButtonText}>➕ Add Below</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {addingBelow?.type === 'ingredient' &&
+                 addingBelow?.sectionKey === section &&
+                 addingBelow?.index === idx && (
+                  <View style={styles.addBelowContainer}>
+                    <TextInput
+                      style={styles.addBelowInput}
+                      placeholder="New ingredient..."
+                      value={newItemValue}
+                      onChangeText={setNewItemValue}
+                      onSubmitEditing={saveNewItem}
+                    />
+                    <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
+                      <Text style={styles.saveButtonText}>✓</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
+                      <Text style={styles.cancelButtonText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      ))}
+
+      <Text style={styles.sectionTitle}>Instructions</Text>
+      {displayedInstructions && displayedInstructions.map((step, idx) => {
+        const originalStep = localRecipe.instructions[idx];
+
+        return (
+          <View key={`instruction-${idx}`}>
+            <TouchableOpacity
+              onLongPress={() => handleLongPress('instruction', null, idx, originalStep)}
+              onPress={() => {
+                if (swapMode && swapMode.type === 'instruction') {
+                  handleSwapWith('instruction', null, idx);
+                }
+              }}
+              delayLongPress={300}
+            >
+              <View style={styles.instructionStep}>
+                <Text style={styles.stepNumber}>{idx + 1}</Text>
+                {editingItem?.type === 'instruction' && editingItem?.index === idx ? (
                   <TextInput
-                    style={styles.ingredientItemInput}
+                    style={styles.stepTextInput}
                     value={editingItem.value}
                     onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
                     onBlur={saveEdit}
@@ -417,186 +664,111 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
                 ) : (
                   <Text
                     style={[
-                      styles.ingredientItem,
-                      swapMode?.type === 'ingredient' &&
-                      swapMode?.sectionKey === section &&
+                      styles.stepText,
+                      swapMode?.type === 'instruction' &&
                       swapMode?.index === idx && styles.highlightedItem
                     ]}
                   >
-                    • {displayItem}
+                    {step}
                   </Text>
                 )}
-              </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
 
-              {/* Action buttons */}
-              {editingItem?.type === 'ingredient' &&
-               editingItem?.sectionKey === section &&
-               editingItem?.index === idx && (
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>❌ Delete</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>🔄 Swap</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>➕ Add Below</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+            {editingItem?.type === 'instruction' && editingItem?.index === idx && (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
+                  <Text style={styles.actionButtonText}>❌ Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
+                  <Text style={styles.actionButtonText}>🔄 Swap</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
+                  <Text style={styles.actionButtonText}>➕ Add Below</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-              {/* Add below input */}
-              {addingBelow?.type === 'ingredient' &&
-               addingBelow?.sectionKey === section &&
-               addingBelow?.index === idx && (
-                <View style={styles.addBelowContainer}>
-                  <TextInput
-                    style={styles.addBelowInput}
-                    placeholder="New ingredient..."
-                    value={newItemValue}
-                    onChangeText={setNewItemValue}
-                    onSubmitEditing={saveNewItem}
-                  />
-                  <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>✓</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
-                    <Text style={styles.cancelButtonText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )})}
-        </View>
-      ))}
-
-      <Text style={styles.sectionTitle}>Instructions</Text>
-      {localRecipe.instructions.map((step, idx) => (
-        <View key={`instruction-${idx}`}>
-          <TouchableOpacity
-            onLongPress={() => handleLongPress('instruction', null, idx, step)}
-            onPress={() => {
-              if (swapMode && swapMode.type === 'instruction') {
-                handleSwapWith('instruction', null, idx);
-              }
-            }}
-            delayLongPress={300}
-          >
-            <View style={styles.instructionStep}>
-              <Text style={styles.stepNumber}>{idx + 1}</Text>
-              {editingItem?.type === 'instruction' && editingItem?.index === idx ? (
+            {addingBelow?.type === 'instruction' && addingBelow?.index === idx && (
+              <View style={styles.addBelowContainer}>
                 <TextInput
-                  style={styles.stepTextInput}
-                  value={editingItem.value}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                  onBlur={saveEdit}
+                  style={styles.addBelowInput}
+                  placeholder="New instruction..."
+                  value={newItemValue}
+                  onChangeText={setNewItemValue}
+                  onSubmitEditing={saveNewItem}
                   multiline
                 />
-              ) : (
-                <Text
-                  style={[
-                    styles.stepText,
-                    swapMode?.type === 'instruction' &&
-                    swapMode?.index === idx && styles.highlightedItem
-                  ]}
-                >
-                  {step}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          {/* Action buttons */}
-          {editingItem?.type === 'instruction' && editingItem?.index === idx && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>❌ Delete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>🔄 Swap</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>➕ Add Below</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Add below input */}
-          {addingBelow?.type === 'instruction' && addingBelow?.index === idx && (
-            <View style={styles.addBelowContainer}>
-              <TextInput
-                style={styles.addBelowInput}
-                placeholder="New instruction..."
-                value={newItemValue}
-                onChangeText={setNewItemValue}
-                onSubmitEditing={saveNewItem}
-                multiline
-              />
-              <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                <Text style={styles.saveButtonText}>✓</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
-                <Text style={styles.cancelButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      ))}
+                <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
+                  <Text style={styles.saveButtonText}>✓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
+      })}
 
       <View style={styles.sourceContainer}>
         <Text style={styles.sourceLabel}>Source:</Text>
         <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
       </View>
-
-      {swapMode && (
-        <View style={styles.swapModeNotice}>
-          <Text style={styles.swapModeText}>🔄 Swap Mode: Tap another {swapMode.type} to swap</Text>
-          <TouchableOpacity
-            onPress={() => setSwapMode(null)}
-            style={styles.cancelSwapButton}
-          >
-            <Text style={styles.cancelSwapText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </>
   );
 };
 
 const styles = StyleSheet.create({
-  modalTitle: {
+  recipeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: colors.text,
   },
-  metaContainer: {
+  swapBanner: {
+    backgroundColor: colors.warning,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-    gap: 15,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  metaText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  swapBannerText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  swapBannerCancel: {
+    color: colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+    paddingHorizontal: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 10,
+    color: colors.text,
   },
   addSectionButton: {
-    padding: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 6,
   },
   addSectionText: {
-    color: colors.primary,
-    fontSize: 14,
+    color: colors.white,
     fontWeight: '600',
+    fontSize: 14,
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -604,8 +776,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     paddingVertical: 10,
-    paddingHorizontal: 10,
-    backgroundColor: colors.lightGray,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
     borderRadius: 8,
   },
   scaleControls: {
@@ -660,6 +832,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     color: colors.text,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sectionArrows: {
+    flexDirection: 'row',
+    gap: 4,
+    marginLeft: 10,
+  },
+  arrowButton: {
+    padding: 8,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  arrowText: {
+    fontSize: 16,
+    color: colors.primary,
   },
   subsectionTitleInput: {
     fontSize: 16,
@@ -723,106 +917,106 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 8,
-    marginBottom: 8,
-    marginLeft: 5,
+    marginBottom: 10,
   },
   actionButton: {
-    backgroundColor: colors.lightGray,
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 12,
+    backgroundColor: colors.background,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.text,
+  },
+  doneButton: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  doneButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
   },
   addBelowContainer: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 8,
-    marginBottom: 8,
-    marginLeft: 5,
+    marginBottom: 10,
   },
   addBelowInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: colors.primary,
-    padding: 10,
     borderRadius: 6,
-    fontSize: 14,
+    padding: 8,
     backgroundColor: colors.background,
+    fontSize: 14,
+  },
+  addSectionContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 15,
+    paddingHorizontal: 4,
+    paddingVertical: 10,
+    backgroundColor: colors.highlightYellow,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  addSectionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    alignSelf: 'center',
+    marginLeft: 5,
+  },
+  addSectionInput: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 6,
+    padding: 10,
+    backgroundColor: colors.white,
+    fontSize: 15,
   },
   saveButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 15,
-    justifyContent: 'center',
+    backgroundColor: colors.success,
+    paddingHorizontal: 16,
     borderRadius: 6,
+    justifyContent: 'center',
   },
   saveButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 18,
     fontWeight: 'bold',
   },
   cancelButton: {
     backgroundColor: colors.error,
-    paddingHorizontal: 15,
-    justifyContent: 'center',
+    paddingHorizontal: 16,
     borderRadius: 6,
+    justifyContent: 'center',
   },
   cancelButtonText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 18,
     fontWeight: 'bold',
   },
   sourceContainer: {
     marginTop: 20,
-    padding: 15,
-    backgroundColor: colors.lightGray,
-    borderRadius: 8,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   sourceLabel: {
     fontSize: 12,
-    fontWeight: '600',
     color: colors.textSecondary,
-    marginBottom: 5,
+    marginBottom: 4,
   },
   sourceUrl: {
     fontSize: 12,
     color: colors.primary,
-  },
-  swapModeNotice: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  swapModeText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-    flex: 1,
-  },
-  cancelSwapButton: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  cancelSwapText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
   },
 });
 
