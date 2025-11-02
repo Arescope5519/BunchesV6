@@ -1,139 +1,91 @@
 /**
- * HomeScreen.js - Share Intent Fix
- * This is just the relevant parts that need to be updated in your HomeScreen.js
- * Copy these sections into your existing HomeScreen.js
+ * FILENAME: src/hooks/useShareIntent.js
+ * PURPOSE: Handles shared URLs from browser via Android Share functionality
+ * CHANGES: Removed debug alerts, enabled auto-extraction
+ * USED BY: src/screens/HomeScreen.js
  */
 
-// In your HomeScreen component, update these parts:
+import { useEffect } from 'react';
+import { extractUrlFromText } from '../utils/urlExtractor';
 
-// 1. UPDATE THE EXTRACTION CALLBACK:
-const { loading, extractRecipe } = useRecipeExtraction(async (recipe, isAutoSave) => {
-  console.log('📥 Recipe extraction callback:', recipe.title, 'Auto-save:', isAutoSave);
+// Try to import share library, handle gracefully if it fails
+let ReceiveSharingIntent = null;
+try {
+  ReceiveSharingIntent = require('react-native-receive-sharing-intent').default;
+} catch (error) {
+  console.log('⚠️ Share intent not available (will work after rebuild):', error.message);
+}
 
-  // Ensure we have a valid recipe
-  if (!recipe || !recipe.title) {
-    console.error('❌ Invalid recipe data');
-    Alert.alert('Error', 'Invalid recipe data received');
-    return;
-  }
+export const useShareIntent = (onUrlReceived) => {
+  /**
+   * Handle shared URLs from browser
+   */
+  const handleSharedUrl = (sharedData) => {
+    console.log('📨 Received shared data from browser');
 
-  // Save the recipe
-  const saved = await saveRecipe(recipe);
+    let sharedUrl = null;
 
-  if (saved) {
-    console.log('✅ Recipe saved successfully:', recipe.title);
-
-    // Clear the URL input
-    setUrl('');
-
-    // Set the recipe as selected to display it
-    // Use a timeout to ensure state updates properly
-    setTimeout(() => {
-      setSelectedRecipe(recipe);
-      setCurrentView('recipes'); // Make sure we're on recipes view
-    }, 100);
-
-    // Show brief success message for auto-save
-    if (isAutoSave) {
-      Alert.alert('Recipe Saved!', `"${recipe.title}" has been extracted and saved.`);
+    // Extract URL based on data type
+    if (typeof sharedData === 'string') {
+      sharedUrl = extractUrlFromText(sharedData);
+    } else if (sharedData.weblink) {
+      sharedUrl = extractUrlFromText(sharedData.weblink);
+    } else if (sharedData.text) {
+      sharedUrl = extractUrlFromText(sharedData.text);
+    } else if (sharedData.contentUri) {
+      sharedUrl = extractUrlFromText(sharedData.contentUri);
     }
-  } else {
-    console.error('❌ Failed to save recipe');
-    Alert.alert('Error', 'Failed to save recipe. Please try again.');
-  }
-});
 
-// 2. UPDATE THE SHARE INTENT HANDLER:
-useShareIntent((sharedUrl) => {
-  console.log('🔗 Received shared URL:', sharedUrl);
-
-  if (sharedUrl && sharedUrl.trim()) {
-    // Set the URL in the input field (visual feedback)
-    setUrl(sharedUrl);
-
-    // Auto-extract the recipe immediately
-    console.log('🚀 Auto-extracting recipe from shared URL');
-
-    // Small delay to ensure UI updates
-    setTimeout(() => {
-      extractRecipe(sharedUrl, true); // true = auto-save
-    }, 100);
-  } else {
-    console.error('❌ Invalid shared URL received');
-  }
-});
-
-// 3. ALSO UPDATE THE MANUAL EXTRACT BUTTON HANDLER:
-// In your URL input section, make sure the extract button works:
-<TouchableOpacity
-  onPress={() => {
-    if (url && url.trim()) {
-      extractRecipe(url.trim(), false); // false = manual, ask user
+    // Call the callback with extracted URL
+    if (sharedUrl) {
+      console.log('✅ URL extracted:', sharedUrl);
+      if (onUrlReceived) {
+        onUrlReceived(sharedUrl);
+      }
     } else {
-      Alert.alert('Error', 'Please enter a recipe URL');
+      console.error('❌ Could not extract URL from shared data');
     }
-  }}
-  style={styles.extractButton}
-  disabled={loading || !url}
->
-  {loading ? (
-    <ActivityIndicator size="small" color="#fff" />
-  ) : (
-    <Text style={styles.extractButtonText}>Extract</Text>
-  )}
-</TouchableOpacity>
+  };
 
-// 4. ENSURE YOUR saveRecipe FUNCTION IN useRecipes RETURNS THE SAVED RECIPE:
-// In your useRecipes hook, make sure saveRecipe returns the recipe object:
-const saveRecipe = async (recipe) => {
-  // Wait for recipes to load if they haven't yet
-  while (loadingRecipes) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
+  /**
+   * Setup share intent listener
+   */
+  useEffect(() => {
+    if (!ReceiveSharingIntent) {
+      console.log('ℹ️ Share intent not available in this environment');
+      return;
+    }
 
-  // Ensure recipe has an ID
-  if (!recipe.id) {
-    recipe.id = Date.now().toString();
-  }
+    try {
+      // Handle shares when app is closed/not running
+      ReceiveSharingIntent.getReceivedFiles((files) => {
+        if (files && files.length > 0) {
+          handleSharedUrl(files[0]);
+        }
+      });
 
-  const updatedRecipes = [recipe, ...recipes];
-  const success = await saveRecipesToStorage(updatedRecipes);
+      // Handle shares when app is already open
+      const subscription = ReceiveSharingIntent.addEventListener('url', (event) => {
+        if (event && event.url) {
+          handleSharedUrl(event.url);
+        }
+      });
 
-  if (success) {
-    setRecipes(updatedRecipes);
-    console.log('✅ Recipe saved! Total recipes:', updatedRecipes.length);
-    return recipe; // Return the saved recipe with ID
-  }
-  return null;
+      // Cleanup
+      return () => {
+        ReceiveSharingIntent.clearReceivedFiles();
+        if (subscription && subscription.remove) {
+          subscription.remove();
+        }
+      };
+    } catch (error) {
+      console.log('⚠️ Could not setup share listener:', error.message);
+    }
+  }, []);
+
+  return {
+    isAvailable: !!ReceiveSharingIntent,
+  };
 };
 
-// 5. ADD ERROR HANDLING FOR SHARE INTENT:
-// Wrap the share intent in a try-catch:
-useShareIntent((sharedUrl) => {
-  try {
-    console.log('🔗 Received shared URL:', sharedUrl);
-
-    if (sharedUrl && sharedUrl.trim()) {
-      // Clear any existing URL first
-      setUrl('');
-
-      // Set the new URL
-      const cleanUrl = sharedUrl.trim();
-      setUrl(cleanUrl);
-
-      // Make sure we're on the recipes view
-      setCurrentView('recipes');
-
-      // Auto-extract with a slight delay for UI to update
-      setTimeout(() => {
-        console.log('🚀 Starting auto-extraction for:', cleanUrl);
-        extractRecipe(cleanUrl, true);
-      }, 200);
-    } else {
-      console.error('❌ Empty or invalid shared URL');
-    }
-  } catch (error) {
-    console.error('💥 Error handling shared URL:', error);
-    Alert.alert('Error', 'Failed to process shared URL');
-  }
-});
+export default useShareIntent;

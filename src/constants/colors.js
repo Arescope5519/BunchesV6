@@ -1,49 +1,48 @@
 /**
- * colors.js - App Color Scheme
- * BunchesV6 - Recipe Manager
- * 
- * Centralized color constants for consistent theming
+ * FILENAME: src/constants/colors.js
+ * PURPOSE: Centralized color definitions
+ * CHANGES: Added highlightYellow for editing mode
+ * USED BY: All components and screens
  */
 
-export default {
-  // Primary colors
+export const colors = {
+  // Primary
   primary: '#007AFF',
-  primaryDark: '#0051D5',
-  lightPrimary: '#E3F2FD',
-  
-  // Status colors
-  success: '#34C759',
-  error: '#ff3b30',
-  warning: '#FF9500',
-  
-  // Base colors
-  text: '#333',
-  textLight: '#666',
-  textLighter: '#999',
+  primaryDark: '#0066CC',
+  primaryLight: '#E6F2FF',
+
+  // Background
   background: '#f5f5f5',
   white: '#fff',
-  black: '#000',
-  
-  // UI elements
+
+  // Text
+  text: '#333',
+  textSecondary: '#666',
+  textTertiary: '#999',
+  textLight: '#bbb',
+
+  // Borders
   border: '#ddd',
   borderLight: '#eee',
-  borderDark: '#ccc',
-  
-  // Highlights and overlays
-  highlightYellow: '#FFF9C4',
-  highlightBlue: '#E3F2FD',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayLight: 'rgba(0, 0, 0, 0.3)',
-  
-  // Specific UI states
-  disabled: '#ccc',
-  placeholder: '#999',
+  borderVeryLight: '#f0f0f0',
+
+  // Status
+  success: '#34C759',
+  warning: '#FF9500',
+  error: '#ff3b30',
+  destructive: '#ff3b30',
+
+  // Special
+  favorite: '#FFD700',
   shadow: '#000',
-  
-  // Action colors
-  deleteRed: '#ff3b30',
-  editBlue: '#007AFF',
-  addGreen: '#34C759',
-  moveYellow: '#FFF9C4',
-  swapPurple: '#9B59B6',
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  highlightYellow: '#FFF9C4', // For swap mode highlighting
+
+  // Accent
+  purple: '#5856D6',
+  lightBlue: '#f0f8ff',
+  lightGray: '#f9f9f9',
+  darkGray: '#fafafa',
 };
+
+export default colors;

@@ -1,59 +1,50 @@
-﻿/**
- * useRecipeExtraction Hook - FIXED IMPORT PATHS
+/**
+ * useRecipeExtraction Hook
  * Handles recipe extraction from URLs
+ * Extracted from your App.js
  */
 
 import { useState, useRef } from 'react';
 import { Alert } from 'react-native';
-import RecipeExtractor from '../utils/RecipeExtractor'; // FIXED: Correct path
+import RecipeExtractor from '../../RecipeExtractor';
 
 export const useRecipeExtraction = (onRecipeExtracted) => {
   const [loading, setLoading] = useState(false);
   const extractor = useRef(new RecipeExtractor()).current;
 
+  /**
+   * Extract recipe from URL
+   */
   const extractRecipe = async (recipeUrl, autoSave = false) => {
-    if (!recipeUrl || recipeUrl.trim() === '') {
-      if (!autoSave) {
-        Alert.alert('Error', 'Please enter a URL');
-      }
+    if (!recipeUrl) {
+      Alert.alert('Error', 'Please enter a URL');
       return;
     }
 
-    const cleanUrl = recipeUrl.trim();
     setLoading(true);
-    console.log('🔍 Extracting recipe from:', cleanUrl);
+    console.log('🔍 Extracting recipe from:', recipeUrl);
 
     try {
-      const result = await extractor.extract(cleanUrl);
+      const result = await extractor.extract(recipeUrl);
 
-      if (result.success && result.data) {
+      if (result.success) {
         const recipe = {
           id: Date.now().toString(),
-          title: result.data.title || 'Untitled Recipe',
-          ingredients: result.data.ingredients || { main: [] },
-          instructions: result.data.instructions || [],
-          sourceUrl: cleanUrl,
-          url: cleanUrl,
-          notes: result.data.notes || '',
-          servings: result.data.servings || '',
-          prepTime: result.data.prepTime || '',
-          cookTime: result.data.cookTime || '',
-          totalTime: result.data.totalTime || '',
+          url: recipeUrl,
+          ...result.data,
           extractedAt: new Date().toISOString(),
-          source: result.source || 'unknown',
-          confidence: result.data.confidence || 0.5,
+          source: result.source,
           folder: 'All Recipes',
           isFavorite: false,
         };
 
-        console.log('📦 Extracted recipe:', recipe.title);
-
         if (autoSave) {
-          console.log('🤖 Auto-saving recipe from share intent');
+          // Auto-save (from share intent)
           if (onRecipeExtracted) {
-            await onRecipeExtracted(recipe, true);
+            onRecipeExtracted(recipe, true);
           }
         } else {
+          // Manual extraction - ask user
           Alert.alert(
             'Recipe Extracted! 🎉',
             `${recipe.title}\n\nMethod: ${result.source}\nConfidence: ${(recipe.confidence * 100).toFixed(0)}%\n\nSave this recipe?`,
@@ -61,9 +52,9 @@ export const useRecipeExtraction = (onRecipeExtracted) => {
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Save',
-                onPress: async () => {
+                onPress: () => {
                   if (onRecipeExtracted) {
-                    await onRecipeExtracted(recipe, false);
+                    onRecipeExtracted(recipe, false);
                   }
                 }
               }
@@ -71,18 +62,10 @@ export const useRecipeExtraction = (onRecipeExtracted) => {
           );
         }
       } else {
-        const errorMessage = result.error || 'Unable to extract recipe from this URL';
-        console.error('❌ Extraction failed:', errorMessage);
-
-        if (!autoSave) {
-          Alert.alert('Extraction Failed', errorMessage);
-        }
+        Alert.alert('Extraction Failed', result.error || 'Unable to extract recipe');
       }
     } catch (error) {
-      console.error('💥 Extraction error:', error);
-      if (!autoSave) {
-        Alert.alert('Error', error.message || 'An unexpected error occurred');
-      }
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
