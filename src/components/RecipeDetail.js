@@ -15,7 +15,7 @@ import {
   convertRecipeIngredients
 } from '../utils/IngredientParser';
 
-export const RecipeDetail = ({ recipe, onUpdate }) => {
+export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
   // Local editable copy of recipe
   const [localRecipe, setLocalRecipe] = useState(recipe);
 
@@ -30,6 +30,10 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
   const [swapMode, setSwapMode] = useState(null); // { type, sectionKey, index }
   const [addingBelow, setAddingBelow] = useState(null); // { type, sectionKey, index }
   const [newItemValue, setNewItemValue] = useState('');
+
+  // Grocery list selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIngredients, setSelectedIngredients] = useState({});
 
   // Update local recipe when prop changes
   useEffect(() => {
@@ -300,6 +304,79 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
     );
   };
 
+  /**
+   * Toggle selection mode for grocery list
+   */
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      // Exiting selection mode
+      setSelectedIngredients({});
+    }
+    setSelectionMode(!selectionMode);
+  };
+
+  /**
+   * Toggle ingredient selection
+   */
+  const toggleIngredientSelection = (section, index) => {
+    const key = `${section}_${index}`;
+    setSelectedIngredients(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  /**
+   * Select all ingredients
+   */
+  const selectAllIngredients = () => {
+    const allSelected = {};
+    Object.entries(displayedIngredients || {}).forEach(([section, items]) => {
+      items.forEach((_, index) => {
+        allSelected[`${section}_${index}`] = true;
+      });
+    });
+    setSelectedIngredients(allSelected);
+  };
+
+  /**
+   * Add selected ingredients to grocery list
+   */
+  const addSelectedToGroceryList = () => {
+    const selectedItems = [];
+    Object.entries(displayedIngredients || {}).forEach(([section, items]) => {
+      items.forEach((item, index) => {
+        const key = `${section}_${index}`;
+        if (selectedIngredients[key]) {
+          // Get the display text (scaled/converted if applicable)
+          const displayText = typeof item === 'object' && item.original
+            ? item.original
+            : localRecipe.ingredients[section][index];
+          selectedItems.push({ text: displayText, section });
+        }
+      });
+    });
+
+    if (selectedItems.length === 0) {
+      Alert.alert('No Items Selected', 'Please select at least one ingredient to add to your grocery list.');
+      return;
+    }
+
+    // Call the callback with selected items
+    if (onAddToGroceryList) {
+      onAddToGroceryList(selectedItems);
+    }
+
+    Alert.alert(
+      'Added to Grocery List',
+      `${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''} added to your grocery list!`,
+      [{ text: 'OK', onPress: () => {
+        setSelectionMode(false);
+        setSelectedIngredients({});
+      }}]
+    );
+  };
+
   if (!localRecipe) return null;
 
   return (
@@ -316,10 +393,27 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Ingredients</Text>
-        <TouchableOpacity onPress={addNewSection} style={styles.addSectionButton}>
-          <Text style={styles.addSectionText}>+ Section</Text>
-        </TouchableOpacity>
+        {!selectionMode && (
+          <TouchableOpacity onPress={addNewSection} style={styles.addSectionButton}>
+            <Text style={styles.addSectionText}>+ Section</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Grocery List Selection Controls */}
+      {selectionMode && (
+        <View style={styles.selectionControlsContainer}>
+          <TouchableOpacity onPress={selectAllIngredients} style={styles.selectAllButton}>
+            <Text style={styles.selectAllButtonText}>✓ Select All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={addSelectedToGroceryList} style={styles.addToListButton}>
+            <Text style={styles.addToListButtonText}>🛒 Add to List</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={toggleSelectionMode} style={styles.cancelSelectionButton}>
+            <Text style={styles.cancelSelectionButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Scale and Unit Controls */}
       <View style={styles.controlsContainer}>
@@ -359,6 +453,15 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
             {useMetric ? '📏 Metric' : '📏 Imperial'}
           </Text>
         </TouchableOpacity>
+
+        {!selectionMode && onAddToGroceryList && (
+          <TouchableOpacity
+            style={styles.groceryListButton}
+            onPress={toggleSelectionMode}
+          >
+            <Text style={styles.groceryListButtonText}>🛒 Add to List</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
@@ -392,41 +495,61 @@ export const RecipeDetail = ({ recipe, onUpdate }) => {
             // Get the original ingredient for editing
             const originalItem = localRecipe.ingredients[section]?.[idx] || item;
             const displayItem = typeof item === 'string' ? item : item.original || originalItem;
+            const selectionKey = `${section}_${idx}`;
+            const isSelected = selectedIngredients[selectionKey];
 
             return (
             <View key={`${section}-${idx}`}>
-              <TouchableOpacity
-                onLongPress={() => handleLongPress('ingredient', section, idx, originalItem)}
-                onPress={() => {
-                  if (swapMode && swapMode.type === 'ingredient') {
-                    handleSwapWith('ingredient', section, idx);
-                  }
-                }}
-                delayLongPress={300}
-              >
-                {editingItem?.type === 'ingredient' &&
-                 editingItem?.sectionKey === section &&
-                 editingItem?.index === idx ? (
-                  <TextInput
-                    style={styles.ingredientItemInput}
-                    value={editingItem.value}
-                    onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                    onBlur={saveEdit}
-                    multiline
-                  />
-                ) : (
-                  <Text
-                    style={[
-                      styles.ingredientItem,
-                      swapMode?.type === 'ingredient' &&
-                      swapMode?.sectionKey === section &&
-                      swapMode?.index === idx && styles.highlightedItem
-                    ]}
+              <View style={styles.ingredientRow}>
+                {/* Checkbox for selection mode */}
+                {selectionMode && (
+                  <TouchableOpacity
+                    onPress={() => toggleIngredientSelection(section, idx)}
+                    style={styles.checkboxContainer}
                   >
-                    • {displayItem}
-                  </Text>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <Text style={styles.checkboxCheck}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.ingredientTouchable}
+                  onLongPress={() => !selectionMode && handleLongPress('ingredient', section, idx, originalItem)}
+                  onPress={() => {
+                    if (selectionMode) {
+                      toggleIngredientSelection(section, idx);
+                    } else if (swapMode && swapMode.type === 'ingredient') {
+                      handleSwapWith('ingredient', section, idx);
+                    }
+                  }}
+                  delayLongPress={300}
+                >
+                  {editingItem?.type === 'ingredient' &&
+                   editingItem?.sectionKey === section &&
+                   editingItem?.index === idx && !selectionMode ? (
+                    <TextInput
+                      style={styles.ingredientItemInput}
+                      value={editingItem.value}
+                      onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                      onBlur={saveEdit}
+                      multiline
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.ingredientItem,
+                        swapMode?.type === 'ingredient' &&
+                        swapMode?.sectionKey === section &&
+                        swapMode?.index === idx && styles.highlightedItem,
+                        selectionMode && isSelected && styles.selectedIngredientItem
+                      ]}
+                    >
+                      • {displayItem}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
 
               {/* Action buttons */}
               {editingItem?.type === 'ingredient' &&
@@ -789,6 +912,100 @@ const styles = StyleSheet.create({
   sourceUrl: {
     fontSize: 12,
     color: colors.primary,
+  },
+  // Grocery list selection styles
+  selectionControlsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 10,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  selectAllButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  selectAllButtonText: {
+    fontSize: 13,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  addToListButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.success,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  addToListButtonText: {
+    fontSize: 13,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  cancelSelectionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.textSecondary,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  cancelSelectionButtonText: {
+    fontSize: 13,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  groceryListButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: colors.success,
+    marginLeft: 8,
+  },
+  groceryListButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkboxContainer: {
+    padding: 5,
+    marginRight: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  checkboxCheck: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  ingredientTouchable: {
+    flex: 1,
+  },
+  selectedIngredientItem: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 5,
+    borderRadius: 4,
   },
   swapModeNotice: {
     position: 'absolute',

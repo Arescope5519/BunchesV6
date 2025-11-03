@@ -29,9 +29,11 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useFolders } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
+import { useGroceryList } from '../hooks/useGroceryList';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
+import { GroceryList } from '../components/GroceryList';
 
 // Constants
 import colors from '../constants/colors';
@@ -45,6 +47,7 @@ export const HomeScreen = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
   const [editingFolderName, setEditingFolderName] = useState('');
+  const [showGroceryList, setShowGroceryList] = useState(false);
 
   // Hooks
   const {
@@ -70,6 +73,17 @@ export const HomeScreen = () => {
     getCustomFolders,
   } = useFolders();
 
+  const {
+    groceryList,
+    loading: groceryListLoading,
+    addItems: addItemsToGroceryList,
+    removeItem: removeGroceryItem,
+    toggleItemChecked,
+    clearCheckedItems,
+    clearAllItems,
+    getUncheckedCount,
+  } = useGroceryList();
+
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
     // Always save recipes from extraction
     console.log('💾 Saving recipe:', recipe.title);
@@ -90,6 +104,15 @@ export const HomeScreen = () => {
     // Auto-extract recipe when shared from browser
     setTimeout(() => extractRecipe(sharedUrl, true), 500);
   });
+
+  // Grocery list handler
+  const handleAddToGroceryList = async (selectedItems) => {
+    if (!selectedRecipe || selectedItems.length === 0) return;
+
+    // Add all selected items to grocery list
+    const ingredientTexts = selectedItems.map(item => item.text);
+    await addItemsToGroceryList(ingredientTexts, selectedRecipe, selectedItems[0]?.section || 'main');
+  };
 
   // Folder operations with recipe updates
   const addFolder = async () => {
@@ -144,6 +167,10 @@ export const HomeScreen = () => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       // Priority order for back button
+      if (showGroceryList) {
+        setShowGroceryList(false);
+        return true;
+      }
       if (showMoveToFolder) {
         setShowMoveToFolder(false);
         return true;
@@ -169,7 +196,7 @@ export const HomeScreen = () => {
     });
 
     return () => backHandler.remove();
-  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder]);
+  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList]);
 
   const filteredRecipes = getFilteredRecipes(currentFolder);
 
@@ -180,12 +207,22 @@ export const HomeScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>BunchesV6</Text>
-        <TouchableOpacity
-          onPress={() => setShowFolderManager(true)}
-          style={styles.folderButton}
-        >
-          <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={() => setShowGroceryList(true)}
+            style={styles.groceryListHeaderButton}
+          >
+            <Text style={styles.groceryListHeaderButtonText}>
+              🛒 {getUncheckedCount() > 0 ? `(${getUncheckedCount()})` : ''}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowFolderManager(true)}
+            style={styles.folderButton}
+          >
+            <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* URL Input */}
@@ -425,12 +462,27 @@ export const HomeScreen = () => {
               </View>
             </View>
             <ScrollView style={styles.modalContent}>
-              <RecipeDetail recipe={selectedRecipe} onUpdate={updateRecipe} />
+              <RecipeDetail
+                recipe={selectedRecipe}
+                onUpdate={updateRecipe}
+                onAddToGroceryList={handleAddToGroceryList}
+              />
               <View style={styles.bottomSpacer} />
             </ScrollView>
           </KeyboardAvoidingView>
         </Modal>
       )}
+
+      {/* Grocery List Modal */}
+      <GroceryList
+        visible={showGroceryList}
+        onClose={() => setShowGroceryList(false)}
+        groceryList={groceryList}
+        onToggleItem={toggleItemChecked}
+        onRemoveItem={removeGroceryItem}
+        onClearChecked={clearCheckedItems}
+        onClearAll={clearAllItems}
+      />
 
       {/* Add Folder Modal */}
       <Modal visible={showAddFolder} animationType="fade" transparent>
@@ -546,6 +598,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  groceryListHeaderButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  groceryListHeaderButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   folderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
