@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { colors } from '../constants/colors';
 
-export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onUndo, showUndoButton, canUndo }) => {
+export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
 
   // Group items by recipe
@@ -214,13 +214,6 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
             <Text style={styles.clearAllButtonText}>Clear All</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Undo Button */}
-        {showUndoButton && canUndo && (
-          <TouchableOpacity style={styles.undoButton} onPress={onUndo}>
-            <Text style={styles.undoButtonText}>↶ Undo Last Change</Text>
-          </TouchableOpacity>
-        )}
 
         {/* List Content */}
         <ScrollView style={styles.content}>

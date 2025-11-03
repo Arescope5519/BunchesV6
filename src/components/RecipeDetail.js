@@ -15,7 +15,7 @@ import {
   convertRecipeIngredients
 } from '../utils/IngredientParser';
 
-export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
+export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoAction }) => {
   // Local editable copy of recipe
   const [localRecipe, setLocalRecipe] = useState(recipe);
 
@@ -35,19 +35,12 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState({});
 
-  // Undo history state
-  const [undoHistory, setUndoHistory] = useState([]);
-  const [showUndoButton, setShowUndoButton] = useState(false);
-
   // Update local recipe when prop changes
   useEffect(() => {
     setLocalRecipe(recipe);
     // Parse ingredients when recipe changes
     const parsed = parseRecipeIngredients(recipe.ingredients);
     setParsedIngredients(parsed);
-    // Clear undo history when recipe changes
-    setUndoHistory([]);
-    setShowUndoButton(false);
   }, [recipe]);
 
   // Update displayed ingredients when scale or unit system changes
@@ -78,36 +71,21 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
   }, [parsedIngredients, scaleFactor, useMetric]);
 
   /**
-   * Save current state to undo history
+   * Save current state to global undo history
    */
-  const saveToHistory = () => {
+  const saveToHistory = (description = 'Recipe Edit') => {
+    if (!addUndoAction) return; // Skip if no undo function provided
+
     const snapshot = JSON.parse(JSON.stringify(localRecipe));
-    setUndoHistory(prev => [...prev, snapshot]);
-    setShowUndoButton(true);
 
-    // Auto-hide undo button after 10 seconds
-    setTimeout(() => {
-      setShowUndoButton(false);
-    }, 10000);
-  };
-
-  /**
-   * Undo last change
-   */
-  const undoLastChange = () => {
-    if (undoHistory.length === 0) return;
-
-    const previousState = undoHistory[undoHistory.length - 1];
-    setLocalRecipe(previousState);
-    onUpdate(previousState);
-
-    // Remove the last item from history
-    setUndoHistory(prev => prev.slice(0, -1));
-
-    // Hide undo button if no more history
-    if (undoHistory.length <= 1) {
-      setShowUndoButton(false);
-    }
+    addUndoAction({
+      type: 'recipe_edit',
+      description: description,
+      undo: () => {
+        setLocalRecipe(snapshot);
+        onUpdate(snapshot);
+      }
+    });
   };
 
   /**
@@ -126,10 +104,12 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
   const saveEdit = () => {
     if (!editingItem) return;
 
-    // Save to undo history before making changes
-    saveToHistory();
-
     const { type, sectionKey, index, value } = editingItem;
+
+    // Save to undo history before making changes
+    const description = type === 'ingredient' ? 'Edit Ingredient' :
+                       type === 'instruction' ? 'Edit Instruction' : 'Rename Section';
+    saveToHistory(description);
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
@@ -181,10 +161,12 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
           onPress: () => {
             console.log('Delete confirmed');
 
-            // Save to undo history before deleting
-            saveToHistory();
-
             const { type, sectionKey, index } = editingItem;
+
+            // Save to undo history before deleting
+            const description = type === 'ingredient' ? 'Delete Ingredient' :
+                               type === 'instruction' ? 'Delete Instruction' : 'Delete Section';
+            saveToHistory(description);
             let updated = { ...localRecipe };
 
             if (type === 'ingredient') {
@@ -247,10 +229,11 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
       return;
     }
 
-    // Save to undo history before swapping
-    saveToHistory();
-
     const { sectionKey: sourceSectionKey, index: sourceIndex } = swapMode;
+
+    // Save to undo history before swapping
+    const description = type === 'ingredient' ? 'Swap Ingredients' : 'Swap Instructions';
+    saveToHistory(description);
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
@@ -295,10 +278,11 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
       return;
     }
 
-    // Save to undo history before adding
-    saveToHistory();
-
     const { type, sectionKey, index } = addingBelow;
+
+    // Save to undo history before adding
+    const description = type === 'ingredient' ? 'Add Ingredient' : 'Add Instruction';
+    saveToHistory(description);
     console.log('Saving new item below:', type, sectionKey, index, newItemValue);
     let updated = { ...localRecipe };
 
@@ -341,7 +325,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
           onPress: (sectionName) => {
             if (sectionName && sectionName.trim()) {
               // Save to undo history before adding section
-              saveToHistory();
+              saveToHistory('Add Section');
 
               const updated = {
                 ...localRecipe,
@@ -445,16 +429,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
           {localRecipe.cook_time && <Text style={styles.metaText}>🔥 Cook: {localRecipe.cook_time}</Text>}
           {localRecipe.servings && <Text style={styles.metaText}>🍽️ Serves: {localRecipe.servings}</Text>}
         </View>
-      )}
-
-      {/* Undo Button */}
-      {showUndoButton && undoHistory.length > 0 && (
-        <TouchableOpacity
-          style={styles.undoButton}
-          onPress={undoLastChange}
-        >
-          <Text style={styles.undoButtonText}>↶ Undo Last Change</Text>
-        </TouchableOpacity>
       )}
 
       <View style={styles.sectionHeader}>

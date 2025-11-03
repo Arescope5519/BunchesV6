@@ -30,6 +30,7 @@ import { useFolders } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 import { useGroceryList } from '../hooks/useGroceryList';
+import { useGlobalUndo } from '../hooks/useGlobalUndo';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
@@ -82,10 +83,18 @@ export const HomeScreen = () => {
     clearCheckedItems,
     clearAllItems,
     getUncheckedCount,
-    undoLastChange: undoGroceryListChange,
-    showUndoButton: showGroceryListUndo,
-    canUndo: canUndoGroceryList,
+    restoreList: restoreGroceryList,
   } = useGroceryList();
+
+  // Global undo system
+  const {
+    addUndoAction,
+    performUndo,
+    clearUndoStack,
+    showUndoButton,
+    canUndo,
+    lastActionDescription,
+  } = useGlobalUndo();
 
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
     // Always save recipes from extraction
@@ -108,13 +117,87 @@ export const HomeScreen = () => {
     setTimeout(() => extractRecipe(sharedUrl, true), 500);
   });
 
-  // Grocery list handler
+  // Grocery list handlers with undo support
   const handleAddToGroceryList = async (selectedItems) => {
     if (!selectedRecipe || selectedItems.length === 0) return;
+
+    // Save state for undo
+    const previousList = JSON.parse(JSON.stringify(groceryList));
+    addUndoAction({
+      type: 'grocery_add',
+      description: `Add ${selectedItems.length} Items`,
+      undo: async () => {
+        await restoreGroceryList(previousList);
+      }
+    });
 
     // Add all selected items to grocery list
     const ingredientTexts = selectedItems.map(item => item.text);
     await addItemsToGroceryList(ingredientTexts, selectedRecipe, selectedItems[0]?.section || 'main');
+  };
+
+  const handleToggleGroceryItem = async (itemId) => {
+    const previousList = JSON.parse(JSON.stringify(groceryList));
+    const item = groceryList.find(i => i.id === itemId);
+    if (!item) return;
+
+    addUndoAction({
+      type: 'grocery_toggle',
+      description: item.checked ? 'Uncheck Item' : 'Check Item',
+      undo: async () => {
+        await restoreGroceryList(previousList);
+      }
+    });
+
+    await toggleItemChecked(itemId);
+  };
+
+  const handleRemoveGroceryItem = async (itemId) => {
+    const previousList = JSON.parse(JSON.stringify(groceryList));
+    const item = groceryList.find(i => i.id === itemId);
+    if (!item) return;
+
+    addUndoAction({
+      type: 'grocery_remove',
+      description: 'Remove Item',
+      undo: async () => {
+        await restoreGroceryList(previousList);
+      }
+    });
+
+    await removeGroceryItem(itemId);
+  };
+
+  const handleClearCheckedItems = async () => {
+    const checkedItems = groceryList.filter(item => item.checked);
+    if (checkedItems.length === 0) return;
+
+    const previousList = JSON.parse(JSON.stringify(groceryList));
+    addUndoAction({
+      type: 'grocery_clear_checked',
+      description: `Clear ${checkedItems.length} Items`,
+      undo: async () => {
+        await restoreGroceryList(previousList);
+      }
+    });
+
+    await clearCheckedItems();
+  };
+
+  const handleClearAllItems = async () => {
+    const itemCount = groceryList.length;
+    if (itemCount === 0) return;
+
+    const previousList = JSON.parse(JSON.stringify(groceryList));
+    addUndoAction({
+      type: 'grocery_clear_all',
+      description: `Clear All (${itemCount} items)`,
+      undo: async () => {
+        await restoreGroceryList(previousList);
+      }
+    });
+
+    await clearAllItems();
   };
 
   // Folder operations with recipe updates
@@ -206,6 +289,17 @@ export const HomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
+
+      {/* Global Undo Button */}
+      {showUndoButton && canUndo && (
+        <TouchableOpacity
+          style={styles.globalUndoButton}
+          onPress={performUndo}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Header */}
       <View style={styles.header}>
@@ -477,6 +571,7 @@ export const HomeScreen = () => {
                 recipe={selectedRecipe}
                 onUpdate={updateRecipe}
                 onAddToGroceryList={handleAddToGroceryList}
+                addUndoAction={addUndoAction}
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>
@@ -489,13 +584,10 @@ export const HomeScreen = () => {
         visible={showGroceryList}
         onClose={() => setShowGroceryList(false)}
         groceryList={groceryList}
-        onToggleItem={toggleItemChecked}
-        onRemoveItem={removeGroceryItem}
-        onClearChecked={clearCheckedItems}
-        onClearAll={clearAllItems}
-        onUndo={undoGroceryListChange}
-        showUndoButton={showGroceryListUndo}
-        canUndo={canUndoGroceryList}
+        onToggleItem={handleToggleGroceryItem}
+        onRemoveItem={handleRemoveGroceryItem}
+        onClearChecked={handleClearCheckedItems}
+        onClearAll={handleClearAllItems}
       />
 
       {/* Add Folder Modal */}
@@ -914,6 +1006,29 @@ const styles = StyleSheet.create({
   folderItemText: {
     fontSize: 15,
     color: colors.text,
+  },
+  globalUndoButton: {
+    position: 'absolute',
+    top: 60,
+    left: 15,
+    right: 15,
+    backgroundColor: colors.warning,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    zIndex: 9999,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  globalUndoText: {
+    fontSize: 16,
+    color: colors.white,
+    fontWeight: '700',
   },
 });
 
