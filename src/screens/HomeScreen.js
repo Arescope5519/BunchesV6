@@ -82,6 +82,9 @@ export const HomeScreen = () => {
     clearCheckedItems,
     clearAllItems,
     getUncheckedCount,
+    undoLastChange: undoGroceryListChange,
+    showUndoButton: showGroceryListUndo,
+    canUndo: canUndoGroceryList,
   } = useGroceryList();
 
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
@@ -490,6 +493,9 @@ export const HomeScreen = () => {
         onRemoveItem={removeGroceryItem}
         onClearChecked={clearCheckedItems}
         onClearAll={clearAllItems}
+        onUndo={undoGroceryListChange}
+        showUndoButton={showGroceryListUndo}
+        canUndo={canUndoGroceryList}
       />
 
       {/* Add Folder Modal */}

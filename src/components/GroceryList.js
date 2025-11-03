@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { colors } from '../constants/colors';
 
-export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll }) => {
+export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onUndo, showUndoButton, canUndo }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
 
   // Group items by recipe
@@ -215,6 +215,13 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
           </TouchableOpacity>
         </View>
 
+        {/* Undo Button */}
+        {showUndoButton && canUndo && (
+          <TouchableOpacity style={styles.undoButton} onPress={onUndo}>
+            <Text style={styles.undoButtonText}>↶ Undo Last Change</Text>
+          </TouchableOpacity>
+        )}
+
         {/* List Content */}
         <ScrollView style={styles.content}>
           {groupBy === 'flat' ? renderFlatList() : renderGroupedList()}
@@ -295,6 +302,25 @@ const styles = StyleSheet.create({
   },
   clearAllButtonText: {
     fontSize: 13,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  undoButton: {
+    backgroundColor: colors.warning,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 10,
+    marginVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  undoButtonText: {
+    fontSize: 15,
     color: colors.white,
     fontWeight: '600',
   },
