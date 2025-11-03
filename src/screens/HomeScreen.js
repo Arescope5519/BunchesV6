@@ -296,7 +296,11 @@ export const HomeScreen = () => {
       )}
 
       {/* Folder Manager Modal */}
-      <Modal visible={showFolderManager} animationType="slide">
+      <Modal
+        visible={showFolderManager}
+        animationType="slide"
+        onRequestClose={() => setShowFolderManager(false)}
+      >
         <View style={styles.modalContainer}>
           <StatusBar style="light" hidden={true} />
           <View style={styles.modalHeader}>
@@ -407,7 +411,11 @@ export const HomeScreen = () => {
 
       {/* Recipe Detail Modal */}
       {selectedRecipe && (
-        <Modal visible={!!selectedRecipe} animationType="slide">
+        <Modal
+          visible={!!selectedRecipe}
+          animationType="slide"
+          onRequestClose={() => setSelectedRecipe(null)}
+        >
           <KeyboardAvoidingView
             style={styles.modalContainer}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -485,7 +493,15 @@ export const HomeScreen = () => {
       />
 
       {/* Add Folder Modal */}
-      <Modal visible={showAddFolder} animationType="fade" transparent>
+      <Modal
+        visible={showAddFolder}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setNewFolderName('');
+          setShowAddFolder(false);
+        }}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.addFolderModal}>
             <Text style={styles.addFolderTitle}>New Folder</Text>
@@ -519,7 +535,12 @@ export const HomeScreen = () => {
 
       {/* Move to Folder Modal */}
       {showMoveToFolder && selectedRecipe && (
-        <Modal visible={showMoveToFolder} animationType="fade" transparent>
+        <Modal
+          visible={showMoveToFolder}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowMoveToFolder(false)}
+        >
           <View style={styles.modalOverlay}>
             <View style={styles.addFolderModal}>
               <Text style={styles.addFolderTitle}>Move to Folder</Text>
@@ -545,7 +566,15 @@ export const HomeScreen = () => {
 
       {/* Rename Folder Modal */}
       {editingFolder && (
-        <Modal visible={!!editingFolder} animationType="fade" transparent>
+        <Modal
+          visible={!!editingFolder}
+          animationType="fade"
+          transparent
+          onRequestClose={() => {
+            setEditingFolder(null);
+            setEditingFolderName('');
+          }}
+        >
           <View style={styles.modalOverlay}>
             <View style={styles.addFolderModal}>
               <Text style={styles.addFolderTitle}>Rename Folder</Text>
@@ -587,7 +616,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.primary,
-    paddingTop: 10,
+    paddingTop: 50,
     paddingBottom: 15,
     paddingHorizontal: 15,
     flexDirection: 'row',

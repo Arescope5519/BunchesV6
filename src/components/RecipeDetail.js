@@ -400,6 +400,16 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
         )}
       </View>
 
+      {/* Grocery List Add Button - Always visible when not in selection mode */}
+      {!selectionMode && onAddToGroceryList && (
+        <TouchableOpacity
+          style={styles.addToGroceryListMainButton}
+          onPress={toggleSelectionMode}
+        >
+          <Text style={styles.addToGroceryListMainButtonText}>🛒 Add Ingredients to Grocery List</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Grocery List Selection Controls */}
       {selectionMode && (
         <View style={styles.selectionControlsContainer}>
@@ -453,15 +463,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList }) => {
             {useMetric ? '📏 Metric' : '📏 Imperial'}
           </Text>
         </TouchableOpacity>
-
-        {!selectionMode && onAddToGroceryList && (
-          <TouchableOpacity
-            style={styles.groceryListButton}
-            onPress={toggleSelectionMode}
-          >
-            <Text style={styles.groceryListButtonText}>🛒 Add to List</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
@@ -914,6 +915,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   // Grocery list selection styles
+  addToGroceryListMainButton: {
+    backgroundColor: colors.success,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginHorizontal: 0,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  addToGroceryListMainButtonText: {
+    fontSize: 15,
+    color: colors.white,
+    fontWeight: '600',
+  },
   selectionControlsContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -959,18 +974,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.white,
     fontWeight: '600',
-  },
-  groceryListButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: colors.success,
-    marginLeft: 8,
-  },
-  groceryListButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.white,
   },
   ingredientRow: {
     flexDirection: 'row',
