@@ -290,17 +290,6 @@ export const HomeScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Global Undo Button */}
-      {showUndoButton && canUndo && (
-        <TouchableOpacity
-          style={styles.globalUndoButton}
-          onPress={performUndo}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
-        </TouchableOpacity>
-      )}
-
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>BunchesV6</Text>
@@ -703,6 +692,17 @@ export const HomeScreen = () => {
           </View>
         </Modal>
       )}
+
+      {/* Global Undo Button - Rendered last to appear on top of all modals */}
+      {showUndoButton && canUndo && (
+        <TouchableOpacity
+          style={styles.globalUndoButton}
+          onPress={performUndo}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };
@@ -1016,8 +1016,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
-    zIndex: 9999,
-    elevation: 10,
+    zIndex: 99999,
+    elevation: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

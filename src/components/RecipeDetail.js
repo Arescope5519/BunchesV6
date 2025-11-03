@@ -440,8 +440,8 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
         )}
       </View>
 
-      {/* Grocery List Add Button - Always visible when not in selection mode */}
-      {!selectionMode && onAddToGroceryList && (
+      {/* Grocery List Add Button - Hidden during edit/swap modes */}
+      {!selectionMode && !editingItem && !swapMode && onAddToGroceryList && (
         <TouchableOpacity
           style={styles.addToGroceryListMainButton}
           onPress={toggleSelectionMode}
@@ -569,13 +569,23 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                   {editingItem?.type === 'ingredient' &&
                    editingItem?.sectionKey === section &&
                    editingItem?.index === idx && !selectionMode ? (
-                    <TextInput
-                      style={styles.ingredientItemInput}
-                      value={editingItem.value}
-                      onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                      onBlur={saveEdit}
-                      multiline
-                    />
+                    <View style={styles.editInputContainer}>
+                      <TextInput
+                        style={styles.ingredientItemInput}
+                        value={editingItem.value}
+                        onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                        multiline
+                        autoFocus
+                      />
+                      <View style={styles.editButtons}>
+                        <TouchableOpacity onPress={saveEdit} style={styles.saveEditButton}>
+                          <Text style={styles.saveEditButtonText}>✓ Save</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.cancelEditButton}>
+                          <Text style={styles.cancelEditButtonText}>✕ Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   ) : (
                     <Text
                       style={[
@@ -649,13 +659,23 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
             <View style={styles.instructionStep}>
               <Text style={styles.stepNumber}>{idx + 1}</Text>
               {editingItem?.type === 'instruction' && editingItem?.index === idx ? (
-                <TextInput
-                  style={styles.stepTextInput}
-                  value={editingItem.value}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                  onBlur={saveEdit}
-                  multiline
-                />
+                <View style={styles.editInputContainer}>
+                  <TextInput
+                    style={styles.stepTextInput}
+                    value={editingItem.value}
+                    onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                    multiline
+                    autoFocus
+                  />
+                  <View style={styles.editButtons}>
+                    <TouchableOpacity onPress={saveEdit} style={styles.saveEditButton}>
+                      <Text style={styles.saveEditButtonText}>✓ Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.cancelEditButton}>
+                      <Text style={styles.cancelEditButtonText}>✕ Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ) : (
                 <Text
                   style={[
@@ -1067,6 +1087,40 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     paddingHorizontal: 5,
     borderRadius: 4,
+  },
+  editInputContainer: {
+    flex: 1,
+  },
+  editButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  saveEditButton: {
+    backgroundColor: colors.success,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: 'center',
+  },
+  saveEditButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelEditButton: {
+    backgroundColor: colors.textSecondary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: 'center',
+  },
+  cancelEditButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   swapModeNotice: {
     position: 'absolute',
