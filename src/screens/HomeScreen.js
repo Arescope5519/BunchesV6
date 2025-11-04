@@ -22,6 +22,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
+  Clipboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -256,49 +257,80 @@ export const HomeScreen = () => {
     );
   };
 
-  // Base64 encode helper
+  // Base64 encode helper (handles Unicode properly)
   const encodeBase64 = (str) => {
-    // Simple Base64 encoding for React Native
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+    // Convert Unicode string to UTF-8 bytes
+    const utf8Bytes = unescape(encodeURIComponent(str));
     let result = '';
     let i = 0;
 
-    while (i < str.length) {
-      const a = str.charCodeAt(i++);
-      const b = i < str.length ? str.charCodeAt(i++) : 0;
-      const c = i < str.length ? str.charCodeAt(i++) : 0;
+    while (i < utf8Bytes.length) {
+      const a = utf8Bytes.charCodeAt(i++);
+      const b = i < utf8Bytes.length ? utf8Bytes.charCodeAt(i++) : 0;
+      const c = i < utf8Bytes.length ? utf8Bytes.charCodeAt(i++) : 0;
 
       const bitmap = (a << 16) | (b << 8) | c;
 
       result += chars[(bitmap >> 18) & 63];
       result += chars[(bitmap >> 12) & 63];
-      result += i - 2 < str.length ? chars[(bitmap >> 6) & 63] : '=';
-      result += i - 1 < str.length ? chars[bitmap & 63] : '=';
+      result += (i - 2 < utf8Bytes.length) ? chars[(bitmap >> 6) & 63] : '=';
+      result += (i - 1 < utf8Bytes.length) ? chars[bitmap & 63] : '=';
     }
 
     return result;
   };
 
-  // Base64 decode helper
+  // Base64 decode helper (handles Unicode properly)
   const decodeBase64 = (str) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     str = str.replace(/=+$/, '');
     let result = '';
 
     for (let i = 0; i < str.length;) {
-      const a = chars.indexOf(str[i++]);
-      const b = chars.indexOf(str[i++]);
-      const c = chars.indexOf(str[i++]);
-      const d = chars.indexOf(str[i++]);
+      const a = chars.indexOf(str.charAt(i++));
+      const b = chars.indexOf(str.charAt(i++));
+      const c = i < str.length ? chars.indexOf(str.charAt(i++)) : -1;
+      const d = i < str.length ? chars.indexOf(str.charAt(i++)) : -1;
 
-      const bitmap = (a << 18) | (b << 12) | (c << 6) | d;
+      if (a === -1 || b === -1) break;
+
+      const bitmap = (a << 18) | (b << 12) | ((c & 63) << 6) | (d & 63);
 
       result += String.fromCharCode((bitmap >> 16) & 255);
       if (c !== -1) result += String.fromCharCode((bitmap >> 8) & 255);
       if (d !== -1) result += String.fromCharCode(bitmap & 255);
     }
 
-    return result;
+    // Convert UTF-8 bytes back to Unicode string
+    try {
+      return decodeURIComponent(escape(result));
+    } catch (e) {
+      return result;
+    }
+  };
+
+  // Copy to clipboard and show share dialog
+  const copyToClipboard = async (text, title) => {
+    try {
+      await Clipboard.setString(text);
+      Alert.alert(
+        '✅ Copied!',
+        `${title}\n\nThe code has been copied to your clipboard. You can now:\n\n1. Share it via any app\n2. Or paste it directly in Import (📥) to test`,
+        [
+          { text: 'OK' },
+          {
+            text: 'Share',
+            onPress: () => Share.share({ message: text, title })
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Clipboard error:', error);
+      // Fallback to share dialog
+      await Share.share({ message: text, title });
+    }
   };
 
   // Share recipe handler
@@ -315,14 +347,10 @@ export const HomeScreen = () => {
       };
 
       const jsonString = JSON.stringify(recipeData);
-      // Encode to Base64 for compact sharing
       const encoded = encodeBase64(jsonString);
       const shareCode = `BUNCHES_RECIPE:${encoded}`;
 
-      await Share.share({
-        message: `📖 Recipe: ${recipe.title}\n\nCopy the code below and paste it in the Import dialog (📥):\n\n${shareCode}`,
-        title: `Share Recipe: ${recipe.title}`,
-      });
+      await copyToClipboard(shareCode, `Recipe: ${recipe.title}`);
     } catch (error) {
       console.error('Error sharing recipe:', error);
       Alert.alert('Error', 'Failed to share recipe');
@@ -350,14 +378,10 @@ export const HomeScreen = () => {
       };
 
       const jsonString = JSON.stringify(cookbookData);
-      // Encode to Base64 for compact sharing
       const encoded = encodeBase64(jsonString);
       const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
 
-      await Share.share({
-        message: `📚 Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)\n\nCopy the code below and paste it in the Import dialog (📥):\n\n${shareCode}`,
-        title: `Share Cookbook: ${cookbookName}`,
-      });
+      await copyToClipboard(shareCode, `Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)`);
     } catch (error) {
       console.error('Error sharing cookbook:', error);
       Alert.alert('Error', 'Failed to share cookbook');
@@ -367,15 +391,34 @@ export const HomeScreen = () => {
   // Import recipe from code or JSON
   const importRecipe = async (inputText) => {
     try {
-      let jsonString = inputText.trim();
+      // Clean up input: trim and remove any extra whitespace/newlines
+      let cleanedInput = inputText.trim().replace(/\s+/g, ' ').replace(/\n/g, '');
+
+      console.log('Import input length:', cleanedInput.length);
+      console.log('Import input start:', cleanedInput.substring(0, 50));
+
+      let jsonString = cleanedInput;
 
       // Check if it's a BUNCHES code (Base64 encoded)
-      if (jsonString.startsWith('BUNCHES_RECIPE:') || jsonString.startsWith('BUNCHES_COOKBOOK:')) {
-        const encoded = jsonString.split(':')[1].trim();
-        // Decode from Base64
-        jsonString = decodeBase64(encoded);
+      if (cleanedInput.includes('BUNCHES_RECIPE:') || cleanedInput.includes('BUNCHES_COOKBOOK:')) {
+        // Extract just the code part (in case there's text before/after)
+        const recipeMatch = cleanedInput.match(/BUNCHES_RECIPE:([A-Za-z0-9+/=]+)/);
+        const cookbookMatch = cleanedInput.match(/BUNCHES_COOKBOOK:([A-Za-z0-9+/=]+)/);
+
+        if (recipeMatch) {
+          const encoded = recipeMatch[1];
+          console.log('Decoding recipe, length:', encoded.length);
+          jsonString = decodeBase64(encoded);
+        } else if (cookbookMatch) {
+          const encoded = cookbookMatch[1];
+          console.log('Decoding cookbook, length:', encoded.length);
+          jsonString = decodeBase64(encoded);
+        } else {
+          throw new Error('Could not find valid BUNCHES code');
+        }
       }
 
+      console.log('Parsed JSON start:', jsonString.substring(0, 100));
       const parsed = JSON.parse(jsonString);
 
       if (parsed.version !== '1.0') {
@@ -417,7 +460,7 @@ export const HomeScreen = () => {
       console.error('Error importing:', error);
       Alert.alert(
         '❌ Import Error',
-        'Failed to import. Please make sure you copied the entire BUNCHES code.\n\nThe code should start with:\nBUNCHES_RECIPE: or BUNCHES_COOKBOOK:'
+        `Failed to import: ${error.message}\n\nMake sure you copied the entire code starting with BUNCHES_RECIPE: or BUNCHES_COOKBOOK:`
       );
     }
   };
@@ -1086,14 +1129,11 @@ export const HomeScreen = () => {
           <View style={styles.importModal}>
             <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
             <Text style={styles.importInstructions}>
-              Paste the BUNCHES code below:
-            </Text>
-            <Text style={styles.importExample}>
-              Example: BUNCHES_RECIPE:eyJ2ZXJ...
+              Paste code below (it's OK if there's text before/after):
             </Text>
             <TextInput
               style={styles.importInput}
-              placeholder="Paste BUNCHES code here..."
+              placeholder="Paste code here... (BUNCHES_RECIPE:... or BUNCHES_COOKBOOK:...)"
               value={importText}
               onChangeText={setImportText}
               multiline
@@ -1563,14 +1603,8 @@ const styles = StyleSheet.create({
   importInstructions: {
     fontSize: 14,
     color: colors.text,
-    marginBottom: 6,
-    fontWeight: '600',
-  },
-  importExample: {
-    fontSize: 12,
-    color: colors.textSecondary,
     marginBottom: 12,
-    fontStyle: 'italic',
+    fontWeight: '600',
   },
   importInput: {
     borderWidth: 1,
