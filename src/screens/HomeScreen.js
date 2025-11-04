@@ -743,7 +743,6 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
-    gap: 8,
   },
   groceryListHeaderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -770,7 +769,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     padding: 15,
-    gap: 10,
   },
   input: {
     flex: 1,
@@ -888,7 +886,6 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 8,
   },
   iconButton: {
     padding: 8,
@@ -929,7 +926,6 @@ const styles = StyleSheet.create({
   folderManagerItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
   folderManagerIcon: {
     fontSize: 18,
@@ -989,7 +985,6 @@ const styles = StyleSheet.create({
   },
   addFolderButtons: {
     flexDirection: 'row',
-    gap: 10,
   },
   addFolderButton: {
     flex: 1,

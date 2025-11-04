@@ -757,7 +757,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 20,
-    gap: 15,
   },
   metaText: {
     fontSize: 14,
@@ -813,7 +812,6 @@ const styles = StyleSheet.create({
   scaleControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   controlLabel: {
     fontSize: 14,
@@ -923,7 +921,6 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 10,
     marginTop: 8,
     marginBottom: 8,
     marginLeft: 5,
@@ -940,7 +937,6 @@ const styles = StyleSheet.create({
   },
   addBelowContainer: {
     flexDirection: 'row',
-    gap: 8,
     marginTop: 8,
     marginBottom: 8,
     marginLeft: 5,
@@ -1009,7 +1005,6 @@ const styles = StyleSheet.create({
   },
   selectionControlsContainer: {
     flexDirection: 'row',
-    gap: 8,
     padding: 10,
     backgroundColor: colors.primaryLight,
     borderRadius: 8,
@@ -1093,7 +1088,6 @@ const styles = StyleSheet.create({
   },
   editButtons: {
     flexDirection: 'row',
-    gap: 8,
     marginTop: 8,
   },
   saveEditButton: {

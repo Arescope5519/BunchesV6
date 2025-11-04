@@ -272,7 +272,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: 8,
   },
   toggleButton: {
     flex: 1,
