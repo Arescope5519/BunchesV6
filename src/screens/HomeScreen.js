@@ -564,6 +564,17 @@ export const HomeScreen = () => {
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>
+
+            {/* Undo Button inside Modal */}
+            {showUndoButton && canUndo && (
+              <TouchableOpacity
+                style={styles.globalUndoButton}
+                onPress={performUndo}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
+              </TouchableOpacity>
+            )}
           </KeyboardAvoidingView>
         </Modal>
       )}
@@ -577,6 +588,10 @@ export const HomeScreen = () => {
         onRemoveItem={handleRemoveGroceryItem}
         onClearChecked={handleClearCheckedItems}
         onClearAll={handleClearAllItems}
+        showUndoButton={showUndoButton}
+        canUndo={canUndo}
+        lastActionDescription={lastActionDescription}
+        performUndo={performUndo}
       />
 
       {/* Add Folder Modal */}
@@ -693,8 +708,8 @@ export const HomeScreen = () => {
         </Modal>
       )}
 
-      {/* Global Undo Button - Rendered last to appear on top of all modals */}
-      {showUndoButton && canUndo && (
+      {/* Global Undo Button - Only show when no modals are open */}
+      {showUndoButton && canUndo && !selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && (
         <TouchableOpacity
           style={styles.globalUndoButton}
           onPress={performUndo}

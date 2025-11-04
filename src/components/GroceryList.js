@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { colors } from '../constants/colors';
 
-export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll }) => {
+export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, showUndoButton, canUndo, lastActionDescription, performUndo }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
 
   // Group items by recipe
@@ -219,6 +219,17 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
         <ScrollView style={styles.content}>
           {groupBy === 'flat' ? renderFlatList() : renderGroupedList()}
         </ScrollView>
+
+        {/* Undo Button inside Modal */}
+        {showUndoButton && canUndo && (
+          <TouchableOpacity
+            style={styles.globalUndoButton}
+            onPress={performUndo}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </Modal>
   );
@@ -416,6 +427,28 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: colors.textTertiary,
+    textAlign: 'center',
+  },
+  globalUndoButton: {
+    position: 'absolute',
+    top: 60,
+    left: 15,
+    right: 15,
+    backgroundColor: '#FF9800',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    zIndex: 99999,
+    elevation: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  globalUndoText: {
+    fontSize: 15,
+    color: '#fff',
+    fontWeight: '600',
     textAlign: 'center',
   },
 });
