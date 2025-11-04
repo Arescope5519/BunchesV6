@@ -429,7 +429,28 @@ export const HomeScreen = () => {
           try {
             jsonString = decodeBase64(encoded);
             console.log('Decoded length:', jsonString.length);
-            console.log('Decoded start:', jsonString.substring(0, 100));
+            console.log('Decoded start:', jsonString.substring(0, 200));
+
+            // Show debug alert
+            Alert.alert(
+              '🔍 Debug Info',
+              `Decoded ${jsonString.length} chars\n\nFirst 100 chars:\n${jsonString.substring(0, 100)}\n\nDoes this look like valid JSON?`,
+              [
+                { text: 'No - Show More', onPress: () => {
+                  Alert.alert('Full Decode', jsonString.substring(0, 500));
+                }},
+                { text: 'Yes - Try Parse', onPress: async () => {
+                  try {
+                    const parsed = JSON.parse(jsonString);
+                    Alert.alert('Success!', 'JSON parsed correctly. Importing...');
+                    await processImport(parsed, currentFolder, saveRecipe);
+                  } catch (e) {
+                    Alert.alert('Parse Failed', e.message);
+                  }
+                }}
+              ]
+            );
+            return; // Exit to show debug
           } catch (decodeError) {
             console.error('Decode error:', decodeError);
             throw new Error('Failed to decode recipe data: ' + decodeError.message);
@@ -442,6 +463,24 @@ export const HomeScreen = () => {
           try {
             jsonString = decodeBase64(encoded);
             console.log('Decoded length:', jsonString.length);
+
+            // Show debug alert
+            Alert.alert(
+              '🔍 Debug Info',
+              `Decoded ${jsonString.length} chars\n\nFirst 100:\n${jsonString.substring(0, 100)}`,
+              [
+                { text: 'Cancel' },
+                { text: 'Try Parse', onPress: async () => {
+                  try {
+                    const parsed = JSON.parse(jsonString);
+                    await processImport(parsed, currentFolder, saveRecipe);
+                  } catch (e) {
+                    Alert.alert('Parse Failed', e.message);
+                  }
+                }}
+              ]
+            );
+            return; // Exit to show debug
           } catch (decodeError) {
             console.error('Decode error:', decodeError);
             throw new Error('Failed to decode cookbook data: ' + decodeError.message);
@@ -454,55 +493,53 @@ export const HomeScreen = () => {
       console.log('Attempting JSON parse...');
       const parsed = JSON.parse(jsonString);
       console.log('JSON parsed successfully!');
-      console.log('Type:', parsed.type);
 
-      if (parsed.version !== '1.0') {
-        throw new Error('Unsupported format version: ' + parsed.version);
-      }
-
-      if (parsed.type === 'recipe') {
-        // Import single recipe
-        const recipeData = parsed.data;
-        const newRecipe = {
-          ...recipeData,
-          id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          folder: currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder,
-        };
-
-        await saveRecipe(newRecipe);
-        console.log('Recipe imported successfully!');
-        Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported!`);
-      } else if (parsed.type === 'cookbook') {
-        // Import entire cookbook
-        const recipes = parsed.data;
-        let imported = 0;
-
-        for (const recipeData of recipes) {
-          const newRecipe = {
-            ...recipeData,
-            id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          };
-          await saveRecipe(newRecipe);
-          imported++;
-          // Add small delay to ensure unique IDs
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
-
-        console.log(`Cookbook imported: ${imported} recipes`);
-        Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
-      } else {
-        throw new Error('Unknown import type: ' + parsed.type);
-      }
+      await processImport(parsed, currentFolder, saveRecipe);
     } catch (error) {
       console.error('=== IMPORT ERROR ===');
       console.error('Error:', error);
       console.error('Message:', error.message);
-      console.error('Stack:', error.stack);
 
       Alert.alert(
         '❌ Import Error',
         `Failed to import: ${error.message}\n\nPlease copy the ENTIRE code starting with BUNCHES_RECIPE: or BUNCHES_COOKBOOK:`
       );
+    }
+  };
+
+  // Helper to process parsed import data
+  const processImport = async (parsed, currentFolder, saveRecipe) => {
+    if (parsed.version !== '1.0') {
+      throw new Error('Unsupported format version: ' + parsed.version);
+    }
+
+    if (parsed.type === 'recipe') {
+      const recipeData = parsed.data;
+      const newRecipe = {
+        ...recipeData,
+        id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        folder: currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder,
+      };
+
+      await saveRecipe(newRecipe);
+      Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported!`);
+    } else if (parsed.type === 'cookbook') {
+      const recipes = parsed.data;
+      let imported = 0;
+
+      for (const recipeData of recipes) {
+        const newRecipe = {
+          ...recipeData,
+          id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        };
+        await saveRecipe(newRecipe);
+        imported++;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
+    } else {
+      throw new Error('Unknown import type: ' + parsed.type);
     }
   };
 
