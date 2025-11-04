@@ -1,48 +1,48 @@
 /**
  * FILENAME: src/constants/colors.js
- * PURPOSE: Centralized color definitions
- * CHANGES: Added highlightYellow for editing mode
+ * PURPOSE: Centralized color definitions - Honey Gold Theme
+ * CHANGES: Changed to honey gold and black color scheme
  * USED BY: All components and screens
  */
 
 export const colors = {
-  // Primary
-  primary: '#007AFF',
-  primaryDark: '#0066CC',
-  primaryLight: '#E6F2FF',
+  // Primary - Honey Gold
+  primary: '#DAA520',
+  primaryDark: '#B8860B',
+  primaryLight: '#FFF8DC',
 
-  // Background
-  background: '#f5f5f5',
+  // Background - Warm tones
+  background: '#FFF9F0',
   white: '#fff',
 
-  // Text
-  text: '#333',
-  textSecondary: '#666',
-  textTertiary: '#999',
-  textLight: '#bbb',
+  // Text - Black for readability
+  text: '#1a1a1a',
+  textSecondary: '#4a4a4a',
+  textTertiary: '#6a6a6a',
+  textLight: '#8a8a8a',
 
-  // Borders
-  border: '#ddd',
-  borderLight: '#eee',
-  borderVeryLight: '#f0f0f0',
+  // Borders - Gold tints
+  border: '#E8D4A0',
+  borderLight: '#F5E6C8',
+  borderVeryLight: '#FAF0DC',
 
   // Status
-  success: '#34C759',
-  warning: '#FF9500',
-  error: '#ff3b30',
-  destructive: '#ff3b30',
+  success: '#228B22',
+  warning: '#FF8C00',
+  error: '#B22222',
+  destructive: '#B22222',
 
   // Special
   favorite: '#FFD700',
   shadow: '#000',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  highlightYellow: '#FFF9C4', // For swap mode highlighting
+  overlay: 'rgba(26, 26, 26, 0.6)',
+  highlightYellow: '#FFE4B5',
 
   // Accent
-  purple: '#5856D6',
-  lightBlue: '#f0f8ff',
-  lightGray: '#f9f9f9',
-  darkGray: '#fafafa',
+  purple: '#4B3F72',
+  lightBlue: '#F0E68C',
+  lightGray: '#FFF5E6',
+  darkGray: '#FFF8F0',
 };
 
 export default colors;
