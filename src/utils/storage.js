@@ -61,12 +61,17 @@ export const loadFolders = async () => {
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEYS.FOLDERS);
     if (stored) {
-      return JSON.parse(stored);
+      const folders = JSON.parse(stored);
+      // Ensure "Recently Deleted" is always included
+      if (!folders.includes('Recently Deleted')) {
+        folders.push('Recently Deleted');
+      }
+      return folders;
     }
-    return ['All Recipes', 'Favorites']; // Default folders
+    return ['All Recipes', 'Favorites', 'Recently Deleted']; // Default folders
   } catch (error) {
     console.error('Failed to load folders:', error);
-    return ['All Recipes', 'Favorites'];
+    return ['All Recipes', 'Favorites', 'Recently Deleted'];
   }
 };
 

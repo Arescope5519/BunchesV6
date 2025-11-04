@@ -64,6 +64,9 @@ export const HomeScreen = () => {
     saveRecipe,
     updateRecipe,
     deleteRecipe,
+    restoreRecipe,
+    permanentlyDeleteRecipe,
+    emptyRecentlyDeleted,
     toggleFavorite,
     moveToFolder: moveRecipeToFolder,
     getFilteredRecipes,
@@ -496,43 +499,59 @@ export const HomeScreen = () => {
               <Text style={styles.modalCloseButton}>✕ Close</Text>
             </TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>Cookbooks</Text>
-            <TouchableOpacity onPress={() => setShowAddFolder(true)}>
-              <Text style={styles.addFolderHeaderButton}>+ New</Text>
-            </TouchableOpacity>
+            {currentFolder === 'Recently Deleted' ? (
+              <TouchableOpacity onPress={emptyRecentlyDeleted}>
+                <Text style={styles.addFolderHeaderButton}>Empty</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setShowAddFolder(true)}>
+                <Text style={styles.addFolderHeaderButton}>+ New</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <ScrollView style={styles.modalContent}>
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
-              {folders.filter(f => f === 'All Recipes' || f === 'Favorites').map((folder) => (
-                <TouchableOpacity
-                  key={folder}
-                  style={[
-                    styles.folderManagerItem,
-                    currentFolder === folder && styles.folderManagerItemActive
-                  ]}
-                  onPress={() => {
-                    setCurrentFolder(folder);
-                    setShowFolderManager(false);
-                  }}
-                >
-                  <View style={styles.folderManagerItemLeft}>
-                    <Text style={styles.folderManagerIcon}>
-                      {folder === 'Favorites' ? '⭐' : '📚'}
-                    </Text>
-                    <Text style={[
-                      styles.folderManagerItemText,
-                      currentFolder === folder && styles.folderManagerItemTextActive
-                    ]}>
-                      {folder}
-                    </Text>
-                  </View>
-                  <Text style={styles.folderManagerCount}>
-                    {folder === 'Favorites'
-                      ? recipes.filter(r => r.isFavorite).length
-                      : recipes.length}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {folders.filter(f => f === 'All Recipes' || f === 'Favorites' || f === 'Recently Deleted').map((folder) => {
+                let icon = '📚';
+                let count = recipes.length;
+
+                if (folder === 'Favorites') {
+                  icon = '⭐';
+                  count = recipes.filter(r => r.isFavorite && !r.deletedAt).length;
+                } else if (folder === 'Recently Deleted') {
+                  icon = '🗑️';
+                  count = recipes.filter(r => r.deletedAt).length;
+                } else {
+                  // All Recipes
+                  count = recipes.filter(r => !r.deletedAt).length;
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={folder}
+                    style={[
+                      styles.folderManagerItem,
+                      currentFolder === folder && styles.folderManagerItemActive
+                    ]}
+                    onPress={() => {
+                      setCurrentFolder(folder);
+                      setShowFolderManager(false);
+                    }}
+                  >
+                    <View style={styles.folderManagerItemLeft}>
+                      <Text style={styles.folderManagerIcon}>{icon}</Text>
+                      <Text style={[
+                        styles.folderManagerItemText,
+                        currentFolder === folder && styles.folderManagerItemTextActive
+                      ]}>
+                        {folder}
+                      </Text>
+                    </View>
+                    <Text style={styles.folderManagerCount}>{count}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View style={styles.folderSection}>
@@ -614,54 +633,90 @@ export const HomeScreen = () => {
               <TouchableOpacity onPress={() => setSelectedRecipe(null)}>
                 <Text style={styles.modalCloseButton}>✕ Close</Text>
               </TouchableOpacity>
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  onPress={() => toggleFavorite(selectedRecipe.id)}
-                  style={styles.iconButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={styles.iconButtonText}>
-                    {selectedRecipe.isFavorite ? '⭐' : '☆'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    const customFolders = getCustomFolders();
-                    if (customFolders.length === 0) {
-                      Alert.alert('No Cookbooks', 'Create a custom cookbook first!', [
-                        { text: 'OK' },
-                        {
-                          text: 'Create Cookbook',
-                          onPress: () => {
-                            setSelectedRecipe(null);
-                            setShowFolderManager(true);
-                            setTimeout(() => setShowAddFolder(true), 300);
+              {selectedRecipe.deletedAt ? (
+                // Actions for deleted recipes
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await restoreRecipe(selectedRecipe.id);
+                      setSelectedRecipe(null);
+                    }}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>♻️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await permanentlyDeleteRecipe(selectedRecipe.id);
+                    }}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>⚠️</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                // Normal actions for active recipes
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    onPress={() => toggleFavorite(selectedRecipe.id)}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>
+                      {selectedRecipe.isFavorite ? '⭐' : '☆'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const customFolders = getCustomFolders();
+                      if (customFolders.length === 0) {
+                        Alert.alert('No Cookbooks', 'Create a custom cookbook first!', [
+                          { text: 'OK' },
+                          {
+                            text: 'Create Cookbook',
+                            onPress: () => {
+                              setSelectedRecipe(null);
+                              setShowFolderManager(true);
+                              setTimeout(() => setShowAddFolder(true), 300);
+                            }
                           }
-                        }
-                      ]);
-                    } else {
-                      setShowMoveToFolder(true);
-                    }
-                  }}
-                  style={styles.iconButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={styles.iconButtonText}>📖</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => deleteRecipe(selectedRecipe.id)}
-                  style={styles.iconButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={styles.iconButtonText}>🗑️</Text>
-                </TouchableOpacity>
-              </View>
+                        ]);
+                      } else {
+                        setShowMoveToFolder(true);
+                      }
+                    }}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>📖</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => deleteRecipe(selectedRecipe.id)}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             <ScrollView style={styles.modalContent}>
+              {selectedRecipe.deletedAt && (
+                <View style={styles.deletedBanner}>
+                  <Text style={styles.deletedBannerText}>
+                    🗑️ Deleted on {new Date(selectedRecipe.deletedAt).toLocaleDateString()}
+                  </Text>
+                  <Text style={styles.deletedBannerSubtext}>
+                    Tap ♻️ to restore or ⚠️ to delete permanently
+                  </Text>
+                </View>
+              )}
               <RecipeDetail
                 recipe={selectedRecipe}
-                onUpdate={updateRecipe}
-                onAddToGroceryList={handleAddToGroceryList}
+                onUpdate={selectedRecipe.deletedAt ? null : updateRecipe}
+                onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 addUndoAction={addUndoAction}
               />
               <View style={styles.bottomSpacer} />
@@ -1205,6 +1260,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.white,
     fontWeight: '700',
+  },
+  deletedBanner: {
+    backgroundColor: colors.error,
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  deletedBannerText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  deletedBannerSubtext: {
+    color: colors.white,
+    fontSize: 13,
+    opacity: 0.9,
   },
 });
 

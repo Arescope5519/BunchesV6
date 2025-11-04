@@ -69,29 +69,109 @@ export const useRecipes = () => {
   };
 
   /**
-   * Delete recipe
+   * Delete recipe (soft delete - moves to Recently Deleted)
    */
   const deleteRecipe = async (recipeId) => {
-    return new Promise((resolve) => {
-      Alert.alert('Delete Recipe?', 'This cannot be undone.', [
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const updated = recipes.filter(r => r.id !== recipeId);
-            const success = await saveRecipesToStorage(updated);
+    const updatedRecipes = recipes.map(r =>
+      r.id === recipeId ? { ...r, deletedAt: Date.now() } : r
+    );
+    const success = await saveRecipesToStorage(updatedRecipes);
 
-            if (success) {
-              setRecipes(updated);
-              setSelectedRecipe(null);
-              resolve(true);
-            } else {
-              resolve(false);
+    if (success) {
+      setRecipes(updatedRecipes);
+      setSelectedRecipe(null);
+      return true;
+    }
+    return false;
+  };
+
+  /**
+   * Restore deleted recipe
+   */
+  const restoreRecipe = async (recipeId) => {
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        const { deletedAt, ...restored } = r;
+        return restored;
+      }
+      return r;
+    });
+    const success = await saveRecipesToStorage(updatedRecipes);
+
+    if (success) {
+      setRecipes(updatedRecipes);
+      Alert.alert('Restored', 'Recipe restored successfully');
+      return true;
+    }
+    return false;
+  };
+
+  /**
+   * Permanently delete recipe
+   */
+  const permanentlyDeleteRecipe = async (recipeId) => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Permanently Delete?',
+        'This will permanently delete the recipe. This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          {
+            text: 'Delete Forever',
+            style: 'destructive',
+            onPress: async () => {
+              const updated = recipes.filter(r => r.id !== recipeId);
+              const success = await saveRecipesToStorage(updated);
+
+              if (success) {
+                setRecipes(updated);
+                setSelectedRecipe(null);
+                resolve(true);
+              } else {
+                resolve(false);
+              }
             }
           }
-        }
-      ]);
+        ]
+      );
+    });
+  };
+
+  /**
+   * Empty Recently Deleted (permanently delete all deleted recipes)
+   */
+  const emptyRecentlyDeleted = async () => {
+    return new Promise((resolve) => {
+      const deletedCount = recipes.filter(r => r.deletedAt).length;
+      if (deletedCount === 0) {
+        Alert.alert('Empty', 'Recently Deleted is already empty');
+        resolve(false);
+        return;
+      }
+
+      Alert.alert(
+        'Empty Recently Deleted?',
+        `This will permanently delete ${deletedCount} recipe${deletedCount > 1 ? 's' : ''}. This cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          {
+            text: 'Empty',
+            style: 'destructive',
+            onPress: async () => {
+              const updated = recipes.filter(r => !r.deletedAt);
+              const success = await saveRecipesToStorage(updated);
+
+              if (success) {
+                setRecipes(updated);
+                Alert.alert('Emptied', 'Recently Deleted has been emptied');
+                resolve(true);
+              } else {
+                resolve(false);
+              }
+            }
+          }
+        ]
+      );
     });
   };
 
@@ -138,15 +218,22 @@ export const useRecipes = () => {
   };
 
   /**
-   * Get filtered recipes by folder
+   * Get filtered recipes by folder (excludes deleted recipes except in Recently Deleted)
    */
   const getFilteredRecipes = (currentFolder) => {
+    if (currentFolder === 'Recently Deleted') {
+      return recipes.filter(r => r.deletedAt);
+    }
+
+    // For all other folders, exclude deleted recipes
+    const activeRecipes = recipes.filter(r => !r.deletedAt);
+
     if (currentFolder === 'All Recipes') {
-      return recipes;
+      return activeRecipes;
     } else if (currentFolder === 'Favorites') {
-      return recipes.filter(r => r.isFavorite);
+      return activeRecipes.filter(r => r.isFavorite);
     } else {
-      return recipes.filter(r => r.folder === currentFolder);
+      return activeRecipes.filter(r => r.folder === currentFolder);
     }
   };
 
@@ -163,6 +250,9 @@ export const useRecipes = () => {
     saveRecipe,
     updateRecipe,
     deleteRecipe,
+    restoreRecipe,
+    permanentlyDeleteRecipe,
+    emptyRecentlyDeleted,
     toggleFavorite,
     moveToFolder,
     getFilteredRecipes,

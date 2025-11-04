@@ -83,7 +83,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       description: description,
       undo: () => {
         setLocalRecipe(snapshot);
-        onUpdate(snapshot);
+        if (onUpdate) onUpdate(snapshot);
       }
     });
   };
@@ -131,7 +131,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     }
 
     setLocalRecipe(updated);
-    onUpdate(updated);
+    if (onUpdate) onUpdate(updated);
     setEditingItem(null);
   };
 
@@ -194,7 +194,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
             console.log('Updating recipe after delete');
             setLocalRecipe(updated);
-            onUpdate(updated);
+            if (onUpdate) onUpdate(updated);
             setEditingItem(null);
           }
         }
@@ -255,7 +255,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     }
 
     setLocalRecipe(updated);
-    onUpdate(updated);
+    if (onUpdate) onUpdate(updated);
     setSwapMode(null);
   };
 
@@ -297,7 +297,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     }
 
     setLocalRecipe(updated);
-    onUpdate(updated);
+    if (onUpdate) onUpdate(updated);
     setAddingBelow(null);
     setNewItemValue('');
   };
@@ -335,7 +335,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                 }
               };
               setLocalRecipe(updated);
-              onUpdate(updated);
+              if (onUpdate) onUpdate(updated);
             }
           }
         }

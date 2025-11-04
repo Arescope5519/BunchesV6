@@ -9,7 +9,7 @@ import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
 
 export const useFolders = () => {
-  const [folders, setFolders] = useState(['All Recipes', 'Favorites']);
+  const [folders, setFolders] = useState(['All Recipes', 'Favorites', 'Recently Deleted']);
   const [currentFolder, setCurrentFolder] = useState('All Recipes');
 
   /**
@@ -107,7 +107,7 @@ export const useFolders = () => {
    * Get custom folders (excluding default ones)
    */
   const getCustomFolders = () => {
-    return folders.filter(f => f !== 'All Recipes' && f !== 'Favorites');
+    return folders.filter(f => f !== 'All Recipes' && f !== 'Favorites' && f !== 'Recently Deleted');
   };
 
   // Load folders on mount
