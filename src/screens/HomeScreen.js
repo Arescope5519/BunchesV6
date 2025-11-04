@@ -37,6 +37,7 @@ import { useGlobalUndo } from '../hooks/useGlobalUndo';
 // Components
 import RecipeDetail from '../components/RecipeDetail';
 import { GroceryList } from '../components/GroceryList';
+import { IngredientSearch } from '../components/IngredientSearch';
 
 // Constants
 import colors from '../constants/colors';
@@ -54,6 +55,7 @@ export const HomeScreen = () => {
   const [showRenameFolder, setShowRenameFolder] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
+  const [showIngredientSearch, setShowIngredientSearch] = useState(false);
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -543,6 +545,10 @@ export const HomeScreen = () => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       // Priority order for back button
+      if (showIngredientSearch) {
+        setShowIngredientSearch(false);
+        return true;
+      }
       if (showImport) {
         setShowImport(false);
         setImportText('');
@@ -577,7 +583,7 @@ export const HomeScreen = () => {
     });
 
     return () => backHandler.remove();
-  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList, showImport]);
+  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList, showImport, showIngredientSearch]);
 
   const filteredRecipes = getFilteredRecipes(currentFolder);
 
@@ -591,6 +597,12 @@ export const HomeScreen = () => {
           <Text style={styles.headerTitle}>BunchesV6</Text>
         </TouchableOpacity>
         <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={() => setShowIngredientSearch(true)}
+            style={styles.searchHeaderButton}
+          >
+            <Text style={styles.searchHeaderButtonText}>🔍</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowImport(true)}
             style={styles.importHeaderButton}
@@ -1025,6 +1037,14 @@ export const HomeScreen = () => {
         </Modal>
       )}
 
+      {/* Ingredient Search Modal */}
+      <IngredientSearch
+        visible={showIngredientSearch}
+        onClose={() => setShowIngredientSearch(false)}
+        recipes={recipes}
+        onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
+      />
+
       {/* Grocery List Modal */}
       <GroceryList
         visible={showGroceryList}
@@ -1241,6 +1261,17 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
+  },
+  searchHeaderButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  searchHeaderButtonText: {
+    color: '#fff',
+    fontSize: 16,
   },
   importHeaderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
