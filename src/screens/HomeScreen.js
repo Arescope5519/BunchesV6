@@ -262,51 +262,65 @@ export const HomeScreen = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
     // Convert Unicode string to UTF-8 bytes
-    const utf8Bytes = unescape(encodeURIComponent(str));
+    const utf8 = unescape(encodeURIComponent(str));
     let result = '';
-    let i = 0;
 
-    while (i < utf8Bytes.length) {
-      const a = utf8Bytes.charCodeAt(i++);
-      const b = i < utf8Bytes.length ? utf8Bytes.charCodeAt(i++) : 0;
-      const c = i < utf8Bytes.length ? utf8Bytes.charCodeAt(i++) : 0;
+    for (let i = 0; i < utf8.length; i += 3) {
+      const byte1 = utf8.charCodeAt(i);
+      const byte2 = i + 1 < utf8.length ? utf8.charCodeAt(i + 1) : 0;
+      const byte3 = i + 2 < utf8.length ? utf8.charCodeAt(i + 2) : 0;
 
-      const bitmap = (a << 16) | (b << 8) | c;
+      const encoded1 = byte1 >> 2;
+      const encoded2 = ((byte1 & 0x03) << 4) | (byte2 >> 4);
+      const encoded3 = ((byte2 & 0x0f) << 2) | (byte3 >> 6);
+      const encoded4 = byte3 & 0x3f;
 
-      result += chars[(bitmap >> 18) & 63];
-      result += chars[(bitmap >> 12) & 63];
-      result += (i - 2 < utf8Bytes.length) ? chars[(bitmap >> 6) & 63] : '=';
-      result += (i - 1 < utf8Bytes.length) ? chars[bitmap & 63] : '=';
+      result += chars[encoded1];
+      result += chars[encoded2];
+      result += i + 1 < utf8.length ? chars[encoded3] : '=';
+      result += i + 2 < utf8.length ? chars[encoded4] : '=';
     }
 
     return result;
   };
 
   // Base64 decode helper (handles Unicode properly)
-  const decodeBase64 = (str) => {
+  const decodeBase64 = (encoded) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    str = str.replace(/=+$/, '');
+
+    // Remove any whitespace and padding
+    encoded = encoded.replace(/[\s=]+$/, '');
     let result = '';
 
-    for (let i = 0; i < str.length;) {
-      const a = chars.indexOf(str.charAt(i++));
-      const b = chars.indexOf(str.charAt(i++));
-      const c = i < str.length ? chars.indexOf(str.charAt(i++)) : -1;
-      const d = i < str.length ? chars.indexOf(str.charAt(i++)) : -1;
+    for (let i = 0; i < encoded.length; i += 4) {
+      const enc1 = chars.indexOf(encoded[i]);
+      const enc2 = chars.indexOf(encoded[i + 1]);
+      const enc3 = i + 2 < encoded.length ? chars.indexOf(encoded[i + 2]) : -1;
+      const enc4 = i + 3 < encoded.length ? chars.indexOf(encoded[i + 3]) : -1;
 
-      if (a === -1 || b === -1) break;
+      if (enc1 === -1 || enc2 === -1) {
+        throw new Error('Invalid Base64 character');
+      }
 
-      const bitmap = (a << 18) | (b << 12) | ((c & 63) << 6) | (d & 63);
+      const byte1 = (enc1 << 2) | (enc2 >> 4);
+      result += String.fromCharCode(byte1);
 
-      result += String.fromCharCode((bitmap >> 16) & 255);
-      if (c !== -1) result += String.fromCharCode((bitmap >> 8) & 255);
-      if (d !== -1) result += String.fromCharCode(bitmap & 255);
+      if (enc3 !== -1) {
+        const byte2 = ((enc2 & 0x0f) << 4) | (enc3 >> 2);
+        result += String.fromCharCode(byte2);
+      }
+
+      if (enc4 !== -1) {
+        const byte3 = ((enc3 & 0x03) << 6) | enc4;
+        result += String.fromCharCode(byte3);
+      }
     }
 
     // Convert UTF-8 bytes back to Unicode string
     try {
       return decodeURIComponent(escape(result));
     } catch (e) {
+      console.error('UTF-8 decode error:', e);
       return result;
     }
   };
@@ -391,11 +405,12 @@ export const HomeScreen = () => {
   // Import recipe from code or JSON
   const importRecipe = async (inputText) => {
     try {
-      // Clean up input: trim and remove any extra whitespace/newlines
-      let cleanedInput = inputText.trim().replace(/\s+/g, ' ').replace(/\n/g, '');
+      // Clean up input
+      let cleanedInput = inputText.trim();
 
-      console.log('Import input length:', cleanedInput.length);
-      console.log('Import input start:', cleanedInput.substring(0, 50));
+      console.log('=== IMPORT DEBUG ===');
+      console.log('Input length:', cleanedInput.length);
+      console.log('Input start:', cleanedInput.substring(0, 100));
 
       let jsonString = cleanedInput;
 
@@ -407,22 +422,42 @@ export const HomeScreen = () => {
 
         if (recipeMatch) {
           const encoded = recipeMatch[1];
-          console.log('Decoding recipe, length:', encoded.length);
-          jsonString = decodeBase64(encoded);
+          console.log('Found BUNCHES_RECIPE');
+          console.log('Encoded length:', encoded.length);
+          console.log('Encoded start:', encoded.substring(0, 50));
+
+          try {
+            jsonString = decodeBase64(encoded);
+            console.log('Decoded length:', jsonString.length);
+            console.log('Decoded start:', jsonString.substring(0, 100));
+          } catch (decodeError) {
+            console.error('Decode error:', decodeError);
+            throw new Error('Failed to decode recipe data: ' + decodeError.message);
+          }
         } else if (cookbookMatch) {
           const encoded = cookbookMatch[1];
-          console.log('Decoding cookbook, length:', encoded.length);
-          jsonString = decodeBase64(encoded);
+          console.log('Found BUNCHES_COOKBOOK');
+          console.log('Encoded length:', encoded.length);
+
+          try {
+            jsonString = decodeBase64(encoded);
+            console.log('Decoded length:', jsonString.length);
+          } catch (decodeError) {
+            console.error('Decode error:', decodeError);
+            throw new Error('Failed to decode cookbook data: ' + decodeError.message);
+          }
         } else {
-          throw new Error('Could not find valid BUNCHES code');
+          throw new Error('Could not find valid BUNCHES code in the text');
         }
       }
 
-      console.log('Parsed JSON start:', jsonString.substring(0, 100));
+      console.log('Attempting JSON parse...');
       const parsed = JSON.parse(jsonString);
+      console.log('JSON parsed successfully!');
+      console.log('Type:', parsed.type);
 
       if (parsed.version !== '1.0') {
-        throw new Error('Unsupported format version');
+        throw new Error('Unsupported format version: ' + parsed.version);
       }
 
       if (parsed.type === 'recipe') {
@@ -435,6 +470,7 @@ export const HomeScreen = () => {
         };
 
         await saveRecipe(newRecipe);
+        console.log('Recipe imported successfully!');
         Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported!`);
       } else if (parsed.type === 'cookbook') {
         // Import entire cookbook
@@ -452,15 +488,20 @@ export const HomeScreen = () => {
           await new Promise(resolve => setTimeout(resolve, 10));
         }
 
+        console.log(`Cookbook imported: ${imported} recipes`);
         Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
       } else {
-        throw new Error('Unknown import type');
+        throw new Error('Unknown import type: ' + parsed.type);
       }
     } catch (error) {
-      console.error('Error importing:', error);
+      console.error('=== IMPORT ERROR ===');
+      console.error('Error:', error);
+      console.error('Message:', error.message);
+      console.error('Stack:', error.stack);
+
       Alert.alert(
         '❌ Import Error',
-        `Failed to import: ${error.message}\n\nMake sure you copied the entire code starting with BUNCHES_RECIPE: or BUNCHES_COOKBOOK:`
+        `Failed to import: ${error.message}\n\nPlease copy the ENTIRE code starting with BUNCHES_RECIPE: or BUNCHES_COOKBOOK:`
       );
     }
   };
