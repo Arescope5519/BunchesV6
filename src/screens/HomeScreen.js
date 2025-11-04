@@ -32,6 +32,7 @@ import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
+import { IngredientSearch } from '../components/IngredientSearch';
 
 // Constants
 import colors from '../constants/colors';
@@ -45,6 +46,7 @@ export const HomeScreen = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
   const [editingFolderName, setEditingFolderName] = useState('');
+  const [showIngredientSearch, setShowIngredientSearch] = useState(false);
 
   // Hooks
   const {
@@ -144,6 +146,10 @@ export const HomeScreen = () => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       // Priority order for back button
+      if (showIngredientSearch) {
+        setShowIngredientSearch(false);
+        return true;
+      }
       if (showMoveToFolder) {
         setShowMoveToFolder(false);
         return true;
@@ -169,7 +175,7 @@ export const HomeScreen = () => {
     });
 
     return () => backHandler.remove();
-  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder]);
+  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showIngredientSearch]);
 
   const filteredRecipes = getFilteredRecipes(currentFolder);
 
@@ -180,12 +186,20 @@ export const HomeScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>BunchesV6</Text>
-        <TouchableOpacity
-          onPress={() => setShowFolderManager(true)}
-          style={styles.folderButton}
-        >
-          <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={() => setShowIngredientSearch(true)}
+            style={styles.searchButton}
+          >
+            <Text style={styles.searchButtonText}>🔍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowFolderManager(true)}
+            style={styles.folderButton}
+          >
+            <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* URL Input */}
@@ -524,6 +538,17 @@ export const HomeScreen = () => {
           </View>
         </Modal>
       )}
+
+      {/* Ingredient Search Modal */}
+      <IngredientSearch
+        visible={showIngredientSearch}
+        onClose={() => setShowIngredientSearch(false)}
+        recipes={recipes}
+        onSelectRecipe={(recipe) => {
+          setSelectedRecipe(recipe);
+          setShowIngredientSearch(false);
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -546,6 +571,20 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  searchButtonText: {
+    fontSize: 18,
   },
   folderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
