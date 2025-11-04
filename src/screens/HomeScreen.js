@@ -256,6 +256,51 @@ export const HomeScreen = () => {
     );
   };
 
+  // Base64 encode helper
+  const encodeBase64 = (str) => {
+    // Simple Base64 encoding for React Native
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '';
+    let i = 0;
+
+    while (i < str.length) {
+      const a = str.charCodeAt(i++);
+      const b = i < str.length ? str.charCodeAt(i++) : 0;
+      const c = i < str.length ? str.charCodeAt(i++) : 0;
+
+      const bitmap = (a << 16) | (b << 8) | c;
+
+      result += chars[(bitmap >> 18) & 63];
+      result += chars[(bitmap >> 12) & 63];
+      result += i - 2 < str.length ? chars[(bitmap >> 6) & 63] : '=';
+      result += i - 1 < str.length ? chars[bitmap & 63] : '=';
+    }
+
+    return result;
+  };
+
+  // Base64 decode helper
+  const decodeBase64 = (str) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    str = str.replace(/=+$/, '');
+    let result = '';
+
+    for (let i = 0; i < str.length;) {
+      const a = chars.indexOf(str[i++]);
+      const b = chars.indexOf(str[i++]);
+      const c = chars.indexOf(str[i++]);
+      const d = chars.indexOf(str[i++]);
+
+      const bitmap = (a << 18) | (b << 12) | (c << 6) | d;
+
+      result += String.fromCharCode((bitmap >> 16) & 255);
+      if (c !== -1) result += String.fromCharCode((bitmap >> 8) & 255);
+      if (d !== -1) result += String.fromCharCode(bitmap & 255);
+    }
+
+    return result;
+  };
+
   // Share recipe handler
   const shareRecipe = async (recipe) => {
     try {
@@ -269,11 +314,13 @@ export const HomeScreen = () => {
         }
       };
 
-      const jsonString = JSON.stringify(recipeData, null, 2);
-      const shareMessage = `📖 Recipe: ${recipe.title}\n\n${jsonString}`;
+      const jsonString = JSON.stringify(recipeData);
+      // Encode to Base64 for compact sharing
+      const encoded = encodeBase64(jsonString);
+      const shareCode = `BUNCHES_RECIPE:${encoded}`;
 
       await Share.share({
-        message: shareMessage,
+        message: `📖 Recipe: ${recipe.title}\n\nCopy the code below and paste it in the Import dialog (📥):\n\n${shareCode}`,
         title: `Share Recipe: ${recipe.title}`,
       });
     } catch (error) {
@@ -302,11 +349,13 @@ export const HomeScreen = () => {
         }))
       };
 
-      const jsonString = JSON.stringify(cookbookData, null, 2);
-      const shareMessage = `📚 Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)\n\n${jsonString}`;
+      const jsonString = JSON.stringify(cookbookData);
+      // Encode to Base64 for compact sharing
+      const encoded = encodeBase64(jsonString);
+      const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
 
       await Share.share({
-        message: shareMessage,
+        message: `📚 Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)\n\nCopy the code below and paste it in the Import dialog (📥):\n\n${shareCode}`,
         title: `Share Cookbook: ${cookbookName}`,
       });
     } catch (error) {
@@ -315,13 +364,22 @@ export const HomeScreen = () => {
     }
   };
 
-  // Import recipe from JSON
-  const importRecipe = async (jsonString) => {
+  // Import recipe from code or JSON
+  const importRecipe = async (inputText) => {
     try {
+      let jsonString = inputText.trim();
+
+      // Check if it's a BUNCHES code (Base64 encoded)
+      if (jsonString.startsWith('BUNCHES_RECIPE:') || jsonString.startsWith('BUNCHES_COOKBOOK:')) {
+        const encoded = jsonString.split(':')[1].trim();
+        // Decode from Base64
+        jsonString = decodeBase64(encoded);
+      }
+
       const parsed = JSON.parse(jsonString);
 
       if (parsed.version !== '1.0') {
-        throw new Error('Unsupported recipe format version');
+        throw new Error('Unsupported format version');
       }
 
       if (parsed.type === 'recipe') {
@@ -334,7 +392,7 @@ export const HomeScreen = () => {
         };
 
         await saveRecipe(newRecipe);
-        Alert.alert('Success', `Recipe "${newRecipe.title}" imported!`);
+        Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported!`);
       } else if (parsed.type === 'cookbook') {
         // Import entire cookbook
         const recipes = parsed.data;
@@ -347,15 +405,20 @@ export const HomeScreen = () => {
           };
           await saveRecipe(newRecipe);
           imported++;
+          // Add small delay to ensure unique IDs
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
 
-        Alert.alert('Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
+        Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
       } else {
         throw new Error('Unknown import type');
       }
     } catch (error) {
-      console.error('Error importing recipe:', error);
-      Alert.alert('Import Error', 'Failed to import recipe. Please check the format.');
+      console.error('Error importing:', error);
+      Alert.alert(
+        '❌ Import Error',
+        'Failed to import. Please make sure you copied the entire BUNCHES code.\n\nThe code should start with:\nBUNCHES_RECIPE: or BUNCHES_COOKBOOK:'
+      );
     }
   };
 
@@ -1023,15 +1086,18 @@ export const HomeScreen = () => {
           <View style={styles.importModal}>
             <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
             <Text style={styles.importInstructions}>
-              Paste the recipe JSON data below:
+              Paste the BUNCHES code below:
+            </Text>
+            <Text style={styles.importExample}>
+              Example: BUNCHES_RECIPE:eyJ2ZXJ...
             </Text>
             <TextInput
               style={styles.importInput}
-              placeholder="Paste JSON here..."
+              placeholder="Paste BUNCHES code here..."
               value={importText}
               onChangeText={setImportText}
               multiline
-              numberOfLines={10}
+              numberOfLines={8}
               autoFocus
             />
             <View style={styles.addFolderButtons}>
@@ -1496,8 +1562,15 @@ const styles = StyleSheet.create({
   },
   importInstructions: {
     fontSize: 14,
+    color: colors.text,
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  importExample: {
+    fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 12,
+    fontStyle: 'italic',
   },
   importInput: {
     borderWidth: 1,
