@@ -828,58 +828,70 @@ export const HomeScreen = () => {
                   <Text style={styles.emptyFoldersSubtext}>Tap "+ New" to create one</Text>
                 </View>
               ) : (
-                getCustomFolders().map((folder) => (
-                  <TouchableOpacity
-                    key={folder}
-                    style={[
-                      styles.folderManagerItem,
-                      currentFolder === folder && styles.folderManagerItemActive
-                    ]}
-                    onPress={() => {
-                      setCurrentFolder(folder);
-                      setShowFolderManager(false);
-                    }}
-                    delayLongPress={300}
-                    onLongPress={() => {
-                      Alert.alert(
-                        folder,
-                        'Choose an action:',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Share',
-                            onPress: () => shareCookbook(folder)
-                          },
-                          {
-                            text: 'Rename',
-                            onPress: () => {
-                              setEditingFolder(folder);
-                              setEditingFolderName(folder);
+                getCustomFolders().map((folder) => {
+                  // Count only non-deleted recipes in this folder
+                  const recipeCount = recipes.filter(r =>
+                    r.folder === folder && !r.deletedAt
+                  ).length;
+
+                  // Debug: log what we're finding
+                  console.log(`Folder: ${folder}`);
+                  console.log(`Total recipes in folder: ${recipes.filter(r => r.folder === folder).length}`);
+                  console.log(`Non-deleted recipes: ${recipeCount}`);
+
+                  return (
+                    <TouchableOpacity
+                      key={folder}
+                      style={[
+                        styles.folderManagerItem,
+                        currentFolder === folder && styles.folderManagerItemActive
+                      ]}
+                      onPress={() => {
+                        setCurrentFolder(folder);
+                        setShowFolderManager(false);
+                      }}
+                      delayLongPress={300}
+                      onLongPress={() => {
+                        Alert.alert(
+                          folder,
+                          'Choose an action:',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Share',
+                              onPress: () => shareCookbook(folder)
+                            },
+                            {
+                              text: 'Rename',
+                              onPress: () => {
+                                setEditingFolder(folder);
+                                setEditingFolderName(folder);
+                              }
+                            },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: () => deleteFolder(folder)
                             }
-                          },
-                          {
-                            text: 'Delete',
-                            style: 'destructive',
-                            onPress: () => deleteFolder(folder)
-                          }
-                        ]
-                      );
-                    }}
-                  >
-                    <View style={styles.folderManagerItemLeft}>
-                      <Text style={styles.folderManagerIcon}>📖</Text>
-                      <Text style={[
-                        styles.folderManagerItemText,
-                        currentFolder === folder && styles.folderManagerItemTextActive
-                      ]}>
-                        {folder}
+                          ]
+                        );
+                      }}
+                    >
+                      <View style={styles.folderManagerItemLeft}>
+                        <Text style={styles.folderManagerIcon}>📖</Text>
+                        <Text style={[
+                          styles.folderManagerItemText,
+                          currentFolder === folder && styles.folderManagerItemTextActive
+                        ]}>
+                          {folder}
+                        </Text>
+                      </View>
+                      <Text style={styles.folderManagerCount}>
+                        {recipeCount}
                       </Text>
-                    </View>
-                    <Text style={styles.folderManagerCount}>
-                      {recipes.filter(r => r.folder === folder && !r.deletedAt).length}
-                    </Text>
-                  </TouchableOpacity>
-                ))
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </View>
           </ScrollView>
