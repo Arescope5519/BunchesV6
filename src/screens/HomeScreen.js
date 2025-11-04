@@ -74,6 +74,7 @@ export const HomeScreen = () => {
     toggleFavorite,
     moveToFolder: moveRecipeToFolder,
     getFilteredRecipes,
+    refreshRecipes,
   } = useRecipes();
 
   const {
@@ -235,21 +236,34 @@ export const HomeScreen = () => {
     });
   };
 
-  const deleteSelectedRecipes = () => {
+  const deleteSelectedRecipes = async () => {
     if (selectedRecipes.size === 0) return;
+
+    const recipeCount = selectedRecipes.size;
+    const recipeIds = Array.from(selectedRecipes);
 
     Alert.alert(
       'Delete Recipes',
-      `Delete ${selectedRecipes.size} recipe${selectedRecipes.size > 1 ? 's' : ''}?`,
+      `Delete ${recipeCount} recipe${recipeCount > 1 ? 's' : ''}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            for (const recipeId of selectedRecipes) {
-              await deleteRecipe(recipeId);
-            }
+            // Batch delete: mark all selected recipes with deletedAt timestamp
+            const now = Date.now();
+            const updatedRecipes = recipes.map(r =>
+              recipeIds.includes(r.id) ? { ...r, deletedAt: now } : r
+            );
+
+            // Save all at once
+            const { saveRecipes } = require('../utils/storage');
+            await saveRecipes(updatedRecipes);
+
+            // Reload recipes to reflect changes
+            await refreshRecipes();
+
             exitMultiselectMode();
           }
         }
@@ -405,101 +419,26 @@ export const HomeScreen = () => {
   // Import recipe from code or JSON
   const importRecipe = async (inputText) => {
     try {
-      // Clean up input
       let cleanedInput = inputText.trim();
-
-      console.log('=== IMPORT DEBUG ===');
-      console.log('Input length:', cleanedInput.length);
-      console.log('Input start:', cleanedInput.substring(0, 100));
-
       let jsonString = cleanedInput;
 
       // Check if it's a BUNCHES code (Base64 encoded)
       if (cleanedInput.includes('BUNCHES_RECIPE:') || cleanedInput.includes('BUNCHES_COOKBOOK:')) {
-        // Extract just the code part (in case there's text before/after)
         const recipeMatch = cleanedInput.match(/BUNCHES_RECIPE:([A-Za-z0-9+/=]+)/);
         const cookbookMatch = cleanedInput.match(/BUNCHES_COOKBOOK:([A-Za-z0-9+/=]+)/);
 
         if (recipeMatch) {
-          const encoded = recipeMatch[1];
-          console.log('Found BUNCHES_RECIPE');
-          console.log('Encoded length:', encoded.length);
-          console.log('Encoded start:', encoded.substring(0, 50));
-
-          try {
-            jsonString = decodeBase64(encoded);
-            console.log('Decoded length:', jsonString.length);
-            console.log('Decoded start:', jsonString.substring(0, 200));
-
-            // Show debug alert
-            Alert.alert(
-              '🔍 Debug Info',
-              `Decoded ${jsonString.length} chars\n\nFirst 100 chars:\n${jsonString.substring(0, 100)}\n\nDoes this look like valid JSON?`,
-              [
-                { text: 'No - Show More', onPress: () => {
-                  Alert.alert('Full Decode', jsonString.substring(0, 500));
-                }},
-                { text: 'Yes - Try Parse', onPress: async () => {
-                  try {
-                    const parsed = JSON.parse(jsonString);
-                    Alert.alert('Success!', 'JSON parsed correctly. Importing...');
-                    await processImport(parsed, currentFolder, saveRecipe);
-                  } catch (e) {
-                    Alert.alert('Parse Failed', e.message);
-                  }
-                }}
-              ]
-            );
-            return; // Exit to show debug
-          } catch (decodeError) {
-            console.error('Decode error:', decodeError);
-            throw new Error('Failed to decode recipe data: ' + decodeError.message);
-          }
+          jsonString = decodeBase64(recipeMatch[1]);
         } else if (cookbookMatch) {
-          const encoded = cookbookMatch[1];
-          console.log('Found BUNCHES_COOKBOOK');
-          console.log('Encoded length:', encoded.length);
-
-          try {
-            jsonString = decodeBase64(encoded);
-            console.log('Decoded length:', jsonString.length);
-
-            // Show debug alert
-            Alert.alert(
-              '🔍 Debug Info',
-              `Decoded ${jsonString.length} chars\n\nFirst 100:\n${jsonString.substring(0, 100)}`,
-              [
-                { text: 'Cancel' },
-                { text: 'Try Parse', onPress: async () => {
-                  try {
-                    const parsed = JSON.parse(jsonString);
-                    await processImport(parsed, currentFolder, saveRecipe);
-                  } catch (e) {
-                    Alert.alert('Parse Failed', e.message);
-                  }
-                }}
-              ]
-            );
-            return; // Exit to show debug
-          } catch (decodeError) {
-            console.error('Decode error:', decodeError);
-            throw new Error('Failed to decode cookbook data: ' + decodeError.message);
-          }
+          jsonString = decodeBase64(cookbookMatch[1]);
         } else {
           throw new Error('Could not find valid BUNCHES code in the text');
         }
       }
 
-      console.log('Attempting JSON parse...');
       const parsed = JSON.parse(jsonString);
-      console.log('JSON parsed successfully!');
-
       await processImport(parsed, currentFolder, saveRecipe);
     } catch (error) {
-      console.error('=== IMPORT ERROR ===');
-      console.error('Error:', error);
-      console.error('Message:', error.message);
-
       Alert.alert(
         '❌ Import Error',
         `Failed to import: ${error.message}\n\nPlease copy the ENTIRE code starting with BUNCHES_RECIPE: or BUNCHES_COOKBOOK:`
