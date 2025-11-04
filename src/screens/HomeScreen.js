@@ -463,24 +463,28 @@ export const HomeScreen = () => {
       await saveRecipe(newRecipe);
       Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported!`);
     } else if (parsed.type === 'cookbook') {
-      const recipes = parsed.data;
-      let imported = 0;
+      const recipesToImport = parsed.data;
 
       // Determine target folder for all recipes in the cookbook
       const targetFolder = currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder;
 
-      for (const recipeData of recipes) {
-        const newRecipe = {
-          ...recipeData,
-          id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          folder: targetFolder, // Put all recipes in the same folder
-        };
-        await saveRecipe(newRecipe);
-        imported++;
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
+      // Batch import: create all recipes with new IDs and target folder
+      const newRecipes = recipesToImport.map((recipeData, index) => ({
+        ...recipeData,
+        id: `recipe-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+        folder: targetFolder, // Override original folder
+        deletedAt: undefined, // Remove any deletedAt
+      }));
 
-      Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}" to ${targetFolder}`);
+      // Save all at once by prepending to existing recipes
+      const { saveRecipes } = require('../utils/storage');
+      const currentRecipes = recipes.filter(r => !r.deletedAt); // Get current non-deleted recipes
+      await saveRecipes([...newRecipes, ...currentRecipes]);
+
+      // Reload to reflect changes
+      await refreshRecipes();
+
+      Alert.alert('✅ Success', `Imported ${newRecipes.length} recipe${newRecipes.length > 1 ? 's' : ''} from "${parsed.name}" to ${targetFolder}`);
     } else {
       throw new Error('Unknown import type: ' + parsed.type);
     }
@@ -872,7 +876,7 @@ export const HomeScreen = () => {
                       </Text>
                     </View>
                     <Text style={styles.folderManagerCount}>
-                      {recipes.filter(r => r.folder === folder).length}
+                      {recipes.filter(r => r.folder === folder && !r.deletedAt).length}
                     </Text>
                   </TouchableOpacity>
                 ))
