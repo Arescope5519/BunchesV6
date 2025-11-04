@@ -21,6 +21,7 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -50,6 +51,8 @@ export const HomeScreen = () => {
   const [editingFolderName, setEditingFolderName] = useState('');
   const [showGroceryList, setShowGroceryList] = useState(false);
   const [showRenameFolder, setShowRenameFolder] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -253,6 +256,109 @@ export const HomeScreen = () => {
     );
   };
 
+  // Share recipe handler
+  const shareRecipe = async (recipe) => {
+    try {
+      const recipeData = {
+        version: '1.0',
+        type: 'recipe',
+        data: {
+          ...recipe,
+          // Remove system fields
+          deletedAt: undefined,
+        }
+      };
+
+      const jsonString = JSON.stringify(recipeData, null, 2);
+      const shareMessage = `📖 Recipe: ${recipe.title}\n\n${jsonString}`;
+
+      await Share.share({
+        message: shareMessage,
+        title: `Share Recipe: ${recipe.title}`,
+      });
+    } catch (error) {
+      console.error('Error sharing recipe:', error);
+      Alert.alert('Error', 'Failed to share recipe');
+    }
+  };
+
+  // Share entire cookbook handler
+  const shareCookbook = async (cookbookName) => {
+    try {
+      const recipesInCookbook = getFilteredRecipes(cookbookName).filter(r => !r.deletedAt);
+
+      if (recipesInCookbook.length === 0) {
+        Alert.alert('Empty Cookbook', 'This cookbook has no recipes to share');
+        return;
+      }
+
+      const cookbookData = {
+        version: '1.0',
+        type: 'cookbook',
+        name: cookbookName,
+        data: recipesInCookbook.map(r => ({
+          ...r,
+          deletedAt: undefined,
+        }))
+      };
+
+      const jsonString = JSON.stringify(cookbookData, null, 2);
+      const shareMessage = `📚 Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)\n\n${jsonString}`;
+
+      await Share.share({
+        message: shareMessage,
+        title: `Share Cookbook: ${cookbookName}`,
+      });
+    } catch (error) {
+      console.error('Error sharing cookbook:', error);
+      Alert.alert('Error', 'Failed to share cookbook');
+    }
+  };
+
+  // Import recipe from JSON
+  const importRecipe = async (jsonString) => {
+    try {
+      const parsed = JSON.parse(jsonString);
+
+      if (parsed.version !== '1.0') {
+        throw new Error('Unsupported recipe format version');
+      }
+
+      if (parsed.type === 'recipe') {
+        // Import single recipe
+        const recipeData = parsed.data;
+        const newRecipe = {
+          ...recipeData,
+          id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          folder: currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder,
+        };
+
+        await saveRecipe(newRecipe);
+        Alert.alert('Success', `Recipe "${newRecipe.title}" imported!`);
+      } else if (parsed.type === 'cookbook') {
+        // Import entire cookbook
+        const recipes = parsed.data;
+        let imported = 0;
+
+        for (const recipeData of recipes) {
+          const newRecipe = {
+            ...recipeData,
+            id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          };
+          await saveRecipe(newRecipe);
+          imported++;
+        }
+
+        Alert.alert('Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
+      } else {
+        throw new Error('Unknown import type');
+      }
+    } catch (error) {
+      console.error('Error importing recipe:', error);
+      Alert.alert('Import Error', 'Failed to import recipe. Please check the format.');
+    }
+  };
+
   // Cookbook operations with recipe updates
   const addFolder = async () => {
     if (!newFolderName.trim()) {
@@ -306,6 +412,11 @@ export const HomeScreen = () => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       // Priority order for back button
+      if (showImport) {
+        setShowImport(false);
+        setImportText('');
+        return true;
+      }
       if (showGroceryList) {
         setShowGroceryList(false);
         return true;
@@ -335,7 +446,7 @@ export const HomeScreen = () => {
     });
 
     return () => backHandler.remove();
-  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList]);
+  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList, showImport]);
 
   const filteredRecipes = getFilteredRecipes(currentFolder);
 
@@ -347,6 +458,12 @@ export const HomeScreen = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>BunchesV6</Text>
         <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={() => setShowImport(true)}
+            style={styles.importHeaderButton}
+          >
+            <Text style={styles.importHeaderButtonText}>📥</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowGroceryList(true)}
             style={styles.groceryListHeaderButton}
@@ -538,6 +655,22 @@ export const HomeScreen = () => {
                       setCurrentFolder(folder);
                       setShowFolderManager(false);
                     }}
+                    onLongPress={() => {
+                      if (folder !== 'Recently Deleted') {
+                        Alert.alert(
+                          folder,
+                          'Share this cookbook?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Share',
+                              onPress: () => shareCookbook(folder)
+                            }
+                          ]
+                        );
+                      }
+                    }}
+                    delayLongPress={500}
                   >
                     <View style={styles.folderManagerItemLeft}>
                       <Text style={styles.folderManagerIcon}>{icon}</Text>
@@ -580,6 +713,10 @@ export const HomeScreen = () => {
                         'Choose an action:',
                         [
                           { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Share',
+                            onPress: () => shareCookbook(folder)
+                          },
                           {
                             text: 'Rename',
                             onPress: () => {
@@ -667,6 +804,13 @@ export const HomeScreen = () => {
                     <Text style={styles.iconButtonText}>
                       {selectedRecipe.isFavorite ? '⭐' : '☆'}
                     </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => shareRecipe(selectedRecipe)}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>📤</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -865,6 +1009,58 @@ export const HomeScreen = () => {
         </Modal>
       )}
 
+      {/* Import Recipe Modal */}
+      <Modal
+        visible={showImport}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setImportText('');
+          setShowImport(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.importModal}>
+            <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
+            <Text style={styles.importInstructions}>
+              Paste the recipe JSON data below:
+            </Text>
+            <TextInput
+              style={styles.importInput}
+              placeholder="Paste JSON here..."
+              value={importText}
+              onChangeText={setImportText}
+              multiline
+              numberOfLines={10}
+              autoFocus
+            />
+            <View style={styles.addFolderButtons}>
+              <TouchableOpacity
+                style={[styles.addFolderButton, styles.cancelButton]}
+                onPress={() => {
+                  setImportText('');
+                  setShowImport(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addFolderButton, styles.createButton]}
+                onPress={async () => {
+                  if (importText.trim()) {
+                    await importRecipe(importText);
+                    setImportText('');
+                    setShowImport(false);
+                  }
+                }}
+              >
+                <Text style={styles.createButtonText}>Import</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Global Undo Button - Only show when no modals are open */}
       {showUndoButton && canUndo && !selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && (
         <TouchableOpacity
@@ -901,11 +1097,23 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
   },
+  importHeaderButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  importHeaderButtonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
   groceryListHeaderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
+    marginRight: 8,
   },
   groceryListHeaderButtonText: {
     color: '#fff',
@@ -1278,6 +1486,29 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 13,
     opacity: 0.9,
+  },
+  importModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 500,
+  },
+  importInstructions: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  importInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 13,
+    marginBottom: 15,
+    minHeight: 200,
+    textAlignVertical: 'top',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
 });
 
