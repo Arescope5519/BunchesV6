@@ -466,17 +466,21 @@ export const HomeScreen = () => {
       const recipes = parsed.data;
       let imported = 0;
 
+      // Determine target folder for all recipes in the cookbook
+      const targetFolder = currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder;
+
       for (const recipeData of recipes) {
         const newRecipe = {
           ...recipeData,
           id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          folder: targetFolder, // Put all recipes in the same folder
         };
         await saveRecipe(newRecipe);
         imported++;
         await new Promise(resolve => setTimeout(resolve, 10));
       }
 
-      Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}"`);
+      Alert.alert('✅ Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''} from "${parsed.name}" to ${targetFolder}`);
     } else {
       throw new Error('Unknown import type: ' + parsed.type);
     }
@@ -579,7 +583,9 @@ export const HomeScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>BunchesV6</Text>
+        <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
+          <Text style={styles.headerTitle}>BunchesV6</Text>
+        </TouchableOpacity>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             onPress={() => setShowImport(true)}
