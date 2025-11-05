@@ -47,7 +47,7 @@ export const DashboardScreen = ({
       id: 'search',
       title: 'Search Ingredients',
       icon: '🔍',
-      description: 'Find recipes by ingredients',
+      description: 'Find by ingredients',
       color: '#f59e0b',
     },
     {

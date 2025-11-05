@@ -720,9 +720,6 @@ export const HomeScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setCurrentScreen('dashboard')}>
-          <Text style={styles.backButton}>← Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
           <Text style={styles.headerTitle}>Bunches</Text>
         </TouchableOpacity>
         <View style={styles.headerButtons}>
@@ -1422,11 +1419,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
-  },
-  backButton: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#fff',
   },
   headerButtons: {
