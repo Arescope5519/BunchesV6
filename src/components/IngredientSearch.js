@@ -63,10 +63,26 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
       .slice(0, 10); // Limit to 10 suggestions
   }, [searchText, allIngredients, selectedIngredients]);
 
+  // Fill search bar when suggestion is clicked
+  const fillSearchFromSuggestion = (ingredient) => {
+    setSearchText(ingredient);
+    setShowSuggestions(false);
+  };
+
   // Add ingredient to selected list
   const addIngredient = (ingredient) => {
     if (!selectedIngredients.includes(ingredient)) {
       setSelectedIngredients([...selectedIngredients, ingredient]);
+      setSearchText('');
+      setShowSuggestions(false);
+    }
+  };
+
+  // Handle Enter key to add ingredient
+  const handleSearchSubmit = () => {
+    const trimmed = searchText.trim();
+    if (trimmed && !selectedIngredients.includes(trimmed)) {
+      setSelectedIngredients([...selectedIngredients, trimmed]);
       setSearchText('');
       setShowSuggestions(false);
     }
@@ -140,18 +156,30 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
         {/* Search Input */}
         <View style={styles.searchSection}>
           <Text style={styles.label}>Type ingredients you have:</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="e.g., chicken, garlic, tomato..."
-            value={searchText}
-            onChangeText={(text) => {
-              setSearchText(text);
-              setShowSuggestions(text.length > 0);
-            }}
-            onFocus={() => setShowSuggestions(searchText.length > 0)}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <View style={styles.searchInputContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="e.g., chicken, garlic, tomato..."
+              value={searchText}
+              onChangeText={(text) => {
+                setSearchText(text);
+                setShowSuggestions(text.length > 0);
+              }}
+              onFocus={() => setShowSuggestions(searchText.length > 0)}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="done"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={handleSearchSubmit}
+              >
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Autocomplete Suggestions */}
           {showSuggestions && suggestions.length > 0 && (
@@ -164,7 +192,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                   <TouchableOpacity
                     key={ingredient}
                     style={styles.suggestionItem}
-                    onPress={() => addIngredient(ingredient)}
+                    onPress={() => fillSearchFromSuggestion(ingredient)}
                   >
                     <Text style={styles.suggestionText}>{ingredient}</Text>
                   </TouchableOpacity>
@@ -293,13 +321,32 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   searchInput: {
+    flex: 1,
     backgroundColor: colors.background,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
     fontSize: 15,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   suggestionsContainer: {
     marginTop: 8,
