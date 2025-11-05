@@ -688,6 +688,90 @@ export const HomeScreen = () => {
           lastActionDescription={lastActionDescription}
           performUndo={performUndo}
         />
+        {/* Import Recipe Modal */}
+        <Modal
+          visible={showImport}
+          animationType="fade"
+          transparent
+          onRequestClose={() => {
+            setImportText('');
+            setShowImport(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.importModal}>
+              <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
+
+              {/* Cookbook Selector */}
+              <View style={styles.importSection}>
+                <Text style={styles.importSectionLabel}>Import to:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
+                  {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                    <TouchableOpacity
+                      key={folder}
+                      style={[
+                        styles.folderChip,
+                        importTargetFolder === folder && styles.folderChipSelected
+                      ]}
+                      onPress={() => setImportTargetFolder(folder)}
+                    >
+                      <Text style={[
+                        styles.folderChipText,
+                        importTargetFolder === folder && styles.folderChipTextSelected
+                      ]}>
+                        {folder}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <Text style={styles.importInstructions}>
+                Paste code or URL below:
+              </Text>
+              <TextInput
+                style={styles.importInput}
+                placeholder="Paste URL or code here... (BUNCHES_RECIPE:... or BUNCHES_COOKBOOK:...)"
+                value={importText}
+                onChangeText={setImportText}
+                multiline
+                numberOfLines={6}
+              />
+              <View style={styles.addFolderButtons}>
+                <TouchableOpacity
+                  style={[styles.addFolderButton, styles.cancelButton]}
+                  onPress={() => {
+                    setImportText('');
+                    setShowImport(false);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.addFolderButton, styles.createButton]}
+                  onPress={async () => {
+                    if (importText.trim()) {
+                      // Check if it's a URL or code
+                      if (importText.trim().startsWith('http')) {
+                        // It's a URL, use extraction
+                        await extractRecipe(importText.trim(), false);
+                        setImportText('');
+                        setShowImport(false);
+                      } else {
+                        // It's a code, use import
+                        await importRecipe(importText);
+                        setImportText('');
+                        setShowImport(false);
+                      }
+                    }
+                  }}
+                >
+                  <Text style={styles.createButtonText}>Import</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </>
     );
   }
