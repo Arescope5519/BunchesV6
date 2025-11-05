@@ -38,11 +38,17 @@ import { useGlobalUndo } from '../hooks/useGlobalUndo';
 import RecipeDetail from '../components/RecipeDetail';
 import { GroceryList } from '../components/GroceryList';
 import { IngredientSearch } from '../components/IngredientSearch';
+import { DashboardScreen } from './DashboardScreen';
+import { CreateRecipeScreen } from './CreateRecipeScreen';
+import { SettingsScreen } from './SettingsScreen';
 
 // Constants
 import colors from '../constants/colors';
 
 export const HomeScreen = () => {
+  // Navigation state
+  const [currentScreen, setCurrentScreen] = useState('dashboard'); // dashboard, recipes, create, import, search, grocery, settings
+
   // Local state
   const [url, setUrl] = useState('');
   const [showFolderManager, setShowFolderManager] = useState(false);
@@ -55,6 +61,7 @@ export const HomeScreen = () => {
   const [showRenameFolder, setShowRenameFolder] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
+  const [importTargetFolder, setImportTargetFolder] = useState('All Recipes');
   const [showIngredientSearch, setShowIngredientSearch] = useState(false);
 
   // Multiselect state
@@ -114,16 +121,71 @@ export const HomeScreen = () => {
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
     // Always save recipes from extraction
     console.log('💾 Saving recipe:', recipe.title);
-    const saved = await saveRecipe(recipe);
+
+    // Use the selected import target folder
+    const recipeWithFolder = {
+      ...recipe,
+      folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
+        ? 'All Recipes'
+        : importTargetFolder,
+    };
+
+    const saved = await saveRecipe(recipeWithFolder);
     if (saved) {
       console.log('✅ Recipe saved successfully');
-      setSelectedRecipe(recipe);
+      setSelectedRecipe(recipeWithFolder);
+      setCurrentScreen('recipes');
     } else {
       console.error('❌ Failed to save recipe');
       Alert.alert('Error', 'Failed to save recipe. Please try again.');
     }
     setUrl('');
   });
+
+  // Navigation handler
+  const handleNavigation = (screen) => {
+    if (screen === 'recipes') {
+      setCurrentScreen('recipes');
+    } else if (screen === 'create') {
+      setCurrentScreen('create');
+    } else if (screen === 'import') {
+      setShowImport(true);
+      // Stay on current screen, import is a modal
+    } else if (screen === 'search') {
+      setShowIngredientSearch(true);
+      // Stay on current screen, search is a modal
+    } else if (screen === 'grocery') {
+      setShowGroceryList(true);
+      // Stay on current screen, grocery is a modal
+    } else if (screen === 'settings') {
+      setCurrentScreen('settings');
+    }
+  };
+
+  // Handle recipe creation
+  const handleCreateRecipe = async (recipe) => {
+    const saved = await saveRecipe(recipe);
+    if (saved) {
+      Alert.alert('✅ Success', `Recipe "${recipe.title}" created!`);
+      setCurrentScreen('recipes');
+      setSelectedRecipe(recipe);
+    } else {
+      Alert.alert('Error', 'Failed to create recipe. Please try again.');
+    }
+  };
+
+  // Handle clear all data
+  const handleClearAllData = async () => {
+    try {
+      const { saveRecipes } = require('../utils/storage');
+      await saveRecipes([]);
+      await refreshRecipes();
+      setCurrentScreen('dashboard');
+      Alert.alert('✅ Success', 'All data has been cleared');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to clear data');
+    }
+  };
 
   // Share intent handler
   useShareIntent((sharedUrl) => {
@@ -439,7 +501,7 @@ export const HomeScreen = () => {
       }
 
       const parsed = JSON.parse(jsonString);
-      await processImport(parsed, currentFolder, saveRecipe);
+      await processImport(parsed, importTargetFolder, saveRecipe);
     } catch (error) {
       Alert.alert(
         '❌ Import Error',
@@ -449,7 +511,7 @@ export const HomeScreen = () => {
   };
 
   // Helper to process parsed import data
-  const processImport = async (parsed, currentFolder, saveRecipe) => {
+  const processImport = async (parsed, targetFolder, saveRecipe) => {
     if (parsed.version !== '1.0') {
       throw new Error('Unsupported format version: ' + parsed.version);
     }
@@ -459,22 +521,22 @@ export const HomeScreen = () => {
       const newRecipe = {
         ...recipeData,
         id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        folder: currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder,
+        folder: targetFolder === 'Favorites' || targetFolder === 'Recently Deleted' ? 'All Recipes' : targetFolder,
       };
 
       await saveRecipe(newRecipe);
-      Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported!`);
+      Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported to ${newRecipe.folder}!`);
     } else if (parsed.type === 'cookbook') {
       const recipesToImport = parsed.data;
 
       // Determine target folder for all recipes in the cookbook
-      const targetFolder = currentFolder === 'Favorites' || currentFolder === 'Recently Deleted' ? 'All Recipes' : currentFolder;
+      const finalFolder = targetFolder === 'Favorites' || targetFolder === 'Recently Deleted' ? 'All Recipes' : targetFolder;
 
       // Batch import: create all recipes with new IDs and target folder
       const newRecipes = recipesToImport.map((recipeData, index) => ({
         ...recipeData,
         id: `recipe-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
-        folder: targetFolder, // Override original folder
+        folder: finalFolder, // Override original folder
         deletedAt: undefined, // Remove any deletedAt
       }));
 
@@ -486,7 +548,7 @@ export const HomeScreen = () => {
       // Reload to reflect changes
       await refreshRecipes();
 
-      Alert.alert('✅ Success', `Imported ${newRecipes.length} recipe${newRecipes.length > 1 ? 's' : ''} from "${parsed.name}" to ${targetFolder}`);
+      Alert.alert('✅ Success', `Imported ${newRecipes.length} recipe${newRecipes.length > 1 ? 's' : ''} from "${parsed.name}" to ${finalFolder}`);
     } else {
       throw new Error('Unknown import type: ' + parsed.type);
     }
@@ -579,20 +641,87 @@ export const HomeScreen = () => {
         setShowFolderManager(false);
         return true;
       }
+      // Handle screen navigation - go back to dashboard
+      if (currentScreen !== 'dashboard') {
+        setCurrentScreen('dashboard');
+        return true;
+      }
       return false;
     });
 
     return () => backHandler.remove();
-  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList, showImport, showIngredientSearch]);
+  }, [selectedRecipe, showFolderManager, showAddFolder, showMoveToFolder, editingFolder, showGroceryList, showImport, showIngredientSearch, currentScreen]);
 
   const filteredRecipes = getFilteredRecipes(currentFolder);
+  const nonDeletedRecipeCount = recipes.filter(r => !r.deletedAt).length;
 
+  // Render different screens based on currentScreen state
+  if (currentScreen === 'dashboard') {
+    return (
+      <>
+        <DashboardScreen
+          onNavigate={handleNavigation}
+          recipeCount={nonDeletedRecipeCount}
+          groceryCount={getUncheckedCount()}
+        />
+        {/* Modals that can open from dashboard */}
+        <IngredientSearch
+          visible={showIngredientSearch}
+          onClose={() => setShowIngredientSearch(false)}
+          recipes={recipes}
+          onSelectRecipe={(recipe) => {
+            setSelectedRecipe(recipe);
+            setShowIngredientSearch(false);
+            setCurrentScreen('recipes');
+          }}
+        />
+        <GroceryList
+          visible={showGroceryList}
+          onClose={() => setShowGroceryList(false)}
+          groceryList={groceryList}
+          onToggleItem={handleToggleGroceryItem}
+          onRemoveItem={handleRemoveGroceryItem}
+          onClearChecked={handleClearCheckedItems}
+          onClearAll={handleClearAllItems}
+          showUndoButton={showUndoButton}
+          canUndo={canUndo}
+          lastActionDescription={lastActionDescription}
+          performUndo={performUndo}
+        />
+      </>
+    );
+  }
+
+  if (currentScreen === 'create') {
+    return (
+      <CreateRecipeScreen
+        onSave={handleCreateRecipe}
+        onClose={() => setCurrentScreen('dashboard')}
+        folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
+      />
+    );
+  }
+
+  if (currentScreen === 'settings') {
+    return (
+      <SettingsScreen
+        onClose={() => setCurrentScreen('dashboard')}
+        onClearAllData={handleClearAllData}
+        recipeCount={nonDeletedRecipeCount}
+      />
+    );
+  }
+
+  // Default: recipes screen
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => setCurrentScreen('dashboard')}>
+          <Text style={styles.backButton}>← Home</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
           <Text style={styles.headerTitle}>Bunches</Text>
         </TouchableOpacity>
@@ -1190,17 +1319,41 @@ export const HomeScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.importModal}>
             <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
+
+            {/* Cookbook Selector */}
+            <View style={styles.importSection}>
+              <Text style={styles.importSectionLabel}>Import to:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
+                {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                  <TouchableOpacity
+                    key={folder}
+                    style={[
+                      styles.folderChip,
+                      importTargetFolder === folder && styles.folderChipSelected
+                    ]}
+                    onPress={() => setImportTargetFolder(folder)}
+                  >
+                    <Text style={[
+                      styles.folderChipText,
+                      importTargetFolder === folder && styles.folderChipTextSelected
+                    ]}>
+                      {folder}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
             <Text style={styles.importInstructions}>
-              Paste code below (it's OK if there's text before/after):
+              Paste code or URL below:
             </Text>
             <TextInput
               style={styles.importInput}
-              placeholder="Paste code here... (BUNCHES_RECIPE:... or BUNCHES_COOKBOOK:...)"
+              placeholder="Paste URL or code here... (BUNCHES_RECIPE:... or BUNCHES_COOKBOOK:...)"
               value={importText}
               onChangeText={setImportText}
               multiline
-              numberOfLines={8}
-              autoFocus
+              numberOfLines={6}
             />
             <View style={styles.addFolderButtons}>
               <TouchableOpacity
@@ -1216,9 +1369,18 @@ export const HomeScreen = () => {
                 style={[styles.addFolderButton, styles.createButton]}
                 onPress={async () => {
                   if (importText.trim()) {
-                    await importRecipe(importText);
-                    setImportText('');
-                    setShowImport(false);
+                    // Check if it's a URL or code
+                    if (importText.trim().startsWith('http')) {
+                      // It's a URL, use extraction
+                      await extractRecipe(importText.trim(), false);
+                      setImportText('');
+                      setShowImport(false);
+                    } else {
+                      // It's a code, use import
+                      await importRecipe(importText);
+                      setImportText('');
+                      setShowImport(false);
+                    }
                   }
                 }}
               >
@@ -1260,6 +1422,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  backButton: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#fff',
   },
   headerButtons: {
@@ -1674,9 +1841,44 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 13,
     marginBottom: 15,
-    minHeight: 200,
+    minHeight: 150,
     textAlignVertical: 'top',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  importSection: {
+    marginBottom: 16,
+  },
+  importSectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  folderChips: {
+    flexDirection: 'row',
+    maxHeight: 40,
+  },
+  folderChip: {
+    backgroundColor: colors.lightGray,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  folderChipSelected: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  folderChipText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  folderChipTextSelected: {
+    color: colors.primary,
+    fontWeight: '700',
   },
 });
 
