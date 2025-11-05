@@ -594,34 +594,37 @@ export const HomeScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
-          <Text style={styles.headerTitle}>BunchesV6</Text>
+          <Text style={styles.headerTitle}>Bunches</Text>
         </TouchableOpacity>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             onPress={() => setShowIngredientSearch(true)}
-            style={styles.searchHeaderButton}
+            style={styles.iconHeaderButton}
           >
-            <Text style={styles.searchHeaderButtonText}>🔍</Text>
+            <Text style={styles.iconHeaderButtonText}>🔍</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowImport(true)}
-            style={styles.importHeaderButton}
+            style={styles.iconHeaderButton}
           >
-            <Text style={styles.importHeaderButtonText}>📥</Text>
+            <Text style={styles.iconHeaderButtonText}>📥</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowGroceryList(true)}
-            style={styles.groceryListHeaderButton}
+            style={styles.iconHeaderButton}
           >
-            <Text style={styles.groceryListHeaderButtonText}>
-              🛒 {getUncheckedCount() > 0 ? `(${getUncheckedCount()})` : ''}
-            </Text>
+            <Text style={styles.iconHeaderButtonText}>🛒</Text>
+            {getUncheckedCount() > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{getUncheckedCount()}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowFolderManager(true)}
-            style={styles.folderButton}
+            style={styles.iconHeaderButton}
           >
-            <Text style={styles.folderButtonText}>📖 {currentFolder}</Text>
+            <Text style={styles.iconHeaderButtonText}>📖</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1261,51 +1264,39 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
-  searchHeaderButton: {
+  iconHeaderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    marginRight: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
-  searchHeaderButtonText: {
+  iconHeaderButtonText: {
+    fontSize: 18,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  badgeText: {
     color: '#fff',
-    fontSize: 16,
-  },
-  importHeaderButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  importHeaderButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  groceryListHeaderButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  groceryListHeaderButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  folderButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  folderButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
   },
   inputContainer: {
     flexDirection: 'row',
