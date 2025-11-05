@@ -1,6 +1,6 @@
 /**
  * FILENAME: src/screens/CreateRecipeScreen.js
- * PURPOSE: Manual recipe creation/editing
+ * PURPOSE: Manual recipe creation/editing with structured inputs
  */
 
 import React, { useState } from 'react';
@@ -21,9 +21,64 @@ import colors from '../constants/colors';
 export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
   const [title, setTitle] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All Recipes');
-  const [ingredients, setIngredients] = useState('');
-  const [instructions, setInstructions] = useState('');
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+
+  // Structured ingredients: [{ quantity: '', text: '' }]
+  const [ingredients, setIngredients] = useState([{ quantity: '', text: '' }]);
+
+  // Instructions: ['instruction 1', 'instruction 2', ...]
+  const [instructions, setInstructions] = useState(['']);
+  const [selectedInstructionIndex, setSelectedInstructionIndex] = useState(0);
+
+  // Add ingredient
+  const addIngredient = () => {
+    setIngredients([...ingredients, { quantity: '', text: '' }]);
+  };
+
+  // Remove ingredient
+  const removeIngredient = (index) => {
+    if (ingredients.length === 1) {
+      Alert.alert('Cannot Remove', 'You must have at least one ingredient');
+      return;
+    }
+    const newIngredients = ingredients.filter((_, i) => i !== index);
+    setIngredients(newIngredients);
+  };
+
+  // Update ingredient
+  const updateIngredient = (index, field, value) => {
+    const newIngredients = [...ingredients];
+    newIngredients[index][field] = value;
+    setIngredients(newIngredients);
+  };
+
+  // Add instruction below currently selected
+  const addInstructionBelow = () => {
+    const newInstructions = [...instructions];
+    newInstructions.splice(selectedInstructionIndex + 1, 0, '');
+    setInstructions(newInstructions);
+    setSelectedInstructionIndex(selectedInstructionIndex + 1);
+  };
+
+  // Remove instruction
+  const removeInstruction = (index) => {
+    if (instructions.length === 1) {
+      Alert.alert('Cannot Remove', 'You must have at least one instruction');
+      return;
+    }
+    const newInstructions = instructions.filter((_, i) => i !== index);
+    setInstructions(newInstructions);
+    if (selectedInstructionIndex >= newInstructions.length) {
+      setSelectedInstructionIndex(newInstructions.length - 1);
+    }
+  };
+
+  // Update instruction
+  const updateInstruction = (index, value) => {
+    const newInstructions = [...instructions];
+    newInstructions[index] = value;
+    setInstructions(newInstructions);
+  };
 
   const handleSave = () => {
     if (!title.trim()) {
@@ -31,31 +86,35 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
       return;
     }
 
-    if (!ingredients.trim()) {
+    // Validate ingredients
+    const validIngredients = ingredients.filter(ing => ing.text.trim().length > 0);
+    if (validIngredients.length === 0) {
       Alert.alert('Missing Ingredients', 'Please add at least one ingredient');
       return;
     }
 
-    // Parse ingredients (one per line)
-    const ingredientLines = ingredients
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    // Format ingredients for storage
+    const formattedIngredients = validIngredients.map(ing => {
+      const quantity = ing.quantity.trim();
+      const text = ing.text.trim();
+      return quantity ? `${quantity} ${text}` : text;
+    });
 
-    // Parse instructions (one per line for steps)
-    const instructionLines = instructions
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    // Validate instructions
+    const validInstructions = instructions.filter(inst => inst.trim().length > 0);
+    if (validInstructions.length === 0) {
+      Alert.alert('Missing Instructions', 'Please add at least one instruction');
+      return;
+    }
 
     const recipe = {
       id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: title.trim(),
       folder: selectedFolder,
       ingredients: {
-        main: ingredientLines,
+        main: formattedIngredients,
       },
-      instructions: instructionLines.length > 0 ? instructionLines : ['No instructions provided'],
+      instructions: validInstructions,
       source: 'manual',
       createdAt: Date.now(),
       isFavorite: false,
@@ -135,32 +194,80 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
 
         {/* Ingredients */}
         <View style={styles.section}>
-          <Text style={styles.label}>Ingredients *</Text>
-          <Text style={styles.hint}>One ingredient per line</Text>
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            placeholder="2 cups flour&#10;1 cup sugar&#10;3 eggs&#10;1 tsp vanilla extract"
-            value={ingredients}
-            onChangeText={setIngredients}
-            multiline
-            numberOfLines={8}
-            textAlignVertical="top"
-          />
+          <View style={styles.sectionHeader}>
+            <Text style={styles.label}>Ingredients *</Text>
+            <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
+              <Text style={styles.addButtonText}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
+
+          {ingredients.map((ingredient, index) => (
+            <View key={index} style={styles.ingredientRow}>
+              <TextInput
+                style={styles.quantityInput}
+                placeholder="Qty"
+                value={ingredient.quantity}
+                onChangeText={(text) => updateIngredient(index, 'quantity', text)}
+                keyboardType="default"
+              />
+              <TextInput
+                style={styles.ingredientTextInput}
+                placeholder="e.g., cups flour"
+                value={ingredient.text}
+                onChangeText={(text) => updateIngredient(index, 'text', text)}
+              />
+              {ingredients.length > 1 && (
+                <TouchableOpacity
+                  onPress={() => removeIngredient(index)}
+                  style={styles.removeButton}
+                >
+                  <Text style={styles.removeButtonText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
         </View>
 
         {/* Instructions */}
         <View style={styles.section}>
-          <Text style={styles.label}>Instructions</Text>
-          <Text style={styles.hint}>One step per line (optional)</Text>
-          <TextInput
-            style={[styles.input, styles.multilineInput]}
-            placeholder="Preheat oven to 350°F&#10;Mix dry ingredients&#10;Add wet ingredients&#10;Bake for 30 minutes"
-            value={instructions}
-            onChangeText={setInstructions}
-            multiline
-            numberOfLines={10}
-            textAlignVertical="top"
-          />
+          <View style={styles.sectionHeader}>
+            <Text style={styles.label}>Instructions *</Text>
+            <TouchableOpacity
+              onPress={addInstructionBelow}
+              style={styles.addButton}
+            >
+              <Text style={styles.addButtonText}>+ Add Below</Text>
+            </TouchableOpacity>
+          </View>
+
+          {instructions.map((instruction, index) => (
+            <View key={index} style={styles.instructionRow}>
+              <View style={styles.instructionHeader}>
+                <Text style={styles.stepNumber}>Step {index + 1}</Text>
+                {instructions.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => removeInstruction(index)}
+                    style={styles.removeInstructionButton}
+                  >
+                    <Text style={styles.removeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TextInput
+                style={[
+                  styles.instructionInput,
+                  selectedInstructionIndex === index && styles.instructionInputSelected
+                ]}
+                placeholder={`Enter step ${index + 1}...`}
+                value={instruction}
+                onChangeText={(text) => updateInstruction(index, text)}
+                onFocus={() => setSelectedInstructionIndex(index)}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+          ))}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -205,17 +312,27 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   label: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
   },
-  hint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 8,
-    fontStyle: 'italic',
+  addButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   input: {
     backgroundColor: '#fff',
@@ -225,10 +342,6 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     color: colors.text,
-  },
-  multilineInput: {
-    minHeight: 120,
-    paddingTop: 12,
   },
   folderSelector: {
     flexDirection: 'row',
@@ -272,6 +385,80 @@ const styles = StyleSheet.create({
   folderOptionTextSelected: {
     fontWeight: '600',
     color: colors.primary,
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  quantityInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    width: 80,
+    marginRight: 8,
+  },
+  ingredientTextInput: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+  },
+  removeButton: {
+    marginLeft: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  instructionRow: {
+    marginBottom: 16,
+  },
+  instructionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  stepNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  removeInstructionButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  instructionInput: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  instructionInputSelected: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   bottomSpacer: {
     height: 60,

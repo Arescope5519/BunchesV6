@@ -119,27 +119,45 @@ export const HomeScreen = () => {
   } = useGlobalUndo();
 
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
-    // Always save recipes from extraction
-    console.log('💾 Saving recipe:', recipe.title);
+    // Show save confirmation dialog
+    Alert.alert(
+      '✅ Recipe Extracted',
+      `"${recipe.title}"\n\nSave this recipe to ${importTargetFolder}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            setUrl('');
+          }
+        },
+        {
+          text: 'Save',
+          onPress: async () => {
+            console.log('💾 Saving recipe:', recipe.title);
 
-    // Use the selected import target folder
-    const recipeWithFolder = {
-      ...recipe,
-      folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
-        ? 'All Recipes'
-        : importTargetFolder,
-    };
+            // Use the selected import target folder
+            const recipeWithFolder = {
+              ...recipe,
+              folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
+                ? 'All Recipes'
+                : importTargetFolder,
+            };
 
-    const saved = await saveRecipe(recipeWithFolder);
-    if (saved) {
-      console.log('✅ Recipe saved successfully');
-      setSelectedRecipe(recipeWithFolder);
-      setCurrentScreen('recipes');
-    } else {
-      console.error('❌ Failed to save recipe');
-      Alert.alert('Error', 'Failed to save recipe. Please try again.');
-    }
-    setUrl('');
+            const saved = await saveRecipe(recipeWithFolder);
+            if (saved) {
+              console.log('✅ Recipe saved successfully');
+              setSelectedRecipe(recipeWithFolder);
+              setCurrentScreen('recipes');
+            } else {
+              console.error('❌ Failed to save recipe');
+              Alert.alert('Error', 'Failed to save recipe. Please try again.');
+            }
+            setUrl('');
+          }
+        }
+      ]
+    );
   });
 
   // Navigation handler
@@ -187,10 +205,11 @@ export const HomeScreen = () => {
     }
   };
 
-  // Share intent handler
+  // Share intent handler - auto-extract when URL is shared
   useShareIntent((sharedUrl) => {
+    console.log('📲 Received shared URL:', sharedUrl);
     setUrl(sharedUrl);
-    // Auto-extract recipe when shared from browser
+    // Auto-extract recipe from shared URL
     setTimeout(() => extractRecipe(sharedUrl, true), 500);
   });
 
@@ -837,30 +856,6 @@ export const HomeScreen = () => {
             <Text style={styles.iconHeaderButtonText}>📖</Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* URL Input */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Paste recipe URL..."
-          value={url}
-          onChangeText={setUrl}
-          onSubmitEditing={() => extractRecipe(url, false)}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <TouchableOpacity
-          onPress={() => extractRecipe(url, false)}
-          style={styles.extractButton}
-          disabled={loading || !url}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.extractButtonText}>Extract</Text>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* Recipe List */}
