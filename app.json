@@ -16,7 +16,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bunchesai.v6"
+      "bundleIdentifier": "com.bunchesai.v6",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "bunches-recipe-share",
+            "CFBundleURLSchemes": ["bunches"]
+          }
+        ],
+        "NSUserTrackingUsageDescription": "This app does not track you."
+      }
     },
     "android": {
       "package": "com.bunchesai.v6",
