@@ -119,7 +119,38 @@ export const HomeScreen = () => {
   } = useGlobalUndo();
 
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
-    // Show save confirmation dialog
+    // Save function to be called either immediately or after confirmation
+    const saveRecipeToFolder = async () => {
+      console.log('💾 Saving recipe:', recipe.title);
+
+      // Use the selected import target folder
+      const recipeWithFolder = {
+        ...recipe,
+        folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
+          ? 'All Recipes'
+          : importTargetFolder,
+      };
+
+      const saved = await saveRecipe(recipeWithFolder);
+      if (saved) {
+        console.log('✅ Recipe saved successfully');
+        setSelectedRecipe(recipeWithFolder);
+        setCurrentScreen('recipes');
+      } else {
+        console.error('❌ Failed to save recipe');
+        Alert.alert('Error', 'Failed to save recipe. Please try again.');
+      }
+      setUrl('');
+    };
+
+    // Auto-save (from share intent) - save immediately without prompt
+    if (shouldSave) {
+      console.log('📲 Auto-saving recipe from share intent');
+      await saveRecipeToFolder();
+      return;
+    }
+
+    // Manual extraction - show confirmation dialog
     Alert.alert(
       '✅ Recipe Extracted',
       `"${recipe.title}"\n\nSave this recipe to ${importTargetFolder}?`,
@@ -133,28 +164,7 @@ export const HomeScreen = () => {
         },
         {
           text: 'Save',
-          onPress: async () => {
-            console.log('💾 Saving recipe:', recipe.title);
-
-            // Use the selected import target folder
-            const recipeWithFolder = {
-              ...recipe,
-              folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
-                ? 'All Recipes'
-                : importTargetFolder,
-            };
-
-            const saved = await saveRecipe(recipeWithFolder);
-            if (saved) {
-              console.log('✅ Recipe saved successfully');
-              setSelectedRecipe(recipeWithFolder);
-              setCurrentScreen('recipes');
-            } else {
-              console.error('❌ Failed to save recipe');
-              Alert.alert('Error', 'Failed to save recipe. Please try again.');
-            }
-            setUrl('');
-          }
+          onPress: saveRecipeToFolder
         }
       ]
     );
