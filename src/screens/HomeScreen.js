@@ -803,27 +803,218 @@ export const HomeScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* Save Recipe Modal with Folder Selection */}
+        <Modal
+          visible={showSaveRecipeModal}
+          animationType="fade"
+          transparent
+          onRequestClose={handleCancelSave}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.importModal}>
+              <Text style={styles.addFolderTitle}>
+                ✅ Recipe Extracted!
+              </Text>
+
+              {extractedRecipe && (
+                <>
+                  <Text style={[styles.importInstructions, { marginTop: 12, marginBottom: 16 }]}>
+                    "{extractedRecipe.title}"
+                  </Text>
+
+                  {/* Folder Selector */}
+                  <View style={styles.importSection}>
+                    <Text style={styles.importSectionLabel}>Save to:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
+                      {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                        <TouchableOpacity
+                          key={folder}
+                          style={[
+                            styles.folderChip,
+                            saveTargetFolder === folder && styles.folderChipSelected
+                          ]}
+                          onPress={() => setSaveTargetFolder(folder)}
+                        >
+                          <Text style={[
+                            styles.folderChipText,
+                            saveTargetFolder === folder && styles.folderChipTextSelected
+                          ]}>
+                            {folder}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.addFolderButtons}>
+                    <TouchableOpacity
+                      style={[styles.addFolderButton, styles.cancelButton]}
+                      onPress={handleCancelSave}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.addFolderButton, styles.createButton]}
+                      onPress={handleSaveExtractedRecipe}
+                    >
+                      <Text style={styles.createButtonText}>Save Recipe</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </>
     );
   }
 
   if (currentScreen === 'create') {
     return (
-      <CreateRecipeScreen
-        onSave={handleCreateRecipe}
-        onClose={() => setCurrentScreen('dashboard')}
-        folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
-      />
+      <>
+        <CreateRecipeScreen
+          onSave={handleCreateRecipe}
+          onClose={() => setCurrentScreen('dashboard')}
+          folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
+        />
+        {/* Save Recipe Modal with Folder Selection */}
+        <Modal
+          visible={showSaveRecipeModal}
+          animationType="fade"
+          transparent
+          onRequestClose={handleCancelSave}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.importModal}>
+              <Text style={styles.addFolderTitle}>
+                ✅ Recipe Extracted!
+              </Text>
+
+              {extractedRecipe && (
+                <>
+                  <Text style={[styles.importInstructions, { marginTop: 12, marginBottom: 16 }]}>
+                    "{extractedRecipe.title}"
+                  </Text>
+
+                  {/* Folder Selector */}
+                  <View style={styles.importSection}>
+                    <Text style={styles.importSectionLabel}>Save to:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
+                      {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                        <TouchableOpacity
+                          key={folder}
+                          style={[
+                            styles.folderChip,
+                            saveTargetFolder === folder && styles.folderChipSelected
+                          ]}
+                          onPress={() => setSaveTargetFolder(folder)}
+                        >
+                          <Text style={[
+                            styles.folderChipText,
+                            saveTargetFolder === folder && styles.folderChipTextSelected
+                          ]}>
+                            {folder}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.addFolderButtons}>
+                    <TouchableOpacity
+                      style={[styles.addFolderButton, styles.cancelButton]}
+                      onPress={handleCancelSave}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.addFolderButton, styles.createButton]}
+                      onPress={handleSaveExtractedRecipe}
+                    >
+                      <Text style={styles.createButtonText}>Save Recipe</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </>
     );
   }
 
   if (currentScreen === 'settings') {
     return (
-      <SettingsScreen
-        onClose={() => setCurrentScreen('dashboard')}
-        onClearAllData={handleClearAllData}
-        recipeCount={nonDeletedRecipeCount}
-      />
+      <>
+        <SettingsScreen
+          onClose={() => setCurrentScreen('dashboard')}
+          onClearAllData={handleClearAllData}
+          recipeCount={nonDeletedRecipeCount}
+        />
+        {/* Save Recipe Modal with Folder Selection */}
+        <Modal
+          visible={showSaveRecipeModal}
+          animationType="fade"
+          transparent
+          onRequestClose={handleCancelSave}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.importModal}>
+              <Text style={styles.addFolderTitle}>
+                ✅ Recipe Extracted!
+              </Text>
+
+              {extractedRecipe && (
+                <>
+                  <Text style={[styles.importInstructions, { marginTop: 12, marginBottom: 16 }]}>
+                    "{extractedRecipe.title}"
+                  </Text>
+
+                  {/* Folder Selector */}
+                  <View style={styles.importSection}>
+                    <Text style={styles.importSectionLabel}>Save to:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
+                      {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                        <TouchableOpacity
+                          key={folder}
+                          style={[
+                            styles.folderChip,
+                            saveTargetFolder === folder && styles.folderChipSelected
+                          ]}
+                          onPress={() => setSaveTargetFolder(folder)}
+                        >
+                          <Text style={[
+                            styles.folderChipText,
+                            saveTargetFolder === folder && styles.folderChipTextSelected
+                          ]}>
+                            {folder}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.addFolderButtons}>
+                    <TouchableOpacity
+                      style={[styles.addFolderButton, styles.cancelButton]}
+                      onPress={handleCancelSave}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.addFolderButton, styles.createButton]}
+                      onPress={handleSaveExtractedRecipe}
+                    >
+                      <Text style={styles.createButtonText}>Save Recipe</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </>
     );
   }
 
