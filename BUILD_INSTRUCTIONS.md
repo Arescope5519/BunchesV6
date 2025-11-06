@@ -134,6 +134,48 @@ npx expo run:ios --device
 
 ---
 
+## iOS Share Functionality
+
+### How to Share Recipe URLs to Bunches
+
+**Current Method (URL Scheme):**
+
+Since Bunches doesn't appear in Safari's share sheet yet, use this workaround:
+
+1. **In Safari:** Copy the recipe URL
+   - Tap and hold the URL bar
+   - Select "Copy"
+
+2. **Open Bunches app**
+   - The app will automatically detect the copied URL
+   - OR paste it into the URL input field
+
+**Why Bunches Isn't in Safari's Share Sheet:**
+
+The app currently uses URL schemes (`bunches://`) for deep linking, which allows:
+- ✅ Opening Bunches via custom URLs
+- ✅ Universal Links (applinks:bunches.app)
+- ✅ URL detection via clipboard monitoring
+
+However, to appear in Safari's share sheet, you would need:
+- ❌ A separate Share Extension target (not yet implemented)
+- ❌ Native iOS code (Swift/Objective-C) for the extension
+- ❌ Additional configuration in Xcode
+
+**Future Enhancement:**
+
+To add "Share to Bunches" in Safari's share sheet:
+
+1. Create a Share Extension target in Xcode
+2. Add Share Extension code (ShareViewController.swift)
+3. Configure App Groups for data sharing
+4. Update the Share Extension's Info.plist with NSExtension config
+5. Rebuild the app with the new extension target
+
+For now, the copy-paste method works reliably on iOS!
+
+---
+
 ## Quick Reference Commands
 
 ```bash

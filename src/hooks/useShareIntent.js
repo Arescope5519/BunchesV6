@@ -1,11 +1,15 @@
 /**
  * FILENAME: src/hooks/useShareIntent.js
- * PURPOSE: Handles shared URLs from browser via Android Share functionality
- * CHANGES: Removed debug alerts, enabled auto-extraction
+ * PURPOSE: Handles shared URLs from browser via Share functionality (iOS & Android)
+ * CHANGES:
+ *   - Removed debug alerts, enabled auto-extraction
+ *   - Improved iOS support with better URL handling
+ *   - Added Platform-specific logging
  * USED BY: src/screens/HomeScreen.js
  */
 
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -21,29 +25,52 @@ export const useShareIntent = (onUrlReceived) => {
    * Handle shared URLs from browser
    */
   const handleSharedUrl = (sharedData) => {
-    console.log('📨 Received shared data from browser');
+    console.log(`📨 [${Platform.OS}] Received shared data from browser`, sharedData);
 
     let sharedUrl = null;
 
-    // Extract URL based on data type
-    if (typeof sharedData === 'string') {
-      sharedUrl = extractUrlFromText(sharedData);
-    } else if (sharedData.weblink) {
-      sharedUrl = extractUrlFromText(sharedData.weblink);
-    } else if (sharedData.text) {
-      sharedUrl = extractUrlFromText(sharedData.text);
-    } else if (sharedData.contentUri) {
-      sharedUrl = extractUrlFromText(sharedData.contentUri);
+    // iOS-specific handling
+    if (Platform.OS === 'ios') {
+      // iOS can pass data in different formats
+      if (typeof sharedData === 'string') {
+        sharedUrl = extractUrlFromText(sharedData);
+      } else if (sharedData?.data) {
+        // iOS often wraps content in a 'data' field
+        sharedUrl = extractUrlFromText(sharedData.data);
+      } else if (sharedData?.weblink) {
+        sharedUrl = extractUrlFromText(sharedData.weblink);
+      } else if (sharedData?.text) {
+        sharedUrl = extractUrlFromText(sharedData.text);
+      } else if (Array.isArray(sharedData) && sharedData.length > 0) {
+        // iOS sometimes returns an array of shared items
+        const firstItem = sharedData[0];
+        if (typeof firstItem === 'string') {
+          sharedUrl = extractUrlFromText(firstItem);
+        } else if (firstItem?.data || firstItem?.weblink) {
+          sharedUrl = extractUrlFromText(firstItem.data || firstItem.weblink);
+        }
+      }
+    } else {
+      // Android handling (existing logic)
+      if (typeof sharedData === 'string') {
+        sharedUrl = extractUrlFromText(sharedData);
+      } else if (sharedData?.weblink) {
+        sharedUrl = extractUrlFromText(sharedData.weblink);
+      } else if (sharedData?.text) {
+        sharedUrl = extractUrlFromText(sharedData.text);
+      } else if (sharedData?.contentUri) {
+        sharedUrl = extractUrlFromText(sharedData.contentUri);
+      }
     }
 
     // Call the callback with extracted URL
     if (sharedUrl) {
-      console.log('✅ URL extracted:', sharedUrl);
+      console.log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
       if (onUrlReceived) {
         onUrlReceived(sharedUrl);
       }
     } else {
-      console.error('❌ Could not extract URL from shared data');
+      console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
     }
   };
 
@@ -56,35 +83,50 @@ export const useShareIntent = (onUrlReceived) => {
       return;
     }
 
+    console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
+
     try {
       // Handle shares when app is closed/not running
-      ReceiveSharingIntent.getReceivedFiles((files) => {
-        if (files && files.length > 0) {
-          handleSharedUrl(files[0]);
+      ReceiveSharingIntent.getReceivedFiles(
+        (files) => {
+          console.log(`📥 [${Platform.OS}] Received files on app start:`, files);
+          if (files && files.length > 0) {
+            handleSharedUrl(files[0]);
+          }
+        },
+        (error) => {
+          console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
         }
-      });
+      );
 
       // Handle shares when app is already open
-      const subscription = ReceiveSharingIntent.addEventListener('url', (event) => {
-        if (event && event.url) {
-          handleSharedUrl(event.url);
+      // iOS uses 'url' event, Android can use both 'url' and other events
+      const eventType = Platform.OS === 'ios' ? 'url' : 'url';
+      const subscription = ReceiveSharingIntent.addEventListener(eventType, (event) => {
+        console.log(`📥 [${Platform.OS}] Received event while app open:`, event);
+        if (event) {
+          // iOS might pass event.url or just the url directly
+          const dataToHandle = event.url || event;
+          handleSharedUrl(dataToHandle);
         }
       });
 
       // Cleanup
       return () => {
+        console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
         ReceiveSharingIntent.clearReceivedFiles();
-        if (subscription && subscription.remove) {
+        if (subscription && typeof subscription.remove === 'function') {
           subscription.remove();
         }
       };
     } catch (error) {
-      console.log('⚠️ Could not setup share listener:', error.message);
+      console.error(`⚠️ [${Platform.OS}] Could not setup share listener:`, error);
     }
   }, []);
 
   return {
     isAvailable: !!ReceiveSharingIntent,
+    platform: Platform.OS,
   };
 };
 
