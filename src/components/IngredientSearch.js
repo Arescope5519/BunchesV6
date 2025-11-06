@@ -25,11 +25,17 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
   // Extract all unique ingredients from all recipes
   const allIngredients = useMemo(() => {
+    console.log('🔍 Starting ingredient extraction from', recipes.length, 'recipes');
     const ingredientSet = new Set();
 
     recipes.forEach(recipe => {
       if (!recipe.deletedAt && recipe.ingredients) {
+        console.log(`  Processing recipe: ${recipe.title}, ingredients:`, Object.keys(recipe.ingredients));
         Object.values(recipe.ingredients).forEach(section => {
+          if (!Array.isArray(section)) {
+            console.warn('  ⚠️ Section is not an array:', section);
+            return;
+          }
           section.forEach(ingredient => {
             // Clean up ingredient text (remove amounts, common words)
             let cleaned = ingredient
@@ -59,6 +65,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
     const sortedIngredients = Array.from(ingredientSet).sort();
     console.log(`📊 Extracted ${sortedIngredients.length} unique ingredients from ${recipes.length} recipes`);
+    console.log(`📋 Sample ingredients:`, sortedIngredients.slice(0, 20));
     return sortedIngredients;
   }, [recipes]);
 

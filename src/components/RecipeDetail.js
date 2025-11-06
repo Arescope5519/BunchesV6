@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
 import colors from '../constants/colors';
 import {
   parseRecipeIngredients,
@@ -24,6 +24,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
   const [useMetric, setUseMetric] = useState(false);
   const [parsedIngredients, setParsedIngredients] = useState(null);
   const [displayedIngredients, setDisplayedIngredients] = useState(null);
+  const [scaledInstructions, setScaledInstructions] = useState(null);
 
   // Editing state
   const [editingItem, setEditingItem] = useState(null); // { type, sectionKey, index, value }
@@ -42,6 +43,42 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     const parsed = parseRecipeIngredients(recipe.ingredients);
     setParsedIngredients(parsed);
   }, [recipe]);
+
+  /**
+   * Scale numbers in instructions
+   */
+  const scaleInstructionNumbers = (instruction, scale) => {
+    if (scale === 1) return instruction;
+
+    // Match numbers (including decimals and fractions) followed by units
+    return instruction.replace(/(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s*(minutes?|mins?|hours?|hrs?|seconds?|secs?|degrees?|°[CF]?)/gi, (match, number, unit) => {
+      try {
+        // Handle fractions
+        let value;
+        if (number.includes('/')) {
+          const [num, den] = number.split('/').map(s => parseFloat(s.trim()));
+          value = num / den;
+        } else {
+          value = parseFloat(number);
+        }
+
+        // Scale the value
+        const scaled = value * scale;
+
+        // Format nicely
+        let formattedNumber;
+        if (scaled % 1 === 0) {
+          formattedNumber = scaled.toString();
+        } else {
+          formattedNumber = scaled.toFixed(1).replace(/\.0$/, '');
+        }
+
+        return `${formattedNumber} ${unit}`;
+      } catch (e) {
+        return match; // Return original if parsing fails
+      }
+    });
+  };
 
   // Update displayed ingredients when scale or unit system changes
   useEffect(() => {
@@ -68,7 +105,13 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     }
 
     setDisplayedIngredients(ingredients);
-  }, [parsedIngredients, scaleFactor, useMetric]);
+
+    // Scale instructions
+    if (localRecipe.instructions) {
+      const scaled = localRecipe.instructions.map(step => scaleInstructionNumbers(step, scaleFactor));
+      setScaledInstructions(scaled);
+    }
+  }, [parsedIngredients, scaleFactor, useMetric, localRecipe.instructions]);
 
   /**
    * Save current state to global undo history
@@ -505,6 +548,15 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
         </TouchableOpacity>
       </View>
 
+      {/* Scaling Disclaimer */}
+      {scaleFactor !== 1 && (
+        <View style={styles.disclaimer}>
+          <Text style={styles.disclaimerText}>
+            ⚠️ Note: Cooking times may vary when modifying quantities
+          </Text>
+        </View>
+      )}
+
       {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
         <View key={section} style={styles.ingredientSection}>
           {section !== 'main' && (
@@ -645,7 +697,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       ))}
 
       <Text style={styles.sectionTitle}>Instructions</Text>
-      {localRecipe.instructions.map((step, idx) => (
+      {(scaledInstructions || localRecipe.instructions).map((step, idx) => (
         <View key={`instruction-${idx}`}>
           <TouchableOpacity
             onLongPress={() => handleLongPress('instruction', null, idx, step)}
@@ -729,7 +781,15 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
       <View style={styles.sourceContainer}>
         <Text style={styles.sourceLabel}>Source:</Text>
-        <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
+        <TouchableOpacity onPress={() => {
+          if (localRecipe.url) {
+            Linking.openURL(localRecipe.url).catch(err =>
+              Alert.alert('Error', 'Could not open URL')
+            );
+          }
+        }}>
+          <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
+        </TouchableOpacity>
       </View>
 
       {swapMode && (
@@ -987,6 +1047,21 @@ const styles = StyleSheet.create({
   sourceUrl: {
     fontSize: 12,
     color: colors.primary,
+    textDecorationLine: 'underline',
+  },
+  disclaimer: {
+    backgroundColor: '#FFF9E6',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
+  },
+  disclaimerText: {
+    fontSize: 13,
+    color: '#8B6914',
+    fontWeight: '500',
   },
   // Grocery list selection styles
   addToGroceryListMainButton: {
