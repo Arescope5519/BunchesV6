@@ -119,38 +119,9 @@ export const HomeScreen = () => {
   } = useGlobalUndo();
 
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
-    // Save function to be called either immediately or after confirmation
-    const saveRecipeToFolder = async () => {
-      console.log('💾 Saving recipe:', recipe.title);
+    console.log('📋 Recipe extracted:', recipe.title);
 
-      // Use the selected import target folder
-      const recipeWithFolder = {
-        ...recipe,
-        folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
-          ? 'All Recipes'
-          : importTargetFolder,
-      };
-
-      const saved = await saveRecipe(recipeWithFolder);
-      if (saved) {
-        console.log('✅ Recipe saved successfully');
-        setSelectedRecipe(recipeWithFolder);
-        setCurrentScreen('recipes');
-      } else {
-        console.error('❌ Failed to save recipe');
-        Alert.alert('Error', 'Failed to save recipe. Please try again.');
-      }
-      setUrl('');
-    };
-
-    // Auto-save (from share intent) - save immediately without prompt
-    if (shouldSave) {
-      console.log('📲 Auto-saving recipe from share intent');
-      await saveRecipeToFolder();
-      return;
-    }
-
-    // Manual extraction - show confirmation dialog
+    // Show save confirmation dialog
     Alert.alert(
       '✅ Recipe Extracted',
       `"${recipe.title}"\n\nSave this recipe to ${importTargetFolder}?`,
@@ -159,12 +130,38 @@ export const HomeScreen = () => {
           text: 'Cancel',
           style: 'cancel',
           onPress: () => {
+            console.log('❌ User cancelled save');
             setUrl('');
           }
         },
         {
           text: 'Save',
-          onPress: saveRecipeToFolder
+          onPress: async () => {
+            console.log('💾 Saving recipe:', recipe.title, 'to folder:', importTargetFolder);
+
+            // Use the selected import target folder
+            const recipeWithFolder = {
+              ...recipe,
+              folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
+                ? 'All Recipes'
+                : importTargetFolder,
+            };
+
+            console.log('💾 Calling saveRecipe with:', recipeWithFolder);
+            const saved = await saveRecipe(recipeWithFolder);
+            console.log('💾 Save result:', saved);
+
+            if (saved) {
+              console.log('✅ Recipe saved successfully to:', recipeWithFolder.folder);
+              setSelectedRecipe(recipeWithFolder);
+              setCurrentScreen('recipes');
+              Alert.alert('✅ Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
+            } else {
+              console.error('❌ Failed to save recipe');
+              Alert.alert('Error', 'Failed to save recipe. Please try again.');
+            }
+            setUrl('');
+          }
         }
       ]
     );
@@ -215,12 +212,12 @@ export const HomeScreen = () => {
     }
   };
 
-  // Share intent handler - auto-extract when URL is shared
+  // Share intent handler - extract and prompt to save when URL is shared
   useShareIntent((sharedUrl) => {
     console.log('📲 Received shared URL:', sharedUrl);
     setUrl(sharedUrl);
-    // Auto-extract recipe from shared URL
-    setTimeout(() => extractRecipe(sharedUrl, true), 500);
+    // Extract recipe from shared URL (will show save prompt)
+    setTimeout(() => extractRecipe(sharedUrl, false), 500);
   });
 
   // Grocery list handlers with undo support
