@@ -6,7 +6,7 @@
  * USED BY: App.js
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,8 @@ import {
   Platform,
   Share,
   Clipboard,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -120,6 +122,55 @@ export const HomeScreen = () => {
     canUndo,
     lastActionDescription,
   } = useGlobalUndo();
+
+  // Swipeable undo button
+  const undoButtonPosition = useRef(new Animated.ValueXY()).current;
+  const [undoButtonDismissed, setUndoButtonDismissed] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only start pan if swiping (not just tapping)
+        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Allow swiping in any direction
+        undoButtonPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // If swiped far enough in any direction, dismiss
+        const threshold = 80;
+        if (Math.abs(gestureState.dx) > threshold || Math.abs(gestureState.dy) > threshold) {
+          // Animate out
+          Animated.timing(undoButtonPosition, {
+            toValue: {
+              x: gestureState.dx > 0 ? 400 : -400,
+              y: gestureState.dy
+            },
+            duration: 200,
+            useNativeDriver: false,
+          }).start(() => {
+            setUndoButtonDismissed(true);
+            undoButtonPosition.setValue({ x: 0, y: 0 });
+          });
+        } else {
+          // Snap back
+          Animated.spring(undoButtonPosition, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Reset dismissed state when undo button should show
+  useEffect(() => {
+    if (showUndoButton && canUndo) {
+      setUndoButtonDismissed(false);
+    }
+  }, [showUndoButton, canUndo]);
 
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
     console.log('📋 Recipe extracted:', recipe.title);
@@ -1733,15 +1784,29 @@ export const HomeScreen = () => {
         </View>
       </Modal>
 
-      {/* Global Undo Button - Only show when no modals are open */}
-      {showUndoButton && canUndo && !selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && (
-        <TouchableOpacity
-          style={styles.globalUndoButton}
-          onPress={performUndo}
-          activeOpacity={0.8}
+      {/* Global Undo Button - Only show when no modals are open - Swipeable */}
+      {showUndoButton && canUndo && !undoButtonDismissed && !selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && (
+        <Animated.View
+          style={[
+            styles.globalUndoButton,
+            {
+              transform: [
+                { translateX: undoButtonPosition.x },
+                { translateY: undoButtonPosition.y }
+              ]
+            }
+          ]}
+          {...panResponder.panHandlers}
         >
-          <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={performUndo}
+            activeOpacity={0.8}
+            style={styles.undoButtonTouchable}
+          >
+            <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
+            <Text style={styles.swipeHint}>Swipe to dismiss</Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -2123,8 +2188,6 @@ const styles = StyleSheet.create({
     left: 15,
     right: 15,
     backgroundColor: colors.warning,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
     borderRadius: 10,
     zIndex: 99999,
     elevation: 100,
@@ -2132,6 +2195,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+  undoButtonTouchable: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2139,6 +2206,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.white,
     fontWeight: '700',
+  },
+  swipeHint: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   deletedBanner: {
     backgroundColor: colors.error,

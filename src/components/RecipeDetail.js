@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal } from 'react-native';
 import colors from '../constants/colors';
 import {
   parseRecipeIngredients,
@@ -35,6 +35,10 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
   // Grocery list selection state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState({});
+
+  // Add section modal state
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
 
   // Update local recipe when prop changes
   useEffect(() => {
@@ -358,33 +362,29 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
    * Add new section
    */
   const addNewSection = () => {
-    Alert.prompt(
-      'New Section',
-      'Enter section name:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: (sectionName) => {
-            if (sectionName && sectionName.trim()) {
-              // Save to undo history before adding section
-              saveToHistory('Add Section');
+    setNewSectionName('');
+    setShowAddSectionModal(true);
+  };
 
-              const updated = {
-                ...localRecipe,
-                ingredients: {
-                  ...localRecipe.ingredients,
-                  [sectionName.trim()]: []
-                }
-              };
-              setLocalRecipe(updated);
-              if (onUpdate) onUpdate(updated);
-            }
-          }
+  const confirmAddSection = () => {
+    if (newSectionName && newSectionName.trim()) {
+      // Save to undo history before adding section
+      saveToHistory('Add Section');
+
+      const updated = {
+        ...localRecipe,
+        ingredients: {
+          ...localRecipe.ingredients,
+          [newSectionName.trim()]: []
         }
-      ],
-      'plain-text'
-    );
+      };
+      setLocalRecipe(updated);
+      if (onUpdate) onUpdate(updated);
+      setShowAddSectionModal(false);
+      setNewSectionName('');
+    } else {
+      Alert.alert('Error', 'Please enter a section name');
+    }
   };
 
   /**
@@ -803,6 +803,47 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Add Section Modal */}
+      <Modal
+        visible={showAddSectionModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowAddSectionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addSectionModalContainer}>
+            <Text style={styles.addSectionModalTitle}>Add New Section</Text>
+            <Text style={styles.addSectionModalLabel}>Section name:</Text>
+            <TextInput
+              style={styles.addSectionInput}
+              placeholder="e.g., For the sauce, Toppings..."
+              value={newSectionName}
+              onChangeText={setNewSectionName}
+              autoFocus
+              onSubmitEditing={confirmAddSection}
+              returnKeyType="done"
+            />
+            <View style={styles.addSectionModalButtons}>
+              <TouchableOpacity
+                style={[styles.addSectionModalButton, styles.cancelSectionButton]}
+                onPress={() => {
+                  setShowAddSectionModal(false);
+                  setNewSectionName('');
+                }}
+              >
+                <Text style={styles.cancelSectionButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addSectionModalButton, styles.confirmSectionButton]}
+                onPress={confirmAddSection}
+              >
+                <Text style={styles.confirmSectionButtonText}>Add Section</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -1062,6 +1103,67 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8B6914',
     fontWeight: '500',
+  },
+  // Add Section Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addSectionModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  addSectionModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: colors.text,
+  },
+  addSectionModalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  addSectionInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    marginBottom: 20,
+  },
+  addSectionModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  addSectionModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelSectionButton: {
+    backgroundColor: colors.lightGray,
+  },
+  cancelSectionButtonText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  confirmSectionButton: {
+    backgroundColor: colors.primary,
+  },
+  confirmSectionButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   // Grocery list selection styles
   addToGroceryListMainButton: {
