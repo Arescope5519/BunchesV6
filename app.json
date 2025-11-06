@@ -14,6 +14,9 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "plugins": [
+      "./plugins/ios-share-extension.js"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bunchesai.v6",
@@ -25,7 +28,10 @@
           }
         ],
         "NSUserTrackingUsageDescription": "This app does not track you."
-      }
+      },
+      "associatedDomains": [
+        "applinks:bunches.app"
+      ]
     },
     "android": {
       "package": "com.bunchesai.v6",
