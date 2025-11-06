@@ -272,14 +272,15 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     console.log('Attempting swap:', { type, sectionKey, index }, 'with', swapMode);
 
     if (swapMode.type !== type) {
-      Alert.alert('Cannot Swap', "Can't swap ingredients with instructions");
+      Alert.alert('Cannot Swap', "Can't swap different types of items");
       return;
     }
 
     const { sectionKey: sourceSectionKey, index: sourceIndex } = swapMode;
 
     // Save to undo history before swapping
-    const description = type === 'ingredient' ? 'Swap Ingredients' : 'Swap Instructions';
+    const description = type === 'ingredient' ? 'Swap Ingredients' :
+                       type === 'section' ? 'Swap Sections' : 'Swap Instructions';
     saveToHistory(description);
     let updated = { ...localRecipe };
 
@@ -294,6 +295,30 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       console.log('Swapping ingredients:', sourceIndex, '<->', index);
       [items[sourceIndex], items[index]] = [items[index], items[sourceIndex]];
       updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
+    } else if (type === 'section') {
+      // Swap section order
+      console.log('Swapping sections:', sourceSectionKey, '<->', sectionKey);
+
+      // Get all section keys in order
+      const sectionKeys = Object.keys(updated.ingredients);
+      const sourceIdx = sectionKeys.indexOf(sourceSectionKey);
+      const targetIdx = sectionKeys.indexOf(sectionKey);
+
+      if (sourceIdx === -1 || targetIdx === -1) {
+        Alert.alert('Error', 'Could not find sections to swap');
+        return;
+      }
+
+      // Swap positions in array
+      [sectionKeys[sourceIdx], sectionKeys[targetIdx]] = [sectionKeys[targetIdx], sectionKeys[sourceIdx]];
+
+      // Rebuild ingredients object with new order
+      const reorderedIngredients = {};
+      sectionKeys.forEach(key => {
+        reorderedIngredients[key] = updated.ingredients[key];
+      });
+
+      updated.ingredients = reorderedIngredients;
     } else if (type === 'instruction') {
       const items = [...updated.instructions];
       console.log('Swapping instructions:', sourceIndex, '<->', index);
@@ -328,7 +353,8 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     const { type, sectionKey, index } = addingBelow;
 
     // Save to undo history before adding
-    const description = type === 'ingredient' ? 'Add Ingredient' : 'Add Instruction';
+    const description = type === 'ingredient' ? 'Add Ingredient' :
+                       type === 'section' ? 'Add Ingredient to Section' : 'Add Instruction';
     saveToHistory(description);
     console.log('Saving new item below:', type, sectionKey, index, newItemValue);
     let updated = { ...localRecipe };
@@ -336,6 +362,11 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     if (type === 'ingredient') {
       const items = [...updated.ingredients[sectionKey]];
       items.splice(index + 1, 0, newItemValue.trim());
+      updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
+    } else if (type === 'section') {
+      // Add ingredient to the beginning of this section
+      const items = [...(updated.ingredients[sectionKey] || [])];
+      items.unshift(newItemValue.trim());
       updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
     } else if (type === 'instruction') {
       const items = [...updated.instructions];
@@ -347,6 +378,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     if (onUpdate) onUpdate(updated);
     setAddingBelow(null);
     setNewItemValue('');
+    setEditingItem(null);
   };
 
   /**
@@ -560,28 +592,70 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
         <View key={section} style={styles.ingredientSection}>
           {section !== 'main' && (
-            <TouchableOpacity
-              onLongPress={() => handleLongPress('section', section, 0, section)}
-              delayLongPress={300}
-            >
-              {editingItem?.type === 'section' && editingItem?.sectionKey === section ? (
-                <TextInput
-                  style={styles.subsectionTitleInput}
-                  value={editingItem.value}
-                  onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                  onBlur={saveEdit}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.subsectionTitle,
-                    swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
-                  ]}
-                >
-                  {section}
-                </Text>
+            <>
+              <TouchableOpacity
+                onLongPress={() => handleLongPress('section', section, 0, section)}
+                onPress={() => {
+                  if (swapMode && swapMode.type === 'section') {
+                    handleSwapWith('section', section, 0);
+                  }
+                }}
+                delayLongPress={300}
+              >
+                {editingItem?.type === 'section' && editingItem?.sectionKey === section ? (
+                  <TextInput
+                    style={styles.subsectionTitleInput}
+                    value={editingItem.value}
+                    onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                    onBlur={saveEdit}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.subsectionTitle,
+                      swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
+                    ]}
+                  >
+                    {section}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Action buttons for sections */}
+              {editingItem?.type === 'section' && editingItem?.sectionKey === section && (
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
+                    <Text style={styles.actionButtonText}>❌ Delete Section</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
+                    <Text style={styles.actionButtonText}>🔄 Swap Section</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
+                    <Text style={styles.actionButtonText}>➕ Add Ingredient</Text>
+                  </TouchableOpacity>
+                </View>
               )}
-            </TouchableOpacity>
+
+              {/* Add below input for sections */}
+              {addingBelow?.type === 'section' && addingBelow?.sectionKey === section && (
+                <View style={styles.addBelowContainer}>
+                  <TextInput
+                    style={styles.addBelowInput}
+                    placeholder="New ingredient..."
+                    value={newItemValue}
+                    onChangeText={setNewItemValue}
+                    onSubmitEditing={saveNewItem}
+                    autoFocus
+                  />
+                  <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
+                    <Text style={styles.saveButtonText}>✓</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
+                    <Text style={styles.cancelButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
           )}
 
           {items.map((item, idx) => {
