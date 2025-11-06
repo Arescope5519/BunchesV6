@@ -32,13 +32,23 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
         Object.values(recipe.ingredients).forEach(section => {
           section.forEach(ingredient => {
             // Clean up ingredient text (remove amounts, common words)
-            const cleaned = ingredient
+            let cleaned = ingredient
               .toLowerCase()
-              .replace(/^\d+[\s\/\d]*/, '') // Remove leading numbers/fractions
-              .replace(/\b(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|lb|lbs|g|kg|ml|l)\b/gi, '')
+              .replace(/^\d+[\s\/\d.-]*/, '') // Remove leading numbers/fractions
+              .replace(/\b(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|lb|lbs|g|kg|ml|l|pinch|dash|can|cans|jar|package)\b/gi, '')
+              .replace(/\b(of|and|or|to|a|an|the|fresh|dried|frozen|chopped|diced|sliced|minced)\b/gi, '')
               .replace(/[,()]/g, '')
               .trim();
 
+            // Also add individual words from multi-word ingredients
+            const words = cleaned.split(/\s+/);
+            words.forEach(word => {
+              if (word.length > 2) {
+                ingredientSet.add(word);
+              }
+            });
+
+            // Add the full cleaned ingredient too
             if (cleaned.length > 2) {
               ingredientSet.add(cleaned);
             }
@@ -47,25 +57,39 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
       }
     });
 
-    return Array.from(ingredientSet).sort();
+    const sortedIngredients = Array.from(ingredientSet).sort();
+    console.log(`📊 Extracted ${sortedIngredients.length} unique ingredients from ${recipes.length} recipes`);
+    return sortedIngredients;
   }, [recipes]);
 
   // Filter suggestions based on search text
   const suggestions = useMemo(() => {
-    if (!searchText.trim()) return [];
+    if (!searchText.trim() || searchText.trim().length < 2) return [];
 
-    const search = searchText.toLowerCase();
-    return allIngredients
-      .filter(ing =>
-        ing.includes(search) &&
-        !selectedIngredients.includes(ing)
-      )
-      .slice(0, 10); // Limit to 10 suggestions
+    const search = searchText.toLowerCase().trim();
+
+    // Prioritize ingredients that start with the search term
+    const startsWith = [];
+    const contains = [];
+
+    allIngredients.forEach(ing => {
+      if (selectedIngredients.includes(ing)) return;
+
+      if (ing.startsWith(search)) {
+        startsWith.push(ing);
+      } else if (ing.includes(search)) {
+        contains.push(ing);
+      }
+    });
+
+    // Combine results: startsWith first, then contains
+    return [...startsWith, ...contains].slice(0, 15); // Limit to 15 suggestions
   }, [searchText, allIngredients, selectedIngredients]);
 
   // Add ingredient to selected list
   const addIngredient = (ingredient) => {
     if (!selectedIngredients.includes(ingredient)) {
+      console.log('Adding ingredient:', ingredient);
       setSelectedIngredients([...selectedIngredients, ingredient]);
       setSearchText('');
       setShowSuggestions(false);
@@ -146,30 +170,50 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
             value={searchText}
             onChangeText={(text) => {
               setSearchText(text);
-              setShowSuggestions(text.length > 0);
+              setShowSuggestions(text.trim().length >= 2);
             }}
-            onFocus={() => setShowSuggestions(searchText.length > 0)}
+            onFocus={() => setShowSuggestions(searchText.trim().length >= 2)}
+            onBlur={() => {
+              // Delay hiding to allow tapping suggestions
+              setTimeout(() => setShowSuggestions(false), 200);
+            }}
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="search"
           />
 
           {/* Autocomplete Suggestions */}
           {showSuggestions && suggestions.length > 0 && (
             <View style={styles.suggestionsContainer}>
+              <Text style={styles.suggestionsHeader}>
+                Tap to add ingredient:
+              </Text>
               <ScrollView
                 style={styles.suggestionsList}
                 keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
               >
-                {suggestions.map((ingredient) => (
+                {suggestions.map((ingredient, index) => (
                   <TouchableOpacity
-                    key={ingredient}
+                    key={`${ingredient}-${index}`}
                     style={styles.suggestionItem}
                     onPress={() => addIngredient(ingredient)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.suggestionText}>{ingredient}</Text>
+                    <Text style={styles.suggestionText}>🔍 {ingredient}</Text>
+                    <Text style={styles.suggestionAdd}>+</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            </View>
+          )}
+
+          {/* No suggestions message */}
+          {showSuggestions && searchText.trim().length >= 2 && suggestions.length === 0 && (
+            <View style={styles.noSuggestionsContainer}>
+              <Text style={styles.noSuggestionsText}>
+                No ingredient suggestions found. Try typing differently or add it manually.
+              </Text>
             </View>
           )}
 
@@ -177,20 +221,23 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
           {selectedIngredients.length > 0 && (
             <View style={styles.selectedSection}>
               <Text style={styles.selectedLabel}>
-                Selected ({selectedIngredients.length}):
+                Selected ingredients ({selectedIngredients.length}) - Tap to remove:
               </Text>
-              <View style={styles.ingredientChips}>
-                {selectedIngredients.map((ingredient) => (
-                  <TouchableOpacity
-                    key={ingredient}
-                    style={styles.chip}
-                    onPress={() => removeIngredient(ingredient)}
-                  >
-                    <Text style={styles.chipText}>{ingredient}</Text>
-                    <Text style={styles.chipRemove}> ✕</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.ingredientChips}>
+                  {selectedIngredients.map((ingredient, index) => (
+                    <TouchableOpacity
+                      key={`${ingredient}-${index}`}
+                      style={styles.chip}
+                      onPress={() => removeIngredient(ingredient)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.chipText}>{ingredient}</Text>
+                      <Text style={styles.chipRemove}> ✕</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           )}
         </View>
@@ -286,6 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    zIndex: 1001,
   },
   label: {
     fontSize: 14,
@@ -303,23 +351,64 @@ const styles = StyleSheet.create({
   },
   suggestionsContainer: {
     marginTop: 8,
-    maxHeight: 200,
-    borderWidth: 1,
-    borderColor: colors.border,
+    maxHeight: 250,
+    borderWidth: 2,
+    borderColor: colors.primary,
     borderRadius: 8,
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  suggestionsHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
   },
   suggestionsList: {
     flex: 1,
   },
   suggestionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGray,
+    backgroundColor: '#fff',
   },
   suggestionText: {
     fontSize: 15,
     color: colors.text,
+    flex: 1,
+  },
+  suggestionAdd: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginLeft: 8,
+  },
+  noSuggestionsContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  noSuggestionsText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   selectedSection: {
     marginTop: 12,
