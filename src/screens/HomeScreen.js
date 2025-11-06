@@ -63,6 +63,9 @@ export const HomeScreen = () => {
   const [importText, setImportText] = useState('');
   const [importTargetFolder, setImportTargetFolder] = useState('All Recipes');
   const [showIngredientSearch, setShowIngredientSearch] = useState(false);
+  const [showSaveRecipeModal, setShowSaveRecipeModal] = useState(false);
+  const [extractedRecipe, setExtractedRecipe] = useState(null);
+  const [saveTargetFolder, setSaveTargetFolder] = useState('All Recipes');
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -121,51 +124,53 @@ export const HomeScreen = () => {
   const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
     console.log('📋 Recipe extracted:', recipe.title);
 
-    // Show save confirmation dialog
-    Alert.alert(
-      '✅ Recipe Extracted',
-      `"${recipe.title}"\n\nSave this recipe to ${importTargetFolder}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => {
-            console.log('❌ User cancelled save');
-            setUrl('');
-          }
-        },
-        {
-          text: 'Save',
-          onPress: async () => {
-            console.log('💾 Saving recipe:', recipe.title, 'to folder:', importTargetFolder);
-
-            // Use the selected import target folder
-            const recipeWithFolder = {
-              ...recipe,
-              folder: importTargetFolder === 'Favorites' || importTargetFolder === 'Recently Deleted'
-                ? 'All Recipes'
-                : importTargetFolder,
-            };
-
-            console.log('💾 Calling saveRecipe with:', recipeWithFolder);
-            const saved = await saveRecipe(recipeWithFolder);
-            console.log('💾 Save result:', saved);
-
-            if (saved) {
-              console.log('✅ Recipe saved successfully to:', recipeWithFolder.folder);
-              setSelectedRecipe(recipeWithFolder);
-              setCurrentScreen('recipes');
-              Alert.alert('✅ Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
-            } else {
-              console.error('❌ Failed to save recipe');
-              Alert.alert('Error', 'Failed to save recipe. Please try again.');
-            }
-            setUrl('');
-          }
-        }
-      ]
-    );
+    // Store extracted recipe and show folder selection modal
+    setExtractedRecipe(recipe);
+    setSaveTargetFolder('All Recipes'); // Default folder
+    setShowSaveRecipeModal(true);
   });
+
+  // Handle save after folder selection
+  const handleSaveExtractedRecipe = async () => {
+    if (!extractedRecipe) return;
+
+    console.log('💾 Saving recipe:', extractedRecipe.title, 'to folder:', saveTargetFolder);
+
+    // Use the selected save target folder
+    const recipeWithFolder = {
+      ...extractedRecipe,
+      folder: saveTargetFolder === 'Favorites' || saveTargetFolder === 'Recently Deleted'
+        ? 'All Recipes'
+        : saveTargetFolder,
+    };
+
+    console.log('💾 Calling saveRecipe with:', recipeWithFolder);
+    const saved = await saveRecipe(recipeWithFolder);
+    console.log('💾 Save result:', saved);
+
+    if (saved) {
+      console.log('✅ Recipe saved successfully to:', recipeWithFolder.folder);
+      setSelectedRecipe(recipeWithFolder);
+      setCurrentScreen('recipes');
+      Alert.alert('✅ Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
+    } else {
+      console.error('❌ Failed to save recipe');
+      Alert.alert('Error', 'Failed to save recipe. Please try again.');
+    }
+
+    // Clean up
+    setShowSaveRecipeModal(false);
+    setExtractedRecipe(null);
+    setUrl('');
+  };
+
+  // Handle cancel save
+  const handleCancelSave = () => {
+    console.log('❌ User cancelled save');
+    setShowSaveRecipeModal(false);
+    setExtractedRecipe(null);
+    setUrl('');
+  };
 
   // Navigation handler
   const handleNavigation = (screen) => {
@@ -1470,6 +1475,69 @@ export const HomeScreen = () => {
                 <Text style={styles.createButtonText}>Import</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Save Recipe Modal with Folder Selection */}
+      <Modal
+        visible={showSaveRecipeModal}
+        animationType="fade"
+        transparent
+        onRequestClose={handleCancelSave}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.importModal}>
+            <Text style={styles.addFolderTitle}>
+              ✅ Recipe Extracted!
+            </Text>
+
+            {extractedRecipe && (
+              <>
+                <Text style={[styles.importInstructions, { marginTop: 12, marginBottom: 16 }]}>
+                  "{extractedRecipe.title}"
+                </Text>
+
+                {/* Folder Selector */}
+                <View style={styles.importSection}>
+                  <Text style={styles.importSectionLabel}>Save to:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
+                    {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                      <TouchableOpacity
+                        key={folder}
+                        style={[
+                          styles.folderChip,
+                          saveTargetFolder === folder && styles.folderChipSelected
+                        ]}
+                        onPress={() => setSaveTargetFolder(folder)}
+                      >
+                        <Text style={[
+                          styles.folderChipText,
+                          saveTargetFolder === folder && styles.folderChipTextSelected
+                        ]}>
+                          {folder}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.addFolderButtons}>
+                  <TouchableOpacity
+                    style={[styles.addFolderButton, styles.cancelButton]}
+                    onPress={handleCancelSave}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.addFolderButton, styles.createButton]}
+                    onPress={handleSaveExtractedRecipe}
+                  >
+                    <Text style={styles.createButtonText}>Save Recipe</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
