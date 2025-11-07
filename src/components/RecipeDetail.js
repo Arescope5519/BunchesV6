@@ -635,7 +635,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
             <TouchableOpacity
               onLongPress={() => handleLongPress('section', section, 0, section)}
               onPress={() => {
-                if (swapMode && swapMode.type === 'section') {
+                if (swapMode) {
                   handleSwapWith('section', section, 0);
                 }
               }}
@@ -652,7 +652,8 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                 <Text
                   style={[
                     styles.subsectionTitle,
-                    swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
+                    swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem,
+                    swapMode?.type === 'ingredient' && styles.sectionHeaderClickable
                   ]}
                 >
                   {displaySectionName}
@@ -1079,6 +1080,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     color: colors.text,
+  },
+  sectionHeaderClickable: {
+    backgroundColor: '#E3F2FD',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
   },
   subsectionTitleInput: {
     fontSize: 16,
