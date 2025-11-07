@@ -71,9 +71,17 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
   // Filter suggestions based on search text
   const suggestions = useMemo(() => {
-    if (!searchText.trim() || searchText.trim().length < 2) return [];
+    console.log('🔍 Filtering suggestions for search text:', searchText);
+    console.log('  All ingredients count:', allIngredients.length);
+    console.log('  Selected ingredients:', selectedIngredients);
+
+    if (!searchText.trim() || searchText.trim().length < 2) {
+      console.log('  ❌ Search text too short, returning empty');
+      return [];
+    }
 
     const search = searchText.toLowerCase().trim();
+    console.log('  Searching for:', search);
 
     // Prioritize ingredients that start with the search term
     const startsWith = [];
@@ -90,7 +98,9 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     });
 
     // Combine results: startsWith first, then contains
-    return [...startsWith, ...contains].slice(0, 15); // Limit to 15 suggestions
+    const results = [...startsWith, ...contains].slice(0, 15);
+    console.log('  ✅ Found suggestions:', results.length, results);
+    return results;
   }, [searchText, allIngredients, selectedIngredients]);
 
   // Add ingredient to selected list
@@ -176,13 +186,13 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
             placeholder="e.g., chicken, garlic, tomato..."
             value={searchText}
             onChangeText={(text) => {
+              console.log('🔤 Search text changed:', text);
               setSearchText(text);
               setShowSuggestions(text.trim().length >= 2);
             }}
-            onFocus={() => setShowSuggestions(searchText.trim().length >= 2)}
-            onBlur={() => {
-              // Delay hiding to allow tapping suggestions
-              setTimeout(() => setShowSuggestions(false), 200);
+            onFocus={() => {
+              console.log('🎯 Input focused, search text:', searchText);
+              setShowSuggestions(searchText.trim().length >= 2);
             }}
             autoCapitalize="none"
             autoCorrect={false}
@@ -190,7 +200,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
           />
 
           {/* Autocomplete Suggestions */}
-          {showSuggestions && suggestions.length > 0 && (
+          {showSuggestions && suggestions.length > 0 ? (
             <View style={styles.suggestionsContainer}>
               <Text style={styles.suggestionsHeader}>
                 Tap to add ingredient:
@@ -200,28 +210,33 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled={true}
               >
-                {suggestions.map((ingredient, index) => (
-                  <TouchableOpacity
-                    key={`${ingredient}-${index}`}
-                    style={styles.suggestionItem}
-                    onPress={() => addIngredient(ingredient)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.suggestionText}>🔍 {ingredient}</Text>
-                    <Text style={styles.suggestionAdd}>+</Text>
-                  </TouchableOpacity>
-                ))}
+                {suggestions.map((ingredient, index) => {
+                  console.log('  Rendering suggestion:', ingredient);
+                  return (
+                    <TouchableOpacity
+                      key={`${ingredient}-${index}`}
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        console.log('👆 Tapped suggestion:', ingredient);
+                        addIngredient(ingredient);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.suggestionText}>🔍 {ingredient}</Text>
+                      <Text style={styles.suggestionAdd}>+</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </View>
-          )}
-
-          {/* No suggestions message */}
-          {showSuggestions && searchText.trim().length >= 2 && suggestions.length === 0 && (
-            <View style={styles.noSuggestionsContainer}>
-              <Text style={styles.noSuggestionsText}>
-                No ingredient suggestions found. Try typing differently or add it manually.
-              </Text>
-            </View>
+          ) : (
+            showSuggestions && searchText.trim().length >= 2 && (
+              <View style={styles.noSuggestionsContainer}>
+                <Text style={styles.noSuggestionsText}>
+                  No suggestions found for "{searchText}". Have {allIngredients.length} total ingredients available.
+                </Text>
+              </View>
+            )
           )}
 
           {/* Selected Ingredients */}
