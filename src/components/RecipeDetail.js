@@ -264,18 +264,24 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
    * Handle swap selection or move ingredient to different section
    */
   const handleSwapWith = (type, sectionKey, index) => {
+    console.log('📍 handleSwapWith called:', { type, sectionKey, index });
+    console.log('📍 Current swapMode:', swapMode);
+
     if (!swapMode) {
-      console.log('No swap mode active');
+      console.log('❌ No swap mode active');
       return;
     }
 
-    console.log('Attempting swap:', { type, sectionKey, index }, 'with', swapMode);
+    console.log('✅ Swap mode is active, proceeding...');
+    console.log('  swapMode.type:', swapMode.type);
+    console.log('  incoming type:', type);
 
     const { sectionKey: sourceSectionKey, index: sourceIndex } = swapMode;
 
     // Special case: Moving ingredient to a different section
+    console.log('🔍 Checking if ingredient->section move:', swapMode.type === 'ingredient', '&&', type === 'section');
     if (swapMode.type === 'ingredient' && type === 'section') {
-      console.log('Moving ingredient to different section:', sourceSectionKey, '->', sectionKey);
+      console.log('✅ YES! Moving ingredient to different section:', sourceSectionKey, '->', sectionKey);
 
       // Save to undo history before moving
       saveToHistory('Move Ingredient to Section');
@@ -635,7 +641,9 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
             <TouchableOpacity
               onLongPress={() => handleLongPress('section', section, 0, section)}
               onPress={() => {
+                console.log('🎯 Section header tapped:', section, 'swapMode:', swapMode);
                 if (swapMode) {
+                  console.log('  → Calling handleSwapWith with section');
                   handleSwapWith('section', section, 0);
                 }
               }}
