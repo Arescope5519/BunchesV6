@@ -737,6 +737,35 @@ export const HomeScreen = () => {
   const filteredRecipes = getFilteredRecipes(currentFolder);
   const nonDeletedRecipeCount = recipes.filter(r => !r.deletedAt).length;
 
+  // Reusable Swipeable Undo Button Component
+  const renderSwipeableUndoButton = () => {
+    if (!showUndoButton || !canUndo || undoButtonDismissed) return null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.globalUndoButton,
+          {
+            transform: [
+              { translateX: undoButtonPosition.x },
+              { translateY: undoButtonPosition.y }
+            ]
+          }
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity
+          onPress={performUndo}
+          activeOpacity={0.8}
+          style={styles.undoButtonTouchable}
+        >
+          <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
+          <Text style={styles.swipeHint}>Swipe to dismiss</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   // Render different screens based on currentScreen state
   if (currentScreen === 'dashboard') {
     return (
@@ -917,6 +946,9 @@ export const HomeScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* Swipeable Undo Button */}
+        {renderSwipeableUndoButton()}
       </>
     );
   }
@@ -991,6 +1023,9 @@ export const HomeScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* Swipeable Undo Button */}
+        {renderSwipeableUndoButton()}
       </>
     );
   }
@@ -1065,6 +1100,9 @@ export const HomeScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* Swipeable Undo Button */}
+        {renderSwipeableUndoButton()}
       </>
     );
   }
@@ -1784,30 +1822,8 @@ export const HomeScreen = () => {
         </View>
       </Modal>
 
-      {/* Global Undo Button - Only show when no modals are open - Swipeable */}
-      {showUndoButton && canUndo && !undoButtonDismissed && !selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && (
-        <Animated.View
-          style={[
-            styles.globalUndoButton,
-            {
-              transform: [
-                { translateX: undoButtonPosition.x },
-                { translateY: undoButtonPosition.y }
-              ]
-            }
-          ]}
-          {...panResponder.panHandlers}
-        >
-          <TouchableOpacity
-            onPress={performUndo}
-            activeOpacity={0.8}
-            style={styles.undoButtonTouchable}
-          >
-            <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
-            <Text style={styles.swipeHint}>Swipe to dismiss</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+      {/* Global Undo Button - Hide when modals are open */}
+      {!selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && renderSwipeableUndoButton()}
     </SafeAreaView>
   );
 };
