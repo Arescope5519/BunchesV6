@@ -261,7 +261,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
   };
 
   /**
-   * Handle swap selection
+   * Handle swap selection or move ingredient to different section
    */
   const handleSwapWith = (type, sectionKey, index) => {
     if (!swapMode) {
@@ -271,12 +271,48 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
     console.log('Attempting swap:', { type, sectionKey, index }, 'with', swapMode);
 
+    const { sectionKey: sourceSectionKey, index: sourceIndex } = swapMode;
+
+    // Special case: Moving ingredient to a different section
+    if (swapMode.type === 'ingredient' && type === 'section') {
+      console.log('Moving ingredient to different section:', sourceSectionKey, '->', sectionKey);
+
+      // Save to undo history before moving
+      saveToHistory('Move Ingredient to Section');
+      let updated = { ...localRecipe };
+
+      // Get the ingredient to move
+      const sourceItems = [...updated.ingredients[sourceSectionKey]];
+      const ingredientToMove = sourceItems[sourceIndex];
+
+      // Remove from source section
+      sourceItems.splice(sourceIndex, 1);
+
+      // If source section is now empty and not 'main', delete it
+      if (sourceItems.length === 0 && sourceSectionKey !== 'main') {
+        const ingredients = { ...updated.ingredients };
+        delete ingredients[sourceSectionKey];
+        updated.ingredients = ingredients;
+      } else {
+        updated.ingredients = { ...updated.ingredients, [sourceSectionKey]: sourceItems };
+      }
+
+      // Add to target section at the beginning
+      const targetItems = [...(updated.ingredients[sectionKey] || [])];
+      targetItems.unshift(ingredientToMove);
+      updated.ingredients = { ...updated.ingredients, [sectionKey]: targetItems };
+
+      setLocalRecipe(updated);
+      if (onUpdate) onUpdate(updated);
+      setSwapMode(null);
+      return;
+    }
+
+    // Regular swap operations
     if (swapMode.type !== type) {
       Alert.alert('Cannot Swap', "Can't swap different types of items");
       return;
     }
-
-    const { sectionKey: sourceSectionKey, index: sourceIndex } = swapMode;
 
     // Save to undo history before swapping
     const description = type === 'ingredient' ? 'Swap Ingredients' :
@@ -287,7 +323,8 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     if (type === 'ingredient') {
       // Can only swap within same section
       if (sourceSectionKey !== sectionKey) {
-        Alert.alert('Cannot Swap', 'Can only swap ingredients within the same section');
+        Alert.alert('Cannot Swap', 'Can only swap ingredients within the same section. To move to a different section, tap the section header.');
+        setSwapMode(null);
         return;
       }
 
@@ -871,7 +908,11 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
       {swapMode && (
         <View style={styles.swapModeNotice}>
-          <Text style={styles.swapModeText}>🔄 Swap Mode: Tap another {swapMode.type} to swap</Text>
+          <Text style={styles.swapModeText}>
+            {swapMode.type === 'ingredient'
+              ? '🔄 Swap Mode: Tap ingredient to swap, or tap section header to move'
+              : `🔄 Swap Mode: Tap another ${swapMode.type} to swap`}
+          </Text>
           <TouchableOpacity
             onPress={() => setSwapMode(null)}
             style={styles.cancelSwapButton}
