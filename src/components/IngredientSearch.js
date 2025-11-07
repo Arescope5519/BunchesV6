@@ -200,10 +200,15 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
           />
 
           {/* Autocomplete Suggestions */}
+          {(() => {
+            console.log('🎨 RENDER CHECK - showSuggestions:', showSuggestions, 'suggestions.length:', suggestions.length, 'searchText:', searchText);
+            return null;
+          })()}
+
           {showSuggestions && suggestions.length > 0 ? (
             <View style={styles.suggestionsContainer}>
               <Text style={styles.suggestionsHeader}>
-                Tap to add ingredient:
+                Tap to add ingredient: ({suggestions.length} found)
               </Text>
               <ScrollView
                 style={styles.suggestionsList}
@@ -211,7 +216,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                 nestedScrollEnabled={true}
               >
                 {suggestions.map((ingredient, index) => {
-                  console.log('  Rendering suggestion:', ingredient);
+                  console.log('  📝 Rendering suggestion item:', ingredient);
                   return (
                     <TouchableOpacity
                       key={`${ingredient}-${index}`}
@@ -373,7 +378,6 @@ const styles = StyleSheet.create({
   },
   suggestionsContainer: {
     marginTop: 8,
-    maxHeight: 250,
     borderWidth: 2,
     borderColor: colors.primary,
     borderRadius: 8,
@@ -386,32 +390,35 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   suggestionsHeader: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
     paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
-    backgroundColor: colors.background,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: colors.lightGray,
     borderTopLeftRadius: 6,
     borderTopRightRadius: 6,
   },
   suggestionsList: {
-    flex: 1,
+    maxHeight: 200,
   },
   suggestionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGray,
     backgroundColor: '#fff',
+    minHeight: 50,
   },
   suggestionText: {
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
     flex: 1,
+    fontWeight: '500',
   },
   suggestionAdd: {
     fontSize: 20,
