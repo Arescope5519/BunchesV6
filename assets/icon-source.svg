@@ -3,7 +3,7 @@
   <!-- Background -->
   <rect width="1024" height="1024" fill="#1a1a1a" rx="180"/>
 
-  <!-- Honey gold gradient background circle -->
+  <!-- Honey gold gradient -->
   <defs>
     <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#FFF8DC;stop-opacity:1" />
@@ -12,90 +12,90 @@
     </linearGradient>
 
     <filter id="shadow">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.3"/>
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-opacity="0.4"/>
     </filter>
   </defs>
 
   <!-- Decorative circle background -->
-  <circle cx="512" cy="512" r="420" fill="url(#goldGradient)" opacity="0.15"/>
+  <circle cx="512" cy="512" r="400" fill="url(#goldGradient)" opacity="0.12"/>
 
-  <!-- Stylized Script "B" -->
+  <!-- Bold Script "B" -->
   <g filter="url(#shadow)">
-    <!-- Main B letter in elegant script style -->
+    <!-- Main thick script B -->
     <path d="
-      M 320 280
-      Q 300 270, 300 250
-      Q 300 220, 330 210
-      Q 360 200, 400 210
+      M 300 250
+      Q 280 240, 280 220
+      Q 280 190, 310 180
+      L 350 180
+      Q 450 185, 520 230
+      Q 580 270, 600 340
+      Q 610 380, 590 420
+      Q 575 450, 540 465
 
-      L 420 220
-      Q 500 240, 550 280
-      Q 590 310, 600 360
-      Q 605 390, 590 420
-      Q 575 445, 550 455
+      Q 590 480, 640 530
+      Q 690 580, 690 650
+      Q 690 720, 630 770
+      Q 570 820, 480 825
+      Q 400 828, 340 815
 
-      Q 590 470, 620 510
-      Q 650 550, 650 600
-      Q 650 660, 610 700
-      Q 570 740, 500 750
-      Q 440 758, 380 750
+      L 320 810
+      Q 295 800, 290 775
+      L 285 240
+      Q 283 210, 300 250
 
-      L 360 745
-      Q 340 740, 330 720
+      M 360 240
+      L 365 450
+      Q 430 470, 500 465
+      Q 560 458, 590 420
+      Q 615 385, 605 345
+      Q 595 305, 560 275
+      Q 515 240, 450 235
+      L 360 240
 
-      L 325 260
-      Q 323 240, 320 280
-
-      M 370 260
-      L 375 440
-      Q 420 455, 480 450
-      Q 530 445, 550 410
-      Q 565 385, 555 360
-      Q 545 330, 510 310
-      Q 470 285, 420 275
-      L 370 260
-
-      M 375 470
-      L 380 710
-      Q 430 720, 490 715
-      Q 550 708, 580 670
-      Q 600 645, 595 610
-      Q 590 570, 560 540
-      Q 525 505, 480 495
-      Q 430 485, 375 490
-      L 375 470
+      M 365 490
+      L 370 760
+      Q 440 780, 510 775
+      Q 580 768, 625 720
+      Q 660 680, 655 635
+      Q 650 585, 615 545
+      Q 575 500, 520 485
+      Q 460 470, 365 490
     "
     fill="url(#goldGradient)"
     stroke="#B8860B"
-    stroke-width="8"
+    stroke-width="22"
     stroke-linejoin="round"
     stroke-linecap="round"/>
 
-    <!-- Decorative flourish at top -->
+    <!-- Bold decorative swirl at top -->
     <path d="
-      M 300 250
-      Q 280 240, 270 220
-      Q 265 210, 275 205
-      Q 285 200, 295 210
-      Q 305 220, 300 235
+      M 280 220
+      Q 255 205, 240 180
+      Q 230 165, 242 155
+      Q 254 145, 270 158
+      Q 285 170, 285 190
     "
     fill="url(#goldGradient)"
     stroke="#B8860B"
-    stroke-width="4"/>
+    stroke-width="12"
+    stroke-linejoin="round"
+    stroke-linecap="round"/>
 
-    <!-- Decorative flourish at bottom -->
+    <!-- Bold decorative swirl at bottom -->
     <path d="
-      M 330 720
-      Q 310 730, 290 750
-      Q 280 760, 285 770
-      Q 290 780, 305 775
-      Q 320 770, 335 750
+      M 320 810
+      Q 295 825, 270 850
+      Q 255 865, 265 880
+      Q 275 895, 295 885
+      Q 315 875, 330 850
     "
     fill="url(#goldGradient)"
     stroke="#B8860B"
-    stroke-width="4"/>
+    stroke-width="12"
+    stroke-linejoin="round"
+    stroke-linecap="round"/>
   </g>
 
-  <!-- Subtle shine effect -->
-  <ellipse cx="450" cy="350" rx="80" ry="120" fill="white" opacity="0.1" transform="rotate(-20 450 350)"/>
+  <!-- Enhanced shine effect -->
+  <ellipse cx="480" cy="380" rx="100" ry="140" fill="white" opacity="0.12" transform="rotate(-25 480 380)"/>
 </svg>
