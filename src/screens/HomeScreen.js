@@ -6,7 +6,7 @@
  * USED BY: App.js
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -68,6 +68,11 @@ export const HomeScreen = () => {
   const [showSaveRecipeModal, setShowSaveRecipeModal] = useState(false);
   const [extractedRecipe, setExtractedRecipe] = useState(null);
   const [saveTargetFolder, setSaveTargetFolder] = useState('All Recipes');
+
+  // Sorting/filtering state
+  const [sortBy, setSortBy] = useState('dateAdded'); // dateAdded, dateModified, alphabetical
+  const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -737,6 +742,44 @@ export const HomeScreen = () => {
   const filteredRecipes = getFilteredRecipes(currentFolder);
   const nonDeletedRecipeCount = recipes.filter(r => !r.deletedAt).length;
 
+  // Sort recipes based on selected sort option
+  const sortedRecipes = useMemo(() => {
+    const recipesToSort = [...filteredRecipes];
+
+    switch (sortBy) {
+      case 'alphabetical':
+        recipesToSort.sort((a, b) => {
+          const titleA = a.title.toLowerCase();
+          const titleB = b.title.toLowerCase();
+          return sortOrder === 'asc'
+            ? titleA.localeCompare(titleB)
+            : titleB.localeCompare(titleA);
+        });
+        break;
+
+      case 'dateAdded':
+        recipesToSort.sort((a, b) => {
+          const dateA = a.createdAt || 0;
+          const dateB = b.createdAt || 0;
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+        break;
+
+      case 'dateModified':
+        recipesToSort.sort((a, b) => {
+          const dateA = a.modifiedAt || a.createdAt || 0;
+          const dateB = b.modifiedAt || b.createdAt || 0;
+          return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+        break;
+
+      default:
+        break;
+    }
+
+    return recipesToSort;
+  }, [filteredRecipes, sortBy, sortOrder]);
+
   // Reusable Swipeable Undo Button Component
   const renderSwipeableUndoButton = () => {
     if (!showUndoButton || !canUndo || undoButtonDismissed) return null;
@@ -1150,6 +1193,73 @@ export const HomeScreen = () => {
         </View>
       </View>
 
+      {/* Sort/Filter Bar */}
+      <View style={styles.sortBar}>
+        <TouchableOpacity
+          style={styles.sortButton}
+          onPress={() => setShowSortDropdown(!showSortDropdown)}
+        >
+          <Text style={styles.sortButtonText}>
+            Sort: {sortBy === 'alphabetical' ? 'A-Z' : sortBy === 'dateAdded' ? 'Date Added' : 'Date Modified'}
+            {sortOrder === 'asc' ? ' ↑' : ' ↓'}
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
+      </View>
+
+      {/* Sort Dropdown Menu */}
+      {showSortDropdown && (
+        <View style={styles.sortDropdown}>
+          <TouchableOpacity
+            style={[styles.sortOption, sortBy === 'alphabetical' && styles.sortOptionActive]}
+            onPress={() => {
+              setSortBy('alphabetical');
+              setSortOrder(sortBy === 'alphabetical' && sortOrder === 'asc' ? 'desc' : 'asc');
+              setShowSortDropdown(false);
+            }}
+          >
+            <Text style={styles.sortOptionText}>Alphabetical (A-Z)</Text>
+            {sortBy === 'alphabetical' && <Text style={styles.sortOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sortOption, sortBy === 'dateAdded' && styles.sortOptionActive]}
+            onPress={() => {
+              setSortBy('dateAdded');
+              setSortOrder('desc'); // Newest first by default
+              setShowSortDropdown(false);
+            }}
+          >
+            <Text style={styles.sortOptionText}>Date Added (Newest First)</Text>
+            {sortBy === 'dateAdded' && sortOrder === 'desc' && <Text style={styles.sortOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sortOption, sortBy === 'dateAdded' && sortOrder === 'asc' && styles.sortOptionActive]}
+            onPress={() => {
+              setSortBy('dateAdded');
+              setSortOrder('asc'); // Oldest first
+              setShowSortDropdown(false);
+            }}
+          >
+            <Text style={styles.sortOptionText}>Date Added (Oldest First)</Text>
+            {sortBy === 'dateAdded' && sortOrder === 'asc' && <Text style={styles.sortOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sortOption, sortBy === 'dateModified' && styles.sortOptionActive]}
+            onPress={() => {
+              setSortBy('dateModified');
+              setSortOrder('desc'); // Most recently modified first
+              setShowSortDropdown(false);
+            }}
+          >
+            <Text style={styles.sortOptionText}>Recently Modified</Text>
+            {sortBy === 'dateModified' && <Text style={styles.sortOptionCheck}>✓</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Recipe List */}
       {loadingRecipes ? (
         <View style={styles.loadingContainer}>
@@ -1158,7 +1268,7 @@ export const HomeScreen = () => {
         </View>
       ) : (
         <ScrollView style={styles.recipeList}>
-          {filteredRecipes.length === 0 ? (
+          {sortedRecipes.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>No recipes yet</Text>
               <Text style={styles.emptyStateSubtext}>
@@ -1186,7 +1296,7 @@ export const HomeScreen = () => {
                   </TouchableOpacity>
                 </View>
               )}
-              {filteredRecipes.map((recipe) => {
+              {sortedRecipes.map((recipe) => {
                 const isSelected = selectedRecipes.has(recipe.id);
                 return (
                   <TouchableOpacity
@@ -2303,6 +2413,75 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   folderChipTextSelected: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  // Sort/Filter styles
+  sortBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: colors.lightGray,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sortButtonText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  recipeCount: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  sortDropdown: {
+    position: 'absolute',
+    top: 120, // Below header + sort bar
+    left: 15,
+    right: 15,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lightGray,
+  },
+  sortOptionActive: {
+    backgroundColor: colors.primaryLight,
+  },
+  sortOptionText: {
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  sortOptionCheck: {
+    fontSize: 16,
     color: colors.primary,
     fontWeight: '700',
   },
