@@ -589,76 +589,78 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
         </View>
       )}
 
-      {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => (
-        <View key={section} style={styles.ingredientSection}>
-          {section !== 'main' && (
-            <>
-              <TouchableOpacity
-                onLongPress={() => handleLongPress('section', section, 0, section)}
-                onPress={() => {
-                  if (swapMode && swapMode.type === 'section') {
-                    handleSwapWith('section', section, 0);
-                  }
-                }}
-                delayLongPress={300}
-              >
-                {editingItem?.type === 'section' && editingItem?.sectionKey === section ? (
-                  <TextInput
-                    style={styles.subsectionTitleInput}
-                    value={editingItem.value}
-                    onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
-                    onBlur={saveEdit}
-                  />
-                ) : (
-                  <Text
-                    style={[
-                      styles.subsectionTitle,
-                      swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
-                    ]}
-                  >
-                    {section}
-                  </Text>
-                )}
-              </TouchableOpacity>
+      {displayedIngredients && Object.entries(displayedIngredients).map(([section, items]) => {
+        // Display "Ingredients" for 'main' section, otherwise use section name
+        const displaySectionName = section === 'main' ? 'Ingredients' : section;
 
-              {/* Action buttons for sections */}
-              {editingItem?.type === 'section' && editingItem?.sectionKey === section && (
-                <View style={styles.actionButtons}>
+        return (
+          <View key={section} style={styles.ingredientSection}>
+            <TouchableOpacity
+              onLongPress={() => handleLongPress('section', section, 0, section)}
+              onPress={() => {
+                if (swapMode && swapMode.type === 'section') {
+                  handleSwapWith('section', section, 0);
+                }
+              }}
+              delayLongPress={300}
+            >
+              {editingItem?.type === 'section' && editingItem?.sectionKey === section ? (
+                <TextInput
+                  style={styles.subsectionTitleInput}
+                  value={editingItem.value}
+                  onChangeText={(text) => setEditingItem({ ...editingItem, value: text })}
+                  onBlur={saveEdit}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.subsectionTitle,
+                    swapMode?.type === 'section' && swapMode?.sectionKey === section && styles.highlightedItem
+                  ]}
+                >
+                  {displaySectionName}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Action buttons for sections */}
+            {editingItem?.type === 'section' && editingItem?.sectionKey === section && (
+              <View style={styles.actionButtons}>
+                {section !== 'main' && (
                   <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
                     <Text style={styles.actionButtonText}>❌ Delete Section</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>🔄 Swap Section</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>➕ Add Ingredient</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                )}
+                <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
+                  <Text style={styles.actionButtonText}>🔄 Swap Section</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
+                  <Text style={styles.actionButtonText}>➕ Add Ingredient</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-              {/* Add below input for sections */}
-              {addingBelow?.type === 'section' && addingBelow?.sectionKey === section && (
-                <View style={styles.addBelowContainer}>
-                  <TextInput
-                    style={styles.addBelowInput}
-                    placeholder="New ingredient..."
-                    value={newItemValue}
-                    onChangeText={setNewItemValue}
-                    onSubmitEditing={saveNewItem}
-                    autoFocus
-                  />
-                  <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>✓</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
-                    <Text style={styles.cancelButtonText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
-          )}
+            {/* Add below input for sections */}
+            {addingBelow?.type === 'section' && addingBelow?.sectionKey === section && (
+              <View style={styles.addBelowContainer}>
+                <TextInput
+                  style={styles.addBelowInput}
+                  placeholder="New ingredient..."
+                  value={newItemValue}
+                  onChangeText={setNewItemValue}
+                  onSubmitEditing={saveNewItem}
+                  autoFocus
+                />
+                <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
+                  <Text style={styles.saveButtonText}>✓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
+                  <Text style={styles.cancelButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-          {items.map((item, idx) => {
+            {items.map((item, idx) => {
             // Get the original ingredient for editing
             const originalItem = localRecipe.ingredients[section]?.[idx] || item;
             const displayItem = typeof item === 'string' ? item : item.original || originalItem;
@@ -766,9 +768,10 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                 </View>
               )}
             </View>
-          )})}
-        </View>
-      ))}
+            )})}
+          </View>
+        );
+      })}
 
       <Text style={styles.sectionTitle}>Instructions</Text>
       {(scaledInstructions || localRecipe.instructions).map((step, idx) => (
