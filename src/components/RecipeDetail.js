@@ -1096,15 +1096,19 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginTop: 8,
     marginBottom: 8,
     marginLeft: 5,
+    gap: 8,
   },
   actionButton: {
     backgroundColor: colors.lightGray,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
+    marginRight: 8,
+    marginBottom: 4,
   },
   actionButtonText: {
     fontSize: 14,
