@@ -15,14 +15,13 @@ export const useRecipeExtraction = (onRecipeExtracted) => {
   /**
    * Extract recipe from URL
    */
-  const extractRecipe = async (recipeUrl, autoSave = false) => {
+  const extractRecipe = async (recipeUrl) => {
     if (!recipeUrl) {
       Alert.alert('Error', 'Please enter a URL');
       return;
     }
 
     setLoading(true);
-    console.log('🔍 Extracting recipe from:', recipeUrl);
 
     try {
       const result = await extractor.extract(recipeUrl);
@@ -38,28 +37,9 @@ export const useRecipeExtraction = (onRecipeExtracted) => {
           isFavorite: false,
         };
 
-        if (autoSave) {
-          // Auto-save (from share intent)
-          if (onRecipeExtracted) {
-            onRecipeExtracted(recipe, true);
-          }
-        } else {
-          // Manual extraction - ask user
-          Alert.alert(
-            'Recipe Extracted! 🎉',
-            `${recipe.title}\n\nMethod: ${result.source}\nConfidence: ${(recipe.confidence * 100).toFixed(0)}%\n\nSave this recipe?`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Save',
-                onPress: () => {
-                  if (onRecipeExtracted) {
-                    onRecipeExtracted(recipe, false);
-                  }
-                }
-              }
-            ]
-          );
+        // Call callback with extracted recipe
+        if (onRecipeExtracted) {
+          onRecipeExtracted(recipe);
         }
       } else {
         Alert.alert('Extraction Failed', result.error || 'Unable to extract recipe');

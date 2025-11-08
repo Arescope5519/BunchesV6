@@ -38,7 +38,6 @@ export class RecipeExtractor {
    */
   async extract(url) {
     try {
-      console.log('🔍 Fetching HTML from:', url);
       const html = await this.fetchHTML(url);
 
       if (!html) {
@@ -46,49 +45,38 @@ export class RecipeExtractor {
         return { success: false, error: 'Failed to fetch HTML', data: null };
       }
 
-      console.log('✅ HTML fetched, length:', html.length);
-
       // Tier 1: JSON-LD (60% of sites)
-      console.log('🔍 Trying JSON-LD extraction...');
       let result = this.extractJSONLD(html, url);
       if (result && result.title) {
         this.stats.json_ld++;
-        console.log('✅ JSON-LD extraction successful');
         return { success: true, data: result, source: 'JSON-LD' };
       }
 
       // Tier 2: Microdata (15% of sites)
-      console.log('🔍 Trying Microdata extraction...');
       result = this.extractMicrodata(html, url);
       if (result && result.title) {
         this.stats.microdata++;
-        console.log('✅ Microdata extraction successful');
         return { success: true, data: result, source: 'Microdata' };
       }
 
       // Tier 3: WordPress Plugins (15% of sites)
-      console.log('🔍 Trying WordPress extraction...');
       result = this.extractWordPress(html, url);
       if (result && result.title) {
         this.stats.wp_plugin++;
-        console.log('✅ WordPress extraction successful');
         return { success: true, data: result, source: 'WordPress' };
       }
 
       // Tier 4: Site-Specific (10% of sites)
-      console.log('🔍 Trying site-specific extraction...');
       const domain = new URL(url).hostname.replace('www.', '');
       if (this.siteExtractors[domain]) {
         result = this.siteExtractors[domain](html, url);
         if (result && result.title) {
           this.stats.site_specific++;
-          console.log('✅ Site-specific extraction successful');
           return { success: true, data: result, source: 'Site-Specific' };
         }
       }
 
       // No extraction worked
-      console.log('❌ All extraction methods failed');
       this.stats.failed++;
       return {
         success: false,
@@ -97,7 +85,6 @@ export class RecipeExtractor {
       };
 
     } catch (error) {
-      console.error('💥 Extraction error:', error);
       this.stats.failed++;
       return { success: false, error: error.message, data: null };
     }
@@ -121,7 +108,6 @@ export class RecipeExtractor {
 
       return await response.text();
     } catch (error) {
-      console.error('Fetch error:', error);
       return null;
     }
   }
@@ -566,7 +552,6 @@ export class RecipeExtractor {
         source_url: url
       };
     } catch (error) {
-      console.error('AllRecipes extraction error:', error);
       return null;
     }
   }
