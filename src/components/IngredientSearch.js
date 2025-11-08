@@ -17,13 +17,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
+import { normalizeIngredient, matchesCanonical } from '../utils/IngredientNormalizer';
 
 export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) => {
   const [searchText, setSearchText] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Extract all unique ingredients from all recipes
+  // Extract all unique normalized ingredients from all recipes
   const allIngredients = useMemo(() => {
     console.log('🔍 Starting ingredient extraction from', recipes.length, 'recipes');
     const ingredientSet = new Set();
@@ -37,26 +38,11 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
             return;
           }
           section.forEach(ingredient => {
-            // Clean up ingredient text (remove amounts, common words)
-            let cleaned = ingredient
-              .toLowerCase()
-              .replace(/^\d+[\s\/\d.-]*/, '') // Remove leading numbers/fractions
-              .replace(/\b(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|lb|lbs|g|kg|ml|l|pinch|dash|can|cans|jar|package)\b/gi, '')
-              .replace(/\b(of|and|or|to|a|an|the|fresh|dried|frozen|chopped|diced|sliced|minced)\b/gi, '')
-              .replace(/[,()]/g, '')
-              .trim();
+            // Normalize ingredient to canonical form
+            const normalized = normalizeIngredient(ingredient);
 
-            // Also add individual words from multi-word ingredients
-            const words = cleaned.split(/\s+/);
-            words.forEach(word => {
-              if (word.length > 2) {
-                ingredientSet.add(word);
-              }
-            });
-
-            // Add the full cleaned ingredient too
-            if (cleaned.length > 2) {
-              ingredientSet.add(cleaned);
+            if (normalized.length > 2) {
+              ingredientSet.add(normalized);
             }
           });
         });
@@ -64,7 +50,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     });
 
     const sortedIngredients = Array.from(ingredientSet).sort();
-    console.log(`📊 Extracted ${sortedIngredients.length} unique ingredients from ${recipes.length} recipes`);
+    console.log(`📊 Extracted ${sortedIngredients.length} unique normalized ingredients from ${recipes.length} recipes`);
     console.log(`📋 Sample ingredients:`, sortedIngredients.slice(0, 20));
     return sortedIngredients;
   }, [recipes]);
@@ -118,7 +104,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     setSelectedIngredients(selectedIngredients.filter(i => i !== ingredient));
   };
 
-  // Find matching recipes and calculate match scores
+  // Find matching recipes and calculate match scores using normalized ingredients
   const matchingRecipes = useMemo(() => {
     if (selectedIngredients.length === 0) return [];
 
@@ -129,15 +115,20 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
       if (!recipe.ingredients) return;
 
       let matchCount = 0;
-      const recipeIngredients = Object.values(recipe.ingredients)
-        .flat()
-        .map(ing => ing.toLowerCase());
 
+      // Normalize all recipe ingredients
+      const normalizedRecipeIngredients = new Set();
+      Object.values(recipe.ingredients)
+        .flat()
+        .forEach(ing => {
+          normalizedRecipeIngredients.add(normalizeIngredient(ing));
+        });
+
+      // Check how many selected ingredients match
       selectedIngredients.forEach(selected => {
-        const matched = recipeIngredients.some(recipeIng =>
-          recipeIng.includes(selected)
-        );
-        if (matched) matchCount++;
+        if (normalizedRecipeIngredients.has(selected)) {
+          matchCount++;
+        }
       });
 
       if (matchCount > 0) {
