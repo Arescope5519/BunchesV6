@@ -129,6 +129,7 @@ export const HomeScreen = () => {
     showUndoButton,
     canUndo,
     lastActionDescription,
+    undoCount,
   } = useGlobalUndo();
 
   // Swipeable undo button
