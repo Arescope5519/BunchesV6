@@ -792,8 +792,8 @@ export const HomeScreen = () => {
           activeOpacity={0.8}
           style={styles.undoButtonTouchable}
         >
-          <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
-          <Text style={styles.swipeHint}>Swipe to dismiss</Text>
+          <Text style={styles.undoButtonIcon}>↶</Text>
+          <Text style={styles.undoButtonLabel}>Undo</Text>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -1463,14 +1463,28 @@ export const HomeScreen = () => {
             </ScrollView>
 
             {/* Undo Button inside Modal */}
-            {showUndoButton && canUndo && (
-              <TouchableOpacity
-                style={styles.globalUndoButton}
-                onPress={performUndo}
-                activeOpacity={0.8}
+            {showUndoButton && canUndo && !undoButtonDismissed && (
+              <Animated.View
+                style={[
+                  styles.globalUndoButton,
+                  {
+                    transform: [
+                      { translateX: undoButtonPosition.x },
+                      { translateY: undoButtonPosition.y }
+                    ]
+                  }
+                ]}
+                {...panResponder.panHandlers}
               >
-                <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={performUndo}
+                  activeOpacity={0.8}
+                  style={styles.undoButtonTouchable}
+                >
+                  <Text style={styles.undoButtonIcon}>↶</Text>
+                  <Text style={styles.undoButtonLabel}>Undo</Text>
+                </TouchableOpacity>
+              </Animated.View>
             )}
           </KeyboardAvoidingView>
         </Modal>
@@ -2083,11 +2097,12 @@ const styles = StyleSheet.create({
   },
   globalUndoButton: {
     position: 'absolute',
-    top: 60,
-    left: 15,
-    right: 15,
+    bottom: 20,
+    right: 20,
+    width: 70,
+    height: 70,
     backgroundColor: colors.warning,
-    borderRadius: 10,
+    borderRadius: 12,
     zIndex: 99999,
     elevation: 100,
     shadowColor: '#000',
@@ -2096,21 +2111,21 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   undoButtonTouchable: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  globalUndoText: {
-    fontSize: 16,
+  undoButtonIcon: {
+    fontSize: 28,
     color: colors.white,
     fontWeight: '700',
   },
-  swipeHint: {
-    color: 'rgba(255, 255, 255, 0.7)',
+  undoButtonLabel: {
     fontSize: 11,
-    marginTop: 4,
-    fontStyle: 'italic',
+    color: colors.white,
+    fontWeight: '600',
+    marginTop: 2,
   },
   deletedBanner: {
     backgroundColor: colors.error,
