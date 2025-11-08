@@ -175,10 +175,10 @@ export const HomeScreen = () => {
 
   // Reset dismissed state when a new undo action is available
   useEffect(() => {
-    if (showUndoButton && canUndo && lastActionDescription) {
+    if (showUndoButton && canUndo) {
       setUndoButtonDismissed(false);
     }
-  }, [lastActionDescription]); // Reset on each new action
+  }, [undoCount]); // Reset whenever undo stack count changes (new action added)
 
   const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
     // Navigate to save recipe screen with extracted recipe
