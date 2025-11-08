@@ -12,6 +12,9 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
@@ -19,13 +22,50 @@ import colors from '../constants/colors';
 export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   const [selectedFolder, setSelectedFolder] = useState('All Recipes');
 
+  // Local editable copy of recipe data
+  const [localRecipe, setLocalRecipe] = useState(recipe);
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editField, setEditField] = useState('');
+  const [editValue, setEditValue] = useState('');
+
   const handleSave = () => {
     if (onSave) {
-      onSave(selectedFolder);
+      onSave(selectedFolder, localRecipe); // Pass modified recipe
     }
   };
 
-  if (!recipe) {
+  const handleLongPress = (field, currentValue) => {
+    setEditField(field);
+    setEditValue(currentValue || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (editField) {
+      setLocalRecipe({
+        ...localRecipe,
+        [editField]: editValue.trim()
+      });
+    }
+    setShowEditModal(false);
+    setEditField('');
+    setEditValue('');
+  };
+
+  const getFieldLabel = (field) => {
+    const labels = {
+      title: 'Recipe Title',
+      prep_time: 'Prep Time',
+      cook_time: 'Cook Time',
+      total_time: 'Total Time',
+      servings: 'Servings',
+    };
+    return labels[field] || field;
+  };
+
+  if (!localRecipe) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
@@ -42,11 +82,11 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
     );
   }
 
-  const ingredientCount = recipe.ingredients
-    ? Object.values(recipe.ingredients).flat().length
+  const ingredientCount = localRecipe.ingredients
+    ? Object.values(localRecipe.ingredients).flat().length
     : 0;
 
-  const instructionCount = recipe.instructions?.length || 0;
+  const instructionCount = localRecipe.instructions?.length || 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,11 +103,17 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
       <ScrollView style={styles.content}>
         {/* Recipe Preview */}
         <View style={styles.previewSection}>
-          <Text style={styles.recipeTitle}>{recipe.title}</Text>
+          <TouchableOpacity
+            onLongPress={() => handleLongPress('title', localRecipe.title)}
+            delayLongPress={500}
+          >
+            <Text style={styles.recipeTitle}>{localRecipe.title}</Text>
+            <Text style={styles.editHint}>Long press to edit</Text>
+          </TouchableOpacity>
 
           <View style={styles.metaRow}>
-            {recipe.source && (
-              <Text style={styles.metaText}>📍 {recipe.source}</Text>
+            {localRecipe.source && (
+              <Text style={styles.metaText}>📍 {localRecipe.source}</Text>
             )}
           </View>
 
@@ -80,23 +126,51 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
               <Text style={styles.statNumber}>{instructionCount}</Text>
               <Text style={styles.statLabel}>Steps</Text>
             </View>
-            {recipe.prep_time && (
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{recipe.prep_time}</Text>
+            {localRecipe.prep_time && (
+              <TouchableOpacity
+                style={styles.statItem}
+                onLongPress={() => handleLongPress('prep_time', localRecipe.prep_time)}
+                delayLongPress={500}
+              >
+                <Text style={styles.statNumber}>{localRecipe.prep_time}</Text>
                 <Text style={styles.statLabel}>Prep</Text>
-              </View>
+              </TouchableOpacity>
             )}
-            {recipe.cook_time && (
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{recipe.cook_time}</Text>
+            {localRecipe.cook_time && (
+              <TouchableOpacity
+                style={styles.statItem}
+                onLongPress={() => handleLongPress('cook_time', localRecipe.cook_time)}
+                delayLongPress={500}
+              >
+                <Text style={styles.statNumber}>{localRecipe.cook_time}</Text>
                 <Text style={styles.statLabel}>Cook</Text>
-              </View>
+              </TouchableOpacity>
+            )}
+            {localRecipe.total_time && (
+              <TouchableOpacity
+                style={styles.statItem}
+                onLongPress={() => handleLongPress('total_time', localRecipe.total_time)}
+                delayLongPress={500}
+              >
+                <Text style={styles.statNumber}>{localRecipe.total_time}</Text>
+                <Text style={styles.statLabel}>Total</Text>
+              </TouchableOpacity>
+            )}
+            {localRecipe.servings && (
+              <TouchableOpacity
+                style={styles.statItem}
+                onLongPress={() => handleLongPress('servings', localRecipe.servings)}
+                delayLongPress={500}
+              >
+                <Text style={styles.statNumber}>{localRecipe.servings}</Text>
+                <Text style={styles.statLabel}>Servings</Text>
+              </TouchableOpacity>
             )}
           </View>
 
-          {recipe.url && (
+          {localRecipe.url && (
             <Text style={styles.urlText} numberOfLines={1}>
-              🔗 {recipe.url}
+              🔗 {localRecipe.url}
             </Text>
           )}
         </View>
@@ -131,37 +205,32 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
           </ScrollView>
         </View>
 
-        {/* Preview of ingredients and instructions */}
-        {recipe.ingredients && Object.keys(recipe.ingredients).length > 0 && (
+        {/* Full Ingredients List */}
+        {localRecipe.ingredients && Object.keys(localRecipe.ingredients).length > 0 && (
           <View style={styles.detailSection}>
-            <Text style={styles.sectionTitle}>Ingredients Preview:</Text>
-            {Object.entries(recipe.ingredients).slice(0, 2).map(([section, items]) => (
+            <Text style={styles.sectionTitle}>Ingredients:</Text>
+            {Object.entries(localRecipe.ingredients).map(([section, items]) => (
               <View key={section} style={styles.ingredientSection}>
                 {section !== 'main' && (
                   <Text style={styles.subsectionTitle}>{section}</Text>
                 )}
-                {items.slice(0, 3).map((item, idx) => (
+                {items.map((item, idx) => (
                   <Text key={idx} style={styles.ingredientItem}>• {item}</Text>
                 ))}
-                {items.length > 3 && (
-                  <Text style={styles.moreText}>+ {items.length - 3} more...</Text>
-                )}
               </View>
             ))}
           </View>
         )}
 
-        {recipe.instructions && recipe.instructions.length > 0 && (
+        {/* Full Instructions List */}
+        {localRecipe.instructions && localRecipe.instructions.length > 0 && (
           <View style={styles.detailSection}>
-            <Text style={styles.sectionTitle}>Instructions Preview:</Text>
-            {recipe.instructions.slice(0, 2).map((instruction, idx) => (
+            <Text style={styles.sectionTitle}>Instructions:</Text>
+            {localRecipe.instructions.map((instruction, idx) => (
               <Text key={idx} style={styles.instructionItem}>
                 {idx + 1}. {instruction}
               </Text>
             ))}
-            {recipe.instructions.length > 2 && (
-              <Text style={styles.moreText}>+ {recipe.instructions.length - 2} more steps...</Text>
-            )}
           </View>
         )}
 
@@ -177,6 +246,42 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
           <Text style={styles.saveButtonText}>💾 Save to {selectedFolder}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Edit Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModal}>
+            <Text style={styles.editModalTitle}>Edit {getFieldLabel(editField)}</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editValue}
+              onChangeText={setEditValue}
+              placeholder={`Enter ${getFieldLabel(editField).toLowerCase()}`}
+              autoFocus
+              multiline={editField === 'title'}
+            />
+            <View style={styles.editModalButtons}>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.cancelEditButton]}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={styles.cancelEditButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.saveEditButton]}
+                onPress={handleSaveEdit}
+              >
+                <Text style={styles.saveEditButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -219,6 +324,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: colors.text,
+    marginBottom: 4,
+  },
+  editHint: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
     marginBottom: 12,
   },
   metaRow: {
@@ -316,12 +427,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 20,
   },
-  moreText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
   errorText: {
     fontSize: 16,
     color: colors.textSecondary,
@@ -348,6 +453,61 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 18,
     fontWeight: '700',
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  editModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  editModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
+    maxHeight: 120,
+  },
+  editModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelEditButton: {
+    backgroundColor: colors.lightGray,
+  },
+  cancelEditButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  saveEditButton: {
+    backgroundColor: colors.primary,
+  },
+  saveEditButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#fff',
   },
 });

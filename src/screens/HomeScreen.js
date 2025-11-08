@@ -75,7 +75,7 @@ export const HomeScreen = () => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // View mode state
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'photo'
+  const [viewMode, setViewMode] = useState('photo'); // 'list' or 'photo'
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -187,11 +187,11 @@ export const HomeScreen = () => {
   });
 
   // Handle save from SaveRecipeScreen
-  const handleSaveExtractedRecipe = async (selectedFolder) => {
-    if (!extractedRecipe) return;
+  const handleSaveExtractedRecipe = async (selectedFolder, modifiedRecipe) => {
+    if (!modifiedRecipe) return;
 
     const recipeWithFolder = {
-      ...extractedRecipe,
+      ...modifiedRecipe,
       folder: selectedFolder === 'Favorites' || selectedFolder === 'Recently Deleted'
         ? 'All Recipes'
         : selectedFolder,
