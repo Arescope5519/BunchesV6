@@ -181,18 +181,35 @@ export const HomeScreen = () => {
     }
   }, [showUndoButton, canUndo]);
 
-  const { loading, extractRecipe } = useRecipeExtraction(async (recipe, shouldSave) => {
-    console.log('📋 Recipe extracted:', recipe.title);
+  // Debug: Log when save recipe modal state changes
+  useEffect(() => {
+    console.log('🔔 showSaveRecipeModal changed to:', showSaveRecipeModal);
+    if (showSaveRecipeModal) {
+      console.log('🔔 Extracted recipe:', extractedRecipe?.title || 'NO RECIPE');
+    }
+  }, [showSaveRecipeModal, extractedRecipe]);
+
+  const { loading, extractRecipe } = useRecipeExtraction((recipe, shouldSave) => {
+    console.log('📋 Recipe extracted:', recipe.title, 'shouldSave:', shouldSave);
+    console.log('🔧 Setting extracted recipe and showing modal...');
 
     // Store extracted recipe and show folder selection modal
     setExtractedRecipe(recipe);
     setSaveTargetFolder('All Recipes'); // Default folder
-    setShowSaveRecipeModal(true);
+
+    // Use setTimeout to ensure Alert has time to dismiss before showing modal
+    setTimeout(() => {
+      console.log('🔧 Showing save recipe modal NOW');
+      setShowSaveRecipeModal(true);
+    }, 300);
   });
 
   // Handle save after folder selection
   const handleSaveExtractedRecipe = async () => {
-    if (!extractedRecipe) return;
+    if (!extractedRecipe) {
+      console.log('❌ No extracted recipe to save');
+      return;
+    }
 
     console.log('💾 Saving recipe:', extractedRecipe.title, 'to folder:', saveTargetFolder);
 
