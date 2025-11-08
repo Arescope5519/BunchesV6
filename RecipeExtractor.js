@@ -204,6 +204,7 @@ export class RecipeExtractor {
     const prepTime = this.parseDuration(recipe.prepTime);
     const cookTime = this.parseDuration(recipe.cookTime);
     const totalTime = this.parseDuration(recipe.totalTime);
+    const imageUrl = this.extractImageURL(recipe.image);
 
     let nutrition = recipe.nutrition || null;
     if (nutrition && nutrition['@type']) {
@@ -219,6 +220,7 @@ export class RecipeExtractor {
       total_time: totalTime,
       servings: recipe.recipeYield ? String(recipe.recipeYield) : null,
       nutrition: nutrition,
+      image: imageUrl,
       extraction_method: 'json_ld',
       confidence: 0.99,
       source_url: url
@@ -326,6 +328,7 @@ export class RecipeExtractor {
       const cookTime = this.parseDuration(this.getMicrodataProp(container, 'cookTime'));
       const totalTime = this.parseDuration(this.getMicrodataProp(container, 'totalTime'));
       const servings = this.getMicrodataProp(container, 'recipeYield');
+      const imageUrl = this.getMicrodataProp(container, 'image');
 
       if (!title || Object.keys(ingredients).length === 0) return null;
 
@@ -337,6 +340,7 @@ export class RecipeExtractor {
         cook_time: cookTime,
         total_time: totalTime,
         servings: servings,
+        image: imageUrl,
         extraction_method: 'microdata',
         confidence: 0.95,
         source_url: url
@@ -429,12 +433,20 @@ export class RecipeExtractor {
         if (text) instructions.push(text);
       }
 
+      // Extract image
+      let imageUrl = null;
+      const imgMatch = container.match(/<img[^>]+class=["'][^"']*wprm-recipe-image[^"']*["'][^>]+src=["']([^"']+)["']/i);
+      if (imgMatch) {
+        imageUrl = imgMatch[1];
+      }
+
       if (!title || Object.keys(ingredients).length === 0) return null;
 
       return {
         title: title,
         ingredients: ingredients,
         instructions: instructions,
+        image: imageUrl,
         extraction_method: 'wp_plugin_wprm',
         confidence: 0.90,
         source_url: url
@@ -531,6 +543,13 @@ export class RecipeExtractor {
         }
       }
 
+      // Extract image
+      let imageUrl = null;
+      const imgMatch = html.match(/<img[^>]+class=["'][^"']*(primary-image|recipe-image|hero-photo)[^"']*["'][^>]+src=["']([^"']+)["']/i);
+      if (imgMatch) {
+        imageUrl = imgMatch[2];
+      }
+
       if (!title || !ingredients.main || ingredients.main.length === 0) return null;
 
       return {
@@ -541,6 +560,7 @@ export class RecipeExtractor {
         cook_time: cookTime,
         total_time: totalTime,
         servings: servings,
+        image: imageUrl,
         extraction_method: 'site_specific_allrecipes',
         confidence: 0.85,
         source_url: url
@@ -549,6 +569,33 @@ export class RecipeExtractor {
       console.error('AllRecipes extraction error:', error);
       return null;
     }
+  }
+
+  /**
+   * Helper: Extract image URL from various formats
+   */
+  extractImageURL(imageData) {
+    if (!imageData) return null;
+
+    // String URL
+    if (typeof imageData === 'string') {
+      return imageData.startsWith('http') ? imageData : null;
+    }
+
+    // Array of images - take the first one
+    if (Array.isArray(imageData)) {
+      if (imageData.length === 0) return null;
+      return this.extractImageURL(imageData[0]);
+    }
+
+    // ImageObject with url property
+    if (typeof imageData === 'object') {
+      if (imageData.url) return this.extractImageURL(imageData.url);
+      if (imageData.contentUrl) return imageData.contentUrl;
+      if (imageData['@url']) return imageData['@url'];
+    }
+
+    return null;
   }
 
   /**

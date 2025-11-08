@@ -25,6 +25,7 @@ import {
   Clipboard,
   Animated,
   PanResponder,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -73,6 +74,9 @@ export const HomeScreen = () => {
   const [sortBy, setSortBy] = useState('dateAdded'); // dateAdded, dateModified, alphabetical
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  // View mode state
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'photo'
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -1204,7 +1208,15 @@ export const HomeScreen = () => {
             {sortOrder === 'asc' ? ' ↑' : ' ↓'}
           </Text>
         </TouchableOpacity>
-        <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
+        <View style={styles.sortBarRight}>
+          <TouchableOpacity
+            style={styles.viewModeButton}
+            onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
+          >
+            <Text style={styles.viewModeIcon}>{viewMode === 'list' ? '🖼️' : '📝'}</Text>
+          </TouchableOpacity>
+          <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
+        </View>
       </View>
 
       {/* Sort Dropdown Menu */}
@@ -1327,6 +1339,13 @@ export const HomeScreen = () => {
                           </View>
                         )}
                       </View>
+                    )}
+                    {viewMode === 'photo' && recipe.image && (
+                      <Image
+                        source={{ uri: recipe.image }}
+                        style={styles.recipeImage}
+                        resizeMode="cover"
+                      />
                     )}
                     <View style={styles.recipeCardContent}>
                       <View style={styles.recipeCardHeader}>
@@ -2050,6 +2069,13 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  recipeImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: colors.lightGray,
+  },
   recipeCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2441,6 +2467,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     fontWeight: '600',
+  },
+  sortBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  viewModeButton: {
+    padding: 6,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  viewModeIcon: {
+    fontSize: 18,
   },
   recipeCount: {
     fontSize: 13,
