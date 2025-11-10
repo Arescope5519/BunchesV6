@@ -1,17 +1,29 @@
 /**
  * useRecipes Hook
  * Manages recipe state and CRUD operations
- * Now with Firebase Firestore sync
+ * Now with Firebase Firestore sync (when available)
  */
 
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveRecipes as saveRecipesToStorage, loadRecipes as loadRecipesFromStorage } from '../utils/storage';
-import {
-  syncRecipes as syncRecipesWithFirestore,
-  saveRecipeToFirestore,
-  deleteRecipeFromFirestore,
-} from '../services/firebase/firestore';
+import { isFirestoreAvailable } from '../services/firebase/availability';
+
+// Conditionally import Firestore functions
+let syncRecipesWithFirestore = null;
+let saveRecipeToFirestore = null;
+let deleteRecipeFromFirestore = null;
+
+if (isFirestoreAvailable()) {
+  try {
+    const firestoreModule = require('../services/firebase/firestore');
+    syncRecipesWithFirestore = firestoreModule.syncRecipes;
+    saveRecipeToFirestore = firestoreModule.saveRecipeToFirestore;
+    deleteRecipeFromFirestore = firestoreModule.deleteRecipeFromFirestore;
+  } catch (e) {
+    console.error('Failed to load Firestore module:', e);
+  }
+}
 
 export const useRecipes = (user) => {
   const [recipes, setRecipes] = useState([]);
@@ -27,8 +39,8 @@ export const useRecipes = (user) => {
       setLoadingRecipes(true);
       const localRecipes = await loadRecipesFromStorage();
 
-      if (user && !synced) {
-        // User is signed in - sync with Firestore
+      if (user && !synced && syncRecipesWithFirestore) {
+        // User is signed in and Firestore is available - sync
         console.log('🔄 Syncing with Firestore...');
         const mergedRecipes = await syncRecipesWithFirestore(user.uid, localRecipes);
 
@@ -38,15 +50,20 @@ export const useRecipes = (user) => {
         setSynced(true);
         console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
       } else {
-        // No user or already synced - use local recipes
+        // No user, already synced, or Firestore not available - use local recipes
         setRecipes(localRecipes);
         console.log(`📚 Loaded ${localRecipes.length} recipes`);
       }
     } catch (error) {
       console.error('Failed to load recipes:', error);
       // Fallback to local recipes
-      const localRecipes = await loadRecipesFromStorage();
-      setRecipes(localRecipes);
+      try {
+        const localRecipes = await loadRecipesFromStorage();
+        setRecipes(localRecipes);
+      } catch (fallbackError) {
+        console.error('Failed to load local recipes:', fallbackError);
+        setRecipes([]);
+      }
     } finally {
       setLoadingRecipes(false);
     }
@@ -74,8 +91,8 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
       console.log('✅ Recipe saved! Total recipes:', updatedRecipes.length);
 
-      // Sync to Firestore in background if user is signed in
-      if (user) {
+      // Sync to Firestore in background if user is signed in and Firestore is available
+      if (user && saveRecipeToFirestore) {
         saveRecipeToFirestore(user.uid, recipeWithTimestamp).catch(err =>
           console.error('Failed to sync recipe to Firestore:', err)
         );
@@ -106,8 +123,8 @@ export const useRecipes = (user) => {
         setSelectedRecipe(recipeWithTimestamp);
       }
 
-      // Sync to Firestore in background if user is signed in
-      if (user) {
+      // Sync to Firestore in background if user is signed in and Firestore is available
+      if (user && saveRecipeToFirestore) {
         saveRecipeToFirestore(user.uid, recipeWithTimestamp).catch(err =>
           console.error('Failed to sync recipe to Firestore:', err)
         );
@@ -131,8 +148,8 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
 
-      // Sync to Firestore in background if user is signed in
-      if (user) {
+      // Sync to Firestore in background if user is signed in and Firestore is available
+      if (user && saveRecipeToFirestore) {
         const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (deletedRecipe) {
           saveRecipeToFirestore(user.uid, deletedRecipe).catch(err =>
@@ -253,8 +270,8 @@ export const useRecipes = (user) => {
         setSelectedRecipe({ ...selectedRecipe, isFavorite: !selectedRecipe.isFavorite });
       }
 
-      // Sync to Firestore in background if user is signed in
-      if (user) {
+      // Sync to Firestore in background if user is signed in and Firestore is available
+      if (user && saveRecipeToFirestore) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
           saveRecipeToFirestore(user.uid, updatedRecipe).catch(err =>

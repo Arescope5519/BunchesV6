@@ -8,28 +8,71 @@
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
-import AuthScreen from './src/screens/AuthScreen';
-import { onAuthStateChanged } from './src/services/firebase/auth';
-import { enableOfflinePersistence } from './src/services/firebase/firestore';
 import colors from './src/constants/colors';
+import { isFirebaseAvailable, isAuthAvailable, isFirestoreAvailable } from './src/services/firebase/availability';
+
+// Conditionally import Firebase components
+let AuthScreen = null;
+let onAuthStateChanged = null;
+let enableOfflinePersistence = null;
+
+if (isAuthAvailable()) {
+  try {
+    AuthScreen = require('./src/screens/AuthScreen').default;
+    onAuthStateChanged = require('./src/services/firebase/auth').onAuthStateChanged;
+  } catch (e) {
+    console.error('Failed to load Auth:', e);
+  }
+}
+
+if (isFirestoreAvailable()) {
+  try {
+    enableOfflinePersistence = require('./src/services/firebase/firestore').enableOfflinePersistence;
+  } catch (e) {
+    console.error('Failed to load Firestore:', e);
+  }
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [firebaseEnabled, setFirebaseEnabled] = useState(false);
 
   useEffect(() => {
-    // Enable offline persistence for Firestore
-    enableOfflinePersistence();
+    const initializeApp = async () => {
+      // Check if Firebase is available
+      if (isFirebaseAvailable()) {
+        console.log('🔥 Firebase enabled');
+        setFirebaseEnabled(true);
 
-    // Listen for authentication state changes
-    const unsubscribe = onAuthStateChanged((authUser) => {
-      console.log('Auth state changed:', authUser ? authUser.email : 'Not signed in');
-      setUser(authUser);
-      setLoading(false);
-    });
+        // Enable offline persistence for Firestore
+        if (enableOfflinePersistence) {
+          try {
+            await enableOfflinePersistence();
+          } catch (e) {
+            console.error('Failed to enable offline persistence:', e);
+          }
+        }
 
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
+        // Listen for authentication state changes
+        if (onAuthStateChanged) {
+          const unsubscribe = onAuthStateChanged((authUser) => {
+            console.log('Auth state changed:', authUser ? authUser.email : 'Not signed in');
+            setUser(authUser);
+            setLoading(false);
+          });
+
+          // Cleanup subscription on unmount
+          return () => unsubscribe();
+        }
+      } else {
+        console.log('📱 Running in local-only mode (Firebase not available)');
+        setFirebaseEnabled(false);
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
   }, []);
 
   // Show loading spinner while checking auth state
@@ -41,8 +84,13 @@ export default function App() {
     );
   }
 
+  // If Firebase is not available, skip auth and go to HomeScreen
+  if (!firebaseEnabled) {
+    return <HomeScreen user={null} />;
+  }
+
   // Show Auth screen if not signed in, otherwise show HomeScreen
-  if (!user) {
+  if (!user && AuthScreen) {
     return <AuthScreen onSignIn={setUser} />;
   }
 
