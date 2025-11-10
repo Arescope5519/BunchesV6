@@ -52,9 +52,12 @@ import { isAuthAvailable } from '../services/firebase/availability';
 
 // Conditionally import Firebase auth
 let firebaseSignOut = null;
+let firebaseSignIn = null;
 if (isAuthAvailable()) {
   try {
-    firebaseSignOut = require('../services/firebase/auth').signOut;
+    const authModule = require('../services/firebase/auth');
+    firebaseSignOut = authModule.signOut;
+    firebaseSignIn = authModule.signInWithGoogle;
   } catch (e) {
     console.error('Failed to load Firebase auth:', e);
   }
@@ -286,6 +289,25 @@ export const HomeScreen = ({ user }) => {
     } catch (error) {
       console.error('Sign out error:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
+  };
+
+  const handleSignIn = async () => {
+    try {
+      if (firebaseSignIn) {
+        const userData = await firebaseSignIn();
+        // App.js auth listener will detect the sign-in and update user state
+        Alert.alert('✅ Signed In', `Welcome ${userData.displayName || userData.email}!`);
+      } else {
+        Alert.alert('Error', 'Sign-in is not available. Please restart the app.');
+      }
+    } catch (error) {
+      console.error('Sign in error:', error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        // User cancelled, no need to show error
+        return;
+      }
+      Alert.alert('Error', 'Failed to sign in. Please try again.');
     }
   };
 
@@ -983,6 +1005,7 @@ export const HomeScreen = ({ user }) => {
           recipeCount={nonDeletedRecipeCount}
           user={user}
           onSignOut={handleSignOut}
+          onSignIn={handleSignIn}
         />
 
         {/* Swipeable Undo Button */}

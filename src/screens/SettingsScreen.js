@@ -15,7 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 
-export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onSignOut }) => {
+export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onSignOut, onSignIn }) => {
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -101,6 +101,14 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
               <Text style={styles.localModeDescription}>
                 Sign in with Google to enable cloud sync and access your recipes from any device.
               </Text>
+              {onSignIn && (
+                <TouchableOpacity
+                  style={styles.signInButton}
+                  onPress={onSignIn}
+                >
+                  <Text style={styles.signInButtonText}>🔐 Sign In with Google</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -310,6 +318,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+    marginBottom: 16,
+  },
+  signInButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  signInButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 
