@@ -15,7 +15,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 
-export const SettingsScreen = ({ onClose, onClearAllData, recipeCount }) => {
+export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onSignOut }) => {
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -26,6 +26,21 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount }) => {
           text: 'Clear All Data',
           style: 'destructive',
           onPress: onClearAllData,
+        },
+      ]
+    );
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out? Your data is safely synced to the cloud.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: onSignOut,
         },
       ]
     );
@@ -45,6 +60,51 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount }) => {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Account Section */}
+        {user && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.accountHeader}>
+                <Text style={styles.accountLabel}>Signed in as</Text>
+                <View style={styles.accountBadge}>
+                  <Text style={styles.accountBadgeText}>☁️ Cloud Sync Active</Text>
+                </View>
+              </View>
+              {user.displayName && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Name</Text>
+                  <Text style={styles.infoValue}>{user.displayName}</Text>
+                </View>
+              )}
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoValue}>{user.email}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.signOutButton}
+                onPress={handleSignOut}
+              >
+                <Text style={styles.signOutButtonText}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {!user && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.accountBadge}>
+                <Text style={styles.localModeText}>📱 Local Mode</Text>
+              </View>
+              <Text style={styles.localModeDescription}>
+                Sign in with Google to enable cloud sync and access your recipes from any device.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* App Info Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Information</Text>
@@ -206,6 +266,50 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  accountHeader: {
+    marginBottom: 12,
+  },
+  accountLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  accountBadge: {
+    backgroundColor: colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  accountBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  signOutButton: {
+    marginTop: 16,
+    backgroundColor: colors.error,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  signOutButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  localModeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  localModeDescription: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
   },
 });
 

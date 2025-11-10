@@ -48,6 +48,17 @@ import { SaveRecipeScreen } from './SaveRecipeScreen';
 
 // Constants
 import colors from '../constants/colors';
+import { isAuthAvailable } from '../services/firebase/availability';
+
+// Conditionally import Firebase auth
+let firebaseSignOut = null;
+if (isAuthAvailable()) {
+  try {
+    firebaseSignOut = require('../services/firebase/auth').signOut;
+  } catch (e) {
+    console.error('Failed to load Firebase auth:', e);
+  }
+}
 
 export const HomeScreen = ({ user }) => {
   // Navigation state
@@ -262,6 +273,19 @@ export const HomeScreen = ({ user }) => {
       Alert.alert('✅ Success', 'All data has been cleared');
     } catch (error) {
       Alert.alert('Error', 'Failed to clear data');
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      if (firebaseSignOut) {
+        await firebaseSignOut();
+        // App.js auth listener will detect the sign-out and show AuthScreen
+        Alert.alert('✅ Signed Out', 'You have been successfully signed out');
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
     }
   };
 
@@ -957,6 +981,8 @@ export const HomeScreen = ({ user }) => {
           onClose={() => setCurrentScreen('dashboard')}
           onClearAllData={handleClearAllData}
           recipeCount={nonDeletedRecipeCount}
+          user={user}
+          onSignOut={handleSignOut}
         />
 
         {/* Swipeable Undo Button */}
