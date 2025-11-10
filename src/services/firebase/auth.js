@@ -40,20 +40,32 @@ export const signInWithGoogle = async () => {
     };
   } catch (error) {
     console.error('❌ Google Sign-In Error:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
-    console.error('Full error:', JSON.stringify(error, null, 2));
 
-    if (error.code === 'sign_in_cancelled') {
+    // Safely access error properties
+    const errorCode = error?.code || 'unknown';
+    const errorMessage = error?.message || String(error) || 'Unknown error';
+
+    console.error('Error code:', errorCode);
+    console.error('Error message:', errorMessage);
+
+    try {
+      console.error('Full error:', JSON.stringify(error, null, 2));
+    } catch (e) {
+      console.error('Could not stringify error');
+    }
+
+    if (errorCode === 'sign_in_cancelled') {
       throw new Error('Sign-in was cancelled');
-    } else if (error.code === 'in_progress') {
+    } else if (errorCode === 'in_progress') {
       throw new Error('Sign-in is already in progress');
-    } else if (error.code === 'play_services_not_available') {
+    } else if (errorCode === 'play_services_not_available') {
       throw new Error('Google Play Services not available');
     }
 
-    // Pass through the actual error for better debugging
-    throw error;
+    // Create a new error with safe properties
+    const safeError = new Error(errorMessage);
+    safeError.code = errorCode;
+    throw safeError;
   }
 };
 
