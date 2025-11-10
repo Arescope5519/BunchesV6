@@ -5,6 +5,7 @@
 
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Alert } from 'react-native';
 
 // Configure Google Sign-In
 GoogleSignin.configure({
@@ -60,6 +61,11 @@ export const signInWithGoogle = async () => {
 
     // Ultra-defensive error handling
     if (!error) {
+      Alert.alert(
+        '🔍 Debug: Sign-In Error',
+        'Error object is null or undefined',
+        [{ text: 'OK' }]
+      );
       const safeError = new Error('Unknown error occurred (error object is null/undefined)');
       safeError.code = 'unknown';
       throw safeError;
@@ -71,6 +77,13 @@ export const signInWithGoogle = async () => {
 
     console.error('Error code:', errorCode);
     console.error('Error message:', errorMessage);
+
+    // Show detailed debug alert
+    Alert.alert(
+      '🔍 Debug: Sign-In Error Details',
+      `Error Code: ${errorCode}\n\nError Message: ${errorMessage}\n\nError Type: ${typeof error}\n\nHas code property: ${error.hasOwnProperty?.('code') ? 'Yes' : 'No'}`,
+      [{ text: 'OK' }]
+    );
 
     try {
       console.error('Full error:', JSON.stringify(error, null, 2));
