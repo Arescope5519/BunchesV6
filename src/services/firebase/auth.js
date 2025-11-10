@@ -40,6 +40,9 @@ export const signInWithGoogle = async () => {
     };
   } catch (error) {
     console.error('❌ Google Sign-In Error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    console.error('Full error:', JSON.stringify(error, null, 2));
 
     if (error.code === 'sign_in_cancelled') {
       throw new Error('Sign-in was cancelled');
@@ -49,7 +52,8 @@ export const signInWithGoogle = async () => {
       throw new Error('Google Play Services not available');
     }
 
-    throw new Error('Failed to sign in with Google');
+    // Pass through the actual error for better debugging
+    throw error;
   }
 };
 

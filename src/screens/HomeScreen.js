@@ -303,11 +303,21 @@ export const HomeScreen = ({ user }) => {
       }
     } catch (error) {
       console.error('Sign in error:', error);
-      if (error.code === 'auth/popup-closed-by-user') {
+      console.error('Sign in error code:', error.code);
+      console.error('Sign in error message:', error.message);
+
+      if (error.code === 'auth/popup-closed-by-user' || error.message === 'Sign-in was cancelled') {
         // User cancelled, no need to show error
         return;
       }
-      Alert.alert('Error', 'Failed to sign in. Please try again.');
+
+      // Show actual error message for debugging
+      const errorMsg = error.message || 'Failed to sign in. Please try again.';
+      Alert.alert(
+        'Sign-In Error',
+        `${errorMsg}\n\nError Code: ${error.code || 'unknown'}\n\nCheck Firebase setup and SHA-1 certificate.`,
+        [{ text: 'OK' }]
+      );
     }
   };
 
