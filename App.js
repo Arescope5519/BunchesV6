@@ -40,35 +40,59 @@ export default function App() {
 
   useEffect(() => {
     const initializeApp = async () => {
-      // Check if Firebase is available
-      if (isFirebaseAvailable()) {
-        console.log('🔥 Firebase enabled');
-        setFirebaseEnabled(true);
+      // Safety timeout - stop loading after 3 seconds no matter what
+      const timeoutId = setTimeout(() => {
+        console.log('⏱️ Initialization timeout - proceeding to app');
+        setLoading(false);
+      }, 3000);
 
-        // Enable offline persistence for Firestore
-        if (enableOfflinePersistence) {
-          try {
-            await enableOfflinePersistence();
-          } catch (e) {
-            console.error('Failed to enable offline persistence:', e);
+      try {
+        // Check if Firebase is available
+        if (isFirebaseAvailable()) {
+          console.log('🔥 Firebase enabled');
+          setFirebaseEnabled(true);
+
+          // Enable offline persistence for Firestore
+          if (enableOfflinePersistence) {
+            try {
+              await enableOfflinePersistence();
+            } catch (e) {
+              console.error('Failed to enable offline persistence:', e);
+            }
           }
-        }
 
-        // Listen for authentication state changes
-        if (onAuthStateChanged) {
-          const unsubscribe = onAuthStateChanged((authUser) => {
-            console.log('Auth state changed:', authUser ? authUser.email : 'Not signed in');
-            setUser(authUser);
+          // Listen for authentication state changes
+          if (onAuthStateChanged) {
+            const unsubscribe = onAuthStateChanged((authUser) => {
+              console.log('Auth state changed:', authUser ? authUser.email : 'Not signed in');
+              setUser(authUser);
+              setLoading(false);
+              clearTimeout(timeoutId);
+            });
+
+            // Cleanup subscription on unmount
+            return () => {
+              unsubscribe();
+              clearTimeout(timeoutId);
+            };
+          } else {
+            // No auth available, proceed without it
+            console.log('⚠️ Auth not available, skipping authentication');
             setLoading(false);
-          });
-
-          // Cleanup subscription on unmount
-          return () => unsubscribe();
+            clearTimeout(timeoutId);
+          }
+        } else {
+          console.log('📱 Running in local-only mode (Firebase not available)');
+          setFirebaseEnabled(false);
+          setLoading(false);
+          clearTimeout(timeoutId);
         }
-      } else {
-        console.log('📱 Running in local-only mode (Firebase not available)');
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        // Fallback to local-only mode on any error
         setFirebaseEnabled(false);
         setLoading(false);
+        clearTimeout(timeoutId);
       }
     };
 
