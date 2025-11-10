@@ -1211,7 +1211,10 @@ export const HomeScreen = () => {
               </TouchableOpacity>
             )}
           </View>
-          <ScrollView style={styles.modalContent}>
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={styles.modalScrollContent}
+          >
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
               {folders.filter(f => f === 'All Recipes' || f === 'Favorites' || f === 'Recently Deleted').map((folder) => {
@@ -1974,7 +1977,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
+  },
+  modalScrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   bottomSpacer: {
     height: 120,

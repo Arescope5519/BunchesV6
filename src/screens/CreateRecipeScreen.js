@@ -168,26 +168,28 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
 
           {showFolderPicker && (
             <View style={styles.folderPicker}>
-              {folders.map((folder) => (
-                <TouchableOpacity
-                  key={folder}
-                  style={[
-                    styles.folderOption,
-                    selectedFolder === folder && styles.folderOptionSelected
-                  ]}
-                  onPress={() => {
-                    setSelectedFolder(folder);
-                    setShowFolderPicker(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.folderOptionText,
-                    selectedFolder === folder && styles.folderOptionTextSelected
-                  ]}>
-                    {folder}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <ScrollView style={styles.folderPickerScroll} nestedScrollEnabled={true}>
+                {folders.map((folder) => (
+                  <TouchableOpacity
+                    key={folder}
+                    style={[
+                      styles.folderOption,
+                      selectedFolder === folder && styles.folderOptionSelected
+                    ]}
+                    onPress={() => {
+                      setSelectedFolder(folder);
+                      setShowFolderPicker(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.folderOptionText,
+                      selectedFolder === folder && styles.folderOptionTextSelected
+                    ]}>
+                      {folder}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -369,6 +371,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  folderPickerScroll: {
+    maxHeight: 250,
   },
   folderOption: {
     padding: 12,
