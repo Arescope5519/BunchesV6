@@ -26,12 +26,32 @@ export const signInWithGoogle = async () => {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     console.log('✅ [AUTH] Play Services available');
 
+    // Check if already signed in and sign out first
+    const isSignedIn = await GoogleSignin.isSignedIn();
+    console.log('🔐 [AUTH] Already signed in?', isSignedIn);
+    if (isSignedIn) {
+      console.log('🔐 [AUTH] Signing out existing user first...');
+      await GoogleSignin.signOut();
+    }
+
     // Get user info from Google
     console.log('🔐 [AUTH] Requesting Google Sign-In...');
     const signInResult = await GoogleSignin.signIn();
     console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
 
+    // Debug: Show what we got from Google Sign-In
+    Alert.alert(
+      '🔍 Debug: Sign-In Result',
+      `Has result: ${!!signInResult}\nHas idToken: ${!!signInResult?.idToken}\nResult keys: ${signInResult ? Object.keys(signInResult).join(', ') : 'none'}`,
+      [{ text: 'OK' }]
+    );
+
     if (!signInResult || !signInResult.idToken) {
+      Alert.alert(
+        '❌ Missing ID Token',
+        'Google Sign-In returned a result but no idToken was present. This usually means:\n\n1. The google-services.json file is outdated\n2. SHA-1 certificate not properly registered\n3. Google Sign-In API not enabled in Firebase Console',
+        [{ text: 'OK' }]
+      );
       throw new Error('No ID token received from Google Sign-In');
     }
 
