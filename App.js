@@ -6,10 +6,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import colors from './src/constants/colors';
-import { isFirebaseAvailable, isAuthAvailable, isFirestoreAvailable } from './src/services/firebase/availability';
+import { isFirebaseAvailable, isAuthAvailable, isFirestoreAvailable, getFirebaseDebugInfo } from './src/services/firebase/availability';
+import FirebaseDebugModal from './src/components/FirebaseDebugModal';
 
 // Conditionally import Firebase components
 let AuthScreen = null;
@@ -37,6 +38,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [firebaseEnabled, setFirebaseEnabled] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -47,6 +50,10 @@ export default function App() {
       }, 3000);
 
       try {
+        // Get debug info
+        const info = getFirebaseDebugInfo();
+        setDebugInfo(info);
+
         // Check if Firebase is available
         if (isFirebaseAvailable()) {
           console.log('🔥 Firebase enabled');
@@ -86,6 +93,8 @@ export default function App() {
           setFirebaseEnabled(false);
           setLoading(false);
           clearTimeout(timeoutId);
+          // Show debug modal automatically when Firebase is not available
+          setShowDebugModal(true);
         }
       } catch (error) {
         console.error('Error initializing app:', error);
@@ -93,6 +102,8 @@ export default function App() {
         setFirebaseEnabled(false);
         setLoading(false);
         clearTimeout(timeoutId);
+        // Show debug modal on error
+        setShowDebugModal(true);
       }
     };
 
@@ -108,17 +119,53 @@ export default function App() {
     );
   }
 
+  // Render debug modal and floating button
+  const renderDebugUI = () => (
+    <>
+      {debugInfo && (
+        <FirebaseDebugModal
+          visible={showDebugModal}
+          onClose={() => setShowDebugModal(false)}
+          debugInfo={debugInfo}
+        />
+      )}
+      {!firebaseEnabled && (
+        <TouchableOpacity
+          style={styles.debugButton}
+          onPress={() => setShowDebugModal(true)}
+        >
+          <Text style={styles.debugButtonText}>🔍</Text>
+        </TouchableOpacity>
+      )}
+    </>
+  );
+
   // If Firebase is not available, skip auth and go to HomeScreen
   if (!firebaseEnabled) {
-    return <HomeScreen user={null} />;
+    return (
+      <>
+        <HomeScreen user={null} />
+        {renderDebugUI()}
+      </>
+    );
   }
 
   // Show Auth screen if not signed in, otherwise show HomeScreen
   if (!user && AuthScreen) {
-    return <AuthScreen onSignIn={setUser} />;
+    return (
+      <>
+        <AuthScreen onSignIn={setUser} />
+        {renderDebugUI()}
+      </>
+    );
   }
 
-  return <HomeScreen user={user} />;
+  return (
+    <>
+      <HomeScreen user={user} />
+      {renderDebugUI()}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -127,5 +174,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
+  },
+  debugButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  debugButtonText: {
+    fontSize: 28,
   },
 });
