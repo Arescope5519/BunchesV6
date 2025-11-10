@@ -12,6 +12,16 @@ import colors from './src/constants/colors';
 import { isFirebaseAvailable, isAuthAvailable, isFirestoreAvailable, getFirebaseDebugInfo } from './src/services/firebase/availability';
 import FirebaseDebugModal from './src/components/FirebaseDebugModal';
 
+// Conditionally import Firebase initialization
+let initializeFirebase = null;
+if (isFirebaseAvailable()) {
+  try {
+    initializeFirebase = require('./src/services/firebase/init').initializeFirebase;
+  } catch (e) {
+    console.error('Failed to load Firebase init:', e);
+  }
+}
+
 // Conditionally import Firebase components
 let AuthScreen = null;
 let onAuthStateChanged = null;
@@ -56,7 +66,22 @@ export default function App() {
 
         // Check if Firebase is available
         if (isFirebaseAvailable()) {
-          console.log('🔥 Firebase enabled');
+          console.log('🔥 Firebase modules available, initializing...');
+
+          // Initialize Firebase explicitly
+          if (initializeFirebase) {
+            const initialized = await initializeFirebase();
+            if (!initialized) {
+              console.error('❌ Firebase initialization failed');
+              setFirebaseEnabled(false);
+              setLoading(false);
+              clearTimeout(timeoutId);
+              setShowDebugModal(true);
+              return;
+            }
+          }
+
+          console.log('✅ Firebase enabled');
           setFirebaseEnabled(true);
 
           // Enable offline persistence for Firestore
