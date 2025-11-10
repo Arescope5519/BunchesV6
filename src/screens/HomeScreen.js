@@ -49,7 +49,7 @@ import { SaveRecipeScreen } from './SaveRecipeScreen';
 // Constants
 import colors from '../constants/colors';
 
-export const HomeScreen = () => {
+export const HomeScreen = ({ user }) => {
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState('dashboard'); // dashboard, recipes, create, import, search, grocery, settings, saveRecipe
 
@@ -81,7 +81,7 @@ export const HomeScreen = () => {
   const [multiselectMode, setMultiselectMode] = useState(false);
   const [selectedRecipes, setSelectedRecipes] = useState(new Set());
 
-  // Hooks
+  // Hooks - Pass user to useRecipes for Firestore sync
   const {
     recipes,
     loadingRecipes,
@@ -97,7 +97,7 @@ export const HomeScreen = () => {
     moveToFolder: moveRecipeToFolder,
     getFilteredRecipes,
     refreshRecipes,
-  } = useRecipes();
+  } = useRecipes(user);
 
   const {
     folders,
