@@ -94,14 +94,16 @@ export const signInWithGoogle = async () => {
     // Safely access error properties
     const errorCode = error?.code || 'unknown';
     const errorMessage = error?.message || String(error) || 'Unknown error';
+    const hasCode = ('code' in error);
+    const hasMessage = ('message' in error);
 
     console.error('Error code:', errorCode);
     console.error('Error message:', errorMessage);
 
-    // Show detailed debug alert
+    // Show detailed debug alert - simplified to avoid function calls
     Alert.alert(
       '🔍 Debug: Sign-In Error Details',
-      `Error Code: ${errorCode}\n\nError Message: ${errorMessage}\n\nError Type: ${typeof error}\n\nHas code property: ${error.hasOwnProperty?.('code') ? 'Yes' : 'No'}`,
+      `Error Code: ${errorCode}\n\nError Message: ${errorMessage}\n\nError Type: ${typeof error}\n\nHas 'code': ${hasCode}\n\nHas 'message': ${hasMessage}`,
       [{ text: 'OK' }]
     );
 
