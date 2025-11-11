@@ -39,17 +39,14 @@ export const signInWithGoogle = async () => {
     const signInResult = await GoogleSignin.signIn();
     console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
 
-    // Debug: Show what we got from Google Sign-In
-    Alert.alert(
-      '🔍 Debug: Sign-In Result',
-      `Has result: ${!!signInResult}\nHas idToken: ${!!signInResult?.idToken}\nResult keys: ${signInResult ? Object.keys(signInResult).join(', ') : 'none'}`,
-      [{ text: 'OK' }]
-    );
-
     if (!signInResult || !signInResult.idToken) {
+      // Show simple error without complex operations
+      const hasResult = !!signInResult;
+      const hasToken = signInResult ? !!signInResult.idToken : false;
+
       Alert.alert(
         '❌ Missing ID Token',
-        'Google Sign-In returned a result but no idToken was present. This usually means:\n\n1. The google-services.json file is outdated\n2. SHA-1 certificate not properly registered\n3. Google Sign-In API not enabled in Firebase Console',
+        `Sign-In Status:\n\nGot result from Google: ${hasResult ? 'Yes' : 'No'}\nHas idToken: ${hasToken ? 'Yes' : 'No'}\n\nThis usually means:\n\n1. google-services.json is outdated\n2. SHA-1 certificate not registered\n3. OAuth client ID incorrect`,
         [{ text: 'OK' }]
       );
       throw new Error('No ID token received from Google Sign-In');
@@ -79,51 +76,47 @@ export const signInWithGoogle = async () => {
   } catch (error) {
     console.error('❌ Google Sign-In Error:', error);
 
-    // Ultra-defensive error handling
-    if (!error) {
-      Alert.alert(
-        '🔍 Debug: Sign-In Error',
-        'Error object is null or undefined',
-        [{ text: 'OK' }]
-      );
-      const safeError = new Error('Unknown error occurred (error object is null/undefined)');
-      safeError.code = 'unknown';
-      throw safeError;
+    // Ultra-simple error handling - no complex operations
+    let errorCode = 'unknown';
+    let errorMessage = 'Sign-in failed';
+
+    try {
+      if (error && error.code) {
+        errorCode = String(error.code);
+      }
+    } catch (e) {
+      // Ignore
     }
 
-    // Safely access error properties
-    const errorCode = error?.code || 'unknown';
-    const errorMessage = error?.message || String(error) || 'Unknown error';
-    const hasCode = ('code' in error);
-    const hasMessage = ('message' in error);
+    try {
+      if (error && error.message) {
+        errorMessage = String(error.message);
+      }
+    } catch (e) {
+      // Ignore
+    }
 
-    console.error('Error code:', errorCode);
-    console.error('Error message:', errorMessage);
-
-    // Show detailed debug alert - simplified to avoid function calls
+    // Show simple debug alert
     Alert.alert(
-      '🔍 Debug: Sign-In Error Details',
-      `Error Code: ${errorCode}\n\nError Message: ${errorMessage}\n\nError Type: ${typeof error}\n\nHas 'code': ${hasCode}\n\nHas 'message': ${hasMessage}`,
+      '🔍 Debug: Sign-In Error',
+      'Error Code: ' + errorCode + '\n\nError Message: ' + errorMessage,
       [{ text: 'OK' }]
     );
 
-    try {
-      console.error('Full error:', JSON.stringify(error, null, 2));
-    } catch (e) {
-      console.error('Could not stringify error');
+    // Handle specific errors
+    if (errorCode === 'sign_in_cancelled' || errorCode === '-5' || errorCode === '12501') {
+      const cancelError = new Error('Sign-in was cancelled');
+      cancelError.code = 'cancelled';
+      throw cancelError;
     }
 
-    if (errorCode === 'sign_in_cancelled' || errorCode === '-5') {
-      throw new Error('Sign-in was cancelled');
-    } else if (errorCode === 'in_progress') {
-      throw new Error('Sign-in is already in progress');
-    } else if (errorCode === 'play_services_not_available') {
-      throw new Error('Google Play Services not available');
-    } else if (errorCode === '12500') {
-      throw new Error('Google Sign-In configuration error. Check SHA-1 certificate in Firebase Console.');
+    if (errorCode === '12500') {
+      const configError = new Error('Google Sign-In configuration error. Check SHA-1 and google-services.json');
+      configError.code = '12500';
+      throw configError;
     }
 
-    // Create a new error with safe properties
+    // Create safe error
     const safeError = new Error(errorMessage);
     safeError.code = errorCode;
     throw safeError;
