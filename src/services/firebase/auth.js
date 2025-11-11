@@ -18,61 +18,76 @@ GoogleSignin.configure({
  * @returns {Promise<Object>} User object
  */
 export const signInWithGoogle = async () => {
+  // Wrap EVERYTHING in try-catch
   try {
-    console.log('🔐 [AUTH] Starting Google Sign-In...');
+    try {
+      console.log('🔐 [AUTH] Starting Google Sign-In...');
 
-    // Check if device supports Google Play Services
-    console.log('🔐 [AUTH] Checking Play Services...');
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    console.log('✅ [AUTH] Play Services available');
+      // Check if device supports Google Play Services
+      console.log('🔐 [AUTH] Checking Play Services...');
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      console.log('✅ [AUTH] Play Services available');
 
-    // Check if already signed in and sign out first
-    const isSignedIn = await GoogleSignin.isSignedIn();
-    console.log('🔐 [AUTH] Already signed in?', isSignedIn);
-    if (isSignedIn) {
-      console.log('🔐 [AUTH] Signing out existing user first...');
-      await GoogleSignin.signOut();
-    }
+      // Check if already signed in and sign out first
+      const isSignedIn = await GoogleSignin.isSignedIn();
+      console.log('🔐 [AUTH] Already signed in?', isSignedIn);
+      if (isSignedIn) {
+        console.log('🔐 [AUTH] Signing out existing user first...');
+        await GoogleSignin.signOut();
+      }
 
-    // Get user info from Google
-    console.log('🔐 [AUTH] Requesting Google Sign-In...');
-    const signInResult = await GoogleSignin.signIn();
-    console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
+      // Get user info from Google
+      console.log('🔐 [AUTH] Requesting Google Sign-In...');
+      Alert.alert('Debug', 'About to call GoogleSignin.signIn()', [{ text: 'OK' }]);
 
-    if (!signInResult || !signInResult.idToken) {
-      // Show simple error without complex operations
-      const hasResult = !!signInResult;
-      const hasToken = signInResult ? !!signInResult.idToken : false;
+      const signInResult = await GoogleSignin.signIn();
 
+      Alert.alert('Debug', 'GoogleSignin.signIn() completed successfully', [{ text: 'OK' }]);
+      console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
+
+      if (!signInResult || !signInResult.idToken) {
+        // Show simple error without complex operations
+        const hasResult = !!signInResult;
+        const hasToken = signInResult ? !!signInResult.idToken : false;
+
+        Alert.alert(
+          '❌ Missing ID Token',
+          'Got result from Google: ' + (hasResult ? 'Yes' : 'No') + '\nHas idToken: ' + (hasToken ? 'Yes' : 'No') + '\n\nDownload updated google-services.json from Firebase Console',
+          [{ text: 'OK' }]
+        );
+        throw new Error('No ID token received from Google Sign-In');
+      }
+
+      const idToken = signInResult.idToken;
+      console.log('✅ [AUTH] Got ID token');
+
+      // Create Firebase credential
+      console.log('🔐 [AUTH] Creating Firebase credential...');
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      console.log('✅ [AUTH] Firebase credential created');
+
+      // Sign in to Firebase with the Google credential
+      console.log('🔐 [AUTH] Signing in to Firebase...');
+      const userCredential = await auth().signInWithCredential(googleCredential);
+      console.log('✅ [AUTH] Firebase sign-in successful');
+
+      console.log('✅ Signed in with Google:', userCredential.user.email);
+
+      return {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email,
+        displayName: userCredential.user.displayName,
+        photoURL: userCredential.user.photoURL,
+      };
+    } catch (innerError) {
+      // First level catch
       Alert.alert(
-        '❌ Missing ID Token',
-        `Sign-In Status:\n\nGot result from Google: ${hasResult ? 'Yes' : 'No'}\nHas idToken: ${hasToken ? 'Yes' : 'No'}\n\nThis usually means:\n\n1. google-services.json is outdated\n2. SHA-1 certificate not registered\n3. OAuth client ID incorrect`,
+        '🔍 INNER Error Caught',
+        'Error during sign-in: ' + String(innerError),
         [{ text: 'OK' }]
       );
-      throw new Error('No ID token received from Google Sign-In');
+      throw innerError;
     }
-
-    const { idToken } = signInResult;
-    console.log('✅ [AUTH] Got ID token');
-
-    // Create Firebase credential
-    console.log('🔐 [AUTH] Creating Firebase credential...');
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-    console.log('✅ [AUTH] Firebase credential created');
-
-    // Sign in to Firebase with the Google credential
-    console.log('🔐 [AUTH] Signing in to Firebase...');
-    const userCredential = await auth().signInWithCredential(googleCredential);
-    console.log('✅ [AUTH] Firebase sign-in successful');
-
-    console.log('✅ Signed in with Google:', userCredential.user.email);
-
-    return {
-      uid: userCredential.user.uid,
-      email: userCredential.user.email,
-      displayName: userCredential.user.displayName,
-      photoURL: userCredential.user.photoURL,
-    };
   } catch (error) {
     console.error('❌ Google Sign-In Error:', error);
 
@@ -98,7 +113,7 @@ export const signInWithGoogle = async () => {
 
     // Show simple debug alert
     Alert.alert(
-      '🔍 Debug: Sign-In Error',
+      '🔍 Final Error',
       'Error Code: ' + errorCode + '\n\nError Message: ' + errorMessage,
       [{ text: 'OK' }]
     );
