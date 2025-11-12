@@ -29,6 +29,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useFolders } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
@@ -140,6 +141,41 @@ export const HomeScreen = () => {
     }
   };
 
+  // Handle local mode button - clears any auth data and forces local mode
+  const handleLocalMode = async () => {
+    try {
+      // Clear any potential auth-related storage keys
+      const allKeys = await AsyncStorage.getAllKeys();
+      const authKeys = allKeys.filter(key =>
+        key.includes('auth') ||
+        key.includes('user') ||
+        key.includes('token') ||
+        key.includes('firebase')
+      );
+
+      if (authKeys.length > 0) {
+        await AsyncStorage.multiRemove(authKeys);
+      }
+
+      // Set local mode flag
+      await AsyncStorage.setItem('forceLocalMode', 'true');
+
+      Alert.alert(
+        '📱 Local Mode Active',
+        'The app is now in Local Mode. All data is stored locally on this device only.\n\n' +
+        (authKeys.length > 0 ? `Cleared ${authKeys.length} auth-related storage item(s).` : 'No auth data found.'),
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error setting local mode:', error);
+      Alert.alert(
+        '📱 Local Mode',
+        'The app is already in Local Mode. All data is stored locally on this device.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   // Android back button handler - handles all modals and screens
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -180,12 +216,20 @@ export const HomeScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>BunchesV6</Text>
-        <TouchableOpacity
-          onPress={() => setShowFolderManager(true)}
-          style={styles.folderButton}
-        >
-          <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={handleLocalMode}
+            style={styles.localModeButton}
+          >
+            <Text style={styles.localModeButtonText}>📱 Local</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowFolderManager(true)}
+            style={styles.folderButton}
+          >
+            <Text style={styles.folderButtonText}>📁 {currentFolder}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* URL Input */}
@@ -546,6 +590,23 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  localModeButton: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  localModeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   folderButton: {
     backgroundColor: 'rgba(255,255,255,0.2)',
