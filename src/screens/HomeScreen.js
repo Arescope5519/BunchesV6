@@ -297,16 +297,32 @@ export const HomeScreen = ({ user }) => {
       if (firebaseSignIn) {
         const userData = await firebaseSignIn();
         // App.js auth listener will detect the sign-in and update user state
-        Alert.alert('✅ Signed In', `Welcome ${userData.displayName || userData.email}!`);
+        Alert.alert('✅ Signed In', 'Welcome ' + (userData.displayName || userData.email) + '!');
       } else {
         Alert.alert('Error', 'Sign-in is not available. Please restart the app.');
       }
     } catch (error) {
       console.error('Sign in error:', error);
 
-      // Safely access error properties
-      const errorCode = error?.code || 'unknown';
-      const errorMessage = error?.message || String(error) || 'Unknown error occurred';
+      // Ultra-simple error handling - no optional chaining
+      let errorCode = 'unknown';
+      let errorMessage = 'Sign-in failed';
+
+      try {
+        if (error && error.code) {
+          errorCode = String(error.code);
+        }
+      } catch (e) {
+        // Ignore
+      }
+
+      try {
+        if (error && error.message) {
+          errorMessage = String(error.message);
+        }
+      } catch (e) {
+        // Ignore
+      }
 
       console.error('Error code:', errorCode);
       console.error('Error message:', errorMessage);
@@ -314,17 +330,20 @@ export const HomeScreen = ({ user }) => {
       // Check if user cancelled
       if (errorCode === 'auth/popup-closed-by-user' ||
           errorCode === 'sign_in_cancelled' ||
+          errorCode === 'cancelled' ||
           errorMessage === 'Sign-in was cancelled') {
         // User cancelled, no need to show error
         return;
       }
 
-      // Show actual error message for debugging
+      // Show error and continue in local mode
       Alert.alert(
-        'Sign-In Error',
-        `${errorMessage}\n\nError Code: ${errorCode}\n\nCheck Firebase setup and SHA-1 certificate.`,
+        'Sign-In Failed',
+        'Error: ' + errorMessage + '\n\nError Code: ' + errorCode + '\n\nContinuing in Local Mode (no cloud sync)',
         [{ text: 'OK' }]
       );
+
+      // Don't throw - stay in local mode
     }
   };
 
