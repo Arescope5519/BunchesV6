@@ -80,7 +80,7 @@ if ($missingResources.Count -eq 0) {
     Write-Host "  SUCCESS! All resources generated" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "You can now run: cd android && ./gradlew assembleRelease" -ForegroundColor Yellow
+    Write-Host "You can now build with: cd android; .\gradlew assembleRelease" -ForegroundColor Yellow
 } else {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  WARNING: Some resources still missing" -ForegroundColor Yellow
@@ -94,7 +94,7 @@ if ($missingResources.Count -eq 0) {
     Write-Host "You may need to:" -ForegroundColor Yellow
     Write-Host "  1. Check your assets/icon.png exists and is valid" -ForegroundColor Gray
     Write-Host "  2. Check your app.json configuration" -ForegroundColor Gray
-    Write-Host "  3. Run 'npx expo-doctor' to check for issues" -ForegroundColor Gray
+    Write-Host "  3. Run npx expo-doctor to check for issues" -ForegroundColor Gray
 }
 
 Write-Host ""
