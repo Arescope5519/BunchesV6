@@ -17,12 +17,7 @@
     "plugins": [
       "./plugins/ios-share-extension.js",
       "@react-native-firebase/app",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0"
-        }
-      ]
+      "@react-native-google-signin/google-signin"
     ],
     "ios": {
       "supportsTablet": true,
