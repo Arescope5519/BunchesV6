@@ -1,15 +1,20 @@
 /**
- * App.js - Firebase Connection Test
- * Tests Firebase initialization and Google Sign-In module
+ * App.js - Firebase Connection Test + Auth
+ * Tests Firebase then allows sign-in
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import AuthScreen from './src/screens/AuthScreen';
+import HomeScreen from './src/screens/HomeScreen';
 import colors from './src/constants/colors';
 
 export default function App() {
   const [testResults, setTestResults] = useState([]);
   const [testing, setTesting] = useState(false);
+  const [testsPassed, setTestsPassed] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState('test'); // 'test', 'auth', 'home'
+  const [user, setUser] = useState(null);
 
   const addResult = (emoji, message) => {
     setTestResults(prev => [...prev, { emoji, message, time: new Date().toLocaleTimeString() }]);
@@ -18,6 +23,7 @@ export default function App() {
   const runFirebaseTest = async () => {
     setTesting(true);
     setTestResults([]);
+    setTestsPassed(false);
     addResult('🔄', 'Starting Firebase connectivity test...');
 
     try {
@@ -43,12 +49,14 @@ export default function App() {
       addResult('✅', 'Firebase Auth initialized');
 
       // Summary
-      addResult('🎉', 'ALL TESTS PASSED! Firebase is ready.');
-      Alert.alert('✅ Success', 'Firebase is properly configured and ready to use!');
+      addResult('🎉', 'ALL TESTS PASSED! Ready to sign in.');
+      setTestsPassed(true);
+      Alert.alert('✅ Success', 'Firebase is ready! Tap "Continue to Sign In" to proceed.');
 
     } catch (error) {
       addResult('❌', `Test failed: ${error.message}`);
       Alert.alert('❌ Test Failed', error.message);
+      setTestsPassed(false);
     } finally {
       setTesting(false);
     }
@@ -59,48 +67,73 @@ export default function App() {
     runFirebaseTest();
   }, []);
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>🔥 Firebase Connection Test</Text>
-      </View>
+  const handleSignIn = (userData) => {
+    setUser(userData);
+    setCurrentScreen('home');
+  };
 
-      <ScrollView style={styles.resultsContainer}>
-        {testResults.length === 0 ? (
-          <Text style={styles.noResults}>No tests run yet</Text>
-        ) : (
-          testResults.map((result, index) => (
-            <View key={index} style={styles.resultRow}>
-              <Text style={styles.resultEmoji}>{result.emoji}</Text>
-              <View style={styles.resultTextContainer}>
-                <Text style={styles.resultMessage}>{result.message}</Text>
-                <Text style={styles.resultTime}>{result.time}</Text>
+  // Show test screen
+  if (currentScreen === 'test') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>🔥 Firebase Connection Test</Text>
+        </View>
+
+        <ScrollView style={styles.resultsContainer}>
+          {testResults.length === 0 ? (
+            <Text style={styles.noResults}>No tests run yet</Text>
+          ) : (
+            testResults.map((result, index) => (
+              <View key={index} style={styles.resultRow}>
+                <Text style={styles.resultEmoji}>{result.emoji}</Text>
+                <View style={styles.resultTextContainer}>
+                  <Text style={styles.resultMessage}>{result.message}</Text>
+                  <Text style={styles.resultTime}>{result.time}</Text>
+                </View>
               </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.testButton}
-          onPress={runFirebaseTest}
-          disabled={testing}
-        >
-          <Text style={styles.buttonText}>
-            {testing ? '⏳ Testing...' : '🔄 Run Test Again'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          {testsPassed && (
+            <TouchableOpacity
+              style={[styles.testButton, styles.continueButton]}
+              onPress={() => setCurrentScreen('auth')}
+            >
+              <Text style={styles.buttonText}>➡️ Continue to Sign In</Text>
+            </TouchableOpacity>
+          )}
 
-        <TouchableOpacity
-          style={[styles.testButton, styles.clearButton]}
-          onPress={() => setTestResults([])}
-        >
-          <Text style={styles.buttonText}>🗑️ Clear Results</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={runFirebaseTest}
+            disabled={testing}
+          >
+            <Text style={styles.buttonText}>
+              {testing ? '⏳ Testing...' : '🔄 Run Test Again'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.testButton, styles.clearButton]}
+            onPress={() => setTestResults([])}
+          >
+            <Text style={styles.buttonText}>🗑️ Clear Results</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show auth screen
+  if (currentScreen === 'auth') {
+    return <AuthScreen onSignIn={handleSignIn} />;
+  }
+
+  // Show home screen
+  return <HomeScreen user={user} />;
 }
 
 const styles = StyleSheet.create({
@@ -168,6 +201,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  continueButton: {
+    backgroundColor: '#4CAF50',
   },
   clearButton: {
     backgroundColor: colors.textSecondary,
