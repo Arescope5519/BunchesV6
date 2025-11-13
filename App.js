@@ -48,6 +48,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [firebaseEnabled, setFirebaseEnabled] = useState(false);
+  const [localModeEnabled, setLocalModeEnabled] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
 
@@ -165,8 +166,8 @@ export default function App() {
     </>
   );
 
-  // If Firebase is not available, skip auth and go to HomeScreen
-  if (!firebaseEnabled) {
+  // If Firebase is not available OR user chose local mode, skip auth and go to HomeScreen
+  if (!firebaseEnabled || localModeEnabled) {
     return (
       <>
         <HomeScreen user={null} />
@@ -179,7 +180,10 @@ export default function App() {
   if (!user && AuthScreen) {
     return (
       <>
-        <AuthScreen onSignIn={setUser} />
+        <AuthScreen
+          onSignIn={setUser}
+          onSkipToLocalMode={() => setLocalModeEnabled(true)}
+        />
         {renderDebugUI()}
       </>
     );
