@@ -7,17 +7,38 @@ import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Alert } from 'react-native';
 
-// Configure Google Sign-In
-GoogleSignin.configure({
-  webClientId: '307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com',
-  offlineAccess: false,
-});
+// Track if Google Sign-In has been configured
+let googleSignInConfigured = false;
+
+/**
+ * Configure Google Sign-In (called lazily before first sign-in)
+ */
+const configureGoogleSignIn = () => {
+  if (googleSignInConfigured) {
+    return;
+  }
+
+  try {
+    console.log('🔐 [AUTH] Configuring Google Sign-In...');
+    GoogleSignin.configure({
+      webClientId: '307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com',
+      offlineAccess: false,
+    });
+    googleSignInConfigured = true;
+    console.log('✅ [AUTH] Google Sign-In configured');
+  } catch (error) {
+    console.error('❌ [AUTH] Failed to configure Google Sign-In:', error);
+    throw error;
+  }
+};
 
 /**
  * Sign in with Google
  * @returns {Promise<Object>} User object
  */
 export const signInWithGoogle = async () => {
+  // Configure Google Sign-In before first use
+  configureGoogleSignIn();
   // Wrap EVERYTHING in try-catch
   try {
     try {
@@ -144,6 +165,9 @@ export const signInWithGoogle = async () => {
  */
 export const signOut = async () => {
   try {
+    // Ensure Google Sign-In is configured
+    configureGoogleSignIn();
+
     // Sign out from Google
     await GoogleSignin.signOut();
 
