@@ -65,20 +65,36 @@ export const signInWithGoogle = async () => {
       const signInResult = await GoogleSignin.signIn();
       console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
 
-      if (!signInResult || !signInResult.idToken) {
-        // Show simple error without complex operations
-        const hasResult = !!signInResult;
-        const hasToken = signInResult ? !!signInResult.idToken : false;
+      // Debug: Show what we actually received
+      Alert.alert('Debug Sign-In Result',
+        'Result keys: ' + (signInResult ? Object.keys(signInResult).join(', ') : 'null') + '\n\n' +
+        'Type: ' + (typeof signInResult) + '\n\n' +
+        'Has user: ' + (signInResult?.user ? 'Yes' : 'No') + '\n' +
+        'Has data: ' + (signInResult?.data ? 'Yes' : 'No') + '\n' +
+        'Has idToken: ' + (signInResult?.idToken ? 'Yes' : 'No') + '\n' +
+        'Has user.idToken: ' + (signInResult?.user?.idToken ? 'Yes' : 'No') + '\n' +
+        'Has data.idToken: ' + (signInResult?.data?.idToken ? 'Yes' : 'No'),
+        [{ text: 'OK' }]
+      );
 
+      // Try to find idToken in different possible locations
+      let idToken = null;
+      if (signInResult?.idToken) {
+        idToken = signInResult.idToken;
+      } else if (signInResult?.user?.idToken) {
+        idToken = signInResult.user.idToken;
+      } else if (signInResult?.data?.idToken) {
+        idToken = signInResult.data.idToken;
+      }
+
+      if (!idToken) {
         Alert.alert(
           '❌ Missing ID Token',
-          'Got result from Google: ' + (hasResult ? 'Yes' : 'No') + '\nHas idToken: ' + (hasToken ? 'Yes' : 'No') + '\n\nDownload updated google-services.json from Firebase Console',
+          'Could not find idToken in sign-in result. Check Debug Sign-In Result alert for structure.',
           [{ text: 'OK' }]
         );
         throw new Error('No ID token received from Google Sign-In');
       }
-
-      const idToken = signInResult.idToken;
       console.log('✅ [AUTH] Got ID token');
 
       // Create Firebase credential
