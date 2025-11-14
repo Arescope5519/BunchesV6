@@ -170,7 +170,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r => {
       if (r.id === recipeId) {
         const { deletedAt, ...restored } = r;
-        return restored;
+        return { ...restored, updatedAt: Date.now() };
       }
       return r;
     });
@@ -178,6 +178,17 @@ export const useRecipes = (user) => {
 
     if (success) {
       setRecipes(updatedRecipes);
+
+      // Sync to Firestore if user is signed in
+      if (user && saveRecipeToFirestore) {
+        const restoredRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (restoredRecipe) {
+          saveRecipeToFirestore(user.uid, restoredRecipe).catch(err =>
+            console.error('Failed to sync restored recipe to Firestore:', err)
+          );
+        }
+      }
+
       Alert.alert('Restored', 'Recipe restored successfully');
       return true;
     }
@@ -204,6 +215,14 @@ export const useRecipes = (user) => {
               if (success) {
                 setRecipes(updated);
                 setSelectedRecipe(null);
+
+                // Delete from Firestore if user is signed in
+                if (user && deleteRecipeFromFirestore) {
+                  deleteRecipeFromFirestore(user.uid, recipeId).catch(err =>
+                    console.error('Failed to delete recipe from Firestore:', err)
+                  );
+                }
+
                 resolve(true);
               } else {
                 resolve(false);
@@ -236,11 +255,22 @@ export const useRecipes = (user) => {
             text: 'Empty',
             style: 'destructive',
             onPress: async () => {
+              const deletedRecipes = recipes.filter(r => r.deletedAt);
               const updated = recipes.filter(r => !r.deletedAt);
               const success = await saveRecipesToStorage(updated);
 
               if (success) {
                 setRecipes(updated);
+
+                // Delete from Firestore if user is signed in
+                if (user && deleteRecipeFromFirestore) {
+                  deletedRecipes.forEach(recipe => {
+                    deleteRecipeFromFirestore(user.uid, recipe.id).catch(err =>
+                      console.error(`Failed to delete recipe ${recipe.id} from Firestore:`, err)
+                    );
+                  });
+                }
+
                 Alert.alert('Emptied', 'Recently Deleted has been emptied');
                 resolve(true);
               } else {
