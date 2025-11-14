@@ -216,11 +216,15 @@ export const useRecipes = (user) => {
                 setRecipes(updated);
                 setSelectedRecipe(null);
 
-                // Delete from Firestore if user is signed in
+                // Delete from Firestore if user is signed in - AWAIT it!
                 if (user && deleteRecipeFromFirestore) {
-                  deleteRecipeFromFirestore(user.uid, recipeId).catch(err =>
-                    console.error('Failed to delete recipe from Firestore:', err)
-                  );
+                  try {
+                    await deleteRecipeFromFirestore(user.uid, recipeId);
+                    console.log(`✅ Deleted recipe ${recipeId} from Firestore`);
+                  } catch (err) {
+                    console.error('❌ Failed to delete recipe from Firestore:', err);
+                    Alert.alert('Warning', 'Recipe deleted locally but may still exist in cloud. Please check your internet connection.');
+                  }
                 }
 
                 resolve(true);
@@ -262,13 +266,19 @@ export const useRecipes = (user) => {
               if (success) {
                 setRecipes(updated);
 
-                // Delete from Firestore if user is signed in
+                // Delete from Firestore if user is signed in - AWAIT all deletions!
                 if (user && deleteRecipeFromFirestore) {
-                  deletedRecipes.forEach(recipe => {
-                    deleteRecipeFromFirestore(user.uid, recipe.id).catch(err =>
-                      console.error(`Failed to delete recipe ${recipe.id} from Firestore:`, err)
+                  try {
+                    await Promise.all(
+                      deletedRecipes.map(recipe =>
+                        deleteRecipeFromFirestore(user.uid, recipe.id)
+                      )
                     );
-                  });
+                    console.log(`✅ Deleted ${deletedRecipes.length} recipes from Firestore`);
+                  } catch (err) {
+                    console.error('❌ Failed to delete some recipes from Firestore:', err);
+                    Alert.alert('Warning', 'Recipes deleted locally but some may still exist in cloud. Please check your internet connection.');
+                  }
                 }
 
                 Alert.alert('Emptied', 'Recently Deleted has been emptied');
