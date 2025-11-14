@@ -49,7 +49,16 @@ export const signInWithGoogle = async () => {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       console.log('✅ [AUTH] Play Services available');
 
-      // Get user info from Google (skip isSignedIn check - method doesn't exist in this version)
+      // Force sign out first to clear any cached state
+      console.log('🔐 [AUTH] Clearing cached sign-in state...');
+      try {
+        await GoogleSignin.signOut();
+        console.log('✅ [AUTH] Cached state cleared');
+      } catch (error) {
+        console.log('ℹ️ [AUTH] No cached state to clear (this is fine)');
+      }
+
+      // Get user info from Google - this should now show account picker
       console.log('🔐 [AUTH] Requesting Google Sign-In...');
       const signInResult = await GoogleSignin.signIn();
       console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
