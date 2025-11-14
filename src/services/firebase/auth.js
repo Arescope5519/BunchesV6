@@ -65,18 +65,6 @@ export const signInWithGoogle = async () => {
       const signInResult = await GoogleSignin.signIn();
       console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
 
-      // Debug: Show what we actually received
-      Alert.alert('Debug Sign-In Result',
-        'Result keys: ' + (signInResult ? Object.keys(signInResult).join(', ') : 'null') + '\n\n' +
-        'Type: ' + (typeof signInResult) + '\n\n' +
-        'Has user: ' + (signInResult?.user ? 'Yes' : 'No') + '\n' +
-        'Has data: ' + (signInResult?.data ? 'Yes' : 'No') + '\n' +
-        'Has idToken: ' + (signInResult?.idToken ? 'Yes' : 'No') + '\n' +
-        'Has user.idToken: ' + (signInResult?.user?.idToken ? 'Yes' : 'No') + '\n' +
-        'Has data.idToken: ' + (signInResult?.data?.idToken ? 'Yes' : 'No'),
-        [{ text: 'OK' }]
-      );
-
       // Try to find idToken in different possible locations
       let idToken = null;
       if (signInResult?.idToken) {
