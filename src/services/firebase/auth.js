@@ -180,16 +180,24 @@ export const signInWithGoogle = async () => {
  */
 export const signOut = async () => {
   try {
+    // Configure Google Sign-In before using it
+    configureGoogleSignIn();
+
     // Sign out from Google
+    console.log('🔐 [AUTH] Signing out from Google...');
     await GoogleSignin.signOut();
+    console.log('✅ [AUTH] Signed out from Google');
 
     // Sign out from Firebase
+    console.log('🔐 [AUTH] Signing out from Firebase...');
     await auth().signOut();
+    console.log('✅ [AUTH] Signed out from Firebase');
 
     console.log('✅ Signed out successfully');
   } catch (error) {
     console.error('❌ Sign-Out Error:', error);
-    throw new Error('Failed to sign out');
+    // Show more specific error message
+    throw new Error(error.message || 'Failed to sign out');
   }
 };
 
