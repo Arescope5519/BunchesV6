@@ -44,37 +44,14 @@ export const signInWithGoogle = async () => {
     try {
       console.log('🔐 [AUTH] Starting Google Sign-In...');
 
-      // Debug: Check what methods are available on GoogleSignin
-      Alert.alert('Debug',
-        'GoogleSignin object: ' + (typeof GoogleSignin) + '\n' +
-        'hasPlayServices: ' + (typeof GoogleSignin.hasPlayServices) + '\n' +
-        'isSignedIn: ' + (typeof GoogleSignin.isSignedIn) + '\n' +
-        'signIn: ' + (typeof GoogleSignin.signIn),
-        [{ text: 'OK' }]
-      );
-
       // Check if device supports Google Play Services
       console.log('🔐 [AUTH] Checking Play Services...');
-      Alert.alert('Debug', 'About to call hasPlayServices()', [{ text: 'OK' }]);
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       console.log('✅ [AUTH] Play Services available');
 
-      // Check if already signed in and sign out first
-      Alert.alert('Debug', 'About to call isSignedIn()', [{ text: 'OK' }]);
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      console.log('🔐 [AUTH] Already signed in?', isSignedIn);
-      if (isSignedIn) {
-        console.log('🔐 [AUTH] Signing out existing user first...');
-        await GoogleSignin.signOut();
-      }
-
-      // Get user info from Google
+      // Get user info from Google (skip isSignedIn check - method doesn't exist in this version)
       console.log('🔐 [AUTH] Requesting Google Sign-In...');
-      Alert.alert('Debug', 'About to call GoogleSignin.signIn()', [{ text: 'OK' }]);
-
       const signInResult = await GoogleSignin.signIn();
-
-      Alert.alert('Debug', 'GoogleSignin.signIn() completed successfully', [{ text: 'OK' }]);
       console.log('✅ [AUTH] Google Sign-In successful, got result:', !!signInResult);
 
       if (!signInResult || !signInResult.idToken) {
