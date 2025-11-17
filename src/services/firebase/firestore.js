@@ -174,11 +174,38 @@ export const syncRecipes = async (userId, localRecipes) => {
     });
 
     // Add recipes that only exist in Firestore
+    // BUT exclude soft-deleted recipes (with deletedAt) to prevent them from
+    // coming back after uninstall/reinstall
+    const recipesToDeleteFromFirestore = [];
     firestoreRecipes.forEach(firestoreRecipe => {
       if (!localMap.has(firestoreRecipe.id)) {
-        mergedRecipes.push(firestoreRecipe);
+        // Recipe only exists in Firestore
+        if (firestoreRecipe.deletedAt) {
+          // It's a soft-deleted recipe - don't restore it, and delete it from Firestore
+          recipesToDeleteFromFirestore.push(firestoreRecipe.id);
+          console.log(`🗑️ Auto-cleaning soft-deleted recipe from Firestore: ${firestoreRecipe.title || firestoreRecipe.id}`);
+        } else {
+          // Normal recipe - add it to merged list
+          mergedRecipes.push(firestoreRecipe);
+        }
       }
     });
+
+    // Clean up soft-deleted recipes from Firestore
+    if (recipesToDeleteFromFirestore.length > 0) {
+      console.log(`🗑️ Cleaning ${recipesToDeleteFromFirestore.length} soft-deleted recipes from Firestore...`);
+      const deleteBatch = firestore().batch();
+      recipesToDeleteFromFirestore.forEach(recipeId => {
+        const recipeRef = firestore()
+          .collection('users')
+          .doc(userId)
+          .collection(RECIPES_COLLECTION)
+          .doc(recipeId);
+        deleteBatch.delete(recipeRef);
+      });
+      await deleteBatch.commit();
+      console.log(`✅ Cleaned ${recipesToDeleteFromFirestore.length} soft-deleted recipes from Firestore`);
+    }
 
     // Upload new/updated recipes to Firestore
     if (recipesToUpload.length > 0) {
