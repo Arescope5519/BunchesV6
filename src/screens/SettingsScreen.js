@@ -3,7 +3,7 @@
  * PURPOSE: App settings and preferences
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,14 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
+import { cleanupDeletedRecipes, checkFirestoreRecipes } from '../utils/cleanupFirestore';
 
 export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onSignOut, onSignIn }) => {
+  const [cleaningFirestore, setCleaningFirestore] = useState(false);
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -41,6 +44,49 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
           text: 'Sign Out',
           style: 'destructive',
           onPress: onSignOut,
+        },
+      ]
+    );
+  };
+
+  const handleCleanupFirestore = async () => {
+    if (!user) {
+      Alert.alert('Not Signed In', 'You must be signed in to clean Firestore.');
+      return;
+    }
+
+    Alert.alert(
+      'Clean Firestore Database',
+      'This will check for and remove soft-deleted recipes stuck in Firestore. This is safe and will not affect your active recipes.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Check & Clean',
+          onPress: async () => {
+            setCleaningFirestore(true);
+            try {
+              // First check what's there
+              const { allRecipes, deletedRecipes } = await checkFirestoreRecipes(user.uid);
+
+              if (deletedRecipes.length === 0) {
+                Alert.alert('✅ Clean!', `Firestore has ${allRecipes.length} recipes and no soft-deleted items.`);
+                setCleaningFirestore(false);
+                return;
+              }
+
+              // Found soft-deleted recipes - clean them
+              const count = await cleanupDeletedRecipes(user.uid);
+              Alert.alert(
+                '✅ Cleanup Complete',
+                `Removed ${count} soft-deleted recipe${count !== 1 ? 's' : ''} from Firestore.\n\nYou now have ${allRecipes.length - count} active recipes in the cloud.`
+              );
+            } catch (error) {
+              console.error('Cleanup error:', error);
+              Alert.alert('Error', 'Failed to clean Firestore. Check your internet connection.');
+            } finally {
+              setCleaningFirestore(false);
+            }
+          },
         },
       ]
     );
@@ -155,8 +201,24 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
         {/* Danger Zone */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
+
+          {/* Cleanup Firestore Button - Only show if signed in */}
+          {user && (
+            <TouchableOpacity
+              style={[styles.cleanupButton, cleaningFirestore && styles.buttonDisabled]}
+              onPress={handleCleanupFirestore}
+              disabled={cleaningFirestore}
+            >
+              {cleaningFirestore ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.dangerButtonText}>🧹 Clean Firestore Database</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
-            style={styles.dangerButton}
+            style={[styles.dangerButton, user && { marginTop: 12 }]}
             onPress={handleClearAllData}
           >
             <Text style={styles.dangerButtonText}>🗑️ Clear All Data</Text>
@@ -271,6 +333,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  cleanupButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   bottomSpacer: {
     height: 40,
