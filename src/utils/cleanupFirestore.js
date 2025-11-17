@@ -4,9 +4,12 @@
  */
 
 import firestore from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const RECIPES_STORAGE_KEY = '@recipes';
 
 /**
- * Check what recipes are in Firestore (including soft-deleted ones)
+ * Check what recipes are in Firestore vs local storage
  */
 export const checkFirestoreRecipes = async (userId) => {
   try {
@@ -36,8 +39,17 @@ export const checkFirestoreRecipes = async (userId) => {
       }
     });
 
+    // Also load local recipes to compare
+    const localRecipesJSON = await AsyncStorage.getItem(RECIPES_STORAGE_KEY);
+    const localRecipes = localRecipesJSON ? JSON.parse(localRecipesJSON) : [];
+    const localRecipeIds = new Set(localRecipes.map(r => r.id));
+
+    // Find recipes in Firestore that don't exist locally (these are stuck deleted recipes)
+    const stuckRecipes = allRecipes.filter(r => !localRecipeIds.has(r.id) && !r.deletedAt);
+
     console.log(`📊 Found ${allRecipes.length} total recipes in Firestore`);
     console.log(`🗑️ Found ${deletedRecipes.length} soft-deleted recipes`);
+    console.log(`⚠️ Found ${stuckRecipes.length} recipes in Firestore that don't exist locally`);
 
     if (deletedRecipes.length > 0) {
       console.log('Soft-deleted recipes:');
@@ -46,7 +58,14 @@ export const checkFirestoreRecipes = async (userId) => {
       });
     }
 
-    return { allRecipes, deletedRecipes };
+    if (stuckRecipes.length > 0) {
+      console.log('Stuck recipes (in Firestore but not local):');
+      stuckRecipes.forEach(r => {
+        console.log(`  - ${r.title} (ID: ${r.id})`);
+      });
+    }
+
+    return { allRecipes, deletedRecipes, stuckRecipes, localRecipeIds };
   } catch (error) {
     console.error('❌ Error checking Firestore:', error);
     throw error;
@@ -54,35 +73,39 @@ export const checkFirestoreRecipes = async (userId) => {
 };
 
 /**
- * Clean up all soft-deleted recipes from Firestore
+ * Clean up all soft-deleted AND stuck recipes from Firestore
  */
 export const cleanupDeletedRecipes = async (userId) => {
   try {
     console.log('🧹 Starting Firestore cleanup...');
 
-    const snapshot = await firestore()
-      .collection('users')
-      .doc(userId)
-      .collection('recipes')
-      .where('deletedAt', '!=', null)
-      .get();
+    // Get both soft-deleted and stuck recipes
+    const { deletedRecipes, stuckRecipes } = await checkFirestoreRecipes(userId);
 
-    if (snapshot.empty) {
-      console.log('✅ No soft-deleted recipes found. Firestore is clean!');
+    const recipesToDelete = [...deletedRecipes, ...stuckRecipes];
+
+    if (recipesToDelete.length === 0) {
+      console.log('✅ No recipes to clean up. Firestore is clean!');
       return 0;
     }
 
     const batch = firestore().batch();
     let count = 0;
 
-    snapshot.forEach((doc) => {
-      batch.delete(doc.ref);
+    recipesToDelete.forEach((recipe) => {
+      const recipeRef = firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('recipes')
+        .doc(recipe.id);
+
+      batch.delete(recipeRef);
       count++;
-      console.log(`  Deleting: ${doc.data().title || doc.id}`);
+      console.log(`  Deleting: ${recipe.title || recipe.id}`);
     });
 
     await batch.commit();
-    console.log(`✅ Cleaned up ${count} soft-deleted recipes from Firestore`);
+    console.log(`✅ Cleaned up ${count} recipes from Firestore`);
 
     return count;
   } catch (error) {

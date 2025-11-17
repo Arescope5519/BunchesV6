@@ -57,7 +57,7 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
 
     Alert.alert(
       'Clean Firestore Database',
-      'This will check for and remove soft-deleted recipes stuck in Firestore. This is safe and will not affect your active recipes.',
+      'This will compare your local recipes with Firestore and remove any that were deleted locally but are stuck in the cloud.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -66,24 +66,54 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
             setCleaningFirestore(true);
             try {
               // First check what's there
-              const { allRecipes, deletedRecipes } = await checkFirestoreRecipes(user.uid);
+              const { allRecipes, deletedRecipes, stuckRecipes } = await checkFirestoreRecipes(user.uid);
 
-              if (deletedRecipes.length === 0) {
-                Alert.alert('✅ Clean!', `Firestore has ${allRecipes.length} recipes and no soft-deleted items.`);
+              const totalToClean = deletedRecipes.length + stuckRecipes.length;
+
+              if (totalToClean === 0) {
+                Alert.alert('✅ Clean!', `Firestore has ${allRecipes.length} recipes and they all match your local data. Nothing to clean!`);
                 setCleaningFirestore(false);
                 return;
               }
 
-              // Found soft-deleted recipes - clean them
-              const count = await cleanupDeletedRecipes(user.uid);
+              // Found recipes to clean
+              let message = `Found ${totalToClean} recipe${totalToClean !== 1 ? 's' : ''} to remove:\n\n`;
+              if (deletedRecipes.length > 0) {
+                message += `• ${deletedRecipes.length} soft-deleted (in Recently Deleted)\n`;
+              }
+              if (stuckRecipes.length > 0) {
+                message += `• ${stuckRecipes.length} permanently deleted locally but stuck in cloud\n`;
+              }
+              message += `\nThis will clean them from Firestore.`;
+
               Alert.alert(
-                '✅ Cleanup Complete',
-                `Removed ${count} soft-deleted recipe${count !== 1 ? 's' : ''} from Firestore.\n\nYou now have ${allRecipes.length - count} active recipes in the cloud.`
+                'Found Items to Clean',
+                message,
+                [
+                  { text: 'Cancel', style: 'cancel', onPress: () => setCleaningFirestore(false) },
+                  {
+                    text: 'Clean Now',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const count = await cleanupDeletedRecipes(user.uid);
+                        Alert.alert(
+                          '✅ Cleanup Complete',
+                          `Removed ${count} recipe${count !== 1 ? 's' : ''} from Firestore.\n\nYou now have ${allRecipes.length - count} active recipes in the cloud.`
+                        );
+                      } catch (error) {
+                        console.error('Cleanup error:', error);
+                        Alert.alert('Error', 'Failed to clean Firestore. Check your internet connection.');
+                      } finally {
+                        setCleaningFirestore(false);
+                      }
+                    },
+                  },
+                ]
               );
             } catch (error) {
               console.error('Cleanup error:', error);
               Alert.alert('Error', 'Failed to clean Firestore. Check your internet connection.');
-            } finally {
               setCleaningFirestore(false);
             }
           },
