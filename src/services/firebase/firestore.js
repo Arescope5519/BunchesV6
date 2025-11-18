@@ -101,20 +101,30 @@ export const saveRecipeToFirestore = async (userId, recipe) => {
 
 /**
  * Delete a recipe from Firestore
+ * Also adds recipe ID to deletion tracking list to prevent restoration after reinstall
  * @param {string} userId - User's unique ID
  * @param {string} recipeId - Recipe ID to delete
  * @returns {Promise<void>}
  */
 export const deleteRecipeFromFirestore = async (userId, recipeId) => {
   try {
-    await firestore()
+    const userDocRef = firestore()
       .collection('users')
-      .doc(userId)
+      .doc(userId);
+
+    // Delete the recipe document
+    await userDocRef
       .collection(RECIPES_COLLECTION)
       .doc(recipeId)
       .delete();
 
-    console.log(`✅ Deleted recipe ${recipeId} from Firestore`);
+    // Track this deletion to prevent restoration after reinstall
+    await userDocRef.set({
+      deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+      lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    console.log(`✅ Deleted recipe ${recipeId} from Firestore and tracked deletion`);
   } catch (error) {
     console.error('❌ Error deleting recipe from Firestore:', error);
     throw error;
@@ -130,6 +140,17 @@ export const deleteRecipeFromFirestore = async (userId, recipeId) => {
 export const syncRecipes = async (userId, localRecipes) => {
   try {
     console.log('🔄 Starting recipe sync...');
+
+    // Load deleted recipe IDs from user doc
+    const userDoc = await firestore()
+      .collection('users')
+      .doc(userId)
+      .get();
+
+    const deletedRecipeIds = new Set(userDoc.exists && userDoc.data().deletedRecipeIds || []);
+    if (deletedRecipeIds.size > 0) {
+      console.log(`🗑️ Found ${deletedRecipeIds.size} previously deleted recipe IDs`);
+    }
 
     // Load recipes from Firestore
     const firestoreRecipes = await loadRecipesFromFirestore(userId);
@@ -174,8 +195,8 @@ export const syncRecipes = async (userId, localRecipes) => {
     });
 
     // Add recipes that only exist in Firestore
-    // BUT exclude soft-deleted recipes (with deletedAt) to prevent them from
-    // coming back after uninstall/reinstall
+    // BUT exclude deleted recipes (soft-deleted OR permanently deleted) to prevent
+    // them from coming back after uninstall/reinstall
     const recipesToDeleteFromFirestore = [];
 
     firestoreRecipes.forEach(firestoreRecipe => {
@@ -185,6 +206,10 @@ export const syncRecipes = async (userId, localRecipes) => {
           // It's a soft-deleted recipe - don't restore it, and delete it from Firestore
           recipesToDeleteFromFirestore.push(firestoreRecipe.id);
           console.log(`🗑️ Auto-cleaning soft-deleted recipe from Firestore: ${firestoreRecipe.title || firestoreRecipe.id}`);
+        } else if (deletedRecipeIds.has(firestoreRecipe.id)) {
+          // It's a permanently deleted recipe - don't restore it, and delete it from Firestore
+          recipesToDeleteFromFirestore.push(firestoreRecipe.id);
+          console.log(`🗑️ Auto-cleaning permanently deleted recipe from Firestore: ${firestoreRecipe.title || firestoreRecipe.id}`);
         } else {
           // Normal recipe - add it to merged list
           mergedRecipes.push(firestoreRecipe);
@@ -192,9 +217,9 @@ export const syncRecipes = async (userId, localRecipes) => {
       }
     });
 
-    // Clean up soft-deleted recipes from Firestore
+    // Clean up deleted recipes from Firestore (both soft-deleted and permanently deleted)
     if (recipesToDeleteFromFirestore.length > 0) {
-      console.log(`🗑️ Cleaning ${recipesToDeleteFromFirestore.length} soft-deleted recipes from Firestore...`);
+      console.log(`🗑️ Cleaning ${recipesToDeleteFromFirestore.length} deleted recipes from Firestore...`);
       const deleteBatch = firestore().batch();
       recipesToDeleteFromFirestore.forEach(recipeId => {
         const recipeRef = firestore()
@@ -205,7 +230,7 @@ export const syncRecipes = async (userId, localRecipes) => {
         deleteBatch.delete(recipeRef);
       });
       await deleteBatch.commit();
-      console.log(`✅ Cleaned ${recipesToDeleteFromFirestore.length} soft-deleted recipes from Firestore`);
+      console.log(`✅ Cleaned ${recipesToDeleteFromFirestore.length} deleted recipes from Firestore`);
     }
 
     // Upload new/updated recipes to Firestore

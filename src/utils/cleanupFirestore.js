@@ -15,6 +15,14 @@ export const checkFirestoreRecipes = async (userId) => {
   try {
     console.log('🔍 Checking Firestore recipes for user:', userId);
 
+    // Load deletion tracking list
+    const userDoc = await firestore()
+      .collection('users')
+      .doc(userId)
+      .get();
+
+    const deletedRecipeIds = new Set(userDoc.exists && userDoc.data().deletedRecipeIds || []);
+
     const snapshot = await firestore()
       .collection('users')
       .doc(userId)
@@ -44,8 +52,11 @@ export const checkFirestoreRecipes = async (userId) => {
     const localRecipes = localRecipesJSON ? JSON.parse(localRecipesJSON) : [];
     const localRecipeIds = new Set(localRecipes.map(r => r.id));
 
-    // Find recipes in Firestore that don't exist locally (these are stuck deleted recipes)
-    const stuckRecipes = allRecipes.filter(r => !localRecipeIds.has(r.id) && !r.deletedAt);
+    // Find recipes in Firestore that were permanently deleted (tracked in deletedRecipeIds)
+    // OR don't exist locally and aren't soft-deleted (these are stuck deleted recipes)
+    const stuckRecipes = allRecipes.filter(r =>
+      deletedRecipeIds.has(r.id) || (!localRecipeIds.has(r.id) && !r.deletedAt)
+    );
 
     console.log(`📊 Found ${allRecipes.length} total recipes in Firestore`);
     console.log(`🗑️ Found ${deletedRecipes.length} soft-deleted recipes`);
