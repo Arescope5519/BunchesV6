@@ -180,16 +180,24 @@ export const syncRecipes = async (userId, localRecipes) => {
         mergedRecipes.push(localRecipe);
       } else {
         // Recipe exists in both - keep the newer version
-        const localTime = localRecipe.updatedAt || localRecipe.createdAt || 0;
-        const firestoreTime = firestoreRecipe.updatedAt || firestoreRecipe.createdAt || 0;
-
-        if (localTime > firestoreTime) {
-          // Local is newer - upload it
+        // SPECIAL CASE: If local version is deleted, always prefer local to preserve deletion
+        if (localRecipe.deletedAt && !firestoreRecipe.deletedAt) {
+          // Local was deleted but Firestore doesn't have the deletion yet - use local
           recipesToUpload.push(localRecipe);
           mergedRecipes.push(localRecipe);
+          console.log(`⚠️ Preserving local deletion for recipe: ${localRecipe.title || localRecipe.id}`);
         } else {
-          // Firestore is newer or same - use it
-          mergedRecipes.push(firestoreRecipe);
+          const localTime = localRecipe.updatedAt || localRecipe.createdAt || 0;
+          const firestoreTime = firestoreRecipe.updatedAt || firestoreRecipe.createdAt || 0;
+
+          if (localTime > firestoreTime) {
+            // Local is newer - upload it
+            recipesToUpload.push(localRecipe);
+            mergedRecipes.push(localRecipe);
+          } else {
+            // Firestore is newer or same - use it
+            mergedRecipes.push(firestoreRecipe);
+          }
         }
       }
     });

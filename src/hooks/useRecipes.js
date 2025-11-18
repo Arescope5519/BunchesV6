@@ -148,19 +148,18 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
 
-      // Sync to Firestore in background if user is signed in and Firestore is available
+      // Sync to Firestore - MUST await to ensure it completes before app closes
       if (user && saveRecipeToFirestore && deleteRecipeFromFirestore) {
         const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (deletedRecipe) {
-          // Save the recipe with deletedAt flag
-          saveRecipeToFirestore(user.uid, deletedRecipe).catch(err =>
-            console.error('Failed to sync deletion to Firestore:', err)
-          );
-
-          // ALSO track it in deletion list to prevent restoration if sync fails
-          // We use the deletion tracking without actually deleting the document
-          // This ensures it won't restore even if the deletedAt flag doesn't sync
           try {
+            // Save the recipe with deletedAt flag - AWAIT it!
+            await saveRecipeToFirestore(user.uid, deletedRecipe);
+            console.log(`✅ Synced soft-deleted recipe ${recipeId} to Firestore`);
+
+            // ALSO track it in deletion list to prevent restoration if sync fails
+            // We use the deletion tracking without actually deleting the document
+            // This ensures it won't restore even if the deletedAt flag doesn't sync
             const firestore = require('@react-native-firebase/firestore').default;
             await firestore()
               .collection('users')
@@ -171,7 +170,8 @@ export const useRecipes = (user) => {
               }, { merge: true });
             console.log(`✅ Tracked soft-deleted recipe ${recipeId} in deletion list`);
           } catch (err) {
-            console.error('Failed to track deletion:', err);
+            console.error('Failed to sync deletion to Firestore:', err);
+            // Don't fail the deletion if Firestore sync fails - deletion tracking will handle restoration prevention
           }
         }
       }
