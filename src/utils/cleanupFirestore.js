@@ -15,11 +15,11 @@ export const checkFirestoreRecipes = async (userId) => {
   try {
     console.log('🔍 Checking Firestore recipes for user:', userId);
 
-    // Load deletion tracking list
+    // Load deletion tracking list (from server to get fresh data)
     const userDoc = await firestore()
       .collection('users')
       .doc(userId)
-      .get();
+      .get({ source: 'server' });
 
     const deletedRecipeIds = new Set(userDoc.exists && userDoc.data().deletedRecipeIds || []);
 
@@ -27,7 +27,7 @@ export const checkFirestoreRecipes = async (userId) => {
       .collection('users')
       .doc(userId)
       .collection('recipes')
-      .get();
+      .get({ source: 'server' });
 
     const allRecipes = [];
     const deletedRecipes = [];

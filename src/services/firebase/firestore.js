@@ -48,11 +48,26 @@ export const saveRecipesToFirestore = async (userId, recipes) => {
  */
 export const loadRecipesFromFirestore = async (userId) => {
   try {
-    const snapshot = await firestore()
-      .collection('users')
-      .doc(userId)
-      .collection(RECIPES_COLLECTION)
-      .get();
+    let snapshot;
+
+    // Try to get from server first to ensure we have latest data
+    // This fixes the issue where Firestore's cache returns stale data
+    try {
+      snapshot = await firestore()
+        .collection('users')
+        .doc(userId)
+        .collection(RECIPES_COLLECTION)
+        .get({ source: 'server' });
+      console.log('✅ Loaded recipes from Firestore server');
+    } catch (serverError) {
+      // Fall back to cache if server is unavailable (offline)
+      console.log('⚠️ Server unavailable, loading from Firestore cache');
+      snapshot = await firestore()
+        .collection('users')
+        .doc(userId)
+        .collection(RECIPES_COLLECTION)
+        .get({ source: 'cache' });
+    }
 
     const recipes = [];
     snapshot.forEach((doc) => {
@@ -66,7 +81,7 @@ export const loadRecipesFromFirestore = async (userId) => {
       });
     });
 
-    console.log(`✅ Loaded ${recipes.length} recipes from Firestore`);
+    console.log(`📚 Loaded ${recipes.length} recipes from Firestore`);
     return recipes;
   } catch (error) {
     console.error('❌ Error loading recipes from Firestore:', error);
@@ -141,11 +156,20 @@ export const syncRecipes = async (userId, localRecipes) => {
   try {
     console.log('🔄 Starting recipe sync...');
 
-    // Load deleted recipe IDs from user doc
-    const userDoc = await firestore()
-      .collection('users')
-      .doc(userId)
-      .get();
+    // Load deleted recipe IDs from user doc (try server first for fresh data)
+    let userDoc;
+    try {
+      userDoc = await firestore()
+        .collection('users')
+        .doc(userId)
+        .get({ source: 'server' });
+    } catch (serverError) {
+      // Fall back to cache if offline
+      userDoc = await firestore()
+        .collection('users')
+        .doc(userId)
+        .get({ source: 'cache' });
+    }
 
     const deletedRecipeIds = new Set(userDoc.exists && userDoc.data().deletedRecipeIds || []);
     if (deletedRecipeIds.size > 0) {
