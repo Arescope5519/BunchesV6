@@ -1475,7 +1475,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>⚠️</Text>
+                    <Text style={styles.iconButtonText}>🗑️</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -1538,7 +1538,7 @@ export const HomeScreen = ({ user }) => {
                     🗑️ Deleted on {new Date(selectedRecipe.deletedAt).toLocaleDateString()}
                   </Text>
                   <Text style={styles.deletedBannerSubtext}>
-                    Tap ♻️ to restore or ⚠️ to delete permanently
+                    Tap ♻️ to restore or 🗑️ to delete permanently
                   </Text>
                 </View>
               )}
