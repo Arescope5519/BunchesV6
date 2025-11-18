@@ -1470,7 +1470,10 @@ export const HomeScreen = ({ user }) => {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={async () => {
-                      await permanentlyDeleteRecipe(selectedRecipe.id);
+                      const deleted = await permanentlyDeleteRecipe(selectedRecipe.id);
+                      if (deleted) {
+                        setSelectedRecipe(null); // Ensure modal closes after deletion
+                      }
                     }}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

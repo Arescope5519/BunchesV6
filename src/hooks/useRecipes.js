@@ -149,12 +149,30 @@ export const useRecipes = (user) => {
       setSelectedRecipe(null);
 
       // Sync to Firestore in background if user is signed in and Firestore is available
-      if (user && saveRecipeToFirestore) {
+      if (user && saveRecipeToFirestore && deleteRecipeFromFirestore) {
         const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (deletedRecipe) {
+          // Save the recipe with deletedAt flag
           saveRecipeToFirestore(user.uid, deletedRecipe).catch(err =>
             console.error('Failed to sync deletion to Firestore:', err)
           );
+
+          // ALSO track it in deletion list to prevent restoration if sync fails
+          // We use the deletion tracking without actually deleting the document
+          // This ensures it won't restore even if the deletedAt flag doesn't sync
+          try {
+            const firestore = require('@react-native-firebase/firestore').default;
+            await firestore()
+              .collection('users')
+              .doc(user.uid)
+              .set({
+                deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+              }, { merge: true });
+            console.log(`✅ Tracked soft-deleted recipe ${recipeId} in deletion list`);
+          } catch (err) {
+            console.error('Failed to track deletion:', err);
+          }
         }
       }
 
@@ -186,6 +204,20 @@ export const useRecipes = (user) => {
           saveRecipeToFirestore(user.uid, restoredRecipe).catch(err =>
             console.error('Failed to sync restored recipe to Firestore:', err)
           );
+
+          // Remove from deletion tracking list since it's being restored
+          try {
+            const firestore = require('@react-native-firebase/firestore').default;
+            await firestore()
+              .collection('users')
+              .doc(user.uid)
+              .set({
+                deletedRecipeIds: firestore.FieldValue.arrayRemove(recipeId),
+              }, { merge: true });
+            console.log(`✅ Removed recipe ${recipeId} from deletion tracking list`);
+          } catch (err) {
+            console.error('Failed to remove from deletion tracking:', err);
+          }
         }
       }
 
