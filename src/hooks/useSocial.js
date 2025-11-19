@@ -79,14 +79,18 @@ export const useSocial = (user) => {
 
   /**
    * Check if username is available
+   * Returns: true (available), false (taken), or null (error/couldn't check)
    */
   const checkUsernameAvailable = async (username) => {
-    if (!socialModule) return false;
+    if (!socialModule) {
+      console.error('Social module not available');
+      return null; // Return null to indicate we couldn't check
+    }
     try {
       return await socialModule.isUsernameAvailable(username);
     } catch (error) {
       console.error('Error checking username:', error);
-      return false;
+      return null; // Return null to indicate we couldn't check
     }
   };
 

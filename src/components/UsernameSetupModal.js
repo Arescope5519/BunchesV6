@@ -80,8 +80,13 @@ export const UsernameSetupModal = ({
       return;
     }
 
-    if (!isAvailable) {
-      setError('Username is not available');
+    if (isAvailable === null) {
+      setError('Unable to verify username availability. Please check your connection and try again.');
+      return;
+    }
+
+    if (isAvailable === false) {
+      setError('Username is already taken');
       return;
     }
 
@@ -138,6 +143,9 @@ export const UsernameSetupModal = ({
               {!checking && isAvailable === false && (
                 <Text style={styles.unavailableIcon}>✗</Text>
               )}
+              {!checking && isAvailable === null && username.length >= 3 && (
+                <Text style={styles.errorIcon}>⚠️</Text>
+              )}
             </View>
             {username.length > 0 && username.length < 3 && (
               <Text style={styles.hint}>At least 3 characters</Text>
@@ -147,6 +155,9 @@ export const UsernameSetupModal = ({
             )}
             {isAvailable === true && (
               <Text style={styles.availableText}>Username is available!</Text>
+            )}
+            {isAvailable === null && username.length >= 3 && !checking && (
+              <Text style={styles.errorText}>Unable to check availability. Check your internet connection.</Text>
             )}
           </View>
 
@@ -282,6 +293,15 @@ const styles = StyleSheet.create({
   unavailableText: {
     fontSize: 12,
     color: colors.error || '#f44336',
+    marginTop: 4,
+  },
+  errorIcon: {
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: colors.warning || '#FF9800',
     marginTop: 4,
   },
   error: {
