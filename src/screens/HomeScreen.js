@@ -48,7 +48,7 @@ import { SaveRecipeScreen } from './SaveRecipeScreen';
 
 // Constants
 import colors from '../constants/colors';
-import { isAuthAvailable } from '../services/firebase/availability';
+import { isAuthAvailable, isFirestoreAvailable } from '../services/firebase/availability';
 
 // Conditionally import Firebase auth
 let firebaseSignOut = null;
@@ -60,6 +60,19 @@ if (isAuthAvailable()) {
     firebaseSignIn = authModule.signInWithGoogle;
   } catch (e) {
     console.error('Failed to load Firebase auth:', e);
+  }
+}
+
+// Conditionally import Firestore functions
+let deleteRecipeFromFirestore = null;
+let saveRecipeToFirestore = null;
+if (isFirestoreAvailable()) {
+  try {
+    const firestoreModule = require('../services/firebase/firestore');
+    deleteRecipeFromFirestore = firestoreModule.deleteRecipeFromFirestore;
+    saveRecipeToFirestore = firestoreModule.saveRecipeToFirestore;
+  } catch (e) {
+    console.error('Failed to load Firestore module:', e);
   }
 }
 
