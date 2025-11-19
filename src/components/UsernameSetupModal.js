@@ -23,7 +23,6 @@ export const UsernameSetupModal = ({
   checkAvailability,
 }) => {
   const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [isAvailable, setIsAvailable] = useState(null);
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -33,7 +32,6 @@ export const UsernameSetupModal = ({
   useEffect(() => {
     if (visible) {
       setUsername('');
-      setDisplayName('');
       setIsAvailable(null);
       setError('');
     }
@@ -91,7 +89,7 @@ export const UsernameSetupModal = ({
 
     setSubmitting(true);
     try {
-      const success = await onSetup(username, displayName || username);
+      const success = await onSetup(username);
       if (!success) {
         setError('Failed to set up username. Please try again.');
       }
@@ -160,21 +158,6 @@ export const UsernameSetupModal = ({
             )}
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Display Name (optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="Your Name"
-              placeholderTextColor={colors.textSecondary}
-              maxLength={30}
-            />
-            <Text style={styles.hint}>
-              This is what friends will see. Defaults to username if empty.
-            </Text>
-          </View>
-
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity
@@ -193,7 +176,7 @@ export const UsernameSetupModal = ({
           </TouchableOpacity>
 
           <Text style={styles.note}>
-            Your username cannot be changed later
+            You can change your username later in Social settings
           </Text>
         </View>
       </KeyboardAvoidingView>

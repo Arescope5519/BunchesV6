@@ -63,16 +63,34 @@ export const useSocial = (user) => {
   /**
    * Set up username for new user
    */
-  const setupUsername = async (username, displayName) => {
+  const setupUsername = async (username) => {
     if (!user || !socialModule) return false;
 
     try {
-      await socialModule.setupUserProfile(user.uid, username, displayName || user.displayName);
+      await socialModule.setupUserProfile(user.uid, username);
       await loadProfile();
       return true;
     } catch (error) {
       console.error('Error setting up username:', error);
       Alert.alert('Error', error.message || 'Failed to set up username');
+      return false;
+    }
+  };
+
+  /**
+   * Change username
+   */
+  const changeUsername = async (newUsername) => {
+    if (!user || !socialModule || !profile) return false;
+
+    try {
+      await socialModule.changeUsername(user.uid, profile.username, newUsername);
+      await loadProfile();
+      Alert.alert('Success', 'Username updated');
+      return true;
+    } catch (error) {
+      console.error('Error changing username:', error);
+      Alert.alert('Error', error.message || 'Failed to change username');
       return false;
     }
   };
@@ -324,23 +342,6 @@ export const useSocial = (user) => {
     }
   };
 
-  /**
-   * Update display name
-   */
-  const updateDisplayName = async (newDisplayName) => {
-    if (!user || !socialModule) return false;
-
-    try {
-      await socialModule.updateDisplayName(user.uid, newDisplayName);
-      await loadProfile();
-      Alert.alert('Success', 'Display name updated');
-      return true;
-    } catch (error) {
-      console.error('Error updating display name:', error);
-      Alert.alert('Error', error.message || 'Failed to update display name');
-      return false;
-    }
-  };
 
   // Load profile when user changes
   useEffect(() => {
@@ -377,6 +378,7 @@ export const useSocial = (user) => {
 
     // Actions
     setupUsername,
+    changeUsername,
     checkUsernameAvailable,
     searchUsers,
     sendFriendRequest,
@@ -387,7 +389,6 @@ export const useSocial = (user) => {
     importSharedItem,
     declineSharedItem,
     updatePrivacySettings,
-    updateDisplayName,
     refreshSocialData,
   };
 };

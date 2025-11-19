@@ -12,6 +12,19 @@ const FRIEND_REQUESTS_COLLECTION = 'friend_requests';
 const SHARED_ITEMS_COLLECTION = 'shared_items';
 
 /**
+ * Generate a random user code (6 characters)
+ * @returns {string} Random alphanumeric code
+ */
+const generateUserCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like 0,O,1,I
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+/**
  * Check if a username is available
  * @param {string} username - Desired username
  * @returns {Promise<boolean>} True if available
@@ -35,10 +48,9 @@ export const isUsernameAvailable = async (username) => {
  * Set up user profile with username (first-time sign-in)
  * @param {string} userId - User's UID
  * @param {string} username - Chosen username
- * @param {string} displayName - User's display name
  * @returns {Promise<void>}
  */
-export const setupUserProfile = async (userId, username, displayName) => {
+export const setupUserProfile = async (userId, username) => {
   try {
     const normalizedUsername = username.toLowerCase().trim();
 
@@ -50,11 +62,14 @@ export const setupUserProfile = async (userId, username, displayName) => {
 
     const batch = firestore().batch();
 
+    // Generate unique user code
+    const userCode = generateUserCode();
+
     // Create user profile
     const userRef = firestore().collection(USERS_COLLECTION).doc(userId);
     batch.set(userRef, {
       username: normalizedUsername,
-      displayName: displayName || username,
+      userCode: userCode,
       createdAt: firestore.FieldValue.serverTimestamp(),
       updatedAt: firestore.FieldValue.serverTimestamp(),
       // Privacy settings
@@ -73,9 +88,59 @@ export const setupUserProfile = async (userId, username, displayName) => {
     });
 
     await batch.commit();
-    console.log(`✅ User profile created with username: ${normalizedUsername}`);
+    console.log(`✅ User profile created with username: ${normalizedUsername}, code: ${userCode}`);
   } catch (error) {
     console.error('Error setting up user profile:', error);
+    throw error;
+  }
+};
+
+/**
+ * Change username
+ * @param {string} userId - User's UID
+ * @param {string} oldUsername - Current username
+ * @param {string} newUsername - New username
+ * @returns {Promise<void>}
+ */
+export const changeUsername = async (userId, oldUsername, newUsername) => {
+  try {
+    const normalizedOld = oldUsername.toLowerCase().trim();
+    const normalizedNew = newUsername.toLowerCase().trim();
+
+    if (normalizedOld === normalizedNew) {
+      return; // No change needed
+    }
+
+    // Check if new username is available
+    const available = await isUsernameAvailable(normalizedNew);
+    if (!available) {
+      throw new Error('Username is already taken');
+    }
+
+    const batch = firestore().batch();
+
+    // Update user profile
+    const userRef = firestore().collection(USERS_COLLECTION).doc(userId);
+    batch.update(userRef, {
+      username: normalizedNew,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Release old username
+    const oldUsernameRef = firestore().collection(USERNAMES_COLLECTION).doc(normalizedOld);
+    batch.delete(oldUsernameRef);
+
+    // Reserve new username
+    const newUsernameRef = firestore().collection(USERNAMES_COLLECTION).doc(normalizedNew);
+    batch.set(newUsernameRef, {
+      userId: userId,
+      createdAt: firestore.FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+    console.log(`✅ Username changed from ${normalizedOld} to ${normalizedNew}`);
+  } catch (error) {
+    console.error('Error changing username:', error);
     throw error;
   }
 };
@@ -103,31 +168,57 @@ export const getUserProfile = async (userId) => {
 };
 
 /**
- * Search for users by username
- * @param {string} searchTerm - Username to search for
+ * Search for users by username or user code
+ * @param {string} searchTerm - Username or user code to search for
  * @param {string} currentUserId - Current user's ID (to exclude from results)
  * @returns {Promise<Array>} Array of matching users
  */
 export const searchUsersByUsername = async (searchTerm, currentUserId) => {
   try {
-    const normalizedSearch = searchTerm.toLowerCase().trim();
+    const normalizedSearch = searchTerm.trim();
+    const users = [];
+
+    // Check if it looks like a user code (6 chars, uppercase)
+    if (normalizedSearch.length === 6 && /^[A-Z0-9]+$/.test(normalizedSearch.toUpperCase())) {
+      // Search by user code
+      const codeSnapshot = await firestore()
+        .collection(USERS_COLLECTION)
+        .where('userCode', '==', normalizedSearch.toUpperCase())
+        .limit(1)
+        .get();
+
+      codeSnapshot.forEach(doc => {
+        if (doc.id !== currentUserId) {
+          const data = doc.data();
+          users.push({
+            id: doc.id,
+            username: data.username,
+            userCode: data.userCode,
+            acceptingFriendRequests: data.acceptingFriendRequests,
+          });
+        }
+      });
+
+      if (users.length > 0) {
+        return users;
+      }
+    }
 
     // Search for usernames that start with the search term
     const snapshot = await firestore()
       .collection(USERS_COLLECTION)
-      .where('username', '>=', normalizedSearch)
-      .where('username', '<=', normalizedSearch + '\uf8ff')
+      .where('username', '>=', normalizedSearch.toLowerCase())
+      .where('username', '<=', normalizedSearch.toLowerCase() + '\uf8ff')
       .limit(20)
       .get();
 
-    const users = [];
     snapshot.forEach(doc => {
       if (doc.id !== currentUserId) {
         const data = doc.data();
         users.push({
           id: doc.id,
           username: data.username,
-          displayName: data.displayName,
+          userCode: data.userCode,
           acceptingFriendRequests: data.acceptingFriendRequests,
         });
       }
@@ -347,7 +438,6 @@ export const getPendingFriendRequests = async (userId) => {
         id: doc.id,
         ...data,
         senderUsername: senderProfile?.username || 'Unknown',
-        senderDisplayName: senderProfile?.displayName || 'Unknown',
         createdAt: data.createdAt?.toMillis() || Date.now(),
       });
     }
@@ -378,7 +468,7 @@ export const getFriendsList = async (userId) => {
         friends.push({
           id: friendId,
           username: friendProfile.username,
-          displayName: friendProfile.displayName,
+          userCode: friendProfile.userCode,
         });
       }
     }
@@ -420,7 +510,6 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
       batch.set(shareRef, {
         from: fromUserId,
         fromUsername: senderProfile?.username || 'Unknown',
-        fromDisplayName: senderProfile?.displayName || 'Unknown',
         to: toUserId,
         type: type,
         name: name,
@@ -534,28 +623,6 @@ export const updatePrivacySettings = async (userId, settings) => {
 };
 
 /**
- * Update user's display name
- * @param {string} userId - User's ID
- * @param {string} displayName - New display name
- * @returns {Promise<void>}
- */
-export const updateDisplayName = async (userId, displayName) => {
-  try {
-    await firestore()
-      .collection(USERS_COLLECTION)
-      .doc(userId)
-      .update({
-        displayName: displayName.trim(),
-        updatedAt: firestore.FieldValue.serverTimestamp(),
-      });
-    console.log(`✅ Display name updated`);
-  } catch (error) {
-    console.error('Error updating display name:', error);
-    throw error;
-  }
-};
-
-/**
  * Get notification counts (friend requests + shared items)
  * @param {string} userId - User's ID
  * @returns {Promise<Object>} { friendRequests: number, sharedItems: number, total: number }
@@ -593,6 +660,7 @@ export const getNotificationCounts = async (userId) => {
 export default {
   isUsernameAvailable,
   setupUserProfile,
+  changeUsername,
   getUserProfile,
   searchUsersByUsername,
   sendFriendRequest,
@@ -606,6 +674,5 @@ export default {
   markSharedItemImported,
   declineSharedItem,
   updatePrivacySettings,
-  updateDisplayName,
   getNotificationCounts,
 };

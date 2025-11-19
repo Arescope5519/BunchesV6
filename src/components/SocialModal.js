@@ -3,7 +3,7 @@
  * Friends list, friend requests, shared items inbox, add friends
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,15 +33,18 @@ export const SocialModal = ({
   onDeclineSharedItem,
   onImportRecipe,
   profile,
-  onUpdateDisplayName,
+  onChangeUsername,
+  checkUsernameAvailable,
 }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [newDisplayName, setNewDisplayName] = useState('');
-  const [savingName, setSavingName] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery || searchQuery.length < 2) return;
@@ -106,14 +109,13 @@ export const SocialModal = ({
         friends.map(friend => (
           <View key={friend.id} style={styles.listItem}>
             <View style={styles.userInfo}>
-              <Text style={styles.displayName}>{friend.displayName}</Text>
-              <Text style={styles.username}>@{friend.username}</Text>
+              <Text style={styles.usernameText}>@{friend.username}</Text>
             </View>
             <TouchableOpacity
               onPress={() => {
                 Alert.alert(
                   'Remove Friend',
-                  `Remove ${friend.displayName} from friends?`,
+                  `Remove @${friend.username} from friends?`,
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
@@ -144,8 +146,7 @@ export const SocialModal = ({
         friendRequests.map(request => (
           <View key={request.id} style={styles.listItem}>
             <View style={styles.userInfo}>
-              <Text style={styles.displayName}>{request.senderDisplayName}</Text>
-              <Text style={styles.username}>@{request.senderUsername}</Text>
+              <Text style={styles.usernameText}>@{request.senderUsername}</Text>
             </View>
             <View style={styles.requestActions}>
               <TouchableOpacity
@@ -251,8 +252,7 @@ export const SocialModal = ({
           return (
             <View key={user.id} style={styles.listItem}>
               <View style={styles.userInfo}>
-                <Text style={styles.displayName}>{user.displayName}</Text>
-                <Text style={styles.username}>@{user.username}</Text>
+                <Text style={styles.usernameText}>@{user.username}</Text>
               </View>
               {isFriend ? (
                 <Text style={styles.friendBadge}>Friend</Text>
@@ -273,20 +273,72 @@ export const SocialModal = ({
     </View>
   );
 
-  const handleSaveDisplayName = async () => {
-    if (!newDisplayName.trim() || newDisplayName.trim() === profile?.displayName) {
-      setEditingName(false);
+  // Validate username format
+  const validateUsername = (value) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    return cleaned.substring(0, 20);
+  };
+
+  // Check username availability with debounce
+  useEffect(() => {
+    if (!editingUsername || !newUsername || newUsername.length < 3) {
+      setUsernameAvailable(null);
       return;
     }
 
-    setSavingName(true);
+    if (newUsername.toLowerCase() === profile?.username?.toLowerCase()) {
+      setUsernameAvailable(null); // Same as current, no need to check
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setCheckingUsername(true);
+      try {
+        const available = await checkUsernameAvailable(newUsername);
+        setUsernameAvailable(available);
+      } catch (err) {
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [newUsername, editingUsername, profile?.username, checkUsernameAvailable]);
+
+  const handleSaveUsername = async () => {
+    const trimmedUsername = newUsername.trim().toLowerCase();
+
+    if (!trimmedUsername || trimmedUsername === profile?.username) {
+      setEditingUsername(false);
+      return;
+    }
+
+    if (trimmedUsername.length < 3) {
+      Alert.alert('Error', 'Username must be at least 3 characters');
+      return;
+    }
+
+    if (usernameAvailable === false) {
+      Alert.alert('Error', 'Username is already taken');
+      return;
+    }
+
+    if (usernameAvailable === null) {
+      Alert.alert('Error', 'Unable to verify username availability');
+      return;
+    }
+
+    setSavingUsername(true);
     try {
-      await onUpdateDisplayName(newDisplayName.trim());
-      setEditingName(false);
+      await onChangeUsername(trimmedUsername);
+      setEditingUsername(false);
+      setNewUsername('');
+      setUsernameAvailable(null);
     } catch (error) {
-      console.error('Failed to update display name:', error);
+      console.error('Failed to change username:', error);
     } finally {
-      setSavingName(false);
+      setSavingUsername(false);
     }
   };
 
@@ -297,37 +349,61 @@ export const SocialModal = ({
 
         <View style={styles.profileItem}>
           <Text style={styles.profileLabel}>Username</Text>
-          <Text style={styles.profileValue}>@{profile?.username || 'Not set'}</Text>
-          <Text style={styles.profileHint}>Username cannot be changed</Text>
-        </View>
-
-        <View style={styles.profileItem}>
-          <Text style={styles.profileLabel}>Display Name</Text>
-          {editingName ? (
+          {editingUsername ? (
             <View style={styles.editNameContainer}>
-              <TextInput
-                style={styles.editNameInput}
-                value={newDisplayName}
-                onChangeText={setNewDisplayName}
-                placeholder="Enter display name"
-                placeholderTextColor={colors.textSecondary}
-                maxLength={30}
-                autoFocus
-              />
+              <View style={styles.usernameInputRow}>
+                <Text style={styles.atSymbol}>@</Text>
+                <TextInput
+                  style={styles.usernameEditInput}
+                  value={newUsername}
+                  onChangeText={(text) => setNewUsername(validateUsername(text))}
+                  placeholder="newusername"
+                  placeholderTextColor={colors.textSecondary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={20}
+                  autoFocus
+                />
+                {checkingUsername && (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                )}
+                {!checkingUsername && usernameAvailable === true && (
+                  <Text style={styles.availableIcon}>✓</Text>
+                )}
+                {!checkingUsername && usernameAvailable === false && (
+                  <Text style={styles.unavailableIcon}>✗</Text>
+                )}
+              </View>
+              {newUsername.length > 0 && newUsername.length < 3 && (
+                <Text style={styles.usernameHint}>At least 3 characters</Text>
+              )}
+              {usernameAvailable === false && (
+                <Text style={styles.unavailableText}>Username is taken</Text>
+              )}
+              {usernameAvailable === true && (
+                <Text style={styles.availableText}>Username is available!</Text>
+              )}
               <View style={styles.editNameActions}>
                 <TouchableOpacity
-                  onPress={handleSaveDisplayName}
-                  style={styles.saveNameButton}
-                  disabled={savingName}
+                  onPress={handleSaveUsername}
+                  style={[
+                    styles.saveNameButton,
+                    (!usernameAvailable || savingUsername) && styles.buttonDisabled
+                  ]}
+                  disabled={!usernameAvailable || savingUsername}
                 >
-                  {savingName ? (
+                  {savingUsername ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text style={styles.saveNameButtonText}>Save</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => setEditingName(false)}
+                  onPress={() => {
+                    setEditingUsername(false);
+                    setNewUsername('');
+                    setUsernameAvailable(null);
+                  }}
                   style={styles.cancelNameButton}
                 >
                   <Text style={styles.cancelNameButtonText}>Cancel</Text>
@@ -336,11 +412,11 @@ export const SocialModal = ({
             </View>
           ) : (
             <View style={styles.displayNameRow}>
-              <Text style={styles.profileValue}>{profile?.displayName || profile?.username || 'Not set'}</Text>
+              <Text style={styles.profileValue}>@{profile?.username || 'Not set'}</Text>
               <TouchableOpacity
                 onPress={() => {
-                  setNewDisplayName(profile?.displayName || '');
-                  setEditingName(true);
+                  setNewUsername(profile?.username || '');
+                  setEditingUsername(true);
                 }}
                 style={styles.editButton}
               >
@@ -348,7 +424,12 @@ export const SocialModal = ({
               </TouchableOpacity>
             </View>
           )}
-          <Text style={styles.profileHint}>This is what friends see</Text>
+        </View>
+
+        <View style={styles.profileItem}>
+          <Text style={styles.profileLabel}>User Code</Text>
+          <Text style={styles.profileValue}>{profile?.userCode || 'Not set'}</Text>
+          <Text style={styles.profileHint}>Friends can also find you with this code</Text>
         </View>
 
         <View style={styles.profileItem}>
@@ -750,6 +831,63 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Username display style
+  usernameText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  // Username edit styles
+  usernameInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+  },
+  atSymbol: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginRight: 4,
+  },
+  usernameEditInput: {
+    flex: 1,
+    padding: 12,
+    paddingLeft: 0,
+    fontSize: 16,
+    color: colors.text,
+  },
+  availableIcon: {
+    fontSize: 18,
+    color: colors.success || '#4CAF50',
+    marginLeft: 8,
+  },
+  unavailableIcon: {
+    fontSize: 18,
+    color: colors.error || '#f44336',
+    marginLeft: 8,
+  },
+  usernameHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  availableText: {
+    fontSize: 12,
+    color: colors.success || '#4CAF50',
+    marginTop: 4,
+  },
+  unavailableText: {
+    fontSize: 12,
+    color: colors.error || '#f44336',
+    marginTop: 4,
+  },
+  buttonDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.6,
   },
 });
 
