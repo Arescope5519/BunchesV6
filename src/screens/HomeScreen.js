@@ -36,6 +36,7 @@ import { useShareIntent } from '../hooks/useShareIntent';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 import { useGroceryList } from '../hooks/useGroceryList';
 import { useGlobalUndo } from '../hooks/useGlobalUndo';
+import { useSocial } from '../hooks/useSocial';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
@@ -45,6 +46,9 @@ import { DashboardScreen } from './DashboardScreen';
 import { CreateRecipeScreen } from './CreateRecipeScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { SaveRecipeScreen } from './SaveRecipeScreen';
+import { UsernameSetupModal } from '../components/UsernameSetupModal';
+import { SocialModal } from '../components/SocialModal';
+import { ShareToFriendsModal } from '../components/ShareToFriendsModal';
 
 // Constants
 import colors from '../constants/colors';
@@ -108,6 +112,11 @@ export const HomeScreen = ({ user }) => {
   const [multiselectMode, setMultiselectMode] = useState(false);
   const [selectedRecipes, setSelectedRecipes] = useState(new Set());
 
+  // Social state
+  const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showShareToFriends, setShowShareToFriends] = useState(false);
+  const [shareItem, setShareItem] = useState(null); // { type, data, name }
+
   // Hooks - Pass user to useRecipes for Firestore sync
   const {
     recipes,
@@ -158,6 +167,28 @@ export const HomeScreen = ({ user }) => {
     lastActionDescription,
     undoCount,
   } = useGlobalUndo();
+
+  // Social features
+  const {
+    profile,
+    needsUsername,
+    friends,
+    friendRequests,
+    sharedItems,
+    notificationCounts,
+    setupUsername,
+    checkUsernameAvailable,
+    searchUsers,
+    sendFriendRequest,
+    acceptFriendRequest,
+    declineFriendRequest,
+    removeFriend,
+    shareWithFriends,
+    importSharedItem,
+    declineSharedItem,
+    updatePrivacySettings,
+    refreshSocialData,
+  } = useSocial(user);
 
   // Swipeable undo button
   const undoButtonPosition = useRef(new Animated.ValueXY()).current;
@@ -650,56 +681,154 @@ export const HomeScreen = ({ user }) => {
 
   // Share recipe handler
   const shareRecipe = async (recipe) => {
-    try {
-      const recipeData = {
-        version: '1.0',
-        type: 'recipe',
-        data: {
-          ...recipe,
-          // Remove system fields
-          deletedAt: undefined,
-        }
-      };
-
-      const jsonString = JSON.stringify(recipeData);
-      const encoded = encodeBase64(jsonString);
-      const shareCode = `BUNCHES_RECIPE:${encoded}`;
-
-      await copyToClipboard(shareCode, `Recipe: ${recipe.title}`);
-    } catch (error) {
-      console.error('Error sharing recipe:', error);
-      Alert.alert('Error', 'Failed to share recipe');
+    // If user is logged in and has friends, offer both options
+    if (user && profile && friends.length > 0) {
+      Alert.alert(
+        'Share Recipe',
+        `How do you want to share "${recipe.title}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Share to Friends',
+            onPress: () => {
+              // Clean recipe data for sharing
+              const cleanedRecipe = {
+                ...recipe,
+                deletedAt: undefined,
+                id: undefined, // Will get new ID on import
+              };
+              setShareItem({
+                type: 'recipe',
+                data: cleanedRecipe,
+                name: recipe.title,
+              });
+              setShowShareToFriends(true);
+            }
+          },
+          {
+            text: 'Copy Code',
+            onPress: async () => {
+              try {
+                const recipeData = {
+                  version: '1.0',
+                  type: 'recipe',
+                  data: {
+                    ...recipe,
+                    deletedAt: undefined,
+                  }
+                };
+                const jsonString = JSON.stringify(recipeData);
+                const encoded = encodeBase64(jsonString);
+                const shareCode = `BUNCHES_RECIPE:${encoded}`;
+                await copyToClipboard(shareCode, `Recipe: ${recipe.title}`);
+              } catch (error) {
+                console.error('Error sharing recipe:', error);
+                Alert.alert('Error', 'Failed to share recipe');
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      // Fallback to clipboard sharing
+      try {
+        const recipeData = {
+          version: '1.0',
+          type: 'recipe',
+          data: {
+            ...recipe,
+            deletedAt: undefined,
+          }
+        };
+        const jsonString = JSON.stringify(recipeData);
+        const encoded = encodeBase64(jsonString);
+        const shareCode = `BUNCHES_RECIPE:${encoded}`;
+        await copyToClipboard(shareCode, `Recipe: ${recipe.title}`);
+      } catch (error) {
+        console.error('Error sharing recipe:', error);
+        Alert.alert('Error', 'Failed to share recipe');
+      }
     }
   };
 
   // Share entire cookbook handler
   const shareCookbook = async (cookbookName) => {
-    try {
-      const recipesInCookbook = getFilteredRecipes(cookbookName).filter(r => !r.deletedAt);
+    const recipesInCookbook = getFilteredRecipes(cookbookName).filter(r => !r.deletedAt);
 
-      if (recipesInCookbook.length === 0) {
-        Alert.alert('Empty Cookbook', 'This cookbook has no recipes to share');
-        return;
+    if (recipesInCookbook.length === 0) {
+      Alert.alert('Empty Cookbook', 'This cookbook has no recipes to share');
+      return;
+    }
+
+    // If user is logged in and has friends, offer both options
+    if (user && profile && friends.length > 0) {
+      Alert.alert(
+        'Share Cookbook',
+        `How do you want to share "${cookbookName}" (${recipesInCookbook.length} recipes)?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Share to Friends',
+            onPress: () => {
+              // Clean recipes for sharing
+              const cleanedRecipes = recipesInCookbook.map(r => ({
+                ...r,
+                deletedAt: undefined,
+                id: undefined,
+              }));
+              setShareItem({
+                type: 'cookbook',
+                data: cleanedRecipes,
+                name: cookbookName,
+              });
+              setShowShareToFriends(true);
+            }
+          },
+          {
+            text: 'Copy Code',
+            onPress: async () => {
+              try {
+                const cookbookData = {
+                  version: '1.0',
+                  type: 'cookbook',
+                  name: cookbookName,
+                  data: recipesInCookbook.map(r => ({
+                    ...r,
+                    deletedAt: undefined,
+                  }))
+                };
+                const jsonString = JSON.stringify(cookbookData);
+                const encoded = encodeBase64(jsonString);
+                const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
+                await copyToClipboard(shareCode, `Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)`);
+              } catch (error) {
+                console.error('Error sharing cookbook:', error);
+                Alert.alert('Error', 'Failed to share cookbook');
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      // Fallback to clipboard sharing
+      try {
+        const cookbookData = {
+          version: '1.0',
+          type: 'cookbook',
+          name: cookbookName,
+          data: recipesInCookbook.map(r => ({
+            ...r,
+            deletedAt: undefined,
+          }))
+        };
+        const jsonString = JSON.stringify(cookbookData);
+        const encoded = encodeBase64(jsonString);
+        const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
+        await copyToClipboard(shareCode, `Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)`);
+      } catch (error) {
+        console.error('Error sharing cookbook:', error);
+        Alert.alert('Error', 'Failed to share cookbook');
       }
-
-      const cookbookData = {
-        version: '1.0',
-        type: 'cookbook',
-        name: cookbookName,
-        data: recipesInCookbook.map(r => ({
-          ...r,
-          deletedAt: undefined,
-        }))
-      };
-
-      const jsonString = JSON.stringify(cookbookData);
-      const encoded = encodeBase64(jsonString);
-      const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
-
-      await copyToClipboard(shareCode, `Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)`);
-    } catch (error) {
-      console.error('Error sharing cookbook:', error);
-      Alert.alert('Error', 'Failed to share cookbook');
     }
   };
 
@@ -1153,6 +1282,19 @@ export const HomeScreen = ({ user }) => {
           >
             <Text style={styles.iconHeaderButtonText}>📖</Text>
           </TouchableOpacity>
+          {user && (
+            <TouchableOpacity
+              onPress={() => setShowSocialModal(true)}
+              style={styles.iconHeaderButton}
+            >
+              <Text style={styles.iconHeaderButtonText}>👥</Text>
+              {notificationCounts.total > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{notificationCounts.total}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1869,6 +2011,49 @@ export const HomeScreen = ({ user }) => {
 
       {/* Global Undo Button - Hide when modals are open */}
       {!selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && renderSwipeableUndoButton()}
+
+      {/* Username Setup Modal */}
+      <UsernameSetupModal
+        visible={needsUsername && !!user}
+        onSetup={setupUsername}
+        checkAvailability={checkUsernameAvailable}
+        defaultDisplayName={user?.displayName}
+      />
+
+      {/* Social Modal */}
+      <SocialModal
+        visible={showSocialModal}
+        onClose={() => setShowSocialModal(false)}
+        friends={friends}
+        friendRequests={friendRequests}
+        sharedItems={sharedItems}
+        onSearchUsers={searchUsers}
+        onSendFriendRequest={sendFriendRequest}
+        onAcceptFriendRequest={acceptFriendRequest}
+        onDeclineFriendRequest={declineFriendRequest}
+        onRemoveFriend={removeFriend}
+        onImportSharedItem={importSharedItem}
+        onDeclineSharedItem={declineSharedItem}
+        onImportRecipe={saveRecipe}
+        profile={profile}
+      />
+
+      {/* Share to Friends Modal */}
+      <ShareToFriendsModal
+        visible={showShareToFriends}
+        onClose={() => {
+          setShowShareToFriends(false);
+          setShareItem(null);
+        }}
+        onShare={async (friendIds) => {
+          if (shareItem) {
+            await shareWithFriends(friendIds, shareItem.type, shareItem.data, shareItem.name);
+          }
+        }}
+        friends={friends}
+        itemName={shareItem?.name || ''}
+        itemType={shareItem?.type || 'recipe'}
+      />
     </SafeAreaView>
   );
 };
