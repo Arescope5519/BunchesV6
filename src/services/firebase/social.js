@@ -534,6 +534,28 @@ export const updatePrivacySettings = async (userId, settings) => {
 };
 
 /**
+ * Update user's display name
+ * @param {string} userId - User's ID
+ * @param {string} displayName - New display name
+ * @returns {Promise<void>}
+ */
+export const updateDisplayName = async (userId, displayName) => {
+  try {
+    await firestore()
+      .collection(USERS_COLLECTION)
+      .doc(userId)
+      .update({
+        displayName: displayName.trim(),
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      });
+    console.log(`✅ Display name updated`);
+  } catch (error) {
+    console.error('Error updating display name:', error);
+    throw error;
+  }
+};
+
+/**
  * Get notification counts (friend requests + shared items)
  * @param {string} userId - User's ID
  * @returns {Promise<Object>} { friendRequests: number, sharedItems: number, total: number }
@@ -584,5 +606,6 @@ export default {
   markSharedItemImported,
   declineSharedItem,
   updatePrivacySettings,
+  updateDisplayName,
   getNotificationCounts,
 };

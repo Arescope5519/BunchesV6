@@ -187,6 +187,7 @@ export const HomeScreen = ({ user }) => {
     importSharedItem,
     declineSharedItem,
     updatePrivacySettings,
+    updateDisplayName,
     refreshSocialData,
   } = useSocial(user);
 
@@ -2017,7 +2018,6 @@ export const HomeScreen = ({ user }) => {
         visible={needsUsername && !!user}
         onSetup={setupUsername}
         checkAvailability={checkUsernameAvailable}
-        defaultDisplayName={user?.displayName}
       />
 
       {/* Social Modal */}
@@ -2036,6 +2036,7 @@ export const HomeScreen = ({ user }) => {
         onDeclineSharedItem={declineSharedItem}
         onImportRecipe={saveRecipe}
         profile={profile}
+        onUpdateDisplayName={updateDisplayName}
       />
 
       {/* Share to Friends Modal */}

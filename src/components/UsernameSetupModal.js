@@ -21,10 +21,9 @@ export const UsernameSetupModal = ({
   visible,
   onSetup,
   checkAvailability,
-  defaultDisplayName,
 }) => {
   const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState(defaultDisplayName || '');
+  const [displayName, setDisplayName] = useState('');
   const [isAvailable, setIsAvailable] = useState(null);
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -34,11 +33,11 @@ export const UsernameSetupModal = ({
   useEffect(() => {
     if (visible) {
       setUsername('');
-      setDisplayName(defaultDisplayName || '');
+      setDisplayName('');
       setIsAvailable(null);
       setError('');
     }
-  }, [visible, defaultDisplayName]);
+  }, [visible]);
 
   // Check username availability with debounce
   useEffect(() => {
