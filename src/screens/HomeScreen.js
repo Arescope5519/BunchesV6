@@ -466,24 +466,74 @@ export const HomeScreen = ({ user }) => {
     const recipeCount = selectedRecipes.size;
     const recipeIds = Array.from(selectedRecipes);
 
+    // Check if we're in Recently Deleted - if so, permanently delete
+    const isPermanentDelete = currentFolder === 'Recently Deleted';
+
     Alert.alert(
-      'Delete Recipes',
-      `Delete ${recipeCount} recipe${recipeCount > 1 ? 's' : ''}?`,
+      isPermanentDelete ? 'Permanently Delete Recipes' : 'Delete Recipes',
+      isPermanentDelete
+        ? `Permanently delete ${recipeCount} recipe${recipeCount > 1 ? 's' : ''}? This cannot be undone.`
+        : `Delete ${recipeCount} recipe${recipeCount > 1 ? 's' : ''}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: isPermanentDelete ? 'Delete Forever' : 'Delete',
           style: 'destructive',
           onPress: async () => {
-            // Batch delete: mark all selected recipes with deletedAt timestamp
-            const now = Date.now();
-            const updatedRecipes = recipes.map(r =>
-              recipeIds.includes(r.id) ? { ...r, deletedAt: now } : r
-            );
-
-            // Save all at once
             const { saveRecipes } = require('../utils/storage');
-            await saveRecipes(updatedRecipes);
+
+            if (isPermanentDelete) {
+              // Permanently delete: remove from array entirely
+              const updatedRecipes = recipes.filter(r => !recipeIds.includes(r.id));
+              await saveRecipes(updatedRecipes);
+
+              // Delete from Firestore if user is signed in
+              if (user && deleteRecipeFromFirestore) {
+                try {
+                  await Promise.all(
+                    recipeIds.map(id => deleteRecipeFromFirestore(user.uid, id))
+                  );
+                  console.log(`✅ Permanently deleted ${recipeCount} recipes from Firestore`);
+                } catch (err) {
+                  console.error('❌ Failed to delete some recipes from Firestore:', err);
+                  Alert.alert('Warning', 'Recipes deleted locally but some may still exist in cloud.');
+                }
+              }
+            } else {
+              // Soft delete: mark all selected recipes with deletedAt timestamp
+              const now = Date.now();
+              const updatedRecipes = recipes.map(r =>
+                recipeIds.includes(r.id) ? { ...r, deletedAt: now, updatedAt: now } : r
+              );
+              await saveRecipes(updatedRecipes);
+
+              // Sync to Firestore if user is signed in
+              if (user && saveRecipeToFirestore) {
+                try {
+                  const firestore = require('@react-native-firebase/firestore').default;
+
+                  // Save each deleted recipe and track in deletion list
+                  for (const recipeId of recipeIds) {
+                    const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
+                    if (deletedRecipe) {
+                      await saveRecipeToFirestore(user.uid, deletedRecipe);
+                    }
+
+                    // Track in deletion list
+                    await firestore()
+                      .collection('users')
+                      .doc(user.uid)
+                      .set({
+                        deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+                      }, { merge: true });
+                  }
+                  console.log(`✅ Synced ${recipeCount} soft-deleted recipes to Firestore`);
+                } catch (err) {
+                  console.error('Failed to sync deletions to Firestore:', err);
+                }
+              }
+            }
 
             // Reload recipes to reflect changes
             await refreshRecipes();
