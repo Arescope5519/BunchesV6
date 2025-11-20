@@ -123,6 +123,10 @@ export const HomeScreen = ({ user }) => {
   const [notificationRequest, setNotificationRequest] = useState(null);
   const prevFriendRequestsRef = useRef([]);
 
+  // Bottom navigation bar visibility state
+  const [showNavBar, setShowNavBar] = useState(true);
+  const navBarTimeoutRef = useRef(null);
+
   // Hooks - Pass user to useRecipes for Firestore sync
   const {
     recipes,
@@ -305,81 +309,108 @@ export const HomeScreen = ({ user }) => {
     setCurrentScreen('recipes');
   };
 
-  // Navigation handler
+  // Auto-hide navigation bar after 3 seconds of inactivity
+  const resetNavBarTimer = () => {
+    setShowNavBar(true);
+    if (navBarTimeoutRef.current) {
+      clearTimeout(navBarTimeoutRef.current);
+    }
+    navBarTimeoutRef.current = setTimeout(() => {
+      setShowNavBar(false);
+    }, 3000);
+  };
+
+  // Show nav bar on touch/interaction
+  const handleScreenTouch = () => {
+    resetNavBarTimer();
+  };
+
+  // Navigation handler - all tabs now render inline
   const handleNavigation = (screen) => {
-    if (screen === 'recipes') {
-      setCurrentScreen('recipes');
-    } else if (screen === 'social') {
-      setShowSocialModal(true);
-    } else if (screen === 'settings') {
-      setCurrentScreen('settings');
-    } else if (screen === 'grocery') {
-      setShowGroceryList(true);
+    resetNavBarTimer(); // Show nav bar when switching tabs
+
+    if (screen === 'recipes' || screen === 'social' || screen === 'settings' || screen === 'grocery') {
+      setCurrentScreen(screen);
+      // Close modals when switching to main tabs
+      setShowSocialModal(false);
+      setShowGroceryList(false);
     } else if (screen === 'create') {
       setCurrentScreen('create');
     } else if (screen === 'import') {
       setShowImport(true);
-      // Stay on current screen, import is a modal
     } else if (screen === 'search') {
       setShowIngredientSearch(true);
-      // Stay on current screen, search is a modal
     }
   };
 
-  // Render navigation bar (always visible)
-  const renderNavigationBar = () => (
-    <View style={styles.navigationBar}>
-      <TouchableOpacity
-        style={[styles.navButton, currentScreen === 'social' && styles.navButtonActive]}
-        onPress={() => handleNavigation('social')}
-      >
-        <Text style={styles.navButtonIcon}>👥</Text>
-        {notificationCounts.total > 0 && (
-          <View style={styles.navBadge}>
-            <Text style={styles.navBadgeText}>{notificationCounts.total}</Text>
-          </View>
-        )}
-        <Text style={[styles.navButtonText, currentScreen === 'social' && styles.navButtonTextActive]}>
-          Social
-        </Text>
-      </TouchableOpacity>
+  // Initialize auto-hide timer on mount
+  useEffect(() => {
+    resetNavBarTimer();
+    return () => {
+      if (navBarTimeoutRef.current) {
+        clearTimeout(navBarTimeoutRef.current);
+      }
+    };
+  }, []);
 
-      <TouchableOpacity
-        style={[styles.navButton, currentScreen === 'recipes' && styles.navButtonActive]}
-        onPress={() => handleNavigation('recipes')}
-      >
-        <Text style={styles.navButtonIcon}>📖</Text>
-        <Text style={[styles.navButtonText, currentScreen === 'recipes' && styles.navButtonTextActive]}>
-          Recipes
-        </Text>
-      </TouchableOpacity>
+  // Render navigation bar with auto-hide
+  const renderNavigationBar = () => {
+    if (!showNavBar) return null;
 
-      <TouchableOpacity
-        style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
-        onPress={() => handleNavigation('settings')}
-      >
-        <Text style={styles.navButtonIcon}>⚙️</Text>
-        <Text style={[styles.navButtonText, currentScreen === 'settings' && styles.navButtonTextActive]}>
-          Settings
-        </Text>
-      </TouchableOpacity>
+    return (
+      <View style={styles.navigationBar}>
+        <TouchableOpacity
+          style={[styles.navButton, currentScreen === 'social' && styles.navButtonActive]}
+          onPress={() => handleNavigation('social')}
+        >
+          <Text style={styles.navButtonIcon}>👥</Text>
+          {notificationCounts.total > 0 && (
+            <View style={styles.navBadge}>
+              <Text style={styles.navBadgeText}>{notificationCounts.total}</Text>
+            </View>
+          )}
+          <Text style={[styles.navButtonText, currentScreen === 'social' && styles.navButtonTextActive]}>
+            Social
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.navButton, showGroceryList && styles.navButtonActive]}
-        onPress={() => handleNavigation('grocery')}
-      >
-        <Text style={styles.navButtonIcon}>🛒</Text>
-        {getUncheckedCount() > 0 && (
-          <View style={styles.navBadge}>
-            <Text style={styles.navBadgeText}>{getUncheckedCount()}</Text>
-          </View>
-        )}
-        <Text style={[styles.navButtonText, showGroceryList && styles.navButtonTextActive]}>
-          Shopping
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+        <TouchableOpacity
+          style={[styles.navButton, currentScreen === 'recipes' && styles.navButtonActive]}
+          onPress={() => handleNavigation('recipes')}
+        >
+          <Text style={styles.navButtonIcon}>📖</Text>
+          <Text style={[styles.navButtonText, currentScreen === 'recipes' && styles.navButtonTextActive]}>
+            Recipes
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
+          onPress={() => handleNavigation('settings')}
+        >
+          <Text style={styles.navButtonIcon}>⚙️</Text>
+          <Text style={[styles.navButtonText, currentScreen === 'settings' && styles.navButtonTextActive]}>
+            Settings
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navButton, currentScreen === 'grocery' && styles.navButtonActive]}
+          onPress={() => handleNavigation('grocery')}
+        >
+          <Text style={styles.navButtonIcon}>🛒</Text>
+          {getUncheckedCount() > 0 && (
+            <View style={styles.navBadge}>
+              <Text style={styles.navBadgeText}>{getUncheckedCount()}</Text>
+            </View>
+          )}
+          <Text style={[styles.navButtonText, currentScreen === 'grocery' && styles.navButtonTextActive]}>
+            Shopping
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   // Handle recipe creation
   const handleCreateRecipe = async (recipe) => {
@@ -1255,25 +1286,126 @@ export const HomeScreen = ({ user }) => {
     );
   }
 
-  if (currentScreen === 'settings') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <SettingsScreen
-          onClose={() => setCurrentScreen('recipes')}
-          onClearAllData={handleClearAllData}
-          recipeCount={nonDeletedRecipeCount}
-          user={user}
-          onSignOut={handleSignOut}
-          onSignIn={handleSignIn}
-          profile={profile}
-          onOpenSocial={() => setShowSocialModal(true)}
-          onUpdatePrivacySettings={updatePrivacySettings}
-        />
+  // Main app container with all tabs inline
+  return (
+    <SafeAreaView style={styles.container} onTouchStart={handleScreenTouch}>
+      <StatusBar style="light" />
 
-        {/* Social Modal */}
+      {/* Header - only shown on recipes tab */}
+      {currentScreen === 'recipes' && (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Bunches</Text>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity
+                onPress={() => setCurrentScreen('create')}
+                style={styles.iconHeaderButton}
+              >
+                <Text style={styles.iconHeaderButtonText}>➕</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowIngredientSearch(true)}
+                style={styles.iconHeaderButton}
+              >
+                <Text style={styles.iconHeaderButtonText}>🔍</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowImport(true)}
+                style={styles.iconHeaderButton}
+              >
+                <Text style={styles.iconHeaderButtonText}>📥</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowFolderManager(true)}
+                style={styles.iconHeaderButton}
+              >
+                <Text style={styles.iconHeaderButtonText}>📂</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Sort/Filter Bar */}
+          <View style={styles.sortBar}>
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => setShowSortDropdown(!showSortDropdown)}
+            >
+              <Text style={styles.sortButtonText}>
+                Sort: {sortBy === 'alphabetical' ? 'A-Z' : sortBy === 'dateAdded' ? 'Date Added' : 'Date Modified'}
+                {sortOrder === 'asc' ? ' ↑' : ' ↓'}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.sortBarRight}>
+              <TouchableOpacity
+                style={styles.viewModeButton}
+                onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
+              >
+                <Text style={styles.viewModeIcon}>{viewMode === 'list' ? '🖼️' : '📝'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+
+          {/* Sort Dropdown Menu */}
+          {showSortDropdown && (
+            <View style={styles.sortDropdown}>
+              <TouchableOpacity
+                style={[styles.sortOption, sortBy === 'alphabetical' && styles.sortOptionActive]}
+                onPress={() => {
+                  setSortBy('alphabetical');
+                  setSortOrder(sortBy === 'alphabetical' && sortOrder === 'asc' ? 'desc' : 'asc');
+                  setShowSortDropdown(false);
+                }}
+              >
+                <Text style={styles.sortOptionText}>Alphabetical (A-Z)</Text>
+                {sortBy === 'alphabetical' && <Text style={styles.sortOptionCheck}>✓</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sortOption, sortBy === 'dateAdded' && styles.sortOptionActive]}
+                onPress={() => {
+                  setSortBy('dateAdded');
+                  setSortOrder('desc'); // Newest first by default
+                  setShowSortDropdown(false);
+                }}
+              >
+                <Text style={styles.sortOptionText}>Date Added (Newest First)</Text>
+                {sortBy === 'dateAdded' && sortOrder === 'desc' && <Text style={styles.sortOptionCheck}>✓</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sortOption, sortBy === 'dateAdded' && sortOrder === 'asc' && styles.sortOptionActive]}
+                onPress={() => {
+                  setSortBy('dateAdded');
+                  setSortOrder('asc'); // Oldest first
+                  setShowSortDropdown(false);
+                }}
+              >
+                <Text style={styles.sortOptionText}>Date Added (Oldest First)</Text>
+                {sortBy === 'dateAdded' && sortOrder === 'asc' && <Text style={styles.sortOptionCheck}>✓</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sortOption, sortBy === 'dateModified' && styles.sortOptionActive]}
+                onPress={() => {
+                  setSortBy('dateModified');
+                  setSortOrder('desc'); // Most recently modified first
+                  setShowSortDropdown(false);
+                }}
+              >
+                <Text style={styles.sortOptionText}>Recently Modified</Text>
+                {sortBy === 'dateModified' && <Text style={styles.sortOptionCheck}>✓</Text>}
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Tab Content - Render different content based on currentScreen */}
+      {currentScreen === 'social' && (
         <SocialModal
-          visible={showSocialModal}
-          onClose={() => setShowSocialModal(false)}
+          visible={true}
+          onClose={() => setCurrentScreen('recipes')}
           friends={friends}
           friendRequests={friendRequests}
           sharedItems={sharedItems}
@@ -1289,135 +1421,47 @@ export const HomeScreen = ({ user }) => {
           onChangeUsername={changeUsername}
           checkUsernameAvailable={checkUsernameAvailable}
         />
-
-        {/* Swipeable Undo Button */}
-        {renderSwipeableUndoButton()}
-
-        {/* Bottom Navigation Bar */}
-        {renderNavigationBar()}
-      </SafeAreaView>
-    );
-  }
-
-  // Default: recipes screen (main view)
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Bunches</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            onPress={() => setCurrentScreen('create')}
-            style={styles.iconHeaderButton}
-          >
-            <Text style={styles.iconHeaderButtonText}>➕</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowIngredientSearch(true)}
-            style={styles.iconHeaderButton}
-          >
-            <Text style={styles.iconHeaderButtonText}>🔍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowImport(true)}
-            style={styles.iconHeaderButton}
-          >
-            <Text style={styles.iconHeaderButtonText}>📥</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowFolderManager(true)}
-            style={styles.iconHeaderButton}
-          >
-            <Text style={styles.iconHeaderButtonText}>📂</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Sort/Filter Bar */}
-      <View style={styles.sortBar}>
-        <TouchableOpacity
-          style={styles.sortButton}
-          onPress={() => setShowSortDropdown(!showSortDropdown)}
-        >
-          <Text style={styles.sortButtonText}>
-            Sort: {sortBy === 'alphabetical' ? 'A-Z' : sortBy === 'dateAdded' ? 'Date Added' : 'Date Modified'}
-            {sortOrder === 'asc' ? ' ↑' : ' ↓'}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.sortBarRight}>
-          <TouchableOpacity
-            style={styles.viewModeButton}
-            onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
-          >
-            <Text style={styles.viewModeIcon}>{viewMode === 'list' ? '🖼️' : '📝'}</Text>
-          </TouchableOpacity>
-          <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
-        </View>
-      </View>
-
-      {/* Sort Dropdown Menu */}
-      {showSortDropdown && (
-        <View style={styles.sortDropdown}>
-          <TouchableOpacity
-            style={[styles.sortOption, sortBy === 'alphabetical' && styles.sortOptionActive]}
-            onPress={() => {
-              setSortBy('alphabetical');
-              setSortOrder(sortBy === 'alphabetical' && sortOrder === 'asc' ? 'desc' : 'asc');
-              setShowSortDropdown(false);
-            }}
-          >
-            <Text style={styles.sortOptionText}>Alphabetical (A-Z)</Text>
-            {sortBy === 'alphabetical' && <Text style={styles.sortOptionCheck}>✓</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sortOption, sortBy === 'dateAdded' && styles.sortOptionActive]}
-            onPress={() => {
-              setSortBy('dateAdded');
-              setSortOrder('desc'); // Newest first by default
-              setShowSortDropdown(false);
-            }}
-          >
-            <Text style={styles.sortOptionText}>Date Added (Newest First)</Text>
-            {sortBy === 'dateAdded' && sortOrder === 'desc' && <Text style={styles.sortOptionCheck}>✓</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sortOption, sortBy === 'dateAdded' && sortOrder === 'asc' && styles.sortOptionActive]}
-            onPress={() => {
-              setSortBy('dateAdded');
-              setSortOrder('asc'); // Oldest first
-              setShowSortDropdown(false);
-            }}
-          >
-            <Text style={styles.sortOptionText}>Date Added (Oldest First)</Text>
-            {sortBy === 'dateAdded' && sortOrder === 'asc' && <Text style={styles.sortOptionCheck}>✓</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sortOption, sortBy === 'dateModified' && styles.sortOptionActive]}
-            onPress={() => {
-              setSortBy('dateModified');
-              setSortOrder('desc'); // Most recently modified first
-              setShowSortDropdown(false);
-            }}
-          >
-            <Text style={styles.sortOptionText}>Recently Modified</Text>
-            {sortBy === 'dateModified' && <Text style={styles.sortOptionCheck}>✓</Text>}
-          </TouchableOpacity>
-        </View>
       )}
 
-      {/* Recipe List */}
-      {loadingRecipes ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading recipes...</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.recipeList}>
+      {currentScreen === 'settings' && (
+        <SettingsScreen
+          onClose={() => setCurrentScreen('recipes')}
+          onClearAllData={handleClearAllData}
+          recipeCount={nonDeletedRecipeCount}
+          user={user}
+          onSignOut={handleSignOut}
+          onSignIn={handleSignIn}
+          profile={profile}
+          onOpenSocial={() => setCurrentScreen('social')}
+          onUpdatePrivacySettings={updatePrivacySettings}
+        />
+      )}
+
+      {currentScreen === 'grocery' && (
+        <GroceryList
+          visible={true}
+          onClose={() => setCurrentScreen('recipes')}
+          groceryList={groceryList}
+          onToggleItem={handleToggleGroceryItem}
+          onRemoveItem={handleRemoveGroceryItem}
+          onClearChecked={handleClearCheckedItems}
+          onClearAll={handleClearAllItems}
+          showUndoButton={showUndoButton}
+          canUndo={canUndo}
+          lastActionDescription={lastActionDescription}
+          performUndo={performUndo}
+        />
+      )}
+
+      {/* Recipe List - shown when currentScreen === 'recipes' */}
+      {currentScreen === 'recipes' && (
+        loadingRecipes ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading recipes...</Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.recipeList}>
           {sortedRecipes.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>No recipes yet</Text>
@@ -1524,9 +1568,10 @@ export const HomeScreen = ({ user }) => {
             </>
           )}
         </ScrollView>
+        )
       )}
 
-      {/* Folder Manager Modal */}
+      {/* Folder Manager Modal - shown on any tab */}
       <Modal
         visible={showFolderManager}
         animationType="slide"
@@ -1843,21 +1888,6 @@ export const HomeScreen = ({ user }) => {
         onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
       />
 
-      {/* Grocery List Modal */}
-      <GroceryList
-        visible={showGroceryList}
-        onClose={() => setShowGroceryList(false)}
-        groceryList={groceryList}
-        onToggleItem={handleToggleGroceryItem}
-        onRemoveItem={handleRemoveGroceryItem}
-        onClearChecked={handleClearCheckedItems}
-        onClearAll={handleClearAllItems}
-        showUndoButton={showUndoButton}
-        canUndo={canUndo}
-        lastActionDescription={lastActionDescription}
-        performUndo={performUndo}
-      />
-
       {/* Add Folder Modal */}
       <Modal
         visible={showAddFolder}
@@ -2070,26 +2100,6 @@ export const HomeScreen = ({ user }) => {
         visible={needsUsername && !!user}
         onSetup={setupUsername}
         checkAvailability={checkUsernameAvailable}
-      />
-
-      {/* Social Modal */}
-      <SocialModal
-        visible={showSocialModal}
-        onClose={() => setShowSocialModal(false)}
-        friends={friends}
-        friendRequests={friendRequests}
-        sharedItems={sharedItems}
-        onSearchUsers={searchUsers}
-        onSendFriendRequest={sendFriendRequest}
-        onAcceptFriendRequest={acceptFriendRequest}
-        onDeclineFriendRequest={declineFriendRequest}
-        onRemoveFriend={removeFriend}
-        onImportSharedItem={importSharedItem}
-        onDeclineSharedItem={declineSharedItem}
-        onImportRecipe={saveRecipe}
-        profile={profile}
-        onChangeUsername={changeUsername}
-        checkUsernameAvailable={checkUsernameAvailable}
       />
 
       {/* Share to Friends Modal */}
