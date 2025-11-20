@@ -178,6 +178,18 @@ export const SettingsScreen = ({
                 <Text style={styles.infoLabel}>Email</Text>
                 <Text style={styles.infoValue}>{user.email}</Text>
               </View>
+              {profile?.createdAt && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Member as of:</Text>
+                  <Text style={styles.infoValue}>
+                    {new Date(profile.createdAt.toMillis ? profile.createdAt.toMillis() : profile.createdAt).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={styles.signOutButton}
                 onPress={handleSignOut}
@@ -252,7 +264,7 @@ export const SettingsScreen = ({
               </View>
               <View style={[styles.settingRow, styles.settingRowBorder]}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>Accept Friend Requests</Text>
+                  <Text style={styles.settingLabel}>Accepting Friend Requests</Text>
                   <Text style={styles.settingDescription}>
                     Allow others to send you friend requests
                   </Text>
@@ -274,7 +286,7 @@ export const SettingsScreen = ({
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>6.03</Text>
+              <Text style={styles.infoValue}>6.05</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Total Recipes</Text>
