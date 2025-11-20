@@ -28,6 +28,7 @@ import {
   Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Hooks
 import { useRecipes } from '../hooks/useRecipes';
@@ -122,10 +123,6 @@ export const HomeScreen = ({ user }) => {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [notificationRequest, setNotificationRequest] = useState(null);
   const prevFriendRequestsRef = useRef([]);
-
-  // Bottom navigation bar visibility state
-  const [showNavBar, setShowNavBar] = useState(true);
-  const navBarTimeoutRef = useRef(null);
 
   // Hooks - Pass user to useRecipes for Firestore sync
   const {
@@ -270,6 +267,22 @@ export const HomeScreen = ({ user }) => {
     prevFriendRequestsRef.current = friendRequests;
   }, [friendRequests, user]);
 
+  // Hide Android system navigation bar on mount
+  useEffect(() => {
+    const hideNavigationBar = async () => {
+      if (Platform.OS === 'android') {
+        try {
+          await NavigationBar.setVisibilityAsync('hidden');
+          await NavigationBar.setBehaviorAsync('overlay-swipe');
+        } catch (error) {
+          console.log('Failed to hide navigation bar:', error);
+        }
+      }
+    };
+
+    hideNavigationBar();
+  }, []);
+
   const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
     // Navigate to save recipe screen with extracted recipe
     setExtractedRecipe(recipe);
@@ -309,25 +322,8 @@ export const HomeScreen = ({ user }) => {
     setCurrentScreen('recipes');
   };
 
-  // Auto-hide navigation bar after 3 seconds of inactivity
-  const resetNavBarTimer = () => {
-    setShowNavBar(true);
-    if (navBarTimeoutRef.current) {
-      clearTimeout(navBarTimeoutRef.current);
-    }
-    navBarTimeoutRef.current = setTimeout(() => {
-      setShowNavBar(false);
-    }, 3000);
-  };
-
-  // Show nav bar on touch/interaction
-  const handleScreenTouch = () => {
-    resetNavBarTimer();
-  };
-
   // Navigation handler - all tabs now render inline
   const handleNavigation = (screen) => {
-    resetNavBarTimer(); // Show nav bar when switching tabs
 
     if (screen === 'recipes' || screen === 'social' || screen === 'settings' || screen === 'grocery') {
       setCurrentScreen(screen);
@@ -343,20 +339,8 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Initialize auto-hide timer on mount
-  useEffect(() => {
-    resetNavBarTimer();
-    return () => {
-      if (navBarTimeoutRef.current) {
-        clearTimeout(navBarTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Render navigation bar with auto-hide
+  // Render navigation bar
   const renderNavigationBar = () => {
-    if (!showNavBar) return null;
-
     return (
       <View style={styles.navigationBar}>
         <TouchableOpacity
@@ -1288,7 +1272,7 @@ export const HomeScreen = ({ user }) => {
 
   // Main app container with all tabs inline
   return (
-    <SafeAreaView style={styles.container} onTouchStart={handleScreenTouch}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
       {/* Header - only shown on recipes tab */}
