@@ -1418,6 +1418,9 @@ export const HomeScreen = ({ user }) => {
           profile={profile}
           onOpenSocial={() => setCurrentScreen('social')}
           onUpdatePrivacySettings={updatePrivacySettings}
+          friends={friends}
+          onChangeUsername={changeUsername}
+          checkUsernameAvailable={checkUsernameAvailable}
         />
       )}
 

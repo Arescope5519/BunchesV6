@@ -35,15 +35,11 @@ export const SocialModal = ({
   onChangeUsername,
   checkUsernameAvailable,
 }) => {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('friends');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [editingUsername, setEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [usernameAvailable, setUsernameAvailable] = useState(null);
-  const [checkingUsername, setCheckingUsername] = useState(false);
-  const [savingUsername, setSavingUsername] = useState(false);
+  const [showAddFriends, setShowAddFriends] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery || searchQuery.length < 2) return;
@@ -97,40 +93,121 @@ export const SocialModal = ({
 
   const renderFriendsTab = () => (
     <ScrollView style={styles.tabContent}>
+      {/* Add Friends Button */}
+      <TouchableOpacity
+        style={styles.addFriendsButton}
+        onPress={() => {
+          setShowAddFriends(!showAddFriends);
+          if (!showAddFriends) {
+            setSearchQuery('');
+            setSearchResults([]);
+          }
+        }}
+      >
+        <Text style={styles.addFriendsButtonText}>
+          {showAddFriends ? '✕ Close Search' : '+ Add Friends'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Add Friends Search UI */}
+      {showAddFriends && (
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by username or code"
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              onPress={handleSearch}
+              style={styles.searchButton}
+              disabled={searching}
+            >
+              {searching ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.searchButtonText}>Search</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Results */}
+          {searchResults.length > 0 && (
+            <View style={styles.searchResults}>
+              <Text style={styles.searchResultsTitle}>Results</Text>
+              {searchResults.map(user => (
+                <View key={user.id} style={styles.listItem}>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.usernameText}>@{user.username}</Text>
+                    {user.userCode && (
+                      <Text style={styles.userCodeText}>{user.userCode}</Text>
+                    )}
+                  </View>
+                  {user.isFriend ? (
+                    <Text style={styles.alreadyFriendsText}>✓ Friends</Text>
+                  ) : user.requestSent ? (
+                    <Text style={styles.requestSentText}>Pending</Text>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => handleSendRequest(user.id)}
+                      style={styles.addButton}
+                    >
+                      <Text style={styles.addButtonText}>Add</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {searchQuery.length > 0 && searchResults.length === 0 && !searching && (
+            <Text style={styles.noResultsText}>No users found</Text>
+          )}
+        </View>
+      )}
+
+      {/* Friends List */}
       {friends.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>No friends yet</Text>
           <Text style={styles.emptyStateSubtext}>
-            Search for users to add friends
+            Click "Add Friends" above to get started
           </Text>
         </View>
       ) : (
-        friends.map(friend => (
-          <View key={friend.id} style={styles.listItem}>
-            <View style={styles.userInfo}>
-              <Text style={styles.usernameText}>@{friend.username}</Text>
+        <View style={styles.friendsList}>
+          <Text style={styles.friendsListTitle}>Your Friends ({friends.length})</Text>
+          {friends.map(friend => (
+            <View key={friend.id} style={styles.listItem}>
+              <View style={styles.userInfo}>
+                <Text style={styles.usernameText}>@{friend.username}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Remove Friend',
+                    `Remove @${friend.username} from friends?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: () => onRemoveFriend(friend.id),
+                      },
+                    ]
+                  );
+                }}
+                style={styles.removeButton}
+              >
+                <Text style={styles.removeButtonText}>Remove</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert(
-                  'Remove Friend',
-                  `Remove @${friend.username} from friends?`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Remove',
-                      style: 'destructive',
-                      onPress: () => onRemoveFriend(friend.id),
-                    },
-                  ]
-                );
-              }}
-              style={styles.removeButton}
-            >
-              <Text style={styles.removeButtonText}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-        ))
+          ))}
+        </View>
       )}
     </ScrollView>
   );
@@ -213,232 +290,6 @@ export const SocialModal = ({
     </ScrollView>
   );
 
-  const renderAddTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search by username..."
-          placeholderTextColor={colors.textSecondary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        <TouchableOpacity
-          onPress={handleSearch}
-          style={styles.searchButton}
-          disabled={searching || searchQuery.length < 2}
-        >
-          {searching ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.searchButtonText}>Search</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.searchResults}>
-        {searchResults.length === 0 && searchQuery.length >= 2 && !searching && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No users found</Text>
-          </View>
-        )}
-        {searchResults.map(user => {
-          const isFriend = friends.some(f => f.id === user.id);
-          return (
-            <View key={user.id} style={styles.listItem}>
-              <View style={styles.userInfo}>
-                <Text style={styles.usernameText}>@{user.username}</Text>
-              </View>
-              {isFriend ? (
-                <Text style={styles.friendBadge}>Friend</Text>
-              ) : user.acceptingFriendRequests ? (
-                <TouchableOpacity
-                  onPress={() => handleSendRequest(user.id)}
-                  style={styles.addButton}
-                >
-                  <Text style={styles.addButtonText}>Add</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.notAccepting}>Not accepting</Text>
-              )}
-            </View>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-
-  // Validate username format
-  const validateUsername = (value) => {
-    const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
-    return cleaned.substring(0, 20);
-  };
-
-  // Check username availability with debounce
-  useEffect(() => {
-    if (!editingUsername || !newUsername || newUsername.length < 3) {
-      setUsernameAvailable(null);
-      return;
-    }
-
-    if (newUsername.toLowerCase() === profile?.username?.toLowerCase()) {
-      setUsernameAvailable(null); // Same as current, no need to check
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setCheckingUsername(true);
-      try {
-        const available = await checkUsernameAvailable(newUsername);
-        setUsernameAvailable(available);
-      } catch (err) {
-        setUsernameAvailable(null);
-      } finally {
-        setCheckingUsername(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [newUsername, editingUsername, profile?.username, checkUsernameAvailable]);
-
-  const handleSaveUsername = async () => {
-    const trimmedUsername = newUsername.trim().toLowerCase();
-
-    if (!trimmedUsername || trimmedUsername === profile?.username) {
-      setEditingUsername(false);
-      return;
-    }
-
-    if (trimmedUsername.length < 3) {
-      Alert.alert('Error', 'Username must be at least 3 characters');
-      return;
-    }
-
-    if (usernameAvailable === false) {
-      Alert.alert('Error', 'Username is already taken');
-      return;
-    }
-
-    if (usernameAvailable === null) {
-      Alert.alert('Error', 'Unable to verify username availability');
-      return;
-    }
-
-    setSavingUsername(true);
-    try {
-      await onChangeUsername(trimmedUsername);
-      setEditingUsername(false);
-      setNewUsername('');
-      setUsernameAvailable(null);
-    } catch (error) {
-      console.error('Failed to change username:', error);
-    } finally {
-      setSavingUsername(false);
-    }
-  };
-
-  const renderProfileTab = () => (
-    <ScrollView style={styles.tabContent}>
-      <View style={styles.profileSection}>
-        <Text style={styles.sectionTitle}>Your Profile</Text>
-
-        <View style={styles.profileItem}>
-          <Text style={styles.profileLabel}>Username</Text>
-          {editingUsername ? (
-            <View style={styles.editNameContainer}>
-              <View style={styles.usernameInputRow}>
-                <Text style={styles.atSymbol}>@</Text>
-                <TextInput
-                  style={styles.usernameEditInput}
-                  value={newUsername}
-                  onChangeText={(text) => setNewUsername(validateUsername(text))}
-                  placeholder="newusername"
-                  placeholderTextColor={colors.textSecondary}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  maxLength={20}
-                  autoFocus
-                />
-                {checkingUsername && (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                )}
-                {!checkingUsername && usernameAvailable === true && (
-                  <Text style={styles.availableIcon}>✓</Text>
-                )}
-                {!checkingUsername && usernameAvailable === false && (
-                  <Text style={styles.unavailableIcon}>✗</Text>
-                )}
-              </View>
-              {newUsername.length > 0 && newUsername.length < 3 && (
-                <Text style={styles.usernameHint}>At least 3 characters</Text>
-              )}
-              {usernameAvailable === false && (
-                <Text style={styles.unavailableText}>Username is taken</Text>
-              )}
-              {usernameAvailable === true && (
-                <Text style={styles.availableText}>Username is available!</Text>
-              )}
-              <View style={styles.editNameActions}>
-                <TouchableOpacity
-                  onPress={handleSaveUsername}
-                  style={[
-                    styles.saveNameButton,
-                    (!usernameAvailable || savingUsername) && styles.buttonDisabled
-                  ]}
-                  disabled={!usernameAvailable || savingUsername}
-                >
-                  {savingUsername ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.saveNameButtonText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    setEditingUsername(false);
-                    setNewUsername('');
-                    setUsernameAvailable(null);
-                  }}
-                  style={styles.cancelNameButton}
-                >
-                  <Text style={styles.cancelNameButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.displayNameRow}>
-              <Text style={styles.profileValue}>@{profile?.username || 'Not set'}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setNewUsername(profile?.username || '');
-                  setEditingUsername(true);
-                }}
-                style={styles.editButton}
-              >
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.profileItem}>
-          <Text style={styles.profileLabel}>User Code</Text>
-          <Text style={styles.profileValue}>{profile?.userCode || 'Not set'}</Text>
-          <Text style={styles.profileHint}>Friends can also find you with this code</Text>
-        </View>
-
-        <View style={styles.profileItem}>
-          <Text style={styles.profileLabel}>Friends</Text>
-          <Text style={styles.profileValue}>{friends.length}</Text>
-        </View>
-      </View>
-    </ScrollView>
-  );
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" hidden={true} />
@@ -453,14 +304,6 @@ export const SocialModal = ({
 
         {/* Tabs */}
         <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
-            onPress={() => setActiveTab('profile')}
-          >
-            <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
-              Profile
-            </Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
             onPress={() => setActiveTab('friends')}
@@ -485,22 +328,12 @@ export const SocialModal = ({
               Inbox {sharedItems.length > 0 && `(${sharedItems.length})`}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'add' && styles.activeTab]}
-            onPress={() => setActiveTab('add')}
-          >
-            <Text style={[styles.tabText, activeTab === 'add' && styles.activeTabText]}>
-              Add
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Tab Content */}
-        {activeTab === 'profile' && renderProfileTab()}
         {activeTab === 'friends' && renderFriendsTab()}
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'inbox' && renderInboxTab()}
-        {activeTab === 'add' && renderAddTab()}
     </View>
   );
 };
@@ -874,6 +707,94 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: colors.textSecondary,
     opacity: 0.6,
+  },
+  addFriendsButton: {
+    backgroundColor: colors.primary,
+    padding: 14,
+    margin: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  addFriendsButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: colors.text,
+  },
+  searchButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  searchButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  searchResults: {
+    marginTop: 16,
+  },
+  searchResultsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  userCodeText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  alreadyFriendsText: {
+    fontSize: 14,
+    color: colors.success || '#4CAF50',
+    fontWeight: '500',
+  },
+  requestSentText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  friendsList: {
+    marginTop: 16,
+  },
+  friendsListTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    textTransform: 'uppercase',
+  },
+  noResultsText: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginTop: 16,
+    fontStyle: 'italic',
   },
 });
 

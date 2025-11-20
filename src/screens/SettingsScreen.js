@@ -3,7 +3,7 @@
  * PURPOSE: App settings and preferences
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
@@ -28,8 +29,16 @@ export const SettingsScreen = ({
   profile,
   onOpenSocial,
   onUpdatePrivacySettings,
+  friends,
+  onChangeUsername,
+  checkUsernameAvailable,
 }) => {
   const [cleaningFirestore, setCleaningFirestore] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -143,6 +152,74 @@ export const SettingsScreen = ({
     await onUpdatePrivacySettings({ acceptingFriendRequests: value });
   };
 
+  const validateUsername = (value) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    return cleaned.substring(0, 20);
+  };
+
+  // Check username availability with debounce
+  useEffect(() => {
+    if (!editingUsername || !newUsername || newUsername.length < 3) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    if (newUsername.toLowerCase() === profile?.username?.toLowerCase()) {
+      setUsernameAvailable(null); // Same as current, no need to check
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setCheckingUsername(true);
+      try {
+        const available = await checkUsernameAvailable(newUsername);
+        setUsernameAvailable(available);
+      } catch (err) {
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [newUsername, editingUsername, profile?.username, checkUsernameAvailable]);
+
+  const handleSaveUsername = async () => {
+    const trimmedUsername = newUsername.trim().toLowerCase();
+
+    if (!trimmedUsername || trimmedUsername === profile?.username) {
+      setEditingUsername(false);
+      return;
+    }
+
+    if (trimmedUsername.length < 3) {
+      Alert.alert('Error', 'Username must be at least 3 characters');
+      return;
+    }
+
+    if (usernameAvailable === false) {
+      Alert.alert('Error', 'Username is already taken');
+      return;
+    }
+
+    if (usernameAvailable === null) {
+      Alert.alert('Error', 'Unable to verify username availability');
+      return;
+    }
+
+    setSavingUsername(true);
+    try {
+      await onChangeUsername(trimmedUsername);
+      setEditingUsername(false);
+      setNewUsername('');
+      setUsernameAvailable(null);
+    } catch (error) {
+      console.error('Failed to change username:', error);
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" hidden={true} />
@@ -222,24 +299,104 @@ export const SettingsScreen = ({
           </View>
         )}
 
-        {/* Social Section */}
+        {/* Social Profile Section */}
         {user && profile && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Social</Text>
-            <TouchableOpacity
-              style={styles.profileButton}
-              onPress={onOpenSocial}
-            >
-              <View style={styles.profileButtonContent}>
-                <View>
-                  <Text style={styles.profileButtonTitle}>Friends & Profile</Text>
-                  <Text style={styles.profileButtonSubtitle}>
-                    @{profile.username} · {profile.userCode}
-                  </Text>
-                </View>
-                <Text style={styles.profileButtonArrow}>→</Text>
+            <Text style={styles.sectionTitle}>Social Profile</Text>
+            <View style={styles.infoCard}>
+              {/* Username */}
+              <View style={styles.profileItem}>
+                <Text style={styles.profileLabel}>Username</Text>
+                {editingUsername ? (
+                  <View style={styles.editNameContainer}>
+                    <View style={styles.usernameInputRow}>
+                      <Text style={styles.atSymbol}>@</Text>
+                      <TextInput
+                        style={styles.usernameEditInput}
+                        value={newUsername}
+                        onChangeText={(text) => setNewUsername(validateUsername(text))}
+                        placeholder="newusername"
+                        placeholderTextColor={colors.textSecondary}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={20}
+                        autoFocus
+                      />
+                      {checkingUsername && (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      )}
+                      {!checkingUsername && usernameAvailable === true && (
+                        <Text style={styles.availableIcon}>✓</Text>
+                      )}
+                      {!checkingUsername && usernameAvailable === false && (
+                        <Text style={styles.unavailableIcon}>✗</Text>
+                      )}
+                    </View>
+                    {newUsername.length > 0 && newUsername.length < 3 && (
+                      <Text style={styles.usernameHint}>At least 3 characters</Text>
+                    )}
+                    {usernameAvailable === false && (
+                      <Text style={styles.unavailableText}>Username is taken</Text>
+                    )}
+                    {usernameAvailable === true && (
+                      <Text style={styles.availableText}>Username is available!</Text>
+                    )}
+                    <View style={styles.editNameActions}>
+                      <TouchableOpacity
+                        onPress={handleSaveUsername}
+                        style={[
+                          styles.saveNameButton,
+                          (!usernameAvailable || savingUsername) && styles.buttonDisabled
+                        ]}
+                        disabled={!usernameAvailable || savingUsername}
+                      >
+                        {savingUsername ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={styles.saveNameButtonText}>Save</Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setEditingUsername(false);
+                          setNewUsername('');
+                          setUsernameAvailable(null);
+                        }}
+                        style={styles.cancelNameButton}
+                      >
+                        <Text style={styles.cancelNameButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.displayNameRow}>
+                    <Text style={styles.profileValue}>@{profile?.username || 'Not set'}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setNewUsername(profile?.username || '');
+                        setEditingUsername(true);
+                      }}
+                      style={styles.editButton}
+                    >
+                      <Text style={styles.editButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-            </TouchableOpacity>
+
+              {/* User Code */}
+              <View style={styles.profileItem}>
+                <Text style={styles.profileLabel}>User Code</Text>
+                <Text style={styles.profileValue}>{profile?.userCode || 'Not set'}</Text>
+                <Text style={styles.profileHint}>Friends can also find you with this code</Text>
+              </View>
+
+              {/* Friends Count */}
+              <View style={styles.profileItem}>
+                <Text style={styles.profileLabel}>Friends</Text>
+                <Text style={styles.profileValue}>{friends?.length || 0}</Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -561,6 +718,126 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  profileItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  profileLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  profileValue: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  profileHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  displayNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+  },
+  editButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editNameContainer: {
+    marginTop: 8,
+  },
+  usernameInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  atSymbol: {
+    fontSize: 16,
+    color: colors.text,
+    marginRight: 4,
+  },
+  usernameEditInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+    padding: 0,
+  },
+  availableIcon: {
+    color: '#4CAF50',
+    fontSize: 20,
+    marginLeft: 8,
+  },
+  unavailableIcon: {
+    color: '#f44336',
+    fontSize: 20,
+    marginLeft: 8,
+  },
+  usernameHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  unavailableText: {
+    fontSize: 12,
+    color: '#f44336',
+    marginTop: 4,
+  },
+  availableText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginTop: 4,
+  },
+  editNameActions: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 12,
+  },
+  saveNameButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveNameButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelNameButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cancelNameButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });
 
