@@ -49,6 +49,7 @@ import { SaveRecipeScreen } from './SaveRecipeScreen';
 import { UsernameSetupModal } from '../components/UsernameSetupModal';
 import { SocialModal } from '../components/SocialModal';
 import { ShareToFriendsModal } from '../components/ShareToFriendsModal';
+import NotificationPopup from '../components/NotificationPopup';
 
 // Constants
 import colors from '../constants/colors';
@@ -116,6 +117,11 @@ export const HomeScreen = ({ user }) => {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showShareToFriends, setShowShareToFriends] = useState(false);
   const [shareItem, setShareItem] = useState(null); // { type, data, name }
+
+  // Notification popup state
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+  const [notificationRequest, setNotificationRequest] = useState(null);
+  const prevFriendRequestsRef = useRef([]);
 
   // Hooks - Pass user to useRecipes for Firestore sync
   const {
@@ -239,6 +245,26 @@ export const HomeScreen = ({ user }) => {
       setUndoButtonDismissed(false);
     }
   }, [undoCount]); // Reset whenever undo stack count changes (new action added)
+
+  // Detect new friend requests and show notification popup
+  useEffect(() => {
+    if (!user || !friendRequests || friendRequests.length === 0) {
+      prevFriendRequestsRef.current = friendRequests || [];
+      return;
+    }
+
+    // Check if there's a new friend request
+    const prevRequests = prevFriendRequestsRef.current;
+    if (prevRequests.length < friendRequests.length) {
+      // New request detected - show the most recent one
+      const newRequest = friendRequests[friendRequests.length - 1];
+      setNotificationRequest(newRequest);
+      setShowNotificationPopup(true);
+    }
+
+    // Update ref
+    prevFriendRequestsRef.current = friendRequests;
+  }, [friendRequests, user]);
 
   const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
     // Navigate to save recipe screen with extracted recipe
@@ -390,6 +416,28 @@ export const HomeScreen = ({ user }) => {
 
       // Don't throw - stay in local mode
     }
+  };
+
+  // Notification popup handlers
+  const handleAcceptFriendRequestFromPopup = async () => {
+    if (notificationRequest) {
+      await acceptFriendRequest(notificationRequest.id);
+      setShowNotificationPopup(false);
+      setNotificationRequest(null);
+    }
+  };
+
+  const handleDeclineFriendRequestFromPopup = async () => {
+    if (notificationRequest) {
+      await declineFriendRequest(notificationRequest.id);
+      setShowNotificationPopup(false);
+      setNotificationRequest(null);
+    }
+  };
+
+  const handleDismissNotificationPopup = () => {
+    setShowNotificationPopup(false);
+    setNotificationRequest(null);
   };
 
   // Share intent handler - extract and navigate to save screen
@@ -2078,6 +2126,16 @@ export const HomeScreen = ({ user }) => {
         friends={friends}
         itemName={shareItem?.name || ''}
         itemType={shareItem?.type || 'recipe'}
+      />
+
+      {/* Friend Request Notification Popup */}
+      <NotificationPopup
+        visible={showNotificationPopup}
+        request={notificationRequest}
+        onAccept={handleAcceptFriendRequestFromPopup}
+        onDecline={handleDeclineFriendRequestFromPopup}
+        onDismiss={handleDismissNotificationPopup}
+        colors={colors}
       />
     </SafeAreaView>
   );
