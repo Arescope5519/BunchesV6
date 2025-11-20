@@ -17,8 +17,19 @@ service cloud.firestore {
     match /users/{userId} {
       // Anyone authenticated can read any user profile (for social features)
       allow read: if isAuthenticated();
-      // User can only write their own profile
-      allow write: if isOwner(userId);
+
+      // User can write their own profile
+      allow create, delete: if isOwner(userId);
+
+      // Allow updates to own profile OR when adding/removing friends
+      allow update: if isOwner(userId) ||
+        (isAuthenticated() &&
+         // Only allow updating friends and friendCount fields
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends', 'friendCount']) &&
+         // Ensure the user is only adding/removing themselves
+         (request.resource.data.friends.toSet().difference(resource.data.friends.toSet()) == [request.auth.uid].toSet() ||
+          resource.data.friends.toSet().difference(request.resource.data.friends.toSet()) == [request.auth.uid].toSet())
+        );
 
       // Recipes subcollection
       match /recipes/{recipeId} {
