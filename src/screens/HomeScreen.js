@@ -1235,6 +1235,12 @@ export const HomeScreen = ({ user }) => {
           user={user}
           onSignOut={handleSignOut}
           onSignIn={handleSignIn}
+          profile={profile}
+          onOpenProfile={() => {
+            setCurrentScreen('dashboard');
+            setShowSocialModal(true);
+          }}
+          onUpdatePrivacySettings={updatePrivacySettings}
         />
 
         {/* Swipeable Undo Button */}

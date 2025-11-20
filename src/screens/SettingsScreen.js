@@ -12,12 +12,23 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 import { cleanupDeletedRecipes, checkFirestoreRecipes } from '../utils/cleanupFirestore';
 
-export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onSignOut, onSignIn }) => {
+export const SettingsScreen = ({
+  onClose,
+  onClearAllData,
+  recipeCount,
+  user,
+  onSignOut,
+  onSignIn,
+  profile,
+  onOpenProfile,
+  onUpdatePrivacySettings,
+}) => {
   const [cleaningFirestore, setCleaningFirestore] = useState(false);
   const handleClearAllData = () => {
     Alert.alert(
@@ -122,6 +133,16 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
     );
   };
 
+  const handlePrivateToggle = async (value) => {
+    if (!onUpdatePrivacySettings) return;
+    await onUpdatePrivacySettings({ isPrivate: value });
+  };
+
+  const handleAcceptingRequestsToggle = async (value) => {
+    if (!onUpdatePrivacySettings) return;
+    await onUpdatePrivacySettings({ acceptingFriendRequests: value });
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" hidden={true} />
@@ -189,6 +210,64 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
           </View>
         )}
 
+        {/* Profile Management Section */}
+        {user && profile && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Profile</Text>
+            <TouchableOpacity
+              style={styles.profileButton}
+              onPress={onOpenProfile}
+            >
+              <View style={styles.profileButtonContent}>
+                <View>
+                  <Text style={styles.profileButtonTitle}>Manage Your Profile</Text>
+                  <Text style={styles.profileButtonSubtitle}>
+                    @{profile.username} · {profile.userCode}
+                  </Text>
+                </View>
+                <Text style={styles.profileButtonArrow}>→</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Privacy Settings */}
+        {user && profile && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Privacy</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Private Account</Text>
+                  <Text style={styles.settingDescription}>
+                    Only friends can share recipes with you
+                  </Text>
+                </View>
+                <Switch
+                  value={profile.isPrivate || false}
+                  onValueChange={handlePrivateToggle}
+                  trackColor={{ false: '#D1D5DB', true: colors.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
+              <View style={[styles.settingRow, styles.settingRowBorder]}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Accept Friend Requests</Text>
+                  <Text style={styles.settingDescription}>
+                    Allow others to send you friend requests
+                  </Text>
+                </View>
+                <Switch
+                  value={profile.acceptingFriendRequests || false}
+                  onValueChange={handleAcceptingRequestsToggle}
+                  trackColor={{ false: '#D1D5DB', true: colors.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* App Info Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Information</Text>
@@ -201,30 +280,6 @@ export const SettingsScreen = ({ onClose, onClearAllData, recipeCount, user, onS
               <Text style={styles.infoLabel}>Total Recipes</Text>
               <Text style={styles.infoValue}>{recipeCount}</Text>
             </View>
-          </View>
-        </View>
-
-        {/* About Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.card}>
-            <Text style={styles.aboutText}>
-              Bunches is your personal recipe collection app. Extract recipes from websites, create your own, organize them into cookbooks, and build grocery lists.
-            </Text>
-          </View>
-        </View>
-
-        {/* Features Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
-          <View style={styles.card}>
-            <Text style={styles.featureItem}>📥 Import recipes from URLs</Text>
-            <Text style={styles.featureItem}>✏️ Create recipes manually</Text>
-            <Text style={styles.featureItem}>📖 Organize into cookbooks</Text>
-            <Text style={styles.featureItem}>🔍 Search by ingredients</Text>
-            <Text style={styles.featureItem}>🛒 Build grocery lists</Text>
-            <Text style={styles.featureItem}>⭐ Mark favorites</Text>
-            <Text style={styles.featureItem}>📤 Share recipes & cookbooks</Text>
           </View>
         </View>
 
@@ -437,6 +492,63 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+  profileButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  profileButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  profileButtonTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  profileButtonSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  profileButtonArrow: {
+    fontSize: 24,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  settingRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: 12,
+    paddingTop: 12,
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  settingLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  settingDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });
 
