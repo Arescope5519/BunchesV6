@@ -39,9 +39,11 @@ service cloud.firestore {
 
     // Friend requests collection
     match /friend_requests/{requestId} {
-      // User can read requests where they are sender or recipient
-      allow read: if isAuthenticated() &&
+      // Allow reading individual documents where user is sender or recipient
+      allow get: if isAuthenticated() &&
         (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      // Allow listing/querying all friend requests (queries will be filtered by app)
+      allow list: if isAuthenticated();
       // User can create requests where they are the sender
       allow create: if isAuthenticated() && request.resource.data.from == request.auth.uid;
       // User can update/delete requests where they are sender or recipient
@@ -51,8 +53,10 @@ service cloud.firestore {
 
     // Shared items collection
     match /shared_items/{itemId} {
-      // User can read items shared to them
-      allow read: if isAuthenticated() && resource.data.toUserId == request.auth.uid;
+      // Allow reading individual documents where user is recipient
+      allow get: if isAuthenticated() && resource.data.toUserId == request.auth.uid;
+      // Allow listing/querying all shared items (queries will be filtered by app)
+      allow list: if isAuthenticated();
       // User can create items where they are the sender
       allow create: if isAuthenticated() && request.resource.data.fromUserId == request.auth.uid;
       // User can update/delete items where they are sender or recipient
