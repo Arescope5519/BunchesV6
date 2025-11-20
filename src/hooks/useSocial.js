@@ -144,15 +144,19 @@ export const useSocial = (user) => {
    */
   const loadFriendRequests = useCallback(async () => {
     if (!user || !socialModule) {
+      console.log('⚠️ Cannot load friend requests - no user or socialModule');
       setFriendRequests([]);
       return;
     }
 
     try {
+      console.log('🔄 Loading friend requests...');
       const requests = await socialModule.getPendingFriendRequests(user.uid);
+      console.log('✅ Friend requests loaded:', requests.length);
       setFriendRequests(requests);
     } catch (error) {
-      console.error('Error loading friend requests:', error);
+      console.error('❌ Error loading friend requests:', error);
+      console.error('Error message:', error.message);
     }
   }, [user]);
 

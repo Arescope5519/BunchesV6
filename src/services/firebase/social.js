@@ -458,16 +458,22 @@ export const removeFriend = async (userId, friendId) => {
  */
 export const getPendingFriendRequests = async (userId) => {
   try {
+    console.log('📥 Getting pending friend requests for:', userId);
+
+    // Query without orderBy to avoid needing a composite index
     const snapshot = await firestore()
       .collection(FRIEND_REQUESTS_COLLECTION)
       .where('to', '==', userId)
       .where('status', '==', 'pending')
-      .orderBy('createdAt', 'desc')
       .get();
+
+    console.log(`📥 Found ${snapshot.size} pending requests`);
 
     const requests = [];
     for (const doc of snapshot.docs) {
       const data = doc.data();
+      console.log('📥 Request data:', { id: doc.id, from: data.from, to: data.to, status: data.status });
+
       // Get sender's profile
       const senderProfile = await getUserProfile(data.from);
       requests.push({
@@ -478,9 +484,15 @@ export const getPendingFriendRequests = async (userId) => {
       });
     }
 
+    // Sort by createdAt in memory
+    requests.sort((a, b) => b.createdAt - a.createdAt);
+
+    console.log(`📥 Returning ${requests.length} requests:`, requests);
     return requests;
   } catch (error) {
-    console.error('Error getting friend requests:', error);
+    console.error('❌ Error getting friend requests:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
     throw error;
   }
 };
