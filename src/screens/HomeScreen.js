@@ -2715,7 +2715,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingBottom: 5,
+    paddingBottom: 25, // Extra padding for Android navigation bar
     paddingTop: 8,
     elevation: 8,
     shadowColor: '#000',
