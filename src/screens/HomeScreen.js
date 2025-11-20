@@ -83,7 +83,7 @@ if (isFirestoreAvailable()) {
 
 export const HomeScreen = ({ user }) => {
   // Navigation state
-  const [currentScreen, setCurrentScreen] = useState('dashboard'); // dashboard, recipes, create, import, search, grocery, settings, saveRecipe
+  const [currentScreen, setCurrentScreen] = useState('recipes'); // recipes, social, settings, grocery
 
   // Local state
   const [url, setUrl] = useState('');
@@ -302,13 +302,19 @@ export const HomeScreen = ({ user }) => {
   const handleCancelSave = () => {
     setExtractedRecipe(null);
     setUrl('');
-    setCurrentScreen('dashboard');
+    setCurrentScreen('recipes');
   };
 
   // Navigation handler
   const handleNavigation = (screen) => {
     if (screen === 'recipes') {
       setCurrentScreen('recipes');
+    } else if (screen === 'social') {
+      setShowSocialModal(true);
+    } else if (screen === 'settings') {
+      setCurrentScreen('settings');
+    } else if (screen === 'grocery') {
+      setShowGroceryList(true);
     } else if (screen === 'create') {
       setCurrentScreen('create');
     } else if (screen === 'import') {
@@ -317,13 +323,63 @@ export const HomeScreen = ({ user }) => {
     } else if (screen === 'search') {
       setShowIngredientSearch(true);
       // Stay on current screen, search is a modal
-    } else if (screen === 'grocery') {
-      setShowGroceryList(true);
-      // Stay on current screen, grocery is a modal
-    } else if (screen === 'settings') {
-      setCurrentScreen('settings');
     }
   };
+
+  // Render navigation bar (always visible)
+  const renderNavigationBar = () => (
+    <View style={styles.navigationBar}>
+      <TouchableOpacity
+        style={[styles.navButton, currentScreen === 'social' && styles.navButtonActive]}
+        onPress={() => handleNavigation('social')}
+      >
+        <Text style={styles.navButtonIcon}>👥</Text>
+        {notificationCounts.total > 0 && (
+          <View style={styles.navBadge}>
+            <Text style={styles.navBadgeText}>{notificationCounts.total}</Text>
+          </View>
+        )}
+        <Text style={[styles.navButtonText, currentScreen === 'social' && styles.navButtonTextActive]}>
+          Social
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.navButton, currentScreen === 'recipes' && styles.navButtonActive]}
+        onPress={() => handleNavigation('recipes')}
+      >
+        <Text style={styles.navButtonIcon}>📖</Text>
+        <Text style={[styles.navButtonText, currentScreen === 'recipes' && styles.navButtonTextActive]}>
+          Recipes
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
+        onPress={() => handleNavigation('settings')}
+      >
+        <Text style={styles.navButtonIcon}>⚙️</Text>
+        <Text style={[styles.navButtonText, currentScreen === 'settings' && styles.navButtonTextActive]}>
+          Settings
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.navButton, showGroceryList && styles.navButtonActive]}
+        onPress={() => handleNavigation('grocery')}
+      >
+        <Text style={styles.navButtonIcon}>🛒</Text>
+        {getUncheckedCount() > 0 && (
+          <View style={styles.navBadge}>
+            <Text style={styles.navBadgeText}>{getUncheckedCount()}</Text>
+          </View>
+        )}
+        <Text style={[styles.navButtonText, showGroceryList && styles.navButtonTextActive]}>
+          Shopping
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // Handle recipe creation
   const handleCreateRecipe = async (recipe) => {
@@ -343,7 +399,7 @@ export const HomeScreen = ({ user }) => {
       const { saveRecipes } = require('../utils/storage');
       await saveRecipes([]);
       await refreshRecipes();
-      setCurrentScreen('dashboard');
+      setCurrentScreen('recipes');
       Alert.alert('✅ Success', 'All data has been cleared');
     } catch (error) {
       Alert.alert('Error', 'Failed to clear data');
@@ -1070,8 +1126,8 @@ export const HomeScreen = ({ user }) => {
         return true;
       }
       // Handle screen navigation - go back to dashboard
-      if (currentScreen !== 'dashboard') {
-        setCurrentScreen('dashboard');
+      if (currentScreen !== 'recipes') {
+        setCurrentScreen('recipes');
         return true;
       }
       return false;
@@ -1162,149 +1218,48 @@ export const HomeScreen = ({ user }) => {
     );
   }
 
-  if (currentScreen === 'dashboard') {
-    return (
-      <>
-        <DashboardScreen
-          onNavigate={handleNavigation}
-          recipeCount={nonDeletedRecipeCount}
-          groceryCount={getUncheckedCount()}
-        />
-        {/* Modals that can open from dashboard */}
-        <IngredientSearch
-          visible={showIngredientSearch}
-          onClose={() => setShowIngredientSearch(false)}
-          recipes={recipes}
-          onSelectRecipe={(recipe) => {
-            setSelectedRecipe(recipe);
-            setShowIngredientSearch(false);
-            setCurrentScreen('recipes');
-          }}
-        />
-        <GroceryList
-          visible={showGroceryList}
-          onClose={() => setShowGroceryList(false)}
-          groceryList={groceryList}
-          onToggleItem={handleToggleGroceryItem}
-          onRemoveItem={handleRemoveGroceryItem}
-          onClearChecked={handleClearCheckedItems}
-          onClearAll={handleClearAllItems}
-          showUndoButton={showUndoButton}
-          canUndo={canUndo}
-          lastActionDescription={lastActionDescription}
-          performUndo={performUndo}
-        />
-        {/* Import Recipe Modal */}
-        <Modal
-          visible={showImport}
-          animationType="fade"
-          transparent
-          onRequestClose={() => {
-            setImportText('');
-            setShowImport(false);
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.importModal}>
-              <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
-
-              {/* Cookbook Selector */}
-              <View style={styles.importSection}>
-                <Text style={styles.importSectionLabel}>Import to:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
-                  {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
-                    <TouchableOpacity
-                      key={folder}
-                      style={[
-                        styles.folderChip,
-                        importTargetFolder === folder && styles.folderChipSelected
-                      ]}
-                      onPress={() => setImportTargetFolder(folder)}
-                    >
-                      <Text style={[
-                        styles.folderChipText,
-                        importTargetFolder === folder && styles.folderChipTextSelected
-                      ]}>
-                        {folder}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              <Text style={styles.importInstructions}>
-                Paste code or URL below:
-              </Text>
-              <TextInput
-                style={styles.importInput}
-                placeholder="Paste URL or code here... (BUNCHES_RECIPE:... or BUNCHES_COOKBOOK:...)"
-                value={importText}
-                onChangeText={setImportText}
-                multiline
-                numberOfLines={6}
-              />
-              <View style={styles.addFolderButtons}>
-                <TouchableOpacity
-                  style={[styles.addFolderButton, styles.cancelButton]}
-                  onPress={() => {
-                    setImportText('');
-                    setShowImport(false);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.addFolderButton, styles.createButton]}
-                  onPress={async () => {
-                    if (importText.trim()) {
-                      // Check if it's a URL or code
-                      if (importText.trim().startsWith('http')) {
-                        // It's a URL, use extraction
-                        await extractRecipe(importText.trim());
-                        setImportText('');
-                        setShowImport(false);
-                      } else {
-                        // It's a code, use import
-                        await importRecipe(importText);
-                        setImportText('');
-                        setShowImport(false);
-                      }
-                    }
-                  }}
-                >
-                  <Text style={styles.createButtonText}>Import</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Swipeable Undo Button */}
-        {renderSwipeableUndoButton()}
-      </>
-    );
-  }
-
   if (currentScreen === 'create') {
     return (
-      <>
+      <SafeAreaView style={styles.container}>
         <CreateRecipeScreen
           onSave={handleCreateRecipe}
-          onClose={() => setCurrentScreen('dashboard')}
+          onClose={() => setCurrentScreen('recipes')}
           folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
         />
 
         {/* Swipeable Undo Button */}
         {renderSwipeableUndoButton()}
-      </>
+
+        {/* Bottom Navigation Bar */}
+        {renderNavigationBar()}
+      </SafeAreaView>
+    );
+  }
+
+  if (currentScreen === 'saveRecipe') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <SaveRecipeScreen
+          recipe={extractedRecipe}
+          folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
+          onSave={handleSaveExtractedRecipe}
+          onCancel={handleCancelSave}
+        />
+
+        {/* Swipeable Undo Button */}
+        {renderSwipeableUndoButton()}
+
+        {/* Bottom Navigation Bar */}
+        {renderNavigationBar()}
+      </SafeAreaView>
     );
   }
 
   if (currentScreen === 'settings') {
     return (
-      <>
+      <SafeAreaView style={styles.container}>
         <SettingsScreen
-          onClose={() => setCurrentScreen('dashboard')}
+          onClose={() => setCurrentScreen('recipes')}
           onClearAllData={handleClearAllData}
           recipeCount={nonDeletedRecipeCount}
           user={user}
@@ -1337,21 +1292,28 @@ export const HomeScreen = ({ user }) => {
 
         {/* Swipeable Undo Button */}
         {renderSwipeableUndoButton()}
-      </>
+
+        {/* Bottom Navigation Bar */}
+        {renderNavigationBar()}
+      </SafeAreaView>
     );
   }
 
-  // Default: recipes screen
+  // Default: recipes screen (main view)
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentScreen('dashboard')}>
-          <Text style={styles.headerTitle}>Bunches</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Bunches</Text>
         <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={() => setCurrentScreen('create')}
+            style={styles.iconHeaderButton}
+          >
+            <Text style={styles.iconHeaderButtonText}>➕</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowIngredientSearch(true)}
             style={styles.iconHeaderButton}
@@ -1365,35 +1327,11 @@ export const HomeScreen = ({ user }) => {
             <Text style={styles.iconHeaderButtonText}>📥</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setShowGroceryList(true)}
-            style={styles.iconHeaderButton}
-          >
-            <Text style={styles.iconHeaderButtonText}>🛒</Text>
-            {getUncheckedCount() > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{getUncheckedCount()}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
             onPress={() => setShowFolderManager(true)}
             style={styles.iconHeaderButton}
           >
-            <Text style={styles.iconHeaderButtonText}>📖</Text>
+            <Text style={styles.iconHeaderButtonText}>📂</Text>
           </TouchableOpacity>
-          {user && (
-            <TouchableOpacity
-              onPress={() => setShowSocialModal(true)}
-              style={styles.iconHeaderButton}
-            >
-              <Text style={styles.iconHeaderButtonText}>👥</Text>
-              {notificationCounts.total > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{notificationCounts.total}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
@@ -2180,6 +2118,9 @@ export const HomeScreen = ({ user }) => {
         onDismiss={handleDismissNotificationPopup}
         colors={colors}
       />
+
+      {/* Bottom Navigation Bar */}
+      {renderNavigationBar()}
     </SafeAreaView>
   );
 };
@@ -2767,6 +2708,63 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     fontWeight: '700',
+  },
+  // Navigation Bar Styles
+  navigationBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingBottom: 5,
+    paddingTop: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  navButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+    position: 'relative',
+  },
+  navButtonActive: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  navButtonIcon: {
+    fontSize: 24,
+    marginBottom: 2,
+  },
+  navButtonText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  navButtonTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  navBadge: {
+    position: 'absolute',
+    top: 2,
+    right: '30%',
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  navBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
   },
 });
 
