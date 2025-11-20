@@ -26,7 +26,7 @@ export const SettingsScreen = ({
   onSignOut,
   onSignIn,
   profile,
-  onOpenProfile,
+  onOpenSocial,
   onUpdatePrivacySettings,
 }) => {
   const [cleaningFirestore, setCleaningFirestore] = useState(false);
@@ -210,17 +210,17 @@ export const SettingsScreen = ({
           </View>
         )}
 
-        {/* Profile Management Section */}
+        {/* Social Section */}
         {user && profile && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Profile</Text>
+            <Text style={styles.sectionTitle}>Social</Text>
             <TouchableOpacity
               style={styles.profileButton}
-              onPress={onOpenProfile}
+              onPress={onOpenSocial}
             >
               <View style={styles.profileButtonContent}>
                 <View>
-                  <Text style={styles.profileButtonTitle}>Manage Your Profile</Text>
+                  <Text style={styles.profileButtonTitle}>Friends & Profile</Text>
                   <Text style={styles.profileButtonSubtitle}>
                     @{profile.username} · {profile.userCode}
                   </Text>

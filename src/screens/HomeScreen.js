@@ -1236,11 +1236,28 @@ export const HomeScreen = ({ user }) => {
           onSignOut={handleSignOut}
           onSignIn={handleSignIn}
           profile={profile}
-          onOpenProfile={() => {
-            setCurrentScreen('dashboard');
-            setShowSocialModal(true);
-          }}
+          onOpenSocial={() => setShowSocialModal(true)}
           onUpdatePrivacySettings={updatePrivacySettings}
+        />
+
+        {/* Social Modal */}
+        <SocialModal
+          visible={showSocialModal}
+          onClose={() => setShowSocialModal(false)}
+          friends={friends}
+          friendRequests={friendRequests}
+          sharedItems={sharedItems}
+          onSearchUsers={searchUsers}
+          onSendFriendRequest={sendFriendRequest}
+          onAcceptFriendRequest={acceptFriendRequest}
+          onDeclineFriendRequest={declineFriendRequest}
+          onRemoveFriend={removeFriend}
+          onImportSharedItem={importSharedItem}
+          onDeclineSharedItem={declineSharedItem}
+          onImportRecipe={saveRecipe}
+          profile={profile}
+          onChangeUsername={changeUsername}
+          checkUsernameAvailable={checkUsernameAvailable}
         />
 
         {/* Swipeable Undo Button */}

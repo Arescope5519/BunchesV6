@@ -343,7 +343,6 @@ export const useSocial = (user) => {
     try {
       await socialModule.updatePrivacySettings(user.uid, settings);
       await loadProfile();
-      Alert.alert('Success', 'Privacy settings updated');
       return true;
     } catch (error) {
       console.error('Error updating privacy settings:', error);
