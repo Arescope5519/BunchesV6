@@ -13,16 +13,51 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Users collection - each user can only access their own data
+    // Users collection - profile data
     match /users/{userId} {
-      // User can read/write their own user document
-      allow read, write: if isOwner(userId);
+      // Anyone authenticated can read any user profile (for social features)
+      allow read: if isAuthenticated();
+      // User can only write their own profile
+      allow write: if isOwner(userId);
 
       // Recipes subcollection
       match /recipes/{recipeId} {
         // User can read/write their own recipes
         allow read, write: if isOwner(userId);
       }
+    }
+
+    // Usernames collection - for username lookup/availability
+    match /usernames/{username} {
+      // Anyone authenticated can read usernames (for search/validation)
+      allow read: if isAuthenticated();
+      // Only allow creating new username entries (handled by server-side logic)
+      allow create: if isAuthenticated();
+      // No updates or deletes allowed directly
+      allow update, delete: if false;
+    }
+
+    // Friend requests collection
+    match /friend_requests/{requestId} {
+      // User can read requests where they are sender or recipient
+      allow read: if isAuthenticated() &&
+        (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      // User can create requests where they are the sender
+      allow create: if isAuthenticated() && request.resource.data.from == request.auth.uid;
+      // User can update/delete requests where they are sender or recipient
+      allow update, delete: if isAuthenticated() &&
+        (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+    }
+
+    // Shared items collection
+    match /shared_items/{itemId} {
+      // User can read items shared to them
+      allow read: if isAuthenticated() && resource.data.toUserId == request.auth.uid;
+      // User can create items where they are the sender
+      allow create: if isAuthenticated() && request.resource.data.fromUserId == request.auth.uid;
+      // User can update/delete items where they are sender or recipient
+      allow update, delete: if isAuthenticated() &&
+        (resource.data.fromUserId == request.auth.uid || resource.data.toUserId == request.auth.uid);
     }
 
     // Deny all other access by default
