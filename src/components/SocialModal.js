@@ -9,7 +9,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Modal,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -441,24 +440,16 @@ export const SocialModal = ({
   );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        <StatusBar style="light" hidden={true} />
+    <View style={styles.container}>
+      <StatusBar style="light" hidden={true} />
 
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.closeButton}>Done</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Social</Text>
-          {profile && (
-            <Text style={styles.myUsername}>@{profile.username}</Text>
-          )}
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Social</Text>
+        {profile && (
+          <Text style={styles.myUsername}>@{profile.username}</Text>
+        )}
+      </View>
 
         {/* Tabs */}
         <View style={styles.tabs}>
@@ -510,8 +501,7 @@ export const SocialModal = ({
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'inbox' && renderInboxTab()}
         {activeTab === 'add' && renderAddTab()}
-      </View>
-    </Modal>
+    </View>
   );
 };
 
@@ -521,19 +511,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
     paddingTop: 50,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  closeButton: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
@@ -543,6 +528,7 @@ const styles = StyleSheet.create({
   myUsername: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 4,
   },
   tabs: {
     flexDirection: 'row',
