@@ -638,6 +638,30 @@ export const HomeScreen = ({ user }) => {
     );
   };
 
+  const moveSelectedRecipesToFolder = () => {
+    if (selectedRecipes.size === 0) return;
+    setShowMoveToFolder(true);
+  };
+
+  const handleMoveSelectedToFolder = async (targetFolder) => {
+    if (selectedRecipes.size === 0) return;
+
+    const recipeCount = selectedRecipes.size;
+    const recipeIds = Array.from(selectedRecipes);
+
+    // Move all selected recipes to the target folder
+    for (const recipeId of recipeIds) {
+      const recipe = recipes.find(r => r.id === recipeId);
+      if (recipe) {
+        await moveRecipeToFolder(recipe, targetFolder);
+      }
+    }
+
+    setShowMoveToFolder(false);
+    exitMultiselectMode();
+    Alert.alert('✅ Success', `Moved ${recipeCount} recipe${recipeCount > 1 ? 's' : ''} to ${targetFolder}`);
+  };
+
   // Base64 encode helper (handles Unicode properly)
   const encodeBase64 = (str) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -998,7 +1022,10 @@ export const HomeScreen = ({ user }) => {
 
   // Handle move to folder
   const handleMoveToFolder = (newFolder) => {
-    if (selectedRecipe) {
+    // Check if we're in multiselect mode
+    if (multiselectMode && selectedRecipes.size > 0) {
+      handleMoveSelectedToFolder(newFolder);
+    } else if (selectedRecipe) {
       moveRecipeToFolder(selectedRecipe.id, newFolder);
       setShowMoveToFolder(false);
     }
@@ -1470,15 +1497,26 @@ export const HomeScreen = ({ user }) => {
                   <Text style={styles.toolbarTitle}>
                     {selectedRecipes.size} selected
                   </Text>
-                  <TouchableOpacity
-                    onPress={deleteSelectedRecipes}
-                    style={[styles.toolbarButton, styles.deleteButton]}
-                    disabled={selectedRecipes.size === 0}
-                  >
-                    <Text style={[styles.toolbarButtonText, styles.deleteButtonText]}>
-                      Delete
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.toolbarActions}>
+                    <TouchableOpacity
+                      onPress={moveSelectedRecipesToFolder}
+                      style={[styles.toolbarButton, styles.folderButton]}
+                      disabled={selectedRecipes.size === 0}
+                    >
+                      <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
+                        📁 Folder
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={deleteSelectedRecipes}
+                      style={[styles.toolbarButton, styles.deleteButton]}
+                      disabled={selectedRecipes.size === 0}
+                    >
+                      <Text style={[styles.toolbarButtonText, styles.deleteButtonText]}>
+                        🗑️ Delete
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
               {sortedRecipes.map((recipe) => {
@@ -1924,7 +1962,7 @@ export const HomeScreen = ({ user }) => {
       </Modal>
 
       {/* Move to Folder Modal */}
-      {showMoveToFolder && selectedRecipe && (
+      {showMoveToFolder && (selectedRecipe || multiselectMode) && (
         <Modal
           visible={showMoveToFolder}
           animationType="fade"
@@ -1933,7 +1971,12 @@ export const HomeScreen = ({ user }) => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.addFolderModal}>
-              <Text style={styles.addFolderTitle}>Move to Cookbook</Text>
+              <Text style={styles.addFolderTitle}>
+                {multiselectMode
+                  ? `Move ${selectedRecipes.size} Recipe${selectedRecipes.size > 1 ? 's' : ''} to Cookbook`
+                  : 'Move to Cookbook'
+                }
+              </Text>
               {getCustomFolders().map(folder => (
                 <TouchableOpacity
                   key={folder}
@@ -2306,6 +2349,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  toolbarActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  folderButton: {
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+  },
+  folderButtonText: {
+    color: colors.primary,
   },
   deleteButton: {
     backgroundColor: colors.error,
