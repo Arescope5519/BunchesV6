@@ -50,6 +50,16 @@ export const useSocial = (user) => {
         setNeedsUsername(true);
         setProfile(null);
       } else {
+        // Ensure user has a user code (migration for existing accounts)
+        if (!userProfile.userCode) {
+          try {
+            const userCode = await socialModule.ensureUserCode(user.uid);
+            userProfile.userCode = userCode;
+          } catch (error) {
+            console.error('Failed to generate user code:', error);
+          }
+        }
+
         setProfile(userProfile);
         setNeedsUsername(false);
       }

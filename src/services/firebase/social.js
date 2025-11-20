@@ -168,6 +168,42 @@ export const getUserProfile = async (userId) => {
 };
 
 /**
+ * Ensure user has a user code (migration for existing accounts)
+ * @param {string} userId - User's UID
+ * @returns {Promise<string>} User code (existing or newly generated)
+ */
+export const ensureUserCode = async (userId) => {
+  try {
+    const userRef = firestore().collection(USERS_COLLECTION).doc(userId);
+    const doc = await userRef.get();
+
+    if (!doc.exists) {
+      throw new Error('User not found');
+    }
+
+    const data = doc.data();
+
+    // If user already has a code, return it
+    if (data.userCode) {
+      return data.userCode;
+    }
+
+    // Generate a new user code for existing account
+    const userCode = generateUserCode();
+    await userRef.update({
+      userCode: userCode,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`✅ Generated user code for existing account: ${userCode}`);
+    return userCode;
+  } catch (error) {
+    console.error('Error ensuring user code:', error);
+    throw error;
+  }
+};
+
+/**
  * Search for users by username or user code
  * @param {string} searchTerm - Username or user code to search for
  * @param {string} currentUserId - Current user's ID (to exclude from results)
@@ -662,6 +698,7 @@ export default {
   setupUserProfile,
   changeUsername,
   getUserProfile,
+  ensureUserCode,
   searchUsersByUsername,
   sendFriendRequest,
   acceptFriendRequest,
