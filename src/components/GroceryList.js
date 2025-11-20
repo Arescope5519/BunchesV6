@@ -7,7 +7,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -186,16 +185,11 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Grocery List</Text>
-          <View style={styles.headerRight} />
-        </View>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Grocery List</Text>
+      </View>
 
         {/* Action Buttons */}
         <View style={styles.actionBar}>
@@ -230,8 +224,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
             <Text style={styles.globalUndoText}>↶ Undo: {lastActionDescription}</Text>
           </TouchableOpacity>
         )}
-      </View>
-    </Modal>
+    </View>
   );
 };
 
@@ -243,7 +236,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingTop: 50,
     paddingHorizontal: 15,
     paddingBottom: 15,
