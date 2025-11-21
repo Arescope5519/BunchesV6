@@ -370,16 +370,6 @@ export const HomeScreen = ({ user }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
-          onPress={() => handleNavigation('settings')}
-        >
-          <Text style={styles.navButtonIcon}>⚙️</Text>
-          <Text style={[styles.navButtonText, currentScreen === 'settings' && styles.navButtonTextActive]}>
-            Settings
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.navButton, currentScreen === 'grocery' && styles.navButtonActive]}
           onPress={() => handleNavigation('grocery')}
         >
@@ -391,6 +381,16 @@ export const HomeScreen = ({ user }) => {
           )}
           <Text style={[styles.navButtonText, currentScreen === 'grocery' && styles.navButtonTextActive]}>
             Shopping
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
+          onPress={() => handleNavigation('settings')}
+        >
+          <Text style={styles.navButtonIcon}>⚙️</Text>
+          <Text style={[styles.navButtonText, currentScreen === 'settings' && styles.navButtonTextActive]}>
+            Settings
           </Text>
         </TouchableOpacity>
       </View>
