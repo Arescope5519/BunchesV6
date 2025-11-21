@@ -6,18 +6,18 @@
 import { useState, useEffect } from 'react';
 import { saveGroceryList, loadGroceryList } from '../utils/storage';
 
-export const useGroceryList = () => {
+export const useGroceryList = (user) => {
   const [groceryList, setGroceryList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load grocery list on mount
+  // Load grocery list on mount and when user changes
   useEffect(() => {
     loadList();
-  }, []);
+  }, [user?.uid]);
 
   const loadList = async () => {
     setLoading(true);
-    const list = await loadGroceryList();
+    const list = await loadGroceryList(user?.uid);
     setGroceryList(list);
     setLoading(false);
   };
@@ -41,7 +41,7 @@ export const useGroceryList = () => {
 
     const updatedList = [...groceryList, ...newItems];
     setGroceryList(updatedList);
-    await saveGroceryList(updatedList);
+    await saveGroceryList(updatedList, user?.uid);
     return newItems.length;
   };
 
@@ -51,7 +51,7 @@ export const useGroceryList = () => {
   const removeItem = async (itemId) => {
     const updatedList = groceryList.filter(item => item.id !== itemId);
     setGroceryList(updatedList);
-    await saveGroceryList(updatedList);
+    await saveGroceryList(updatedList, user?.uid);
   };
 
   /**
@@ -62,7 +62,7 @@ export const useGroceryList = () => {
       item.id === itemId ? { ...item, checked: !item.checked } : item
     );
     setGroceryList(updatedList);
-    await saveGroceryList(updatedList);
+    await saveGroceryList(updatedList, user?.uid);
   };
 
   /**
@@ -71,7 +71,7 @@ export const useGroceryList = () => {
   const clearCheckedItems = async () => {
     const updatedList = groceryList.filter(item => !item.checked);
     setGroceryList(updatedList);
-    await saveGroceryList(updatedList);
+    await saveGroceryList(updatedList, user?.uid);
   };
 
   /**
@@ -79,7 +79,7 @@ export const useGroceryList = () => {
    */
   const clearAllItems = async () => {
     setGroceryList([]);
-    await saveGroceryList([]);
+    await saveGroceryList([], user?.uid);
   };
 
   /**
@@ -101,7 +101,7 @@ export const useGroceryList = () => {
    */
   const restoreList = async (listSnapshot) => {
     setGroceryList(listSnapshot);
-    await saveGroceryList(listSnapshot);
+    await saveGroceryList(listSnapshot, user?.uid);
   };
 
   return {

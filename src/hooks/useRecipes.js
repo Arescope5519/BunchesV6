@@ -37,15 +37,16 @@ export const useRecipes = (user) => {
   const loadRecipes = async () => {
     try {
       setLoadingRecipes(true);
-      const localRecipes = await loadRecipesFromStorage();
+      // Load recipes for the specific user (or global if no user)
+      const localRecipes = await loadRecipesFromStorage(user?.uid);
 
       if (user && !synced && syncRecipesWithFirestore) {
         // User is signed in and Firestore is available - sync
         console.log('🔄 Syncing with Firestore...');
         const mergedRecipes = await syncRecipesWithFirestore(user.uid, localRecipes);
 
-        // Save merged recipes locally
-        await saveRecipesToStorage(mergedRecipes);
+        // Save merged recipes locally with user-specific key
+        await saveRecipesToStorage(mergedRecipes, user.uid);
         setRecipes(mergedRecipes);
         setSynced(true);
         console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
@@ -58,7 +59,7 @@ export const useRecipes = (user) => {
       console.error('Failed to load recipes:', error);
       // Fallback to local recipes
       try {
-        const localRecipes = await loadRecipesFromStorage();
+        const localRecipes = await loadRecipesFromStorage(user?.uid);
         setRecipes(localRecipes);
       } catch (fallbackError) {
         console.error('Failed to load local recipes:', fallbackError);
@@ -85,7 +86,7 @@ export const useRecipes = (user) => {
     };
 
     const updatedRecipes = [recipeWithTimestamp, ...recipes];
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -115,7 +116,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeWithTimestamp.id ? recipeWithTimestamp : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -142,7 +143,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, deletedAt: Date.now(), updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -192,7 +193,7 @@ export const useRecipes = (user) => {
       }
       return r;
     });
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -242,7 +243,7 @@ export const useRecipes = (user) => {
             style: 'destructive',
             onPress: async () => {
               const updated = recipes.filter(r => r.id !== recipeId);
-              const success = await saveRecipesToStorage(updated);
+              const success = await saveRecipesToStorage(updated, user?.uid);
 
               if (success) {
                 setRecipes(updated);
@@ -293,7 +294,7 @@ export const useRecipes = (user) => {
             onPress: async () => {
               const deletedRecipes = recipes.filter(r => r.deletedAt);
               const updated = recipes.filter(r => !r.deletedAt);
-              const success = await saveRecipesToStorage(updated);
+              const success = await saveRecipesToStorage(updated, user?.uid);
 
               if (success) {
                 setRecipes(updated);
@@ -332,7 +333,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, isFavorite: !r.isFavorite, updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -361,7 +362,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, folder: newFolder, updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -395,7 +396,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       recipeIdSet.has(r.id) ? { ...r, folder: newFolder, updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
 
     if (success) {
       setRecipes(updatedRecipes);

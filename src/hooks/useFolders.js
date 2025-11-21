@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
 
-export const useFolders = () => {
+export const useFolders = (user) => {
   const [folders, setFolders] = useState(['All Recipes', 'Favorites', 'Recently Deleted']);
   const [currentFolder, setCurrentFolder] = useState('All Recipes');
 
@@ -16,7 +16,7 @@ export const useFolders = () => {
    * Load folders from storage
    */
   const loadFolders = async () => {
-    const loaded = await loadFoldersFromStorage();
+    const loaded = await loadFoldersFromStorage(user?.uid);
     setFolders(loaded);
   };
 
@@ -35,7 +35,7 @@ export const useFolders = () => {
     }
 
     const newFolders = [...folders, folderName.trim()];
-    const success = await saveFoldersToStorage(newFolders);
+    const success = await saveFoldersToStorage(newFolders, user?.uid);
 
     if (success) {
       setFolders(newFolders);
@@ -61,7 +61,7 @@ export const useFolders = () => {
 
     // Update folders list
     const updatedFolders = folders.map(f => f === oldName ? newName.trim() : f);
-    const success = await saveFoldersToStorage(updatedFolders);
+    const success = await saveFoldersToStorage(updatedFolders, user?.uid);
 
     if (success) {
       setFolders(updatedFolders);
@@ -87,7 +87,7 @@ export const useFolders = () => {
             onPress: async () => {
               // Remove folder
               const updatedFolders = folders.filter(f => f !== folderName);
-              const success = await saveFoldersToStorage(updatedFolders);
+              const success = await saveFoldersToStorage(updatedFolders, user?.uid);
 
               if (success) {
                 setFolders(updatedFolders);
@@ -110,10 +110,10 @@ export const useFolders = () => {
     return folders.filter(f => f !== 'All Recipes' && f !== 'Favorites' && f !== 'Recently Deleted');
   };
 
-  // Load folders on mount
+  // Load folders on mount and when user changes
   useEffect(() => {
     loadFolders();
-  }, []);
+  }, [user?.uid]);
 
   return {
     folders,

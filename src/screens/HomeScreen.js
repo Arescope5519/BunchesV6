@@ -151,7 +151,7 @@ export const HomeScreen = ({ user }) => {
     renameFolder: renameFolderBase,
     deleteFolder: deleteFolderBase,
     getCustomFolders,
-  } = useFolders();
+  } = useFolders(user);
 
   const {
     groceryList,
@@ -163,7 +163,7 @@ export const HomeScreen = ({ user }) => {
     clearAllItems,
     getUncheckedCount,
     restoreList: restoreGroceryList,
-  } = useGroceryList();
+  } = useGroceryList(user);
 
   // Global undo system
   const {
