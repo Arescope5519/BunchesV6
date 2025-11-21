@@ -12,6 +12,29 @@ const FRIEND_REQUESTS_COLLECTION = 'friend_requests';
 const SHARED_ITEMS_COLLECTION = 'shared_items';
 
 /**
+ * Remove undefined values from an object (Firestore doesn't allow undefined)
+ * @param {Object} obj - Object to clean
+ * @returns {Object} Object without undefined values
+ */
+const removeUndefinedFields = (obj) => {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefinedFields(item));
+  }
+
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = typeof value === 'object' ? removeUndefinedFields(value) : value;
+    }
+  }
+  return cleaned;
+};
+
+/**
  * Generate a random user code (6 characters)
  * @returns {string} Random alphanumeric code
  */
@@ -541,6 +564,9 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
   try {
     const senderProfile = await getUserProfile(fromUserId);
 
+    // Clean data to remove undefined values (Firestore doesn't allow them)
+    const cleanedData = removeUndefinedFields(data);
+
     const batch = firestore().batch();
 
     for (const toUserId of toUserIds) {
@@ -561,7 +587,7 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
         to: toUserId,
         type: type,
         name: name,
-        data: data,
+        data: cleanedData,
         status: 'pending', // pending, imported, declined
         createdAt: firestore.FieldValue.serverTimestamp(),
       });

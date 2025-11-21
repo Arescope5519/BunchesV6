@@ -837,14 +837,11 @@ export const HomeScreen = ({ user }) => {
             text: 'Share to Friends',
             onPress: () => {
               // Clean recipe data for sharing
-              const cleanedRecipe = {
-                ...recipe,
-                deletedAt: undefined,
-                id: undefined, // Will get new ID on import
-              };
+              // Clean recipe for sharing - remove undefined fields and system fields
+              const { deletedAt, id, ...cleanRecipe } = recipe;
               setShareItem({
                 type: 'recipe',
-                data: cleanedRecipe,
+                data: cleanRecipe,
                 name: recipe.title,
               });
               setShowShareToFriends(true);
@@ -916,11 +913,11 @@ export const HomeScreen = ({ user }) => {
             text: 'Share to Friends',
             onPress: () => {
               // Clean recipes for sharing
-              const cleanedRecipes = recipesInCookbook.map(r => ({
-                ...r,
-                deletedAt: undefined,
-                id: undefined,
-              }));
+              // Clean recipes for sharing - remove undefined fields and system fields
+              const cleanedRecipes = recipesInCookbook.map(r => {
+                const { deletedAt, id, ...cleanRecipe } = r;
+                return cleanRecipe;
+              });
               setShareItem({
                 type: 'cookbook',
                 data: cleanedRecipes,
