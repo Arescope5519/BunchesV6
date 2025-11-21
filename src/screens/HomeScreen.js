@@ -2293,11 +2293,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   folderButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
     borderRadius: 6,
   },
   folderButtonText: {
-    color: colors.primary,
+    color: '#fff',
   },
   deleteButton: {
     backgroundColor: colors.error,
