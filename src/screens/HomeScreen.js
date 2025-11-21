@@ -724,7 +724,7 @@ export const HomeScreen = ({ user }) => {
     for (const recipeId of recipeIds) {
       const recipe = recipes.find(r => r.id === recipeId);
       if (recipe) {
-        await moveRecipeToFolder(recipe, targetFolder);
+        await moveRecipeToFolder(recipe.id, targetFolder);
       }
     }
 
@@ -1473,7 +1473,7 @@ export const HomeScreen = ({ user }) => {
                       disabled={selectedRecipes.size === 0}
                     >
                       <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
-                        📁 Folder
+                        Move
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
