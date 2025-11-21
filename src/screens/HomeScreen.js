@@ -138,6 +138,7 @@ export const HomeScreen = ({ user }) => {
     emptyRecentlyDeleted,
     toggleFavorite,
     moveToFolder: moveRecipeToFolder,
+    moveManyToFolder,
     getFilteredRecipes,
     refreshRecipes,
   } = useRecipes(user);
@@ -720,17 +721,17 @@ export const HomeScreen = ({ user }) => {
     const recipeCount = selectedRecipes.size;
     const recipeIds = Array.from(selectedRecipes);
 
-    // Move all selected recipes to the target folder
-    for (const recipeId of recipeIds) {
-      const recipe = recipes.find(r => r.id === recipeId);
-      if (recipe) {
-        await moveRecipeToFolder(recipe.id, targetFolder);
-      }
-    }
+    // Move all selected recipes to the target folder in one batch operation
+    const success = await moveManyToFolder(recipeIds, targetFolder);
 
     setShowMoveToFolder(false);
     exitMultiselectMode();
-    Alert.alert('✅ Success', `Moved ${recipeCount} recipe${recipeCount > 1 ? 's' : ''} to ${targetFolder}`);
+
+    if (success) {
+      Alert.alert('✅ Success', `Moved ${recipeCount} recipe${recipeCount > 1 ? 's' : ''} to ${targetFolder}`);
+    } else {
+      Alert.alert('Error', 'Failed to move recipes');
+    }
   };
 
   // Base64 encode helper (handles Unicode properly)

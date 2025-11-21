@@ -388,6 +388,39 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * Move multiple recipes to folder (for batch operations)
+   */
+  const moveManyToFolder = async (recipeIds, newFolder) => {
+    const recipeIdSet = new Set(recipeIds);
+    const updatedRecipes = recipes.map(r =>
+      recipeIdSet.has(r.id) ? { ...r, folder: newFolder, updatedAt: Date.now() } : r
+    );
+    const success = await saveRecipesToStorage(updatedRecipes);
+
+    if (success) {
+      setRecipes(updatedRecipes);
+
+      // Update selectedRecipe if it's one of the ones being moved
+      if (selectedRecipe && recipeIdSet.has(selectedRecipe.id)) {
+        setSelectedRecipe({ ...selectedRecipe, folder: newFolder });
+      }
+
+      // Sync to Firestore in background if user is signed in
+      if (user) {
+        const movedRecipes = updatedRecipes.filter(r => recipeIdSet.has(r.id));
+        movedRecipes.forEach(recipe => {
+          saveRecipeToFirestore(user.uid, recipe).catch(err =>
+            console.error('Failed to sync folder move to Firestore:', err)
+          );
+        });
+      }
+
+      return true;
+    }
+    return false;
+  };
+
+  /**
    * Get filtered recipes by folder (excludes deleted recipes except in Recently Deleted)
    */
   const getFilteredRecipes = (currentFolder) => {
@@ -426,6 +459,7 @@ export const useRecipes = (user) => {
     emptyRecentlyDeleted,
     toggleFavorite,
     moveToFolder,
+    moveManyToFolder,
     getFilteredRecipes,
     refreshRecipes: loadRecipes,
   };
