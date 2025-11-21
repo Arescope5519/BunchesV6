@@ -8,8 +8,8 @@
  * USED BY: src/screens/HomeScreen.js
  */
 
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Platform, AppState } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -21,6 +21,9 @@ try {
 }
 
 export const useShareIntent = (onUrlReceived) => {
+  const processedInitialShare = useRef(false);
+  const lastProcessedUrl = useRef(null);
+
   /**
    * Handle shared URLs from browser
    */
@@ -65,13 +68,46 @@ export const useShareIntent = (onUrlReceived) => {
 
     // Call the callback with extracted URL
     if (sharedUrl) {
+      // Check if we already processed this URL to avoid duplicates
+      if (lastProcessedUrl.current === sharedUrl) {
+        console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL:`, sharedUrl);
+        return;
+      }
+
       console.log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
+      lastProcessedUrl.current = sharedUrl;
+
       if (onUrlReceived) {
         onUrlReceived(sharedUrl);
+      }
+
+      // Clear the received files after processing
+      if (ReceiveSharingIntent) {
+        ReceiveSharingIntent.clearReceivedFiles();
       }
     } else {
       console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
     }
+  };
+
+  /**
+   * Check for pending share intents
+   */
+  const checkForSharedContent = () => {
+    if (!ReceiveSharingIntent) return;
+
+    console.log(`🔍 [${Platform.OS}] Checking for shared content`);
+    ReceiveSharingIntent.getReceivedFiles(
+      (files) => {
+        console.log(`📥 [${Platform.OS}] Received files:`, files);
+        if (files && files.length > 0) {
+          handleSharedUrl(files[0]);
+        }
+      },
+      (error) => {
+        console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
+      }
+    );
   };
 
   /**
@@ -86,18 +122,11 @@ export const useShareIntent = (onUrlReceived) => {
     console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
     try {
-      // Handle shares when app is closed/not running
-      ReceiveSharingIntent.getReceivedFiles(
-        (files) => {
-          console.log(`📥 [${Platform.OS}] Received files on app start:`, files);
-          if (files && files.length > 0) {
-            handleSharedUrl(files[0]);
-          }
-        },
-        (error) => {
-          console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
-        }
-      );
+      // Check for shares when app starts
+      if (!processedInitialShare.current) {
+        checkForSharedContent();
+        processedInitialShare.current = true;
+      }
 
       // Handle shares when app is already open
       // iOS uses 'url' event, Android can use both 'url' and other events
@@ -111,12 +140,24 @@ export const useShareIntent = (onUrlReceived) => {
         }
       });
 
+      // Listen for app state changes to check for new shares when app comes to foreground
+      const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+        console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
+        if (nextAppState === 'active') {
+          // When app becomes active, check for new shares
+          console.log(`🔄 [${Platform.OS}] App became active, checking for new shares`);
+          checkForSharedContent();
+        }
+      });
+
       // Cleanup
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
-        ReceiveSharingIntent.clearReceivedFiles();
         if (subscription && typeof subscription.remove === 'function') {
           subscription.remove();
+        }
+        if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
+          appStateSubscription.remove();
         }
       };
     } catch (error) {
