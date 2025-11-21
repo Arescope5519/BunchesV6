@@ -413,7 +413,7 @@ export const HomeScreen = ({ user }) => {
   const handleClearAllData = async () => {
     try {
       const { saveRecipes } = require('../utils/storage');
-      await saveRecipes([]);
+      await saveRecipes([], user?.uid); // FIX: Pass userId
       await refreshRecipes();
       setCurrentScreen('recipes');
       Alert.alert('✅ Success', 'All data has been cleared');
@@ -650,7 +650,7 @@ export const HomeScreen = ({ user }) => {
             if (isPermanentDelete) {
               // Permanently delete: remove from array entirely
               const updatedRecipes = recipes.filter(r => !recipeIds.includes(r.id));
-              await saveRecipes(updatedRecipes);
+              await saveRecipes(updatedRecipes, user?.uid); // FIX: Pass userId
 
               // Delete from Firestore if user is signed in
               if (user && deleteRecipeFromFirestore) {
@@ -670,7 +670,7 @@ export const HomeScreen = ({ user }) => {
               const updatedRecipes = recipes.map(r =>
                 recipeIds.includes(r.id) ? { ...r, deletedAt: now, updatedAt: now } : r
               );
-              await saveRecipes(updatedRecipes);
+              await saveRecipes(updatedRecipes, user?.uid); // FIX: Pass userId
 
               // Sync to Firestore if user is signed in
               if (user && saveRecipeToFirestore) {
@@ -1037,7 +1037,7 @@ export const HomeScreen = ({ user }) => {
       // Save all at once by prepending to existing recipes
       const { saveRecipes } = require('../utils/storage');
       const currentRecipes = recipes.filter(r => !r.deletedAt); // Get current non-deleted recipes
-      await saveRecipes([...newRecipes, ...currentRecipes]);
+      await saveRecipes([...newRecipes, ...currentRecipes], user?.uid); // FIX: Pass userId
 
       // Reload to reflect changes
       await refreshRecipes();

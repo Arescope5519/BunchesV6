@@ -143,13 +143,8 @@ export const useRecipes = (user) => {
    * Delete recipe (soft delete - moves to Recently Deleted)
    */
   const deleteRecipe = async (recipeId) => {
-    // FIRST THING - check if function is called
-    Alert.alert('DEBUG DELETE', `Function called!\nRecipe ID: ${recipeId}`);
-
     console.log(`🗑️ [DELETE] Starting deletion for recipe ${recipeId}, user.uid: ${user?.uid}`);
     console.log(`🗑️ [DELETE] Current recipes count: ${recipes.length}`);
-
-    Alert.alert('DEBUG', `Starting delete\nRecipe: ${recipeId}\nUser: ${user?.uid}\nRecipes: ${recipes.length}`);
 
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, deletedAt: Date.now(), updatedAt: Date.now() } : r
@@ -161,8 +156,6 @@ export const useRecipes = (user) => {
 
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
     console.log(`🗑️ [DELETE] Save to storage success: ${success}`);
-
-    Alert.alert('DEBUG', `Save success: ${success}\nRecipe has deletedAt: ${!!deletedRecipe?.deletedAt}\nUpdated count: ${updatedRecipes.length}`);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -192,19 +185,16 @@ export const useRecipes = (user) => {
             console.log(`✅ Tracked soft-deleted recipe ${recipeId} in deletion list`);
           } catch (err) {
             console.error('❌ Failed to sync deletion to Firestore:', err);
-            Alert.alert('DEBUG', `Firestore sync error: ${err.message}`);
             // Don't fail the deletion if Firestore sync fails - deletion tracking will handle restoration prevention
           }
         }
       }
 
       console.log(`✅ [DELETE] Deletion complete for recipe ${recipeId}`);
-      Alert.alert('DEBUG', `Delete completed successfully!`);
       return true;
     }
 
     console.error(`❌ [DELETE] Failed to save recipes to storage for recipe ${recipeId}`);
-    Alert.alert('DEBUG', `FAILED to save to storage!`);
     return false;
   };
 
@@ -268,15 +258,8 @@ export const useRecipes = (user) => {
             text: 'Delete Forever',
             style: 'destructive',
             onPress: async () => {
-              Alert.alert('DEBUG', `Perm delete starting\nRecipe: ${recipeId}\nUser: ${user?.uid}\nCurrent count: ${recipes.length}`);
-
               const updated = recipes.filter(r => r.id !== recipeId);
-
-              Alert.alert('DEBUG', `Filtered recipes\nNew count: ${updated.length}`);
-
               const success = await saveRecipesToStorage(updated, user?.uid);
-
-              Alert.alert('DEBUG', `Save success: ${success}`);
 
               if (success) {
                 setRecipes(updated);
@@ -287,17 +270,14 @@ export const useRecipes = (user) => {
                   try {
                     await deleteRecipeFromFirestore(user.uid, recipeId);
                     console.log(`✅ Deleted recipe ${recipeId} from Firestore`);
-                    Alert.alert('DEBUG', `Firestore delete successful`);
                   } catch (err) {
                     console.error('❌ Failed to delete recipe from Firestore:', err);
                     Alert.alert('Warning', 'Recipe deleted locally but may still exist in cloud. Please check your internet connection.');
                   }
                 }
 
-                Alert.alert('DEBUG', `Permanent delete completed!`);
                 resolve(true);
               } else {
-                Alert.alert('DEBUG', `FAILED to save to storage!`);
                 resolve(false);
               }
             }
