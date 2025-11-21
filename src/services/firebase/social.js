@@ -608,16 +608,17 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
  */
 export const getReceivedSharedItems = async (userId) => {
   try {
+    console.log('🔍 Fetching shared items for user:', userId);
     const snapshot = await firestore()
       .collection(SHARED_ITEMS_COLLECTION)
       .where('to', '==', userId)
       .where('status', '==', 'pending')
-      .orderBy('createdAt', 'desc')
       .get();
 
     const items = [];
     snapshot.forEach(doc => {
       const data = doc.data();
+      console.log('📦 Found shared item:', doc.id, data);
       items.push({
         id: doc.id,
         ...data,
@@ -625,9 +626,13 @@ export const getReceivedSharedItems = async (userId) => {
       });
     });
 
+    // Sort by createdAt in memory to avoid composite index requirement
+    items.sort((a, b) => b.createdAt - a.createdAt);
+
+    console.log(`✅ Found ${items.length} shared items`);
     return items;
   } catch (error) {
-    console.error('Error getting shared items:', error);
+    console.error('❌ Error getting shared items:', error);
     throw error;
   }
 };
