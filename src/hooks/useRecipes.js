@@ -35,38 +35,41 @@ export const useRecipes = (user) => {
    * Load saved recipes and sync with Firestore if user is signed in
    */
   const loadRecipes = async () => {
+    console.log(`📂 [LOAD] Starting loadRecipes, user.uid: ${user?.uid}, synced: ${synced}`);
     try {
       setLoadingRecipes(true);
       // Load recipes for the specific user (or global if no user)
       const localRecipes = await loadRecipesFromStorage(user?.uid);
+      console.log(`📂 [LOAD] Loaded ${localRecipes.length} recipes from storage`);
 
       if (user && !synced && syncRecipesWithFirestore) {
         // User is signed in and Firestore is available - sync
-        console.log('🔄 Syncing with Firestore...');
+        console.log('🔄 [LOAD] Syncing with Firestore...');
         const mergedRecipes = await syncRecipesWithFirestore(user.uid, localRecipes);
 
         // Save merged recipes locally with user-specific key
         await saveRecipesToStorage(mergedRecipes, user.uid);
         setRecipes(mergedRecipes);
         setSynced(true);
-        console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
+        console.log(`📚 [LOAD] Loaded and synced ${mergedRecipes.length} recipes`);
       } else {
         // No user, already synced, or Firestore not available - use local recipes
         setRecipes(localRecipes);
-        console.log(`📚 Loaded ${localRecipes.length} recipes`);
+        console.log(`📚 [LOAD] Loaded ${localRecipes.length} recipes (no sync needed, synced=${synced})`);
       }
     } catch (error) {
-      console.error('Failed to load recipes:', error);
+      console.error('❌ [LOAD] Failed to load recipes:', error);
       // Fallback to local recipes
       try {
         const localRecipes = await loadRecipesFromStorage(user?.uid);
         setRecipes(localRecipes);
       } catch (fallbackError) {
-        console.error('Failed to load local recipes:', fallbackError);
+        console.error('❌ [LOAD] Failed to load local recipes:', fallbackError);
         setRecipes([]);
       }
     } finally {
       setLoadingRecipes(false);
+      console.log(`✅ [LOAD] loadRecipes complete`);
     }
   };
 
@@ -140,14 +143,24 @@ export const useRecipes = (user) => {
    * Delete recipe (soft delete - moves to Recently Deleted)
    */
   const deleteRecipe = async (recipeId) => {
+    console.log(`🗑️ [DELETE] Starting deletion for recipe ${recipeId}, user.uid: ${user?.uid}`);
+    console.log(`🗑️ [DELETE] Current recipes count: ${recipes.length}`);
+
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, deletedAt: Date.now(), updatedAt: Date.now() } : r
     );
+
+    console.log(`🗑️ [DELETE] Updated recipes count: ${updatedRecipes.length}`);
+    const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
+    console.log(`🗑️ [DELETE] Recipe has deletedAt: ${!!deletedRecipe?.deletedAt}`);
+
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid);
+    console.log(`🗑️ [DELETE] Save to storage success: ${success}`);
 
     if (success) {
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
+      console.log(`🗑️ [DELETE] State updated, recipes count now: ${updatedRecipes.length}`);
 
       // Sync to Firestore - MUST await to ensure it completes before app closes
       if (user && saveRecipeToFirestore && deleteRecipeFromFirestore) {
@@ -171,14 +184,17 @@ export const useRecipes = (user) => {
               }, { merge: true });
             console.log(`✅ Tracked soft-deleted recipe ${recipeId} in deletion list`);
           } catch (err) {
-            console.error('Failed to sync deletion to Firestore:', err);
+            console.error('❌ Failed to sync deletion to Firestore:', err);
             // Don't fail the deletion if Firestore sync fails - deletion tracking will handle restoration prevention
           }
         }
       }
 
+      console.log(`✅ [DELETE] Deletion complete for recipe ${recipeId}`);
       return true;
     }
+
+    console.error(`❌ [DELETE] Failed to save recipes to storage for recipe ${recipeId}`);
     return false;
   };
 
