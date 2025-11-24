@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState } from 'react-native';
+import { Platform, AppState, Alert } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -125,11 +125,15 @@ export const useShareIntent = (onUrlReceived) => {
       (files) => {
         console.log(`📥 [${Platform.OS}] Received files:`, files);
         if (files && files.length > 0) {
+          Alert.alert('DEBUG', `Found share data: ${JSON.stringify(files[0]).substring(0, 100)}`);
           handleSharedUrl(files[0]);
+        } else {
+          console.log(`ℹ️ [${Platform.OS}] No files found in check`);
         }
       },
       (error) => {
         console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
+        Alert.alert('DEBUG', `Error getting files: ${error.message}`);
       }
     );
   };
@@ -160,6 +164,7 @@ export const useShareIntent = (onUrlReceived) => {
       // Listen for 'url' event (primary)
       const urlSubscription = ReceiveSharingIntent.addEventListener('url', (event) => {
         console.log(`📥 [${Platform.OS}] Received 'url' event:`, event);
+        Alert.alert('DEBUG', `URL event fired: ${JSON.stringify(event).substring(0, 100)}`);
         if (event) {
           const dataToHandle = event.url || event;
           handleSharedUrl(dataToHandle);
@@ -198,6 +203,7 @@ export const useShareIntent = (onUrlReceived) => {
         if (nextAppState === 'active') {
           // When app becomes active, check for new shares VERY aggressively
           console.log(`🔄 [${Platform.OS}] App became active, checking for new shares AGGRESSIVELY`);
+          Alert.alert('DEBUG', 'App became active, checking for share...');
 
           // Check multiple times with increasing delays to catch the share whenever it becomes available
           // Some devices need longer delays before share data is ready
