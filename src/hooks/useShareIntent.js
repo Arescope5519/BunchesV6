@@ -116,26 +116,35 @@ export const useShareIntent = (onUrlReceived) => {
 
   /**
    * Check for pending share intents
+   * NOTE: This function is not called automatically anymore due to NullPointerException
+   * with singleTask launchMode. Kept for potential manual debugging only.
    */
   const checkForSharedContent = () => {
     if (!ReceiveSharingIntent) return;
 
     console.log(`🔍 [${Platform.OS}] Checking for shared content`);
-    ReceiveSharingIntent.getReceivedFiles(
-      (files) => {
-        console.log(`📥 [${Platform.OS}] Received files:`, files);
-        if (files && files.length > 0) {
-          Alert.alert('DEBUG', `Found share data: ${JSON.stringify(files[0]).substring(0, 100)}`);
-          handleSharedUrl(files[0]);
-        } else {
-          console.log(`ℹ️ [${Platform.OS}] No files found in check`);
+
+    try {
+      ReceiveSharingIntent.getReceivedFiles(
+        (files) => {
+          console.log(`📥 [${Platform.OS}] Received files:`, files);
+          if (files && files.length > 0) {
+            Alert.alert('DEBUG', `Found share data: ${JSON.stringify(files[0]).substring(0, 100)}`);
+            handleSharedUrl(files[0]);
+          } else {
+            console.log(`ℹ️ [${Platform.OS}] No files found in check`);
+          }
+        },
+        (error) => {
+          console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
+          // Don't show alert for expected errors with singleTask mode
+          console.log(`ℹ️ [${Platform.OS}] This is expected with singleTask - use event listeners instead`);
         }
-      },
-      (error) => {
-        console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
-        Alert.alert('DEBUG', `Error getting files: ${error.message}`);
-      }
-    );
+      );
+    } catch (error) {
+      console.error(`❌ [${Platform.OS}] Exception in checkForSharedContent:`, error);
+      // Silent catch - expected with singleTask mode
+    }
   };
 
   /**
@@ -150,11 +159,9 @@ export const useShareIntent = (onUrlReceived) => {
     console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
     try {
-      // Check for shares when app starts
-      if (!processedInitialShare.current) {
-        checkForSharedContent();
-        processedInitialShare.current = true;
-      }
+      // NOTE: With singleTask launchMode, we DON'T check for initial shares on mount
+      // because getReceivedFiles() causes NullPointerException. Event listeners will
+      // handle shares that happen during or before app launch.
 
       // Handle shares when app is already open - listen to multiple event types
       console.log(`🎧 [${Platform.OS}] Setting up event listeners...`);
