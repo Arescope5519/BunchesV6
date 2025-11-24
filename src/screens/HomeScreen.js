@@ -514,8 +514,11 @@ export const HomeScreen = ({ user }) => {
 
   // Share intent handler - extract and navigate to save screen
   useShareIntent((sharedUrl) => {
+    console.log(`🔗 [HOMESCREEN] Share intent received URL: ${sharedUrl}`);
+    console.log(`🔗 [HOMESCREEN] Current screen: ${currentScreen}`);
     setUrl(sharedUrl);
     // Extract recipe from shared URL (will navigate to save screen)
+    console.log(`🔗 [HOMESCREEN] Calling extractRecipe...`);
     extractRecipe(sharedUrl);
   });
 

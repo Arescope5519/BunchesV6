@@ -24,6 +24,12 @@ export const useShareIntent = (onUrlReceived) => {
   const processedInitialShare = useRef(false);
   const lastProcessedUrl = useRef(null);
   const lastProcessedTime = useRef(0);
+  const onUrlReceivedRef = useRef(onUrlReceived);
+
+  // Keep the callback ref up to date
+  useEffect(() => {
+    onUrlReceivedRef.current = onUrlReceived;
+  }, [onUrlReceived]);
 
   /**
    * Handle shared URLs from browser
@@ -82,8 +88,8 @@ export const useShareIntent = (onUrlReceived) => {
       lastProcessedUrl.current = sharedUrl;
       lastProcessedTime.current = now;
 
-      if (onUrlReceived) {
-        onUrlReceived(sharedUrl);
+      if (onUrlReceivedRef.current) {
+        onUrlReceivedRef.current(sharedUrl);
       }
 
       // Clear the received files after processing
@@ -151,22 +157,30 @@ export const useShareIntent = (onUrlReceived) => {
         if (nextAppState === 'active') {
           // When app becomes active, check for new shares
           console.log(`🔄 [${Platform.OS}] App became active, checking for new shares`);
-          // Small delay to ensure share data is ready
+          // Check immediately, then again after a short delay, then again after a longer delay
+          // This ensures we catch the share even if timing varies
+          checkForSharedContent();
           setTimeout(() => {
             checkForSharedContent();
           }, 100);
+          setTimeout(() => {
+            checkForSharedContent();
+          }, 500);
+          setTimeout(() => {
+            checkForSharedContent();
+          }, 1000);
         }
       });
 
       // ADDITIONAL: Set up polling to catch shares that might be missed
       // This is a fallback for when the app is already open and event listeners don't fire
-      // Poll less frequently (every 3 seconds) to reduce battery impact
+      // Poll more frequently (every 2 seconds) when app is active
       const pollInterval = setInterval(() => {
         // Only poll when app is in foreground
         if (AppState.currentState === 'active') {
           checkForSharedContent();
         }
-      }, 3000); // Check every 3 seconds
+      }, 2000); // Check every 2 seconds
 
       // Cleanup
       return () => {
