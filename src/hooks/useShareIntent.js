@@ -86,21 +86,29 @@ export const useShareIntent = (onUrlReceived) => {
 
       console.log(`✅✅✅ [${Platform.OS}] URL EXTRACTED AND PROCESSING:`, sharedUrl);
       console.log(`🎯 [${Platform.OS}] Calling onUrlReceivedRef.current...`);
+      console.log(`🎯 [${Platform.OS}] onUrlReceivedRef.current is:`, onUrlReceivedRef.current ? 'defined' : 'null/undefined');
       lastProcessedUrl.current = sharedUrl;
       lastProcessedTime.current = now;
 
       if (onUrlReceivedRef.current) {
-        onUrlReceivedRef.current(sharedUrl);
-        console.log(`✅ [${Platform.OS}] Successfully called onUrlReceivedRef.current`);
+        try {
+          onUrlReceivedRef.current(sharedUrl);
+          console.log(`✅ [${Platform.OS}] Successfully called onUrlReceivedRef.current with URL:`, sharedUrl);
+        } catch (error) {
+          console.error(`❌ [${Platform.OS}] Error calling onUrlReceivedRef.current:`, error);
+        }
       } else {
         console.error(`❌ [${Platform.OS}] onUrlReceivedRef.current is null!`);
       }
 
-      // Clear the received files after processing
-      if (ReceiveSharingIntent) {
-        ReceiveSharingIntent.clearReceivedFiles();
-        console.log(`🧹 [${Platform.OS}] Cleared received files`);
-      }
+      // Delay clearing to ensure callback completes
+      // This prevents race conditions with aggressive checking
+      setTimeout(() => {
+        if (ReceiveSharingIntent) {
+          ReceiveSharingIntent.clearReceivedFiles();
+          console.log(`🧹 [${Platform.OS}] Cleared received files (delayed)`);
+        }
+      }, 500);
     } else {
       console.log(`ℹ️ [${Platform.OS}] No URL found in shared data (this is normal if no share pending)`);
     }

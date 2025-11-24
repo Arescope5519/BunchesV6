@@ -286,8 +286,21 @@ export const HomeScreen = ({ user }) => {
 
   const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
     // Navigate to save recipe screen with extracted recipe
-    setExtractedRecipe(recipe);
-    setCurrentScreen('saveRecipe');
+    console.log(`📝📝📝 [HOMESCREEN] ========================================`);
+    console.log(`📝📝📝 [HOMESCREEN] Recipe extraction complete callback!`);
+    console.log(`📝📝📝 [HOMESCREEN] Recipe title: ${recipe?.title}`);
+    console.log(`📝📝📝 [HOMESCREEN] About to navigate to saveRecipe screen`);
+    console.log(`📝📝📝 [HOMESCREEN] ========================================`);
+
+    try {
+      setExtractedRecipe(recipe);
+      console.log(`📝 [HOMESCREEN] Set extractedRecipe state`);
+
+      setCurrentScreen('saveRecipe');
+      console.log(`📝 [HOMESCREEN] Set currentScreen to 'saveRecipe'`);
+    } catch (error) {
+      console.error(`❌ [HOMESCREEN] Error in extraction callback:`, error);
+    }
   });
 
   // Handle save from SaveRecipeScreen
@@ -514,12 +527,24 @@ export const HomeScreen = ({ user }) => {
 
   // Share intent handler - extract and navigate to save screen
   useShareIntent((sharedUrl) => {
-    console.log(`🔗 [HOMESCREEN] Share intent received URL: ${sharedUrl}`);
-    console.log(`🔗 [HOMESCREEN] Current screen: ${currentScreen}`);
-    setUrl(sharedUrl);
-    // Extract recipe from shared URL (will navigate to save screen)
-    console.log(`🔗 [HOMESCREEN] Calling extractRecipe...`);
-    extractRecipe(sharedUrl);
+    console.log(`🔗🔗🔗 [HOMESCREEN] ========================================`);
+    console.log(`🔗🔗🔗 [HOMESCREEN] Share intent callback called!`);
+    console.log(`🔗🔗🔗 [HOMESCREEN] Received URL: ${sharedUrl}`);
+    console.log(`🔗🔗🔗 [HOMESCREEN] Current screen: ${currentScreen}`);
+    console.log(`🔗🔗🔗 [HOMESCREEN] extractRecipe function: ${typeof extractRecipe}`);
+    console.log(`🔗🔗🔗 [HOMESCREEN] ========================================`);
+
+    try {
+      setUrl(sharedUrl);
+      console.log(`🔗 [HOMESCREEN] Set URL state to: ${sharedUrl}`);
+
+      // Extract recipe from shared URL (will navigate to save screen)
+      console.log(`🔗 [HOMESCREEN] About to call extractRecipe...`);
+      extractRecipe(sharedUrl);
+      console.log(`🔗 [HOMESCREEN] Called extractRecipe successfully`);
+    } catch (error) {
+      console.error(`❌ [HOMESCREEN] Error in share intent callback:`, error);
+    }
   });
 
   // Grocery list handlers with undo support
