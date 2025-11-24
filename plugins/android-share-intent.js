@@ -17,11 +17,32 @@ const withAndroidShareIntent = (config) => {
       throw new Error('MainActivity not found in AndroidManifest.xml');
     }
 
-    // Set launchMode to singleTask to ensure share intents are delivered to existing instance
-    // This is critical for share intents to work when the app is already running
+    // Configure MainActivity to ensure only ONE instance exists system-wide
+    // This prevents separate instances opening inside other apps (like Google app)
+
+    // singleTask: Only one instance in its own task
     if (!mainActivity.$['android:launchMode']) {
       mainActivity.$['android:launchMode'] = 'singleTask';
-      console.log('✅ Set MainActivity launchMode to singleTask for share intents');
+      console.log('✅ Set MainActivity launchMode to singleTask');
+    }
+
+    // Empty taskAffinity ensures activity always launches in app's own task
+    // Without this, shares from Google app create instance inside Google's task
+    if (!mainActivity.$['android:taskAffinity']) {
+      mainActivity.$['android:taskAffinity'] = '';
+      console.log('✅ Set MainActivity taskAffinity to empty (own task)');
+    }
+
+    // Prevent multiple document instances in recents
+    if (!mainActivity.$['android:documentLaunchMode']) {
+      mainActivity.$['android:documentLaunchMode'] = 'never';
+      console.log('✅ Set MainActivity documentLaunchMode to never');
+    }
+
+    // Clear task when re-launching from home (optional but recommended)
+    if (!mainActivity.$['android:clearTaskOnLaunch']) {
+      mainActivity.$['android:clearTaskOnLaunch'] = 'false';
+      console.log('✅ Set MainActivity clearTaskOnLaunch to false');
     }
 
     // Ensure intent-filter array exists
