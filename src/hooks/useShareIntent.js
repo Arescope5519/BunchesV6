@@ -197,39 +197,25 @@ export const useShareIntent = (onUrlReceived) => {
         console.log(`ℹ️ [${Platform.OS}] 'data' event not available`);
       }
 
-      // Listen for app state changes to check for new shares when app comes to foreground
+      // Listen for app state changes
+      // NOTE: With singleTask launchMode, we DON'T call checkForSharedContent here
+      // because getReceivedFiles() causes NullPointerException when called on existing instance.
+      // Instead, share data is delivered via event listeners when onNewIntent fires.
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
-          // When app becomes active, check for new shares VERY aggressively
-          console.log(`🔄 [${Platform.OS}] App became active, checking for new shares AGGRESSIVELY`);
-          Alert.alert('DEBUG', 'App became active, checking for share...');
-
-          // Check multiple times with increasing delays to catch the share whenever it becomes available
-          // Some devices need longer delays before share data is ready
-          checkForSharedContent(); // Immediately
-
-          setTimeout(() => checkForSharedContent(), 50);    // 50ms
-          setTimeout(() => checkForSharedContent(), 100);   // 100ms
-          setTimeout(() => checkForSharedContent(), 200);   // 200ms
-          setTimeout(() => checkForSharedContent(), 500);   // 500ms
-          setTimeout(() => checkForSharedContent(), 750);   // 750ms
-          setTimeout(() => checkForSharedContent(), 1000);  // 1s
-          setTimeout(() => checkForSharedContent(), 1500);  // 1.5s
-          setTimeout(() => checkForSharedContent(), 2000);  // 2s
-          setTimeout(() => checkForSharedContent(), 3000);  // 3s - final check
+          console.log(`🔄 [${Platform.OS}] App became active. Event listeners will handle share if present.`);
+          Alert.alert('DEBUG', 'App active. Waiting for event listener to fire...');
         }
       });
 
-      // ADDITIONAL: Set up polling to catch shares that might be missed
-      // This is a fallback for when the app is already open and event listeners don't fire
-      // Poll frequently (every 1 second) when app is active for maximum responsiveness
-      const pollInterval = setInterval(() => {
-        // Only poll when app is in foreground
-        if (AppState.currentState === 'active') {
-          checkForSharedContent();
-        }
-      }, 1000); // Check every 1 second
+      // NOTE: Polling disabled because with singleTask launchMode, checkForSharedContent()
+      // causes NullPointerException. Event listeners should handle all share intents.
+      // const pollInterval = setInterval(() => {
+      //   if (AppState.currentState === 'active') {
+      //     checkForSharedContent();
+      //   }
+      // }, 1000);
 
       // Cleanup
       return () => {
@@ -243,7 +229,7 @@ export const useShareIntent = (onUrlReceived) => {
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
         }
-        clearInterval(pollInterval);
+        // Note: pollInterval cleanup removed since polling is disabled
       };
     } catch (error) {
       console.error(`⚠️ [${Platform.OS}] Could not setup share listener:`, error);

@@ -17,6 +17,7 @@
     "plugins": [
       "./plugins/ios-share-extension.js",
       "./plugins/android-share-intent.js",
+      "./plugins/android-on-new-intent.js",
       "@react-native-firebase/app",
       "@react-native-google-signin/google-signin"
     ],
