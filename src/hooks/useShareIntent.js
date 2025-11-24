@@ -23,6 +23,7 @@ try {
 export const useShareIntent = (onUrlReceived) => {
   const processedInitialShare = useRef(false);
   const lastProcessedUrl = useRef(null);
+  const lastProcessedTime = useRef(0);
 
   /**
    * Handle shared URLs from browser
@@ -68,14 +69,18 @@ export const useShareIntent = (onUrlReceived) => {
 
     // Call the callback with extracted URL
     if (sharedUrl) {
-      // Check if we already processed this URL to avoid duplicates
-      if (lastProcessedUrl.current === sharedUrl) {
-        console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL:`, sharedUrl);
+      const now = Date.now();
+
+      // Check if we already processed this URL recently (within 2 seconds) to avoid duplicates
+      // But allow the same URL to be shared again after 2 seconds
+      if (lastProcessedUrl.current === sharedUrl && (now - lastProcessedTime.current) < 2000) {
+        console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL (processed ${now - lastProcessedTime.current}ms ago):`, sharedUrl);
         return;
       }
 
       console.log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
       lastProcessedUrl.current = sharedUrl;
+      lastProcessedTime.current = now;
 
       if (onUrlReceived) {
         onUrlReceived(sharedUrl);
@@ -146,9 +151,22 @@ export const useShareIntent = (onUrlReceived) => {
         if (nextAppState === 'active') {
           // When app becomes active, check for new shares
           console.log(`🔄 [${Platform.OS}] App became active, checking for new shares`);
-          checkForSharedContent();
+          // Small delay to ensure share data is ready
+          setTimeout(() => {
+            checkForSharedContent();
+          }, 100);
         }
       });
+
+      // ADDITIONAL: Set up polling to catch shares that might be missed
+      // This is a fallback for when the app is already open and event listeners don't fire
+      // Poll less frequently (every 3 seconds) to reduce battery impact
+      const pollInterval = setInterval(() => {
+        // Only poll when app is in foreground
+        if (AppState.currentState === 'active') {
+          checkForSharedContent();
+        }
+      }, 3000); // Check every 3 seconds
 
       // Cleanup
       return () => {
@@ -159,6 +177,7 @@ export const useShareIntent = (onUrlReceived) => {
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
         }
+        clearInterval(pollInterval);
       };
     } catch (error) {
       console.error(`⚠️ [${Platform.OS}] Could not setup share listener:`, error);
