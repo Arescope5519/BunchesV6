@@ -17,6 +17,13 @@ const withAndroidShareIntent = (config) => {
       throw new Error('MainActivity not found in AndroidManifest.xml');
     }
 
+    // Set launchMode to singleTask to ensure share intents are delivered to existing instance
+    // This is critical for share intents to work when the app is already running
+    if (!mainActivity.$['android:launchMode']) {
+      mainActivity.$['android:launchMode'] = 'singleTask';
+      console.log('✅ Set MainActivity launchMode to singleTask for share intents');
+    }
+
     // Ensure intent-filter array exists
     if (!mainActivity['intent-filter']) {
       mainActivity['intent-filter'] = [];
