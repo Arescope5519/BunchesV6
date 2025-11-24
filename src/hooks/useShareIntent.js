@@ -181,6 +181,7 @@ export const useShareIntent = (onUrlReceived) => {
         }
       });
       subscriptions.push(urlSubscription);
+      Alert.alert('DEBUG', `URL event listener registered: ${!!urlSubscription}`);
 
       // Also try listening for other potential events
       try {
@@ -213,9 +214,9 @@ export const useShareIntent = (onUrlReceived) => {
       // Instead, share data is delivered via event listeners when onNewIntent fires.
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
+        Alert.alert('DEBUG', `App state changed to: ${nextAppState}`);
         if (nextAppState === 'active') {
           console.log(`🔄 [${Platform.OS}] App became active. Event listeners will handle share if present.`);
-          Alert.alert('DEBUG', 'App active. Waiting for event listener to fire...');
         }
       });
 
