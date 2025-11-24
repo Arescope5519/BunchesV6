@@ -19,31 +19,29 @@ const withAndroidShareIntent = (config) => {
 
     // Configure MainActivity to ensure only ONE instance exists system-wide
     // This prevents separate instances opening inside other apps (like Google app)
+    // FORCE these settings to override any defaults
 
     // singleTask: Only one instance in its own task
-    if (!mainActivity.$['android:launchMode']) {
-      mainActivity.$['android:launchMode'] = 'singleTask';
-      console.log('✅ Set MainActivity launchMode to singleTask');
-    }
+    mainActivity.$['android:launchMode'] = 'singleTask';
+    console.log('✅ Set MainActivity launchMode to singleTask');
 
     // Empty taskAffinity ensures activity always launches in app's own task
     // Without this, shares from Google app create instance inside Google's task
-    if (!mainActivity.$['android:taskAffinity']) {
-      mainActivity.$['android:taskAffinity'] = '';
-      console.log('✅ Set MainActivity taskAffinity to empty (own task)');
-    }
+    // CRITICAL: Must be empty string, not undefined
+    mainActivity.$['android:taskAffinity'] = '';
+    console.log('✅ Set MainActivity taskAffinity to empty (forces own task)');
 
     // Prevent multiple document instances in recents
-    if (!mainActivity.$['android:documentLaunchMode']) {
-      mainActivity.$['android:documentLaunchMode'] = 'never';
-      console.log('✅ Set MainActivity documentLaunchMode to never');
-    }
+    mainActivity.$['android:documentLaunchMode'] = 'never';
+    console.log('✅ Set MainActivity documentLaunchMode to never');
 
-    // Clear task when re-launching from home (optional but recommended)
-    if (!mainActivity.$['android:clearTaskOnLaunch']) {
-      mainActivity.$['android:clearTaskOnLaunch'] = 'false';
-      console.log('✅ Set MainActivity clearTaskOnLaunch to false');
-    }
+    // Don't clear task when re-launching
+    mainActivity.$['android:clearTaskOnLaunch'] = 'false';
+    console.log('✅ Set MainActivity clearTaskOnLaunch to false');
+
+    // NEW: Always retain task state when app is moved to background
+    mainActivity.$['android:alwaysRetainTaskState'] = 'true';
+    console.log('✅ Set MainActivity alwaysRetainTaskState to true');
 
     // Ensure intent-filter array exists
     if (!mainActivity['intent-filter']) {
