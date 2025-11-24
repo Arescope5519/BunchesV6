@@ -77,27 +77,32 @@ export const useShareIntent = (onUrlReceived) => {
     if (sharedUrl) {
       const now = Date.now();
 
-      // Check if we already processed this URL recently (within 2 seconds) to avoid duplicates
-      // But allow the same URL to be shared again after 2 seconds
-      if (lastProcessedUrl.current === sharedUrl && (now - lastProcessedTime.current) < 2000) {
+      // Check if we already processed this URL recently (within 5 seconds) to avoid duplicates
+      // But allow the same URL to be shared again after 5 seconds
+      if (lastProcessedUrl.current === sharedUrl && (now - lastProcessedTime.current) < 5000) {
         console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL (processed ${now - lastProcessedTime.current}ms ago):`, sharedUrl);
         return;
       }
 
-      console.log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
+      console.log(`✅✅✅ [${Platform.OS}] URL EXTRACTED AND PROCESSING:`, sharedUrl);
+      console.log(`🎯 [${Platform.OS}] Calling onUrlReceivedRef.current...`);
       lastProcessedUrl.current = sharedUrl;
       lastProcessedTime.current = now;
 
       if (onUrlReceivedRef.current) {
         onUrlReceivedRef.current(sharedUrl);
+        console.log(`✅ [${Platform.OS}] Successfully called onUrlReceivedRef.current`);
+      } else {
+        console.error(`❌ [${Platform.OS}] onUrlReceivedRef.current is null!`);
       }
 
       // Clear the received files after processing
       if (ReceiveSharingIntent) {
         ReceiveSharingIntent.clearReceivedFiles();
+        console.log(`🧹 [${Platform.OS}] Cleared received files`);
       }
     } else {
-      console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
+      console.log(`ℹ️ [${Platform.OS}] No URL found in shared data (this is normal if no share pending)`);
     }
   };
 
@@ -139,55 +144,88 @@ export const useShareIntent = (onUrlReceived) => {
         processedInitialShare.current = true;
       }
 
-      // Handle shares when app is already open
-      // iOS uses 'url' event, Android can use both 'url' and other events
-      const eventType = Platform.OS === 'ios' ? 'url' : 'url';
-      const subscription = ReceiveSharingIntent.addEventListener(eventType, (event) => {
-        console.log(`📥 [${Platform.OS}] Received event while app open:`, event);
+      // Handle shares when app is already open - listen to multiple event types
+      console.log(`🎧 [${Platform.OS}] Setting up event listeners...`);
+
+      const subscriptions = [];
+
+      // Listen for 'url' event (primary)
+      const urlSubscription = ReceiveSharingIntent.addEventListener('url', (event) => {
+        console.log(`📥 [${Platform.OS}] Received 'url' event:`, event);
         if (event) {
-          // iOS might pass event.url or just the url directly
           const dataToHandle = event.url || event;
           handleSharedUrl(dataToHandle);
         }
       });
+      subscriptions.push(urlSubscription);
+
+      // Also try listening for other potential events
+      try {
+        const fileSubscription = ReceiveSharingIntent.addEventListener('file', (event) => {
+          console.log(`📥 [${Platform.OS}] Received 'file' event:`, event);
+          if (event) {
+            handleSharedUrl(event);
+          }
+        });
+        subscriptions.push(fileSubscription);
+      } catch (e) {
+        console.log(`ℹ️ [${Platform.OS}] 'file' event not available`);
+      }
+
+      try {
+        const dataSubscription = ReceiveSharingIntent.addEventListener('data', (event) => {
+          console.log(`📥 [${Platform.OS}] Received 'data' event:`, event);
+          if (event) {
+            handleSharedUrl(event);
+          }
+        });
+        subscriptions.push(dataSubscription);
+      } catch (e) {
+        console.log(`ℹ️ [${Platform.OS}] 'data' event not available`);
+      }
 
       // Listen for app state changes to check for new shares when app comes to foreground
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
-          // When app becomes active, check for new shares
-          console.log(`🔄 [${Platform.OS}] App became active, checking for new shares`);
-          // Check immediately, then again after a short delay, then again after a longer delay
-          // This ensures we catch the share even if timing varies
-          checkForSharedContent();
-          setTimeout(() => {
-            checkForSharedContent();
-          }, 100);
-          setTimeout(() => {
-            checkForSharedContent();
-          }, 500);
-          setTimeout(() => {
-            checkForSharedContent();
-          }, 1000);
+          // When app becomes active, check for new shares VERY aggressively
+          console.log(`🔄 [${Platform.OS}] App became active, checking for new shares AGGRESSIVELY`);
+
+          // Check multiple times with increasing delays to catch the share whenever it becomes available
+          // Some devices need longer delays before share data is ready
+          checkForSharedContent(); // Immediately
+
+          setTimeout(() => checkForSharedContent(), 50);    // 50ms
+          setTimeout(() => checkForSharedContent(), 100);   // 100ms
+          setTimeout(() => checkForSharedContent(), 200);   // 200ms
+          setTimeout(() => checkForSharedContent(), 500);   // 500ms
+          setTimeout(() => checkForSharedContent(), 750);   // 750ms
+          setTimeout(() => checkForSharedContent(), 1000);  // 1s
+          setTimeout(() => checkForSharedContent(), 1500);  // 1.5s
+          setTimeout(() => checkForSharedContent(), 2000);  // 2s
+          setTimeout(() => checkForSharedContent(), 3000);  // 3s - final check
         }
       });
 
       // ADDITIONAL: Set up polling to catch shares that might be missed
       // This is a fallback for when the app is already open and event listeners don't fire
-      // Poll more frequently (every 2 seconds) when app is active
+      // Poll frequently (every 1 second) when app is active for maximum responsiveness
       const pollInterval = setInterval(() => {
         // Only poll when app is in foreground
         if (AppState.currentState === 'active') {
           checkForSharedContent();
         }
-      }, 2000); // Check every 2 seconds
+      }, 1000); // Check every 1 second
 
       // Cleanup
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
-        if (subscription && typeof subscription.remove === 'function') {
-          subscription.remove();
-        }
+        // Remove all event subscriptions
+        subscriptions.forEach(sub => {
+          if (sub && typeof sub.remove === 'function') {
+            sub.remove();
+          }
+        });
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
         }
