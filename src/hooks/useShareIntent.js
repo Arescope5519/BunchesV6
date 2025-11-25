@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState, Alert } from 'react-native';
+import { Platform, AppState, Alert, NativeEventEmitter, NativeModules } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -170,7 +170,38 @@ export const useShareIntent = (onUrlReceived) => {
     const subscriptions = [];
     let appStateSubscription = null;
 
-    // Setup AppState listener FIRST - this is core React Native, doesn't need share library
+    // Setup custom onNewIntent listener (Android only)
+    // This event is emitted by our custom MainActivity when a new Intent arrives
+    let onNewIntentSubscription = null;
+    if (Platform.OS === 'android') {
+      try {
+        const eventEmitter = new NativeEventEmitter();
+        onNewIntentSubscription = eventEmitter.addListener('RNReceiveSharingIntent::onNewIntent', () => {
+          console.log(`🔔 [${Platform.OS}] Custom onNewIntent event received!`);
+          Alert.alert('DEBUG', 'onNewIntent event received! Checking for share...');
+
+          // Small delay to ensure the Intent is fully set
+          setTimeout(() => {
+            if (ReceiveSharingIntent) {
+              try {
+                // Now it's safe to call getReceivedFiles because setIntent was just called
+                checkForSharedContent();
+              } catch (error) {
+                console.log(`ℹ️ [${Platform.OS}] Check failed:`, error.message);
+                Alert.alert('DEBUG', `Check failed: ${error.message}`);
+              }
+            }
+          }, 100);
+        });
+        console.log(`✅ [${Platform.OS}] onNewIntent listener created`);
+        Alert.alert('DEBUG', 'onNewIntent listener setup successfully');
+      } catch (error) {
+        console.error(`❌ [${Platform.OS}] onNewIntent listener failed:`, error);
+        Alert.alert('ERROR', `onNewIntent listener failed: ${error.message}`);
+      }
+    }
+
+    // Setup AppState listener - mainly for iOS and debugging
     console.log(`🔧 [${Platform.OS}] Creating AppState listener...`);
     try {
       appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
@@ -178,22 +209,13 @@ export const useShareIntent = (onUrlReceived) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
 
         if (nextAppState === 'active') {
-          console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
+          console.log(`🔄 [${Platform.OS}] App became active`);
+          Alert.alert('DEBUG', 'App active - waiting for onNewIntent or share event');
 
-          // Small delay to ensure intent is ready
-          setTimeout(() => {
-            if (ReceiveSharingIntent) {
-              Alert.alert('DEBUG', 'App active - checking for share NOW');
-              try {
-                checkForSharedContent();
-              } catch (error) {
-                console.log(`ℹ️ [${Platform.OS}] Check failed:`, error.message);
-                Alert.alert('DEBUG', `Check failed: ${error.message}`);
-              }
-            } else {
-              Alert.alert('DEBUG', 'App active - but share library not available');
-            }
-          }, 100);
+          // DO NOT call checkForSharedContent() here!
+          // With singleTask mode, calling getReceivedFiles() when the app is already
+          // running causes NullPointerException because the Intent is null.
+          // Instead, rely on our custom onNewIntent event or the library's event listeners.
         }
       });
 
@@ -209,11 +231,14 @@ export const useShareIntent = (onUrlReceived) => {
       console.log('ℹ️ Share intent library not available');
       Alert.alert('DEBUG', 'Share intent library NOT loaded - rebuild required');
 
-      // Still return cleanup for AppState
+      // Still return cleanup for AppState and onNewIntent listeners
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up (no share library)`);
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
+        }
+        if (onNewIntentSubscription && typeof onNewIntentSubscription.remove === 'function') {
+          onNewIntentSubscription.remove();
         }
       };
     }
@@ -248,6 +273,7 @@ export const useShareIntent = (onUrlReceived) => {
       try {
         const fileSubscription = ReceiveSharingIntent.addEventListener('file', (event) => {
           console.log(`📥 [${Platform.OS}] Received 'file' event:`, event);
+          Alert.alert('DEBUG', `FILE event received: ${JSON.stringify(event)}`);
           if (event) handleSharedUrl(event);
         });
         subscriptions.push(fileSubscription);
@@ -258,6 +284,7 @@ export const useShareIntent = (onUrlReceived) => {
       try {
         const dataSubscription = ReceiveSharingIntent.addEventListener('data', (event) => {
           console.log(`📥 [${Platform.OS}] Received 'data' event:`, event);
+          Alert.alert('DEBUG', `DATA event received: ${JSON.stringify(event)}`);
           if (event) handleSharedUrl(event);
         });
         subscriptions.push(dataSubscription);
@@ -277,6 +304,9 @@ export const useShareIntent = (onUrlReceived) => {
         });
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
+        }
+        if (onNewIntentSubscription && typeof onNewIntentSubscription.remove === 'function') {
+          onNewIntentSubscription.remove();
         }
       };
     } catch (error) {

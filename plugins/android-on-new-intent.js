@@ -80,6 +80,31 @@ const withOnNewIntent = (config) => {
 
     // Log to verify the method is being called
     android.util.Log.d("MainActivity", "onNewIntent called with action: " + (intent != null ? intent.getAction() : "null"));
+
+    // Manually trigger the ReceiveSharingIntent module to process the new intent
+    if (intent != null && intent.getAction() != null) {
+      String action = intent.getAction();
+      android.util.Log.d("MainActivity", "Processing new intent with action: " + action);
+
+      if (action.equals(Intent.ACTION_SEND) || action.equals(Intent.ACTION_SEND_MULTIPLE)) {
+        // Notify the React Native module about the new intent
+        try {
+          com.facebook.react.bridge.ReactContext reactContext =
+            getReactNativeHost().getReactInstanceManager().getCurrentReactContext();
+
+          if (reactContext != null) {
+            // Send event to JavaScript layer
+            reactContext.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+              .emit("RNReceiveSharingIntent::onNewIntent", null);
+            android.util.Log.d("MainActivity", "Sent onNewIntent event to JS");
+          } else {
+            android.util.Log.w("MainActivity", "React context is null, cannot send event");
+          }
+        } catch (Exception e) {
+          android.util.Log.e("MainActivity", "Error sending onNewIntent event: " + e.getMessage());
+        }
+      }
+    }
   }
 `;
 
