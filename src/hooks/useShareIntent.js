@@ -168,6 +168,8 @@ export const useShareIntent = (onUrlReceived) => {
       // Handle shares when app is already open - listen to multiple event types
       console.log(`🎧 [${Platform.OS}] Setting up event listeners...`);
 
+      Alert.alert('DEBUG', 'About to setup event listeners');
+
       const subscriptions = [];
 
       // Listen for 'url' event (primary)
@@ -179,6 +181,8 @@ export const useShareIntent = (onUrlReceived) => {
         }
       });
       subscriptions.push(urlSubscription);
+
+      Alert.alert('DEBUG', `URL listener created: ${!!urlSubscription}`);
 
       // Also try listening for other potential events
       try {
@@ -205,17 +209,18 @@ export const useShareIntent = (onUrlReceived) => {
         console.log(`ℹ️ [${Platform.OS}] 'data' event not available`);
       }
 
+      Alert.alert('DEBUG', 'About to setup AppState listener');
+
       // Listen for app state changes
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+        Alert.alert('DEBUG', `AppState listener fired! State: ${nextAppState}`);
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
           console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
 
-          // Visual confirmation for debugging
-          Alert.alert('DEBUG', 'App became active - checking for share');
-
           // Small delay to ensure intent is ready
           setTimeout(() => {
+            Alert.alert('DEBUG', 'App became active - checking for share NOW');
             // Attempt to check for new shares when app becomes active
             // This is a fallback since event listeners don't always fire with singleTask mode
             // Wrap in try-catch to handle potential errors gracefully
