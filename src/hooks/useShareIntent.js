@@ -144,35 +144,81 @@ export const useShareIntent = (onUrlReceived) => {
    * Setup share intent listener
    */
   useEffect(() => {
-    if (!ReceiveSharingIntent) {
-      console.log('ℹ️ Share intent not available in this environment');
-      return;
+    // CRITICAL: Show alert immediately to confirm useEffect is running
+    Alert.alert('DEBUG', `useShareIntent useEffect running! Platform: ${Platform.OS}`);
+    console.log(`🔧 [${Platform.OS}] useShareIntent useEffect starting...`);
+
+    // Track subscriptions for cleanup
+    const subscriptions = [];
+    let appStateSubscription = null;
+
+    // Setup AppState listener FIRST - this is core React Native, doesn't need share library
+    console.log(`🔧 [${Platform.OS}] Creating AppState listener...`);
+    try {
+      appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+        Alert.alert('DEBUG', `AppState changed: ${nextAppState}`);
+        console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
+
+        if (nextAppState === 'active') {
+          console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
+
+          // Small delay to ensure intent is ready
+          setTimeout(() => {
+            if (ReceiveSharingIntent) {
+              Alert.alert('DEBUG', 'App active - checking for share NOW');
+              try {
+                checkForSharedContent();
+              } catch (error) {
+                console.log(`ℹ️ [${Platform.OS}] Check failed:`, error.message);
+                Alert.alert('DEBUG', `Check failed: ${error.message}`);
+              }
+            } else {
+              Alert.alert('DEBUG', 'App active - but share library not available');
+            }
+          }, 100);
+        }
+      });
+
+      console.log(`✅ [${Platform.OS}] AppState listener created: ${!!appStateSubscription}`);
+      Alert.alert('DEBUG', `AppState listener setup: ${!!appStateSubscription}`);
+    } catch (error) {
+      console.error(`❌ [${Platform.OS}] AppState listener failed:`, error);
+      Alert.alert('ERROR', `AppState listener failed: ${error.message}`);
     }
 
-    console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
+    // Now setup share-intent specific stuff if library is available
+    if (!ReceiveSharingIntent) {
+      console.log('ℹ️ Share intent library not available');
+      Alert.alert('DEBUG', 'Share intent library NOT loaded - rebuild required');
+
+      // Still return cleanup for AppState
+      return () => {
+        console.log(`🧹 [${Platform.OS}] Cleaning up (no share library)`);
+        if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
+          appStateSubscription.remove();
+        }
+      };
+    }
+
+    Alert.alert('DEBUG', 'Share intent library IS available!');
+    console.log(`🔧 [${Platform.OS}] Setting up share intent listeners`);
 
     try {
-      // Check for shares when app FIRST launches (not on re-renders)
-      // This handles the case where app was CLOSED and user shared
-      // Wrap in try-catch to handle potential errors with singleTask mode
+      // Check for shares when app FIRST launches
       if (!processedInitialShare.current) {
         console.log(`🔍 [${Platform.OS}] Checking for initial share on app launch`);
         try {
           checkForSharedContent();
         } catch (error) {
-          console.log(`ℹ️ [${Platform.OS}] Initial check failed (expected with some configurations):`, error);
+          console.log(`ℹ️ [${Platform.OS}] Initial check failed:`, error);
         }
         processedInitialShare.current = true;
       }
 
-      // Handle shares when app is already open - listen to multiple event types
-      console.log(`🎧 [${Platform.OS}] Setting up event listeners...`);
-
-      const subscriptions = [];
-
       // Listen for 'url' event (primary)
       const urlSubscription = ReceiveSharingIntent.addEventListener('url', (event) => {
         console.log(`📥 [${Platform.OS}] Received 'url' event:`, event);
+        Alert.alert('DEBUG', `URL event received: ${JSON.stringify(event)}`);
         if (event) {
           const dataToHandle = event.url || event;
           handleSharedUrl(dataToHandle);
@@ -184,9 +230,7 @@ export const useShareIntent = (onUrlReceived) => {
       try {
         const fileSubscription = ReceiveSharingIntent.addEventListener('file', (event) => {
           console.log(`📥 [${Platform.OS}] Received 'file' event:`, event);
-          if (event) {
-            handleSharedUrl(event);
-          }
+          if (event) handleSharedUrl(event);
         });
         subscriptions.push(fileSubscription);
       } catch (e) {
@@ -196,63 +240,18 @@ export const useShareIntent = (onUrlReceived) => {
       try {
         const dataSubscription = ReceiveSharingIntent.addEventListener('data', (event) => {
           console.log(`📥 [${Platform.OS}] Received 'data' event:`, event);
-          if (event) {
-            handleSharedUrl(event);
-          }
+          if (event) handleSharedUrl(event);
         });
         subscriptions.push(dataSubscription);
       } catch (e) {
         console.log(`ℹ️ [${Platform.OS}] 'data' event not available`);
       }
 
-      console.log(`✅ [${Platform.OS}] Event listeners setup complete. URL listener: ${!!urlSubscription}`);
-
-      // Listen for app state changes
-      console.log(`🔧 [${Platform.OS}] Creating AppState listener...`);
-      let appStateSubscription = null;
-
-      try {
-        appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-          Alert.alert('DEBUG', `AppState listener fired! State: ${nextAppState}`);
-          console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
-          if (nextAppState === 'active') {
-            console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
-
-            // Small delay to ensure intent is ready
-            setTimeout(() => {
-              Alert.alert('DEBUG', 'App became active - checking for share NOW');
-              // Attempt to check for new shares when app becomes active
-              // This is a fallback since event listeners don't always fire with singleTask mode
-              // Wrap in try-catch to handle potential errors gracefully
-              try {
-                checkForSharedContent();
-              } catch (error) {
-                console.log(`ℹ️ [${Platform.OS}] Check failed (may be expected):`, error.message);
-                Alert.alert('DEBUG', `Check failed: ${error.message}`);
-              }
-            }, 100);
-          }
-        });
-
-        console.log(`✅ [${Platform.OS}] AppState listener created successfully: ${!!appStateSubscription}`);
-        Alert.alert('DEBUG', `AppState listener setup complete: ${!!appStateSubscription}`);
-      } catch (error) {
-        console.error(`❌ [${Platform.OS}] Failed to create AppState listener:`, error);
-        Alert.alert('ERROR', `AppState listener failed: ${error.message}`);
-      }
-
-      // NOTE: Polling disabled because with singleTask launchMode, checkForSharedContent()
-      // causes NullPointerException. Event listeners should handle all share intents.
-      // const pollInterval = setInterval(() => {
-      //   if (AppState.currentState === 'active') {
-      //     checkForSharedContent();
-      //   }
-      // }, 1000);
+      console.log(`✅ [${Platform.OS}] Event listeners setup complete`);
 
       // Cleanup
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
-        // Remove all event subscriptions
         subscriptions.forEach(sub => {
           if (sub && typeof sub.remove === 'function') {
             sub.remove();
@@ -261,10 +260,10 @@ export const useShareIntent = (onUrlReceived) => {
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
         }
-        // Note: pollInterval cleanup removed since polling is disabled
       };
     } catch (error) {
       console.error(`⚠️ [${Platform.OS}] Could not setup share listener:`, error);
+      Alert.alert('ERROR', `Share setup failed: ${error.message}`);
     }
   }, []);
 
