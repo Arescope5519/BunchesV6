@@ -168,8 +168,6 @@ export const useShareIntent = (onUrlReceived) => {
       // Handle shares when app is already open - listen to multiple event types
       console.log(`🎧 [${Platform.OS}] Setting up event listeners...`);
 
-      Alert.alert('DEBUG', 'About to setup event listeners');
-
       const subscriptions = [];
 
       // Listen for 'url' event (primary)
@@ -181,8 +179,6 @@ export const useShareIntent = (onUrlReceived) => {
         }
       });
       subscriptions.push(urlSubscription);
-
-      Alert.alert('DEBUG', `URL listener created: ${!!urlSubscription}`);
 
       // Also try listening for other potential events
       try {
@@ -209,7 +205,7 @@ export const useShareIntent = (onUrlReceived) => {
         console.log(`ℹ️ [${Platform.OS}] 'data' event not available`);
       }
 
-      Alert.alert('DEBUG', 'About to setup AppState listener');
+      console.log(`✅ [${Platform.OS}] Event listeners setup complete. URL listener: ${!!urlSubscription}`);
 
       // Listen for app state changes
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
