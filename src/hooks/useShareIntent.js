@@ -208,27 +208,38 @@ export const useShareIntent = (onUrlReceived) => {
       console.log(`✅ [${Platform.OS}] Event listeners setup complete. URL listener: ${!!urlSubscription}`);
 
       // Listen for app state changes
-      const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-        Alert.alert('DEBUG', `AppState listener fired! State: ${nextAppState}`);
-        console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
-        if (nextAppState === 'active') {
-          console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
+      console.log(`🔧 [${Platform.OS}] Creating AppState listener...`);
+      let appStateSubscription = null;
 
-          // Small delay to ensure intent is ready
-          setTimeout(() => {
-            Alert.alert('DEBUG', 'App became active - checking for share NOW');
-            // Attempt to check for new shares when app becomes active
-            // This is a fallback since event listeners don't always fire with singleTask mode
-            // Wrap in try-catch to handle potential errors gracefully
-            try {
-              checkForSharedContent();
-            } catch (error) {
-              console.log(`ℹ️ [${Platform.OS}] Check failed (may be expected):`, error.message);
-              Alert.alert('DEBUG', `Check failed: ${error.message}`);
-            }
-          }, 100);
-        }
-      });
+      try {
+        appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+          Alert.alert('DEBUG', `AppState listener fired! State: ${nextAppState}`);
+          console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
+          if (nextAppState === 'active') {
+            console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
+
+            // Small delay to ensure intent is ready
+            setTimeout(() => {
+              Alert.alert('DEBUG', 'App became active - checking for share NOW');
+              // Attempt to check for new shares when app becomes active
+              // This is a fallback since event listeners don't always fire with singleTask mode
+              // Wrap in try-catch to handle potential errors gracefully
+              try {
+                checkForSharedContent();
+              } catch (error) {
+                console.log(`ℹ️ [${Platform.OS}] Check failed (may be expected):`, error.message);
+                Alert.alert('DEBUG', `Check failed: ${error.message}`);
+              }
+            }, 100);
+          }
+        });
+
+        console.log(`✅ [${Platform.OS}] AppState listener created successfully: ${!!appStateSubscription}`);
+        Alert.alert('DEBUG', `AppState listener setup complete: ${!!appStateSubscription}`);
+      } catch (error) {
+        console.error(`❌ [${Platform.OS}] Failed to create AppState listener:`, error);
+        Alert.alert('ERROR', `AppState listener failed: ${error.message}`);
+      }
 
       // NOTE: Polling disabled because with singleTask launchMode, checkForSharedContent()
       // causes NullPointerException. Event listeners should handle all share intents.
