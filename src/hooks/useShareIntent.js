@@ -127,23 +127,20 @@ export const useShareIntent = (onUrlReceived) => {
     try {
       ReceiveSharingIntent.getReceivedFiles(
         (files) => {
-          console.log(`📥 [${Platform.OS}] Received files:`, files);
+          console.log(`📥 [${Platform.OS}] getReceivedFiles returned:`, files);
           if (files && files.length > 0) {
-            Alert.alert('DEBUG', `Found share data: ${JSON.stringify(files[0]).substring(0, 100)}`);
+            console.log(`✅ [${Platform.OS}] Found initial share data, processing...`);
             handleSharedUrl(files[0]);
           } else {
-            console.log(`ℹ️ [${Platform.OS}] No files found in check`);
+            console.log(`ℹ️ [${Platform.OS}] No files found in initial check (app not launched from share)`);
           }
         },
         (error) => {
-          console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
-          // Don't show alert for expected errors with singleTask mode
-          console.log(`ℹ️ [${Platform.OS}] This is expected with singleTask - use event listeners instead`);
+          console.log(`ℹ️ [${Platform.OS}] getReceivedFiles error (may be expected with singleTask):`, error.message);
         }
       );
     } catch (error) {
-      console.error(`❌ [${Platform.OS}] Exception in checkForSharedContent:`, error);
-      // Silent catch - expected with singleTask mode
+      console.log(`ℹ️ [${Platform.OS}] checkForSharedContent exception (may be expected):`, error.message);
     }
   };
 
@@ -151,23 +148,26 @@ export const useShareIntent = (onUrlReceived) => {
    * Setup share intent listener
    */
   useEffect(() => {
-    // Test alert FIRST to confirm hook is running
-    Alert.alert('DEBUG 1', 'useShareIntent useEffect fired');
-
     if (!ReceiveSharingIntent) {
       console.log('ℹ️ Share intent not available in this environment');
-      Alert.alert('DEBUG 2', 'ReceiveSharingIntent is NULL - library not loaded');
       return;
     }
-
-    Alert.alert('DEBUG 3', 'ReceiveSharingIntent library is available');
 
     console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
     try {
-      // NOTE: With singleTask launchMode, we DON'T check for initial shares on mount
-      // because getReceivedFiles() causes NullPointerException. Event listeners will
-      // handle shares that happen during or before app launch.
+      // Check for shares when app FIRST launches (not on re-renders)
+      // This handles the case where app was CLOSED and user shared
+      // Wrap in try-catch to handle potential errors with singleTask mode
+      if (!processedInitialShare.current) {
+        console.log(`🔍 [${Platform.OS}] Checking for initial share on app launch`);
+        try {
+          checkForSharedContent();
+        } catch (error) {
+          console.log(`ℹ️ [${Platform.OS}] Initial check failed (expected with some configurations):`, error);
+        }
+        processedInitialShare.current = true;
+      }
 
       // Handle shares when app is already open - listen to multiple event types
       console.log(`🎧 [${Platform.OS}] Setting up event listeners...`);
@@ -177,21 +177,12 @@ export const useShareIntent = (onUrlReceived) => {
       // Listen for 'url' event (primary)
       const urlSubscription = ReceiveSharingIntent.addEventListener('url', (event) => {
         console.log(`📥 [${Platform.OS}] Received 'url' event:`, event);
-        Alert.alert('DEBUG', `URL event fired: ${JSON.stringify(event).substring(0, 100)}`);
         if (event) {
           const dataToHandle = event.url || event;
           handleSharedUrl(dataToHandle);
         }
       });
       subscriptions.push(urlSubscription);
-
-      // Show single combined debug alert after setup
-      Alert.alert('DEBUG STARTUP',
-        `Hook mounted ✓\n` +
-        `URL listener: ${urlSubscription ? 'registered ✓' : 'FAILED ✗'}\n` +
-        `Platform: ${Platform.OS}\n` +
-        `Library available: ${!!ReceiveSharingIntent ? 'YES' : 'NO'}`
-      );
 
       // Also try listening for other potential events
       try {
@@ -224,7 +215,6 @@ export const useShareIntent = (onUrlReceived) => {
       // Instead, share data is delivered via event listeners when onNewIntent fires.
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
-        Alert.alert('DEBUG', `App state changed to: ${nextAppState}`);
         if (nextAppState === 'active') {
           console.log(`🔄 [${Platform.OS}] App became active. Event listeners will handle share if present.`);
         }
