@@ -151,10 +151,16 @@ export const useShareIntent = (onUrlReceived) => {
    * Setup share intent listener
    */
   useEffect(() => {
+    // Test alert FIRST to confirm hook is running
+    Alert.alert('DEBUG 1', 'useShareIntent useEffect fired');
+
     if (!ReceiveSharingIntent) {
       console.log('ℹ️ Share intent not available in this environment');
+      Alert.alert('DEBUG 2', 'ReceiveSharingIntent is NULL - library not loaded');
       return;
     }
+
+    Alert.alert('DEBUG 3', 'ReceiveSharingIntent library is available');
 
     console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
