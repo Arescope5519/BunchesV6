@@ -36,6 +36,7 @@ export const useShareIntent = (onUrlReceived) => {
    */
   const handleSharedUrl = (sharedData) => {
     console.log(`📨 [${Platform.OS}] Received shared data from browser`, sharedData);
+    Alert.alert('DEBUG', `handleSharedUrl called!\nData: ${JSON.stringify(sharedData)}`);
 
     let sharedUrl = null;
 
@@ -75,12 +76,14 @@ export const useShareIntent = (onUrlReceived) => {
 
     // Call the callback with extracted URL
     if (sharedUrl) {
+      Alert.alert('DEBUG', `URL EXTRACTED: ${sharedUrl}`);
       const now = Date.now();
 
       // Check if we already processed this URL recently (within 5 seconds) to avoid duplicates
       // But allow the same URL to be shared again after 5 seconds
       if (lastProcessedUrl.current === sharedUrl && (now - lastProcessedTime.current) < 5000) {
         console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL (processed ${now - lastProcessedTime.current}ms ago):`, sharedUrl);
+        Alert.alert('DEBUG', `Skipping DUPLICATE URL (processed ${Math.floor((now - lastProcessedTime.current) / 1000)}s ago)`);
         return;
       }
 
@@ -91,14 +94,18 @@ export const useShareIntent = (onUrlReceived) => {
       lastProcessedTime.current = now;
 
       if (onUrlReceivedRef.current) {
+        Alert.alert('DEBUG', 'Calling callback with URL!');
         try {
           onUrlReceivedRef.current(sharedUrl);
           console.log(`✅ [${Platform.OS}] Successfully called onUrlReceivedRef.current with URL:`, sharedUrl);
+          Alert.alert('DEBUG', 'Callback executed successfully!');
         } catch (error) {
           console.error(`❌ [${Platform.OS}] Error calling onUrlReceivedRef.current:`, error);
+          Alert.alert('ERROR', `Callback failed: ${error.message}`);
         }
       } else {
         console.error(`❌ [${Platform.OS}] onUrlReceivedRef.current is null!`);
+        Alert.alert('ERROR', 'onUrlReceivedRef.current is NULL!');
       }
 
       // NOTE: NOT clearing received files to allow re-checking when app becomes active
@@ -107,6 +114,7 @@ export const useShareIntent = (onUrlReceived) => {
       // Duplicate detection (5 second window above) prevents processing same URL twice
     } else {
       console.log(`ℹ️ [${Platform.OS}] No URL found in shared data (this is normal if no share pending)`);
+      Alert.alert('DEBUG', 'NO URL extracted from shared data');
     }
   };
 
@@ -116,27 +124,37 @@ export const useShareIntent = (onUrlReceived) => {
    * with singleTask launchMode. Kept for potential manual debugging only.
    */
   const checkForSharedContent = () => {
-    if (!ReceiveSharingIntent) return;
+    if (!ReceiveSharingIntent) {
+      Alert.alert('DEBUG', 'checkForSharedContent: ReceiveSharingIntent is null!');
+      return;
+    }
 
     console.log(`🔍 [${Platform.OS}] Checking for shared content`);
+    Alert.alert('DEBUG', 'Calling getReceivedFiles...');
 
     try {
       ReceiveSharingIntent.getReceivedFiles(
         (files) => {
           console.log(`📥 [${Platform.OS}] getReceivedFiles returned:`, files);
+          Alert.alert('DEBUG', `getReceivedFiles SUCCESS!\nFiles: ${JSON.stringify(files)}`);
+
           if (files && files.length > 0) {
             console.log(`✅ [${Platform.OS}] Found initial share data, processing...`);
+            Alert.alert('DEBUG', `Found ${files.length} files, processing first one...`);
             handleSharedUrl(files[0]);
           } else {
             console.log(`ℹ️ [${Platform.OS}] No files found in initial check (app not launched from share)`);
+            Alert.alert('DEBUG', 'getReceivedFiles returned empty array - no share pending');
           }
         },
         (error) => {
           console.log(`ℹ️ [${Platform.OS}] getReceivedFiles error (may be expected with singleTask):`, error.message);
+          Alert.alert('DEBUG', `getReceivedFiles ERROR: ${error.message}`);
         }
       );
     } catch (error) {
       console.log(`ℹ️ [${Platform.OS}] checkForSharedContent exception (may be expected):`, error.message);
+      Alert.alert('DEBUG', `checkForSharedContent EXCEPTION: ${error.message}`);
     }
   };
 
