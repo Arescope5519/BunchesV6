@@ -210,13 +210,19 @@ export const useShareIntent = (onUrlReceived) => {
       }
 
       // Listen for app state changes
-      // NOTE: With singleTask launchMode, we DON'T call checkForSharedContent here
-      // because getReceivedFiles() causes NullPointerException when called on existing instance.
-      // Instead, share data is delivered via event listeners when onNewIntent fires.
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
-          console.log(`🔄 [${Platform.OS}] App became active. Event listeners will handle share if present.`);
+          console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
+
+          // Attempt to check for new shares when app becomes active
+          // This is a fallback since event listeners don't always fire with singleTask mode
+          // Wrap in try-catch to handle potential errors gracefully
+          try {
+            checkForSharedContent();
+          } catch (error) {
+            console.log(`ℹ️ [${Platform.OS}] Check failed (may be expected):`, error.message);
+          }
         }
       });
 

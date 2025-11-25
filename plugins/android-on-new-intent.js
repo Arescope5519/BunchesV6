@@ -68,12 +68,18 @@ const withOnNewIntent = (config) => {
 
   /**
    * Handle new intents when app is already running (singleTask mode)
-   * This is critical for share intents to work when app is in background
+   * When a share happens while app is open, Android calls this instead of onCreate
    */
   @Override
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
+
+    // CRITICAL: Update the activity's intent to the new one
+    // This allows react-native-receive-sharing-intent to detect it
     setIntent(intent);
+
+    // Log to verify the method is being called
+    android.util.Log.d("MainActivity", "onNewIntent called with action: " + (intent != null ? intent.getAction() : "null"));
   }
 `;
 
