@@ -101,14 +101,10 @@ export const useShareIntent = (onUrlReceived) => {
         console.error(`❌ [${Platform.OS}] onUrlReceivedRef.current is null!`);
       }
 
-      // Delay clearing to ensure callback completes
-      // This prevents race conditions with aggressive checking
-      setTimeout(() => {
-        if (ReceiveSharingIntent) {
-          ReceiveSharingIntent.clearReceivedFiles();
-          console.log(`🧹 [${Platform.OS}] Cleared received files (delayed)`);
-        }
-      }, 500);
+      // NOTE: NOT clearing received files to allow re-checking when app becomes active
+      // With singleTask mode, we need the intent data to persist so we can check it
+      // when the app comes back to foreground
+      // Duplicate detection (5 second window above) prevents processing same URL twice
     } else {
       console.log(`ℹ️ [${Platform.OS}] No URL found in shared data (this is normal if no share pending)`);
     }
@@ -215,14 +211,21 @@ export const useShareIntent = (onUrlReceived) => {
         if (nextAppState === 'active') {
           console.log(`🔄 [${Platform.OS}] App became active, checking for new share...`);
 
-          // Attempt to check for new shares when app becomes active
-          // This is a fallback since event listeners don't always fire with singleTask mode
-          // Wrap in try-catch to handle potential errors gracefully
-          try {
-            checkForSharedContent();
-          } catch (error) {
-            console.log(`ℹ️ [${Platform.OS}] Check failed (may be expected):`, error.message);
-          }
+          // Visual confirmation for debugging
+          Alert.alert('DEBUG', 'App became active - checking for share');
+
+          // Small delay to ensure intent is ready
+          setTimeout(() => {
+            // Attempt to check for new shares when app becomes active
+            // This is a fallback since event listeners don't always fire with singleTask mode
+            // Wrap in try-catch to handle potential errors gracefully
+            try {
+              checkForSharedContent();
+            } catch (error) {
+              console.log(`ℹ️ [${Platform.OS}] Check failed (may be expected):`, error.message);
+              Alert.alert('DEBUG', `Check failed: ${error.message}`);
+            }
+          }, 100);
         }
       });
 
