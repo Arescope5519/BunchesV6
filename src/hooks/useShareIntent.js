@@ -158,9 +158,6 @@ export const useShareIntent = (onUrlReceived) => {
 
     console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
-    // Test alert to confirm hook is running
-    Alert.alert('DEBUG', 'Share intent hook mounted and running');
-
     try {
       // NOTE: With singleTask launchMode, we DON'T check for initial shares on mount
       // because getReceivedFiles() causes NullPointerException. Event listeners will
@@ -181,7 +178,14 @@ export const useShareIntent = (onUrlReceived) => {
         }
       });
       subscriptions.push(urlSubscription);
-      Alert.alert('DEBUG', `URL event listener registered: ${!!urlSubscription}`);
+
+      // Show single combined debug alert after setup
+      Alert.alert('DEBUG STARTUP',
+        `Hook mounted ✓\n` +
+        `URL listener: ${urlSubscription ? 'registered ✓' : 'FAILED ✗'}\n` +
+        `Platform: ${Platform.OS}\n` +
+        `Library available: ${!!ReceiveSharingIntent ? 'YES' : 'NO'}`
+      );
 
       // Also try listening for other potential events
       try {
