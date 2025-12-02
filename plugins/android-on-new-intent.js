@@ -19,14 +19,45 @@ const withOnNewIntent = (config) => {
       return config;
     }
 
-    // Check if onNewIntent already exists
+    // Remove any existing onNewIntent to replace with our version
+    // The library's onNewIntent causes NullPointerException with singleTask mode
+    let modifiedContents = contents;
     if (contents.includes('onNewIntent(')) {
-      console.log('ℹ️ onNewIntent already exists in MainActivity');
-      return config;
+      console.log('ℹ️ Removing existing onNewIntent to replace with our version');
+      // Find and remove the existing onNewIntent method
+      const onNewIntentStart = contents.indexOf('@Override\n  protected void onNewIntent(');
+      if (onNewIntentStart === -1) {
+        // Try alternate format
+        const altStart = contents.indexOf('protected void onNewIntent(');
+        if (altStart !== -1) {
+          console.log('⚠️ Found onNewIntent without @Override, will add our version anyway');
+        }
+      } else {
+        // Find the end of the method (matching closing brace)
+        let braceCount = 0;
+        let methodEnd = onNewIntentStart;
+        let foundStart = false;
+        for (let i = onNewIntentStart; i < contents.length; i++) {
+          if (contents[i] === '{') {
+            braceCount++;
+            foundStart = true;
+          }
+          if (contents[i] === '}') {
+            braceCount--;
+            if (foundStart && braceCount === 0) {
+              methodEnd = i + 1;
+              break;
+            }
+          }
+        }
+        // Remove the existing method
+        modifiedContents = contents.slice(0, onNewIntentStart) + contents.slice(methodEnd);
+        console.log('✅ Removed existing onNewIntent method');
+      }
     }
 
     // Find the onCreate method to insert after it
-    const onCreateIndex = contents.indexOf('super.onCreate(');
+    const onCreateIndex = modifiedContents.indexOf('super.onCreate(');
     if (onCreateIndex === -1) {
       console.warn('⚠️ Could not find onCreate method in MainActivity');
       return config;
@@ -35,9 +66,9 @@ const withOnNewIntent = (config) => {
     // Find the end of onCreate method (closing brace)
     let braceCount = 0;
     let insertIndex = onCreateIndex;
-    for (let i = onCreateIndex; i < contents.length; i++) {
-      if (contents[i] === '{') braceCount++;
-      if (contents[i] === '}') {
+    for (let i = onCreateIndex; i < modifiedContents.length; i++) {
+      if (modifiedContents[i] === '{') braceCount++;
+      if (modifiedContents[i] === '}') {
         braceCount--;
         if (braceCount === 0) {
           insertIndex = i + 1;
@@ -48,17 +79,16 @@ const withOnNewIntent = (config) => {
 
     // Import statement for Intent
     const importStatement = 'import android.content.Intent;';
-    let modifiedContents = contents;
 
     // Add import if not present
-    if (!contents.includes(importStatement)) {
-      const packageIndex = contents.indexOf('package ');
-      const firstImportIndex = contents.indexOf('import ', packageIndex);
+    if (!modifiedContents.includes(importStatement)) {
+      const packageIndex = modifiedContents.indexOf('package ');
+      const firstImportIndex = modifiedContents.indexOf('import ', packageIndex);
       if (firstImportIndex !== -1) {
         modifiedContents =
-          contents.slice(0, firstImportIndex) +
+          modifiedContents.slice(0, firstImportIndex) +
           importStatement + '\n' +
-          contents.slice(firstImportIndex);
+          modifiedContents.slice(firstImportIndex);
         insertIndex += importStatement.length + 1;
       }
     }

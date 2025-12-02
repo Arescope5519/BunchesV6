@@ -249,14 +249,12 @@ export const useShareIntent = (onUrlReceived) => {
     console.log(`🔧 [${Platform.OS}] Setting up share intent listeners`);
 
     try {
-      // Check for shares when app FIRST launches
+      // DISABLED: checkForSharedContent causes NullPointerException with singleTask mode
+      // Our custom onNewIntent/onResume in MainActivity handles share data directly
+      // and emits 'RNReceiveSharingIntent::ShareData' event which we listen for above
       if (!processedInitialShare.current) {
-        console.log(`🔍 [${Platform.OS}] Checking for initial share on app launch`);
-        try {
-          checkForSharedContent();
-        } catch (error) {
-          console.log(`ℹ️ [${Platform.OS}] Initial check failed:`, error);
-        }
+        console.log(`🔍 [${Platform.OS}] Skipping getReceivedFiles - using custom native handler instead`);
+        Alert.alert('DEBUG', 'Using custom native share handler (not calling getReceivedFiles)');
         processedInitialShare.current = true;
       }
 
