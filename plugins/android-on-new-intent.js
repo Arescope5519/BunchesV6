@@ -63,6 +63,74 @@ const withOnNewIntent = (config) => {
       }
     }
 
+    // Static variable to store pending share data
+    const staticPendingShare = `
+  // Store pending share data when React context isn't ready
+  private static String pendingShareText = null;
+  private static String pendingShareSubject = null;
+  private static long pendingShareTimestamp = 0;
+
+  // Method for JS to call to get pending share data
+  public static String getPendingShareText() {
+    // Only return if less than 30 seconds old
+    if (pendingShareText != null && (System.currentTimeMillis() - pendingShareTimestamp) < 30000) {
+      return pendingShareText;
+    }
+    return null;
+  }
+
+  public static String getPendingShareSubject() {
+    if (pendingShareSubject != null && (System.currentTimeMillis() - pendingShareTimestamp) < 30000) {
+      return pendingShareSubject;
+    }
+    return null;
+  }
+
+  public static void clearPendingShare() {
+    pendingShareText = null;
+    pendingShareSubject = null;
+    pendingShareTimestamp = 0;
+    android.util.Log.d("MainActivity", "Cleared pending share data");
+  }
+
+  private void storePendingShare(String text, String subject) {
+    pendingShareText = text;
+    pendingShareSubject = subject;
+    pendingShareTimestamp = System.currentTimeMillis();
+    android.util.Log.d("MainActivity", "Stored pending share - text: " + text + ", subject: " + subject);
+  }
+
+  private void sendShareToJS(String text, String subject) {
+    try {
+      com.facebook.react.bridge.ReactContext reactContext =
+        getReactNativeHost().getReactInstanceManager().getCurrentReactContext();
+
+      if (reactContext != null && reactContext.hasActiveReactInstance()) {
+        com.facebook.react.bridge.WritableMap params = com.facebook.react.bridge.Arguments.createMap();
+        if (text != null) {
+          params.putString("text", text);
+        }
+        if (subject != null) {
+          params.putString("subject", subject);
+        }
+
+        reactContext.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+          .emit("RNReceiveSharingIntent::ShareData", params);
+        android.util.Log.d("MainActivity", "Successfully sent share data to JS: " + text);
+
+        // Clear pending since we sent it
+        clearPendingShare();
+      } else {
+        android.util.Log.w("MainActivity", "React context not ready, storing for later");
+        storePendingShare(text, subject);
+      }
+    } catch (Exception e) {
+      android.util.Log.e("MainActivity", "Error sending to JS, storing for later: " + e.getMessage());
+      storePendingShare(text, subject);
+    }
+  }
+`;
+
     // onNewIntent method code
     const onNewIntentCode = `
 
@@ -75,65 +143,98 @@ const withOnNewIntent = (config) => {
     super.onNewIntent(intent);
 
     // CRITICAL: Update the activity's intent to the new one
-    // This allows react-native-receive-sharing-intent to detect it
     setIntent(intent);
 
-    // Log to verify the method is being called
-    android.util.Log.d("MainActivity", "onNewIntent called with action: " + (intent != null ? intent.getAction() : "null"));
+    // Safely log - handle null intent
+    String actionStr = "null";
+    try {
+      if (intent != null && intent.getAction() != null) {
+        actionStr = intent.getAction();
+      }
+    } catch (Exception e) {
+      actionStr = "error: " + e.getMessage();
+    }
+    android.util.Log.d("MainActivity", "onNewIntent called with action: " + actionStr);
 
-    // Manually extract and send the shared data directly to avoid NullPointerException with getReceivedFiles
-    if (intent != null && intent.getAction() != null) {
-      String action = intent.getAction();
-      android.util.Log.d("MainActivity", "Processing new intent with action: " + action);
-
-      if (action.equals(Intent.ACTION_SEND)) {
-        try {
-          // Extract the shared text/URL directly from the intent
+    // Safely extract and send the shared data
+    try {
+      if (intent != null) {
+        String action = intent.getAction();
+        if (action != null && action.equals(Intent.ACTION_SEND)) {
           String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
           String sharedSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
 
-          android.util.Log.d("MainActivity", "Shared text: " + sharedText);
-          android.util.Log.d("MainActivity", "Shared subject: " + sharedSubject);
+          android.util.Log.d("MainActivity", "Share intent - text: " + sharedText + ", subject: " + sharedSubject);
 
           if (sharedText != null || sharedSubject != null) {
-            com.facebook.react.bridge.ReactContext reactContext =
-              getReactNativeHost().getReactInstanceManager().getCurrentReactContext();
-
-            if (reactContext != null) {
-              // Create a JSON object with the shared data
-              com.facebook.react.bridge.WritableMap params = com.facebook.react.bridge.Arguments.createMap();
-              if (sharedText != null) {
-                params.putString("text", sharedText);
-              }
-              if (sharedSubject != null) {
-                params.putString("subject", sharedSubject);
-              }
-
-              // Send the shared data directly to JavaScript
-              reactContext.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit("RNReceiveSharingIntent::ShareData", params);
-              android.util.Log.d("MainActivity", "Sent share data to JS: " + sharedText);
-            } else {
-              android.util.Log.w("MainActivity", "React context is null, cannot send event");
-            }
+            sendShareToJS(sharedText, sharedSubject);
           }
-        } catch (Exception e) {
-          android.util.Log.e("MainActivity", "Error extracting share data: " + e.getMessage());
         }
       }
+    } catch (Exception e) {
+      android.util.Log.e("MainActivity", "Error in onNewIntent: " + e.getMessage());
+    }
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    android.util.Log.d("MainActivity", "onResume called, checking for pending share");
+
+    // Check if there's pending share data to send
+    if (pendingShareText != null || pendingShareSubject != null) {
+      android.util.Log.d("MainActivity", "Found pending share data, attempting to send");
+      // Delay slightly to ensure React is ready
+      new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+        @Override
+        public void run() {
+          String text = pendingShareText;
+          String subject = pendingShareSubject;
+          if (text != null || subject != null) {
+            sendShareToJS(text, subject);
+          }
+        }
+      }, 500);
+    }
+
+    // Also check current intent in case app was launched fresh with share
+    try {
+      Intent intent = getIntent();
+      if (intent != null) {
+        String action = intent.getAction();
+        if (action != null && action.equals(Intent.ACTION_SEND)) {
+          String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+          if (sharedText != null && pendingShareText == null) {
+            android.util.Log.d("MainActivity", "onResume found share in current intent: " + sharedText);
+            String sharedSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+            // Delay to ensure React is ready
+            final String finalText = sharedText;
+            final String finalSubject = sharedSubject;
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+              @Override
+              public void run() {
+                sendShareToJS(finalText, finalSubject);
+              }
+            }, 500);
+          }
+        }
+      }
+    } catch (Exception e) {
+      android.util.Log.e("MainActivity", "Error checking intent in onResume: " + e.getMessage());
     }
   }
 `;
 
-    // Insert onNewIntent method after onCreate
+    // Insert static methods and onNewIntent/onResume after onCreate
     modifiedContents =
       modifiedContents.slice(0, insertIndex) +
+      staticPendingShare +
       onNewIntentCode +
       modifiedContents.slice(insertIndex);
 
     mainActivity.contents = modifiedContents;
 
-    console.log('✅ Added onNewIntent handler to MainActivity');
+    console.log('✅ Added onNewIntent handler with pending share support to MainActivity');
     return config;
   });
 };
