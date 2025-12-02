@@ -131,6 +131,12 @@ const withOnNewIntent = (config) => {
   }
 
   private void sendShareToJS(String text, String subject) {
+    sendShareToJSWithRetry(text, subject, 0);
+  }
+
+  private void sendShareToJSWithRetry(final String text, final String subject, final int attempt) {
+    android.util.Log.d("MainActivity", "sendShareToJS attempt " + attempt + " - text: " + text);
+
     try {
       com.facebook.react.bridge.ReactContext reactContext =
         getReactNativeHost().getReactInstanceManager().getCurrentReactContext();
@@ -146,17 +152,47 @@ const withOnNewIntent = (config) => {
 
         reactContext.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
           .emit("RNReceiveSharingIntent::ShareData", params);
-        android.util.Log.d("MainActivity", "Successfully sent share data to JS: " + text);
+        android.util.Log.d("MainActivity", "SUCCESS: Sent share data to JS on attempt " + attempt);
 
         // Clear pending since we sent it
         clearPendingShare();
       } else {
-        android.util.Log.w("MainActivity", "React context not ready, storing for later");
-        storePendingShare(text, subject);
+        android.util.Log.w("MainActivity", "React context not ready on attempt " + attempt);
+
+        // Retry up to 5 times with increasing delays
+        if (attempt < 5) {
+          int delay = (attempt + 1) * 500; // 500ms, 1000ms, 1500ms, 2000ms, 2500ms
+          android.util.Log.d("MainActivity", "Scheduling retry in " + delay + "ms");
+          storePendingShare(text, subject);
+
+          new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+              sendShareToJSWithRetry(text, subject, attempt + 1);
+            }
+          }, delay);
+        } else {
+          android.util.Log.e("MainActivity", "Failed to send after 5 attempts, storing for later");
+          storePendingShare(text, subject);
+        }
       }
     } catch (Exception e) {
-      android.util.Log.e("MainActivity", "Error sending to JS, storing for later: " + e.getMessage());
-      storePendingShare(text, subject);
+      android.util.Log.e("MainActivity", "Error sending to JS on attempt " + attempt + ": " + e.getMessage());
+
+      if (attempt < 5) {
+        int delay = (attempt + 1) * 500;
+        storePendingShare(text, subject);
+
+        final int nextAttempt = attempt + 1;
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+          @Override
+          public void run() {
+            sendShareToJSWithRetry(text, subject, nextAttempt);
+          }
+        }, delay);
+      } else {
+        storePendingShare(text, subject);
+      }
     }
   }
 `;
@@ -209,48 +245,43 @@ const withOnNewIntent = (config) => {
   @Override
   protected void onResume() {
     super.onResume();
-    android.util.Log.d("MainActivity", "onResume called, checking for pending share");
+    android.util.Log.d("MainActivity", "=== onResume called ===");
 
-    // Check if there's pending share data to send
-    if (pendingShareText != null || pendingShareSubject != null) {
-      android.util.Log.d("MainActivity", "Found pending share data, attempting to send");
-      // Delay slightly to ensure React is ready
-      new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
-        @Override
-        public void run() {
-          String text = pendingShareText;
-          String subject = pendingShareSubject;
-          if (text != null || subject != null) {
-            sendShareToJS(text, subject);
-          }
-        }
-      }, 500);
-    }
-
-    // Also check current intent in case app was launched fresh with share
+    // Check current intent for share data
+    // This handles both fresh launches and when coming back from background
     try {
       Intent intent = getIntent();
       if (intent != null) {
         String action = intent.getAction();
+        android.util.Log.d("MainActivity", "onResume intent action: " + action);
+
         if (action != null && action.equals(Intent.ACTION_SEND)) {
           String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
-          if (sharedText != null && pendingShareText == null) {
-            android.util.Log.d("MainActivity", "onResume found share in current intent: " + sharedText);
-            String sharedSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-            // Delay to ensure React is ready
+          String sharedSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+
+          android.util.Log.d("MainActivity", "onResume found SEND intent - text: " + sharedText);
+
+          if (sharedText != null) {
+            // Mark this intent as processed by clearing the action
+            intent.setAction("");
+            setIntent(intent);
+
+            android.util.Log.d("MainActivity", "Processing share from onResume...");
             final String finalText = sharedText;
             final String finalSubject = sharedSubject;
+
+            // Use retry mechanism with delays to ensure React is ready
             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
               @Override
               public void run() {
                 sendShareToJS(finalText, finalSubject);
               }
-            }, 500);
+            }, 300);
           }
         }
       }
     } catch (Exception e) {
-      android.util.Log.e("MainActivity", "Error checking intent in onResume: " + e.getMessage());
+      android.util.Log.e("MainActivity", "Error in onResume: " + e.getMessage());
     }
   }
 `;
