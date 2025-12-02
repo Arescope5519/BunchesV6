@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState, Alert, NativeEventEmitter, NativeModules } from 'react-native';
+import { Platform, AppState, Alert, DeviceEventEmitter } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -176,8 +176,9 @@ export const useShareIntent = (onUrlReceived) => {
     let shareDataSubscription = null;
     if (Platform.OS === 'android') {
       try {
-        const eventEmitter = new NativeEventEmitter();
-        shareDataSubscription = eventEmitter.addListener('RNReceiveSharingIntent::ShareData', (data) => {
+        // Use DeviceEventEmitter directly - this is the correct way to receive
+        // events emitted via RCTDeviceEventEmitter from native code
+        shareDataSubscription = DeviceEventEmitter.addListener('RNReceiveSharingIntent::ShareData', (data) => {
           console.log(`🔔 [${Platform.OS}] Share data event received!`, data);
           Alert.alert('DEBUG', `Share data received from MainActivity!\nText: ${data?.text || 'none'}\nSubject: ${data?.subject || 'none'}`);
 
@@ -194,8 +195,8 @@ export const useShareIntent = (onUrlReceived) => {
             Alert.alert('DEBUG', 'No text or subject in share data');
           }
         });
-        console.log(`✅ [${Platform.OS}] Share data listener created`);
-        Alert.alert('DEBUG', 'Share data listener setup successfully');
+        console.log(`✅ [${Platform.OS}] Share data listener created with DeviceEventEmitter`);
+        Alert.alert('DEBUG', 'Share data listener setup with DeviceEventEmitter');
       } catch (error) {
         console.error(`❌ [${Platform.OS}] Share data listener failed:`, error);
         Alert.alert('ERROR', `Share data listener failed: ${error.message}`);
