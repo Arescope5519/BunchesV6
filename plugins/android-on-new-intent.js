@@ -81,27 +81,44 @@ const withOnNewIntent = (config) => {
     // Log to verify the method is being called
     android.util.Log.d("MainActivity", "onNewIntent called with action: " + (intent != null ? intent.getAction() : "null"));
 
-    // Manually trigger the ReceiveSharingIntent module to process the new intent
+    // Manually extract and send the shared data directly to avoid NullPointerException with getReceivedFiles
     if (intent != null && intent.getAction() != null) {
       String action = intent.getAction();
       android.util.Log.d("MainActivity", "Processing new intent with action: " + action);
 
-      if (action.equals(Intent.ACTION_SEND) || action.equals(Intent.ACTION_SEND_MULTIPLE)) {
-        // Notify the React Native module about the new intent
+      if (action.equals(Intent.ACTION_SEND)) {
         try {
-          com.facebook.react.bridge.ReactContext reactContext =
-            getReactNativeHost().getReactInstanceManager().getCurrentReactContext();
+          // Extract the shared text/URL directly from the intent
+          String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+          String sharedSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
 
-          if (reactContext != null) {
-            // Send event to JavaScript layer
-            reactContext.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-              .emit("RNReceiveSharingIntent::onNewIntent", null);
-            android.util.Log.d("MainActivity", "Sent onNewIntent event to JS");
-          } else {
-            android.util.Log.w("MainActivity", "React context is null, cannot send event");
+          android.util.Log.d("MainActivity", "Shared text: " + sharedText);
+          android.util.Log.d("MainActivity", "Shared subject: " + sharedSubject);
+
+          if (sharedText != null || sharedSubject != null) {
+            com.facebook.react.bridge.ReactContext reactContext =
+              getReactNativeHost().getReactInstanceManager().getCurrentReactContext();
+
+            if (reactContext != null) {
+              // Create a JSON object with the shared data
+              com.facebook.react.bridge.WritableMap params = com.facebook.react.bridge.Arguments.createMap();
+              if (sharedText != null) {
+                params.putString("text", sharedText);
+              }
+              if (sharedSubject != null) {
+                params.putString("subject", sharedSubject);
+              }
+
+              // Send the shared data directly to JavaScript
+              reactContext.getJSModule(com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                .emit("RNReceiveSharingIntent::ShareData", params);
+              android.util.Log.d("MainActivity", "Sent share data to JS: " + sharedText);
+            } else {
+              android.util.Log.w("MainActivity", "React context is null, cannot send event");
+            }
           }
         } catch (Exception e) {
-          android.util.Log.e("MainActivity", "Error sending onNewIntent event: " + e.getMessage());
+          android.util.Log.e("MainActivity", "Error extracting share data: " + e.getMessage());
         }
       }
     }

@@ -170,34 +170,35 @@ export const useShareIntent = (onUrlReceived) => {
     const subscriptions = [];
     let appStateSubscription = null;
 
-    // Setup custom onNewIntent listener (Android only)
-    // This event is emitted by our custom MainActivity when a new Intent arrives
-    let onNewIntentSubscription = null;
+    // Setup custom share data listener (Android only)
+    // This event is emitted by our custom MainActivity when a new share Intent arrives
+    // The data is extracted directly in Java to avoid NullPointerException with singleTask mode
+    let shareDataSubscription = null;
     if (Platform.OS === 'android') {
       try {
         const eventEmitter = new NativeEventEmitter();
-        onNewIntentSubscription = eventEmitter.addListener('RNReceiveSharingIntent::onNewIntent', () => {
-          console.log(`🔔 [${Platform.OS}] Custom onNewIntent event received!`);
-          Alert.alert('DEBUG', 'onNewIntent event received! Checking for share...');
+        shareDataSubscription = eventEmitter.addListener('RNReceiveSharingIntent::ShareData', (data) => {
+          console.log(`🔔 [${Platform.OS}] Share data event received!`, data);
+          Alert.alert('DEBUG', `Share data received from MainActivity!\nText: ${data?.text || 'none'}\nSubject: ${data?.subject || 'none'}`);
 
-          // Small delay to ensure the Intent is fully set
-          setTimeout(() => {
-            if (ReceiveSharingIntent) {
-              try {
-                // Now it's safe to call getReceivedFiles because setIntent was just called
-                checkForSharedContent();
-              } catch (error) {
-                console.log(`ℹ️ [${Platform.OS}] Check failed:`, error.message);
-                Alert.alert('DEBUG', `Check failed: ${error.message}`);
-              }
-            }
-          }, 100);
+          if (data && (data.text || data.subject)) {
+            // Process the shared data directly - no need to call getReceivedFiles
+            const sharedData = {
+              text: data.text,
+              weblink: data.text, // URLs are usually in the text field
+              subject: data.subject
+            };
+            Alert.alert('DEBUG', 'Processing shared data directly...');
+            handleSharedUrl(sharedData);
+          } else {
+            Alert.alert('DEBUG', 'No text or subject in share data');
+          }
         });
-        console.log(`✅ [${Platform.OS}] onNewIntent listener created`);
-        Alert.alert('DEBUG', 'onNewIntent listener setup successfully');
+        console.log(`✅ [${Platform.OS}] Share data listener created`);
+        Alert.alert('DEBUG', 'Share data listener setup successfully');
       } catch (error) {
-        console.error(`❌ [${Platform.OS}] onNewIntent listener failed:`, error);
-        Alert.alert('ERROR', `onNewIntent listener failed: ${error.message}`);
+        console.error(`❌ [${Platform.OS}] Share data listener failed:`, error);
+        Alert.alert('ERROR', `Share data listener failed: ${error.message}`);
       }
     }
 
@@ -231,14 +232,14 @@ export const useShareIntent = (onUrlReceived) => {
       console.log('ℹ️ Share intent library not available');
       Alert.alert('DEBUG', 'Share intent library NOT loaded - rebuild required');
 
-      // Still return cleanup for AppState and onNewIntent listeners
+      // Still return cleanup for AppState and share data listeners
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up (no share library)`);
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
         }
-        if (onNewIntentSubscription && typeof onNewIntentSubscription.remove === 'function') {
-          onNewIntentSubscription.remove();
+        if (shareDataSubscription && typeof shareDataSubscription.remove === 'function') {
+          shareDataSubscription.remove();
         }
       };
     }
@@ -305,8 +306,8 @@ export const useShareIntent = (onUrlReceived) => {
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
         }
-        if (onNewIntentSubscription && typeof onNewIntentSubscription.remove === 'function') {
-          onNewIntentSubscription.remove();
+        if (shareDataSubscription && typeof shareDataSubscription.remove === 'function') {
+          shareDataSubscription.remove();
         }
       };
     } catch (error) {
