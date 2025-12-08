@@ -145,7 +145,9 @@ export const useShareIntent = (onUrlReceived) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
           // When app becomes active, check for new shares
-          console.log(`🔄 [${Platform.OS}] App became active, checking for new shares`);
+          // Reset lastProcessedUrl so same URL can be shared again after app was backgrounded
+          console.log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
+          lastProcessedUrl.current = null;
           checkForSharedContent();
         }
       });

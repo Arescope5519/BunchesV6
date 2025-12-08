@@ -17,6 +17,16 @@ const withAndroidShareIntent = (config) => {
       throw new Error('MainActivity not found in AndroidManifest.xml');
     }
 
+    // Configure MainActivity for proper share intent handling
+    // singleTask: Only one instance exists - new shares go to existing instance via onNewIntent
+    mainActivity.$['android:launchMode'] = 'singleTask';
+
+    // Empty taskAffinity ensures activity always launches in app's own task
+    // Without this, shares from other apps might create instance inside their task
+    mainActivity.$['android:taskAffinity'] = '';
+
+    console.log('✅ Set MainActivity launchMode to singleTask for share intent handling');
+
     // Ensure intent-filter array exists
     if (!mainActivity['intent-filter']) {
       mainActivity['intent-filter'] = [];
