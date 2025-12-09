@@ -17,6 +17,12 @@ const withAndroidShareIntent = (config) => {
       throw new Error('MainActivity not found in AndroidManifest.xml');
     }
 
+    // DISABLE Android Auto Backup - prevents deleted recipes from being restored after reinstall
+    // Android backs up AsyncStorage to Google Drive by default, which causes deleted data to return
+    mainApplication.$['android:allowBackup'] = 'false';
+    mainApplication.$['android:fullBackupContent'] = 'false';
+    console.log('✅ Disabled Android Auto Backup to prevent deleted data from returning');
+
     // Configure MainActivity for proper share intent handling
     // singleTask: Only one instance exists - new shares go to existing instance via onNewIntent
     mainActivity.$['android:launchMode'] = 'singleTask';
