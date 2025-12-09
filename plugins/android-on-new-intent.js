@@ -7,29 +7,28 @@ const { withMainActivity } = require('@expo/config-plugins');
  * is already running. Without this, sharing to an already-open app just brings
  * it to the foreground without processing the shared content.
  *
- * Works with react-native-receive-sharing-intent library.
+ * The JavaScript side (useShareIntent hook) will detect the new intent via
+ * AppState listener when the app becomes active.
  */
 const withAndroidOnNewIntent = (config) => {
   return withMainActivity(config, (config) => {
     const mainActivity = config.modResults;
     const isKotlin = mainActivity.language === 'kt' || mainActivity.path?.endsWith('.kt');
 
-    // Add the import for ReceiveSharingIntentHelper if not present
-    if (!mainActivity.contents.includes('com.reactnativereceivesharingintent.ReceiveSharingIntentHelper')) {
+    // Add Intent import if not present (needed for onNewIntent parameter type)
+    if (!mainActivity.contents.includes('import android.content.Intent')) {
       if (isKotlin) {
-        // Kotlin imports (no semicolons)
         mainActivity.contents = mainActivity.contents.replace(
           'import android.os.Bundle',
-          'import android.os.Bundle\nimport android.content.Intent\nimport com.reactnativereceivesharingintent.ReceiveSharingIntentHelper'
+          'import android.os.Bundle\nimport android.content.Intent'
         );
       } else {
-        // Java imports
         mainActivity.contents = mainActivity.contents.replace(
           'import android.os.Bundle;',
-          'import android.os.Bundle;\nimport android.content.Intent;\nimport com.reactnativereceivesharingintent.ReceiveSharingIntentHelper;'
+          'import android.os.Bundle;\nimport android.content.Intent;'
         );
       }
-      console.log('✅ Added ReceiveSharingIntentHelper import to MainActivity');
+      console.log('✅ Added Intent import to MainActivity');
     }
 
     // Check if onNewIntent is already implemented
@@ -39,14 +38,13 @@ const withAndroidOnNewIntent = (config) => {
 
       let onNewIntentMethod;
       if (isKotlin) {
-        // Kotlin syntax
+        // Kotlin syntax - just update the intent, JS side will detect via AppState
         onNewIntentMethod = `
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
-    // Update activity's intent reference
-    this.intent = intent
-    // Forward the new intent to the sharing intent handler
-    ReceiveSharingIntentHelper.setIntent(intent, this)
+    // Update activity's intent so getIntent() returns the new share intent
+    // The JavaScript useShareIntent hook will detect this via AppState listener
+    setIntent(intent)
   }
 `;
       } else {
@@ -55,9 +53,9 @@ const withAndroidOnNewIntent = (config) => {
   @Override
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
+    // Update activity's intent so getIntent() returns the new share intent
+    // The JavaScript useShareIntent hook will detect this via AppState listener
     setIntent(intent);
-    // Forward the new intent to the sharing intent handler
-    ReceiveSharingIntentHelper.setIntent(intent, this);
   }
 `;
       }
