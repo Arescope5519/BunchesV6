@@ -43,7 +43,8 @@ const withAndroidOnNewIntent = (config) => {
         onNewIntentMethod = `
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
-    setIntent(intent)
+    // Update activity's intent reference
+    this.intent = intent
     // Forward the new intent to the sharing intent handler
     ReceiveSharingIntentHelper.setIntent(intent, this)
   }
