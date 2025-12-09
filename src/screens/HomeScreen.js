@@ -285,8 +285,6 @@ export const HomeScreen = ({ user }) => {
   }, []);
 
   const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
-    // DEBUG: Confirm extraction callback is being called
-    Alert.alert('DEBUG', `Recipe extracted: ${recipe?.title || 'No title'}`);
     // Navigate to save recipe screen with extracted recipe
     setExtractedRecipe(recipe);
     setCurrentScreen('saveRecipe');
