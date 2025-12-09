@@ -260,77 +260,68 @@ export const useRecipes = (user) => {
           {
             text: 'Delete Forever',
             style: 'destructive',
-            onPress: async () => {
-              const updated = recipes.filter(r => r.id !== recipeId);
-              const success = await saveRecipesToStorage(updated);
+            onPress: () => {
+              // Use non-async wrapper to avoid silent failures in Alert callbacks
+              (async () => {
+                try {
+                  console.log('🗑️ Starting permanent delete for recipe:', recipeId);
 
-              if (success) {
-                setRecipes(updated);
-                setSelectedRecipe(null);
+                  // Load fresh from storage to avoid stale closure issues
+                  const currentRecipes = await loadRecipesFromStorage();
+                  const updated = currentRecipes.filter(r => r.id !== recipeId);
 
-                // Delete from Firestore if user is signed in
-                if (user) {
-                  try {
-                    // Show syncing message immediately
-                    Alert.alert('Syncing...', 'Please wait while we sync with the cloud.');
+                  const success = await saveRecipesToStorage(updated);
 
-                    // Import firestore directly to ensure it's available
-                    const firestore = require('@react-native-firebase/firestore').default;
+                  if (success) {
+                    // Update both state and close modal
+                    setRecipes(updated);
+                    setSelectedRecipe(null);
 
-                    // FIRST: Track deletion to prevent restoration
-                    await firestore()
-                      .collection('users')
-                      .doc(user.uid)
-                      .set({
-                        deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                      }, { merge: true });
+                    // Delete from Firestore if user is signed in
+                    if (user) {
+                      try {
+                        const firestore = require('@react-native-firebase/firestore').default;
 
-                    // Delete the recipe document
-                    await firestore()
-                      .collection('users')
-                      .doc(user.uid)
-                      .collection('recipes')
-                      .doc(recipeId)
-                      .delete();
+                        // Track deletion to prevent restoration
+                        await firestore()
+                          .collection('users')
+                          .doc(user.uid)
+                          .set({
+                            deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                            lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+                          }, { merge: true });
 
-                    // Wait for server confirmation
-                    await firestore().waitForPendingWrites();
+                        // Delete the recipe document
+                        await firestore()
+                          .collection('users')
+                          .doc(user.uid)
+                          .collection('recipes')
+                          .doc(recipeId)
+                          .delete();
 
-                    // Verify deletion on server
-                    const verifyDoc = await firestore()
-                      .collection('users')
-                      .doc(user.uid)
-                      .collection('recipes')
-                      .doc(recipeId)
-                      .get({ source: 'server' });
+                        // Wait for server confirmation
+                        await firestore().waitForPendingWrites();
 
-                    if (verifyDoc.exists) {
-                      console.warn('Recipe still exists after deletion, retrying...');
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('recipes')
-                        .doc(recipeId)
-                        .delete();
-                      await firestore().waitForPendingWrites();
+                        Alert.alert('✅ Deleted', 'Recipe permanently deleted and synced to cloud.');
+                      } catch (err) {
+                        console.error('❌ Firestore sync failed:', err);
+                        Alert.alert('⚠️ Warning', `Recipe deleted locally but cloud sync failed: ${err.message}`);
+                      }
+                    } else {
+                      Alert.alert('Deleted', 'Recipe deleted locally. Sign in to sync deletions to cloud.');
                     }
 
-                    Alert.alert('✅ Deleted', 'Recipe permanently deleted and synced to cloud.');
-                  } catch (err) {
-                    console.error('❌ Failed to delete recipe from Firestore:', err);
-                    Alert.alert('⚠️ Warning', `Recipe deleted locally but cloud sync failed: ${err.message}`);
+                    resolve(true);
+                  } else {
+                    Alert.alert('Error', 'Failed to delete recipe locally.');
+                    resolve(false);
                   }
-                } else {
-                  // Not signed in - just local delete
-                  Alert.alert('Deleted', 'Recipe deleted locally. Sign in to sync deletions to cloud.');
+                } catch (err) {
+                  console.error('🗑️ Permanent delete failed:', err);
+                  Alert.alert('Error', `Delete failed: ${err.message}`);
+                  resolve(false);
                 }
-
-                resolve(true);
-              } else {
-                Alert.alert('Error', 'Failed to delete recipe locally.');
-                resolve(false);
-              }
+              })();
             }
           }
         ]
