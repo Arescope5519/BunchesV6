@@ -69,18 +69,26 @@ if (isAuthAvailable()) {
   }
 }
 
-// Conditionally import Firestore functions
-let deleteRecipeFromFirestore = null;
-let saveRecipeToFirestore = null;
-if (isFirestoreAvailable()) {
+/**
+ * Helper to save a recipe to Firestore - imports directly to avoid conditional import issues
+ */
+const saveToFirestore = async (userId, recipe) => {
   try {
-    const firestoreModule = require('../services/firebase/firestore');
-    deleteRecipeFromFirestore = firestoreModule.deleteRecipeFromFirestore;
-    saveRecipeToFirestore = firestoreModule.saveRecipeToFirestore;
-  } catch (e) {
-    console.error('Failed to load Firestore module:', e);
+    const firestore = require('@react-native-firebase/firestore').default;
+    const recipeRef = firestore()
+      .collection('users')
+      .doc(userId)
+      .collection('recipes')
+      .doc(recipe.id);
+
+    await recipeRef.set(recipe, { merge: true });
+    console.log(`✅ Recipe ${recipe.id} synced to Firestore`);
+    return true;
+  } catch (err) {
+    console.error(`Failed to sync recipe ${recipe.id} to Firestore:`, err);
+    return false;
   }
-}
+};
 
 export const HomeScreen = ({ user }) => {
   // Navigation state
@@ -673,7 +681,7 @@ export const HomeScreen = ({ user }) => {
               await saveRecipes(updatedRecipes);
 
               // Sync to Firestore if user is signed in
-              if (user && saveRecipeToFirestore) {
+              if (user) {
                 try {
                   const firestore = require('@react-native-firebase/firestore').default;
 
@@ -681,7 +689,7 @@ export const HomeScreen = ({ user }) => {
                   for (const recipeId of recipeIds) {
                     const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
                     if (deletedRecipe) {
-                      await saveRecipeToFirestore(user.uid, deletedRecipe);
+                      await saveToFirestore(user.uid, deletedRecipe);
                     }
 
                     // Track in deletion list
