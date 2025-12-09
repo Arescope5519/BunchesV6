@@ -85,6 +85,7 @@ export const checkFirestoreRecipes = async (userId) => {
 
 /**
  * Clean up all soft-deleted AND stuck recipes from Firestore
+ * IMPORTANT: Waits for server confirmation to ensure cleanup persists
  */
 export const cleanupDeletedRecipes = async (userId) => {
   try {
@@ -100,6 +101,20 @@ export const cleanupDeletedRecipes = async (userId) => {
       return 0;
     }
 
+    // FIRST: Add all recipe IDs to deletion tracking list
+    // This ensures they won't be restored even if document deletion fails
+    const recipeIdsToDelete = recipesToDelete.map(r => r.id);
+    await firestore()
+      .collection('users')
+      .doc(userId)
+      .set({
+        deletedRecipeIds: firestore.FieldValue.arrayUnion(...recipeIdsToDelete),
+        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+    console.log(`📝 Tracked ${recipeIdsToDelete.length} recipe IDs in deletion list`);
+
+    // Now delete the recipe documents
     const batch = firestore().batch();
     let count = 0;
 
@@ -116,7 +131,11 @@ export const cleanupDeletedRecipes = async (userId) => {
     });
 
     await batch.commit();
-    console.log(`✅ Cleaned up ${count} recipes from Firestore`);
+
+    // CRITICAL: Wait for all pending writes to be acknowledged by the server
+    await firestore().waitForPendingWrites();
+
+    console.log(`✅ Cleaned up ${count} recipes from Firestore and confirmed with server`);
 
     return count;
   } catch (error) {

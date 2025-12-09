@@ -153,14 +153,10 @@ export const useRecipes = (user) => {
         const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (deletedRecipe) {
           try {
-            // Save the recipe with deletedAt flag - AWAIT it!
-            await saveRecipeToFirestore(user.uid, deletedRecipe);
-            console.log(`✅ Synced soft-deleted recipe ${recipeId} to Firestore`);
-
-            // ALSO track it in deletion list to prevent restoration if sync fails
-            // We use the deletion tracking without actually deleting the document
-            // This ensures it won't restore even if the deletedAt flag doesn't sync
             const firestore = require('@react-native-firebase/firestore').default;
+
+            // FIRST: Track it in deletion list to prevent restoration
+            // This is the most important step - even if other sync fails
             await firestore()
               .collection('users')
               .doc(user.uid)
@@ -168,10 +164,17 @@ export const useRecipes = (user) => {
                 deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
                 lastDeletionAt: firestore.FieldValue.serverTimestamp(),
               }, { merge: true });
-            console.log(`✅ Tracked soft-deleted recipe ${recipeId} in deletion list`);
+
+            // Save the recipe with deletedAt flag
+            await saveRecipeToFirestore(user.uid, deletedRecipe);
+
+            // CRITICAL: Wait for server confirmation
+            await firestore().waitForPendingWrites();
+
+            console.log(`✅ Soft-deleted recipe ${recipeId} synced and confirmed with server`);
           } catch (err) {
             console.error('Failed to sync deletion to Firestore:', err);
-            // Don't fail the deletion if Firestore sync fails - deletion tracking will handle restoration prevention
+            // Don't fail the deletion if Firestore sync fails - local deletion still works
           }
         }
       }
@@ -201,22 +204,26 @@ export const useRecipes = (user) => {
       if (user && saveRecipeToFirestore) {
         const restoredRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (restoredRecipe) {
-          saveRecipeToFirestore(user.uid, restoredRecipe).catch(err =>
-            console.error('Failed to sync restored recipe to Firestore:', err)
-          );
-
-          // Remove from deletion tracking list since it's being restored
           try {
             const firestore = require('@react-native-firebase/firestore').default;
+
+            // Remove from deletion tracking list FIRST
             await firestore()
               .collection('users')
               .doc(user.uid)
               .set({
                 deletedRecipeIds: firestore.FieldValue.arrayRemove(recipeId),
               }, { merge: true });
-            console.log(`✅ Removed recipe ${recipeId} from deletion tracking list`);
+
+            // Save the restored recipe
+            await saveRecipeToFirestore(user.uid, restoredRecipe);
+
+            // Wait for server confirmation
+            await firestore().waitForPendingWrites();
+
+            console.log(`✅ Restored recipe ${recipeId} and confirmed with server`);
           } catch (err) {
-            console.error('Failed to remove from deletion tracking:', err);
+            console.error('Failed to sync restored recipe:', err);
           }
         }
       }

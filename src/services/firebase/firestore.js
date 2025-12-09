@@ -117,6 +117,7 @@ export const saveRecipeToFirestore = async (userId, recipe) => {
 /**
  * Delete a recipe from Firestore
  * Also adds recipe ID to deletion tracking list to prevent restoration after reinstall
+ * IMPORTANT: Waits for server confirmation to ensure deletion persists across reinstalls
  * @param {string} userId - User's unique ID
  * @param {string} recipeId - Recipe ID to delete
  * @returns {Promise<void>}
@@ -127,19 +128,43 @@ export const deleteRecipeFromFirestore = async (userId, recipeId) => {
       .collection('users')
       .doc(userId);
 
+    // FIRST: Track this deletion in the user doc to prevent restoration
+    // This is the most important step - even if document deletion fails,
+    // the sync logic will check this list and not restore the recipe
+    await userDocRef.set({
+      deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+      lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
     // Delete the recipe document
     await userDocRef
       .collection(RECIPES_COLLECTION)
       .doc(recipeId)
       .delete();
 
-    // Track this deletion to prevent restoration after reinstall
-    await userDocRef.set({
-      deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-      lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    // CRITICAL: Wait for all pending writes to be acknowledged by the server
+    // Without this, deletions may only exist in local cache and be lost on reinstall
+    await firestore().waitForPendingWrites();
 
-    console.log(`✅ Deleted recipe ${recipeId} from Firestore and tracked deletion`);
+    // Verify the deletion reached the server by checking if document still exists
+    try {
+      const verifyDoc = await userDocRef
+        .collection(RECIPES_COLLECTION)
+        .doc(recipeId)
+        .get({ source: 'server' });
+
+      if (verifyDoc.exists) {
+        console.warn(`⚠️ Recipe ${recipeId} still exists on server after deletion attempt`);
+        // Try deleting again
+        await userDocRef.collection(RECIPES_COLLECTION).doc(recipeId).delete();
+        await firestore().waitForPendingWrites();
+      }
+    } catch (verifyError) {
+      // Verification failed (possibly offline), but deletion tracking is in place
+      console.log('Could not verify deletion on server, but deletion is tracked');
+    }
+
+    console.log(`✅ Deleted recipe ${recipeId} from Firestore and confirmed with server`);
   } catch (error) {
     console.error('❌ Error deleting recipe from Firestore:', error);
     throw error;
