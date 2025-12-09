@@ -1277,7 +1277,9 @@ export const HomeScreen = ({ user }) => {
       {currentScreen === 'recipes' && (
         <>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Bunches</Text>
+            <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
+              <Text style={styles.headerTitle}>Bunches</Text>
+            </TouchableOpacity>
             <View style={styles.headerButtons}>
               <TouchableOpacity
                 onPress={() => setCurrentScreen('create')}
