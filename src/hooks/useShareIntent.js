@@ -148,7 +148,15 @@ export const useShareIntent = (onUrlReceived) => {
           // Reset lastProcessedUrl so same URL can be shared again after app was backgrounded
           console.log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
           lastProcessedUrl.current = null;
+
+          // Check immediately
           checkForSharedContent();
+
+          // Also check after a delay - the native layer may need time to process onNewIntent
+          setTimeout(() => {
+            console.log(`⏰ [${Platform.OS}] Delayed check for shared content`);
+            checkForSharedContent();
+          }, 500);
         }
       });
 
