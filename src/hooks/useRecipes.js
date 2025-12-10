@@ -87,6 +87,15 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * Quick reload from local storage only (no Firestore sync)
+   */
+  const reloadFromStorage = async () => {
+    const localRecipes = await loadRecipesFromStorage();
+    setRecipes(localRecipes);
+    return localRecipes;
+  };
+
+  /**
    * Save recipe - waits for recipes to load first
    */
   const saveRecipe = async (recipe) => {
@@ -538,6 +547,7 @@ export const useRecipes = (user) => {
     moveManyToFolder,
     getFilteredRecipes,
     refreshRecipes: loadRecipes,
+    reloadFromStorage,
   };
 };
 

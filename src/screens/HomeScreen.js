@@ -149,6 +149,7 @@ export const HomeScreen = ({ user }) => {
     moveManyToFolder,
     getFilteredRecipes,
     refreshRecipes,
+    reloadFromStorage,
   } = useRecipes(user);
 
   const {
@@ -1765,7 +1766,9 @@ export const HomeScreen = ({ user }) => {
                     onPress={async () => {
                       const deleted = await permanentlyDeleteRecipe(selectedRecipe.id);
                       if (deleted) {
-                        setSelectedRecipe(null); // Ensure modal closes after deletion
+                        // Force reload from storage (fast, local only) and close modal
+                        await reloadFromStorage();
+                        setSelectedRecipe(null);
                       }
                     }}
                     style={styles.iconButton}
