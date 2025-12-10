@@ -273,45 +273,41 @@ export const useRecipes = (user) => {
                   const success = await saveRecipesToStorage(updated);
 
                   if (success) {
-                    // Update both state and close modal
+                    // Update UI immediately
                     setRecipes(updated);
                     setSelectedRecipe(null);
 
-                    // Delete from Firestore if user is signed in
-                    if (user) {
-                      try {
-                        const firestore = require('@react-native-firebase/firestore').default;
-
-                        // Track deletion to prevent restoration
-                        await firestore()
-                          .collection('users')
-                          .doc(user.uid)
-                          .set({
-                            deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                            lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                          }, { merge: true });
-
-                        // Delete the recipe document
-                        await firestore()
-                          .collection('users')
-                          .doc(user.uid)
-                          .collection('recipes')
-                          .doc(recipeId)
-                          .delete();
-
-                        // Wait for server confirmation
-                        await firestore().waitForPendingWrites();
-
-                        Alert.alert('✅ Deleted', 'Recipe permanently deleted and synced to cloud.');
-                      } catch (err) {
-                        console.error('❌ Firestore sync failed:', err);
-                        Alert.alert('⚠️ Warning', `Recipe deleted locally but cloud sync failed: ${err.message}`);
-                      }
-                    } else {
-                      Alert.alert('Deleted', 'Recipe deleted locally. Sign in to sync deletions to cloud.');
-                    }
-
+                    // Resolve immediately so UI updates right away
                     resolve(true);
+
+                    // Sync to Firestore in background (don't wait for it)
+                    if (user) {
+                      (async () => {
+                        try {
+                          const firestore = require('@react-native-firebase/firestore').default;
+
+                          await firestore()
+                            .collection('users')
+                            .doc(user.uid)
+                            .set({
+                              deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                              lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+                            }, { merge: true });
+
+                          await firestore()
+                            .collection('users')
+                            .doc(user.uid)
+                            .collection('recipes')
+                            .doc(recipeId)
+                            .delete();
+
+                          await firestore().waitForPendingWrites();
+                          console.log('✅ Firestore sync complete for deleted recipe');
+                        } catch (err) {
+                          console.error('❌ Firestore sync failed:', err);
+                        }
+                      })();
+                    }
                   } else {
                     Alert.alert('Error', 'Failed to delete recipe locally.');
                     resolve(false);
