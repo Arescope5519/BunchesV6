@@ -23,6 +23,12 @@ try {
 export const useShareIntent = (onUrlReceived) => {
   const processedInitialShare = useRef(false);
   const lastProcessedUrl = useRef(null);
+  const onUrlReceivedRef = useRef(onUrlReceived);
+
+  // Keep the callback ref up to date
+  useEffect(() => {
+    onUrlReceivedRef.current = onUrlReceived;
+  }, [onUrlReceived]);
 
   /**
    * Handle shared URLs from browser
@@ -77,8 +83,9 @@ export const useShareIntent = (onUrlReceived) => {
       console.log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
       lastProcessedUrl.current = sharedUrl;
 
-      if (onUrlReceived) {
-        onUrlReceived(sharedUrl);
+      // Use the ref to get the latest callback
+      if (onUrlReceivedRef.current) {
+        onUrlReceivedRef.current(sharedUrl);
       }
 
       // Clear the received files after processing
