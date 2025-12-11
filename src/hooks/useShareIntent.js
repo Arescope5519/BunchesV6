@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState } from 'react-native';
+import { Platform, AppState, DeviceEventEmitter } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -133,15 +133,22 @@ export const useShareIntent = (onUrlReceived) => {
         processedInitialShare.current = true;
       }
 
-      // Handle shares when app is already open
-      // iOS uses 'url' event, Android can use both 'url' and other events
+      // Handle shares when app is already open via library event
       const eventType = Platform.OS === 'ios' ? 'url' : 'url';
       const subscription = ReceiveSharingIntent.addEventListener(eventType, (event) => {
-        console.log(`📥 [${Platform.OS}] Received event while app open:`, event);
+        console.log(`📥 [${Platform.OS}] Received library event while app open:`, event);
         if (event) {
-          // iOS might pass event.url or just the url directly
           const dataToHandle = event.url || event;
           handleSharedUrl(dataToHandle);
+        }
+      });
+
+      // Listen for native newShareIntent event (emitted directly from onNewIntent)
+      const nativeShareSubscription = DeviceEventEmitter.addListener('newShareIntent', (sharedText) => {
+        console.log(`📥 [${Platform.OS}] Received native newShareIntent event:`, sharedText);
+        if (sharedText) {
+          lastProcessedUrl.current = null; // Reset to allow processing
+          handleSharedUrl(sharedText);
         }
       });
 
@@ -167,6 +174,9 @@ export const useShareIntent = (onUrlReceived) => {
         console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
         if (subscription && typeof subscription.remove === 'function') {
           subscription.remove();
+        }
+        if (nativeShareSubscription && typeof nativeShareSubscription.remove === 'function') {
+          nativeShareSubscription.remove();
         }
         if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
           appStateSubscription.remove();
