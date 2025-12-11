@@ -654,65 +654,93 @@ export const HomeScreen = ({ user }) => {
           text: isPermanentDelete ? 'Delete Forever' : 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const { saveRecipes } = require('../utils/storage');
+            // Exit multiselect mode FIRST to update UI immediately
+            exitMultiselectMode();
+
+            const { saveRecipes, loadRecipes } = require('../utils/storage');
+
+            // Load fresh from storage to avoid stale closure issues
+            const currentRecipes = await loadRecipes();
 
             if (isPermanentDelete) {
               // Permanently delete: remove from array entirely
-              const updatedRecipes = recipes.filter(r => !recipeIds.includes(r.id));
+              const updatedRecipes = currentRecipes.filter(r => !recipeIds.includes(r.id));
               await saveRecipes(updatedRecipes);
 
-              // Delete from Firestore if user is signed in
-              if (user && deleteRecipeFromFirestore) {
-                try {
-                  await Promise.all(
-                    recipeIds.map(id => deleteRecipeFromFirestore(user.uid, id))
-                  );
-                  console.log(`✅ Permanently deleted ${recipeCount} recipes from Firestore`);
-                } catch (err) {
-                  console.error('❌ Failed to delete some recipes from Firestore:', err);
-                  Alert.alert('Warning', 'Recipes deleted locally but some may still exist in cloud.');
-                }
+              // Reload UI from storage
+              await reloadFromStorage();
+
+              // Delete from Firestore in background if user is signed in
+              if (user) {
+                (async () => {
+                  try {
+                    const firestore = require('@react-native-firebase/firestore').default;
+
+                    // Track deletions and delete documents
+                    for (const recipeId of recipeIds) {
+                      await firestore()
+                        .collection('users')
+                        .doc(user.uid)
+                        .set({
+                          deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                          lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+                        }, { merge: true });
+
+                      await firestore()
+                        .collection('users')
+                        .doc(user.uid)
+                        .collection('recipes')
+                        .doc(recipeId)
+                        .delete();
+                    }
+
+                    await firestore().waitForPendingWrites();
+                    console.log(`✅ Permanently deleted ${recipeCount} recipes from Firestore`);
+                  } catch (err) {
+                    console.error('❌ Failed to delete some recipes from Firestore:', err);
+                  }
+                })();
               }
             } else {
               // Soft delete: mark all selected recipes with deletedAt timestamp
               const now = Date.now();
-              const updatedRecipes = recipes.map(r =>
+              const updatedRecipes = currentRecipes.map(r =>
                 recipeIds.includes(r.id) ? { ...r, deletedAt: now, updatedAt: now } : r
               );
               await saveRecipes(updatedRecipes);
 
-              // Sync to Firestore if user is signed in
+              // Reload UI from storage
+              await reloadFromStorage();
+
+              // Sync to Firestore in background if user is signed in
               if (user) {
-                try {
-                  const firestore = require('@react-native-firebase/firestore').default;
+                (async () => {
+                  try {
+                    const firestore = require('@react-native-firebase/firestore').default;
 
-                  // Save each deleted recipe and track in deletion list
-                  for (const recipeId of recipeIds) {
-                    const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
-                    if (deletedRecipe) {
-                      await saveToFirestore(user.uid, deletedRecipe);
+                    // Save each deleted recipe and track in deletion list
+                    for (const recipeId of recipeIds) {
+                      const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
+                      if (deletedRecipe) {
+                        await saveToFirestore(user.uid, deletedRecipe);
+                      }
+
+                      // Track in deletion list
+                      await firestore()
+                        .collection('users')
+                        .doc(user.uid)
+                        .set({
+                          deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                          lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+                        }, { merge: true });
                     }
-
-                    // Track in deletion list
-                    await firestore()
-                      .collection('users')
-                      .doc(user.uid)
-                      .set({
-                        deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                      }, { merge: true });
+                    console.log(`✅ Synced ${recipeCount} soft-deleted recipes to Firestore`);
+                  } catch (err) {
+                    console.error('Failed to sync deletions to Firestore:', err);
                   }
-                  console.log(`✅ Synced ${recipeCount} soft-deleted recipes to Firestore`);
-                } catch (err) {
-                  console.error('Failed to sync deletions to Firestore:', err);
-                }
+                })();
               }
             }
-
-            // Reload recipes to reflect changes
-            await refreshRecipes();
-
-            exitMultiselectMode();
           }
         }
       ]
