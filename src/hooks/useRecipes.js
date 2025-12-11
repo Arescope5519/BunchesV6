@@ -257,81 +257,56 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Permanently delete recipe
+   * Permanently delete recipe (no confirmation - caller should confirm first)
    */
   const permanentlyDeleteRecipe = async (recipeId) => {
-    return new Promise((resolve) => {
-      Alert.alert(
-        'Permanently Delete?',
-        'This will permanently delete the recipe. This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          {
-            text: 'Delete Forever',
-            style: 'destructive',
-            onPress: () => {
-              // Use non-async wrapper to avoid silent failures in Alert callbacks
-              (async () => {
-                try {
-                  console.log('🗑️ Starting permanent delete for recipe:', recipeId);
+    try {
+      console.log('🗑️ Starting permanent delete for recipe:', recipeId);
 
-                  // Load fresh from storage to avoid stale closure issues
-                  const currentRecipes = await loadRecipesFromStorage();
-                  const updated = currentRecipes.filter(r => r.id !== recipeId);
+      // Load fresh from storage and delete
+      const currentRecipes = await loadRecipesFromStorage();
+      const updated = currentRecipes.filter(r => r.id !== recipeId);
+      const success = await saveRecipesToStorage(updated);
 
-                  const success = await saveRecipesToStorage(updated);
+      if (!success) {
+        console.error('Failed to delete recipe locally');
+        return false;
+      }
 
-                  if (success) {
-                    // Update UI immediately
-                    setRecipes(updated);
-                    setSelectedRecipe(null);
+      // Sync to Firestore in background (don't wait for it)
+      if (user) {
+        (async () => {
+          try {
+            const firestore = require('@react-native-firebase/firestore').default;
 
-                    // Resolve immediately so UI updates right away
-                    resolve(true);
+            await firestore()
+              .collection('users')
+              .doc(user.uid)
+              .set({
+                deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
+                lastDeletionAt: firestore.FieldValue.serverTimestamp(),
+              }, { merge: true });
 
-                    // Sync to Firestore in background (don't wait for it)
-                    if (user) {
-                      (async () => {
-                        try {
-                          const firestore = require('@react-native-firebase/firestore').default;
+            await firestore()
+              .collection('users')
+              .doc(user.uid)
+              .collection('recipes')
+              .doc(recipeId)
+              .delete();
 
-                          await firestore()
-                            .collection('users')
-                            .doc(user.uid)
-                            .set({
-                              deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                              lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                            }, { merge: true });
-
-                          await firestore()
-                            .collection('users')
-                            .doc(user.uid)
-                            .collection('recipes')
-                            .doc(recipeId)
-                            .delete();
-
-                          await firestore().waitForPendingWrites();
-                          console.log('✅ Firestore sync complete for deleted recipe');
-                        } catch (err) {
-                          console.error('❌ Firestore sync failed:', err);
-                        }
-                      })();
-                    }
-                  } else {
-                    Alert.alert('Error', 'Failed to delete recipe locally.');
-                    resolve(false);
-                  }
-                } catch (err) {
-                  console.error('🗑️ Permanent delete failed:', err);
-                  Alert.alert('Error', `Delete failed: ${err.message}`);
-                  resolve(false);
-                }
-              })();
-            }
+            await firestore().waitForPendingWrites();
+            console.log('✅ Firestore sync complete for deleted recipe');
+          } catch (err) {
+            console.error('❌ Firestore sync failed:', err);
           }
-        ]
-      );
-    });
+        })();
+      }
+
+      return true;
+    } catch (err) {
+      console.error('🗑️ Permanent delete failed:', err);
+      return false;
+    }
   };
 
   /**

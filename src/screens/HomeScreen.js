@@ -1763,13 +1763,27 @@ export const HomeScreen = ({ user }) => {
                     <Text style={styles.iconButtonText}>♻️</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={async () => {
-                      const deleted = await permanentlyDeleteRecipe(selectedRecipe.id);
-                      if (deleted) {
-                        // Force reload from storage (fast, local only) and close modal
-                        await reloadFromStorage();
-                        setSelectedRecipe(null);
-                      }
+                    onPress={() => {
+                      const recipeId = selectedRecipe.id;
+                      Alert.alert(
+                        'Permanently Delete?',
+                        'This will permanently delete the recipe. This cannot be undone.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete Forever',
+                            style: 'destructive',
+                            onPress: async () => {
+                              // Close modal first
+                              setSelectedRecipe(null);
+
+                              // Delete and reload
+                              await permanentlyDeleteRecipe(recipeId);
+                              await reloadFromStorage();
+                            }
+                          }
+                        ]
+                      );
                     }}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
