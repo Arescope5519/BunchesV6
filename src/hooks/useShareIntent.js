@@ -88,10 +88,8 @@ export const useShareIntent = (onUrlReceived) => {
         onUrlReceivedRef.current(sharedUrl);
       }
 
-      // Clear the received files after processing
-      if (ReceiveSharingIntent) {
-        ReceiveSharingIntent.clearReceivedFiles();
-      }
+      // Don't call clearReceivedFiles() - it can interfere with detecting new shares
+      // We use lastProcessedUrl to prevent duplicate processing instead
     } else {
       console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
     }
@@ -156,14 +154,11 @@ export const useShareIntent = (onUrlReceived) => {
           console.log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
           lastProcessedUrl.current = null;
 
-          // Check immediately
+          // Check multiple times - native layer may need time to process onNewIntent
           checkForSharedContent();
-
-          // Also check after a delay - the native layer may need time to process onNewIntent
-          setTimeout(() => {
-            console.log(`⏰ [${Platform.OS}] Delayed check for shared content`);
-            checkForSharedContent();
-          }, 500);
+          setTimeout(() => checkForSharedContent(), 300);
+          setTimeout(() => checkForSharedContent(), 700);
+          setTimeout(() => checkForSharedContent(), 1200);
         }
       });
 
