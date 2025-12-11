@@ -39,6 +39,10 @@ export const useShareIntent = (onUrlReceived) => {
   const handleSharedUrl = (sharedData) => {
     console.log(`📨 [${Platform.OS}] Received shared data from browser`, sharedData);
 
+    if (DEBUG_SHARE) {
+      Alert.alert('DEBUG: handleSharedUrl', `Data type: ${typeof sharedData}\nData: ${JSON.stringify(sharedData)?.substring(0, 150) || 'null'}`);
+    }
+
     let sharedUrl = null;
 
     // iOS-specific handling
@@ -75,11 +79,18 @@ export const useShareIntent = (onUrlReceived) => {
       }
     }
 
+    if (DEBUG_SHARE) {
+      Alert.alert('DEBUG: URL Extraction', `Extracted URL: ${sharedUrl || 'NONE'}\nlastProcessed: ${lastProcessedUrl.current || 'null'}`);
+    }
+
     // Call the callback with extracted URL
     if (sharedUrl) {
       // Check if we already processed this URL to avoid duplicates
       if (lastProcessedUrl.current === sharedUrl) {
         console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL:`, sharedUrl);
+        if (DEBUG_SHARE) {
+          Alert.alert('DEBUG: SKIPPED', 'URL was already processed (duplicate)');
+        }
         return;
       }
 
@@ -88,13 +99,23 @@ export const useShareIntent = (onUrlReceived) => {
 
       // Use the ref to get the latest callback
       if (onUrlReceivedRef.current) {
+        if (DEBUG_SHARE) {
+          Alert.alert('DEBUG: Calling Callback', 'About to call onUrlReceived callback');
+        }
         onUrlReceivedRef.current(sharedUrl);
+      } else {
+        if (DEBUG_SHARE) {
+          Alert.alert('DEBUG: NO CALLBACK', 'onUrlReceivedRef.current is null!');
+        }
       }
 
       // Don't call clearReceivedFiles() - it can interfere with detecting new shares
       // We use lastProcessedUrl to prevent duplicate processing instead
     } else {
       console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
+      if (DEBUG_SHARE) {
+        Alert.alert('DEBUG: NO URL', 'Could not extract URL from shared data');
+      }
     }
   };
 
