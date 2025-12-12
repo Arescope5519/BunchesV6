@@ -422,7 +422,7 @@ export const HomeScreen = ({ user }) => {
   const handleClearAllData = async () => {
     try {
       const { saveRecipes } = require('../utils/storage');
-      await saveRecipes([]);
+      await saveRecipes([], user?.uid || null);
       await refreshRecipes();
       setCurrentScreen('recipes');
       Alert.alert('✅ Success', 'All data has been cleared');
@@ -658,14 +658,15 @@ export const HomeScreen = ({ user }) => {
             exitMultiselectMode();
 
             const { saveRecipes, loadRecipes } = require('../utils/storage');
+            const userId = user?.uid || null;
 
-            // Load fresh from storage to avoid stale closure issues
-            const currentRecipes = await loadRecipes();
+            // Load fresh from storage to avoid stale closure issues (user-specific)
+            const currentRecipes = await loadRecipes(userId);
 
             if (isPermanentDelete) {
               // Permanently delete: remove from array entirely
               const updatedRecipes = currentRecipes.filter(r => !recipeIds.includes(r.id));
-              await saveRecipes(updatedRecipes);
+              await saveRecipes(updatedRecipes, userId);
 
               // Reload UI from storage
               await reloadFromStorage();
@@ -707,7 +708,7 @@ export const HomeScreen = ({ user }) => {
               const updatedRecipes = currentRecipes.map(r =>
                 recipeIds.includes(r.id) ? { ...r, deletedAt: now, updatedAt: now } : r
               );
-              await saveRecipes(updatedRecipes);
+              await saveRecipes(updatedRecipes, userId);
 
               // Reload UI from storage
               await reloadFromStorage();
@@ -1074,7 +1075,7 @@ export const HomeScreen = ({ user }) => {
       // Save all at once by prepending to existing recipes
       const { saveRecipes } = require('../utils/storage');
       const currentRecipes = recipes.filter(r => !r.deletedAt); // Get current non-deleted recipes
-      await saveRecipes([...newRecipes, ...currentRecipes]);
+      await saveRecipes([...newRecipes, ...currentRecipes], user?.uid || null);
 
       // Reload to reflect changes
       await refreshRecipes();
