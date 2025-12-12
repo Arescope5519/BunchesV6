@@ -54,15 +54,16 @@ export const useRecipes = (user) => {
   const loadRecipes = async () => {
     try {
       setLoadingRecipes(true);
-      const localRecipes = await loadRecipesFromStorage();
+      const userId = user?.uid || null;
+      const localRecipes = await loadRecipesFromStorage(userId);
 
       if (user && !synced && syncRecipesWithFirestore) {
         // User is signed in and Firestore is available - sync
         console.log('🔄 Syncing with Firestore...');
         const mergedRecipes = await syncRecipesWithFirestore(user.uid, localRecipes);
 
-        // Save merged recipes locally
-        await saveRecipesToStorage(mergedRecipes);
+        // Save merged recipes locally (user-specific)
+        await saveRecipesToStorage(mergedRecipes, userId);
         setRecipes(mergedRecipes);
         setSynced(true);
         console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
@@ -75,7 +76,7 @@ export const useRecipes = (user) => {
       console.error('Failed to load recipes:', error);
       // Fallback to local recipes
       try {
-        const localRecipes = await loadRecipesFromStorage();
+        const localRecipes = await loadRecipesFromStorage(user?.uid || null);
         setRecipes(localRecipes);
       } catch (fallbackError) {
         console.error('Failed to load local recipes:', fallbackError);
@@ -90,7 +91,7 @@ export const useRecipes = (user) => {
    * Quick reload from local storage only (no Firestore sync)
    */
   const reloadFromStorage = async () => {
-    const localRecipes = await loadRecipesFromStorage();
+    const localRecipes = await loadRecipesFromStorage(user?.uid || null);
     setRecipes(localRecipes);
     return localRecipes;
   };
@@ -111,7 +112,7 @@ export const useRecipes = (user) => {
     };
 
     const updatedRecipes = [recipeWithTimestamp, ...recipes];
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -139,7 +140,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeWithTimestamp.id ? recipeWithTimestamp : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -164,7 +165,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, deletedAt: Date.now(), updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -217,7 +218,7 @@ export const useRecipes = (user) => {
       }
       return r;
     });
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -263,10 +264,11 @@ export const useRecipes = (user) => {
     try {
       console.log('🗑️ Starting permanent delete for recipe:', recipeId);
 
-      // Load fresh from storage and delete
-      const currentRecipes = await loadRecipesFromStorage();
+      // Load fresh from storage and delete (user-specific)
+      const userId = user?.uid || null;
+      const currentRecipes = await loadRecipesFromStorage(userId);
       const updated = currentRecipes.filter(r => r.id !== recipeId);
-      const success = await saveRecipesToStorage(updated);
+      const success = await saveRecipesToStorage(updated, userId);
 
       if (!success) {
         console.error('Failed to delete recipe locally');
@@ -332,7 +334,7 @@ export const useRecipes = (user) => {
             onPress: async () => {
               const deletedRecipes = recipes.filter(r => r.deletedAt);
               const updated = recipes.filter(r => !r.deletedAt);
-              const success = await saveRecipesToStorage(updated);
+              const success = await saveRecipesToStorage(updated, user?.uid || null);
 
               if (success) {
                 setRecipes(updated);
@@ -398,7 +400,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, isFavorite: !r.isFavorite, updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -425,7 +427,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, folder: newFolder, updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -457,7 +459,7 @@ export const useRecipes = (user) => {
     const updatedRecipes = recipes.map(r =>
       recipeIdSet.has(r.id) ? { ...r, folder: newFolder, updatedAt: Date.now() } : r
     );
-    const success = await saveRecipesToStorage(updatedRecipes);
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
@@ -502,6 +504,8 @@ export const useRecipes = (user) => {
 
   // Load recipes on mount and when user changes
   useEffect(() => {
+    // Clear recipes immediately when user changes to prevent showing wrong user's data
+    setRecipes([]);
     setSynced(false); // Reset sync flag when user changes
     loadRecipes();
   }, [user?.uid]); // Reload when user ID changes

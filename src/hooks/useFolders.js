@@ -2,21 +2,23 @@
  * useFolders Hook
  * Manages folder state and operations
  * Extracted from your App.js
+ *
+ * Now supports user-specific folders to prevent data mixing between accounts
  */
 
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
 
-export const useFolders = () => {
+export const useFolders = (user) => {
   const [folders, setFolders] = useState(['All Recipes', 'Favorites', 'Recently Deleted']);
   const [currentFolder, setCurrentFolder] = useState('All Recipes');
 
   /**
-   * Load folders from storage
+   * Load folders from storage (user-specific)
    */
   const loadFolders = async () => {
-    const loaded = await loadFoldersFromStorage();
+    const loaded = await loadFoldersFromStorage(user?.uid || null);
     setFolders(loaded);
   };
 
@@ -35,7 +37,7 @@ export const useFolders = () => {
     }
 
     const newFolders = [...folders, folderName.trim()];
-    const success = await saveFoldersToStorage(newFolders);
+    const success = await saveFoldersToStorage(newFolders, user?.uid || null);
 
     if (success) {
       setFolders(newFolders);
@@ -61,7 +63,7 @@ export const useFolders = () => {
 
     // Update folders list
     const updatedFolders = folders.map(f => f === oldName ? newName.trim() : f);
-    const success = await saveFoldersToStorage(updatedFolders);
+    const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
 
     if (success) {
       setFolders(updatedFolders);
@@ -87,7 +89,7 @@ export const useFolders = () => {
             onPress: async () => {
               // Remove folder
               const updatedFolders = folders.filter(f => f !== folderName);
-              const success = await saveFoldersToStorage(updatedFolders);
+              const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
 
               if (success) {
                 setFolders(updatedFolders);
@@ -110,10 +112,13 @@ export const useFolders = () => {
     return folders.filter(f => f !== 'All Recipes' && f !== 'Favorites' && f !== 'Recently Deleted');
   };
 
-  // Load folders on mount
+  // Load folders on mount and when user changes
   useEffect(() => {
+    // Clear folders immediately when user changes
+    setFolders(['All Recipes', 'Favorites', 'Recently Deleted']);
+    setCurrentFolder('All Recipes');
     loadFolders();
-  }, []);
+  }, [user?.uid]);
 
   return {
     folders,
