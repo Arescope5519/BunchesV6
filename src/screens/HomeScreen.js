@@ -1012,7 +1012,7 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Import recipe from code or JSON
+  // Import recipe from code or JSON - now shows preview first
   const importRecipe = async (inputText) => {
     try {
       let cleanedInput = inputText.trim();
@@ -1033,7 +1033,23 @@ export const HomeScreen = ({ user }) => {
       }
 
       const parsed = JSON.parse(jsonString);
-      await processImport(parsed, importTargetFolder, saveRecipe);
+
+      // For single recipes, show preview screen instead of direct import
+      if (parsed.type === 'recipe' && parsed.version === '1.0') {
+        const recipeData = parsed.data;
+        const previewRecipe = {
+          ...recipeData,
+          id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        };
+        // Show preview using the same flow as URL extraction
+        setExtractedRecipe(previewRecipe);
+        setCurrentScreen('saveRecipe');
+        setShowImport(false);
+        setImportText('');
+      } else {
+        // For cookbooks or other types, use direct import
+        await processImport(parsed, importTargetFolder, saveRecipe);
+      }
     } catch (error) {
       Alert.alert(
         '❌ Import Error',
