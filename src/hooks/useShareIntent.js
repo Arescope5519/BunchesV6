@@ -9,11 +9,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState, DeviceEventEmitter, Alert } from 'react-native';
+import { Platform, AppState, DeviceEventEmitter } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
-
-// DEBUG MODE - set to true to see alerts
-const DEBUG_SHARE = true;
 
 // Try to import share library, handle gracefully if it fails
 let ReceiveSharingIntent = null;
@@ -38,10 +35,6 @@ export const useShareIntent = (onUrlReceived) => {
    */
   const handleSharedUrl = (sharedData) => {
     console.log(`📨 [${Platform.OS}] Received shared data from browser`, sharedData);
-
-    if (DEBUG_SHARE) {
-      Alert.alert('DEBUG: handleSharedUrl', `Data type: ${typeof sharedData}\nData: ${JSON.stringify(sharedData)?.substring(0, 150) || 'null'}`);
-    }
 
     let sharedUrl = null;
 
@@ -79,18 +72,11 @@ export const useShareIntent = (onUrlReceived) => {
       }
     }
 
-    if (DEBUG_SHARE) {
-      Alert.alert('DEBUG: URL Extraction', `Extracted URL: ${sharedUrl || 'NONE'}\nlastProcessed: ${lastProcessedUrl.current || 'null'}`);
-    }
-
     // Call the callback with extracted URL
     if (sharedUrl) {
       // Check if we already processed this URL to avoid duplicates
       if (lastProcessedUrl.current === sharedUrl) {
         console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL:`, sharedUrl);
-        if (DEBUG_SHARE) {
-          Alert.alert('DEBUG: SKIPPED', 'URL was already processed (duplicate)');
-        }
         return;
       }
 
@@ -99,23 +85,13 @@ export const useShareIntent = (onUrlReceived) => {
 
       // Use the ref to get the latest callback
       if (onUrlReceivedRef.current) {
-        if (DEBUG_SHARE) {
-          Alert.alert('DEBUG: Calling Callback', 'About to call onUrlReceived callback');
-        }
         onUrlReceivedRef.current(sharedUrl);
-      } else {
-        if (DEBUG_SHARE) {
-          Alert.alert('DEBUG: NO CALLBACK', 'onUrlReceivedRef.current is null!');
-        }
       }
 
       // Don't call clearReceivedFiles() - it can interfere with detecting new shares
       // We use lastProcessedUrl to prevent duplicate processing instead
     } else {
       console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
-      if (DEBUG_SHARE) {
-        Alert.alert('DEBUG: NO URL', 'Could not extract URL from shared data');
-      }
     }
   };
 
@@ -129,18 +105,12 @@ export const useShareIntent = (onUrlReceived) => {
     ReceiveSharingIntent.getReceivedFiles(
       (files) => {
         console.log(`📥 [${Platform.OS}] Received files:`, files);
-        if (DEBUG_SHARE) {
-          Alert.alert('DEBUG: getReceivedFiles', `Files count: ${files?.length || 0}\nFirst file: ${JSON.stringify(files?.[0])?.substring(0, 100) || 'none'}`);
-        }
         if (files && files.length > 0) {
           handleSharedUrl(files[0]);
         }
       },
       (error) => {
         console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
-        if (DEBUG_SHARE) {
-          Alert.alert('DEBUG: Error', `getReceivedFiles error: ${error}`);
-        }
       }
     );
   };
@@ -176,9 +146,6 @@ export const useShareIntent = (onUrlReceived) => {
       // Listen for native newShareIntent event (emitted directly from onNewIntent)
       const nativeShareSubscription = DeviceEventEmitter.addListener('newShareIntent', (sharedText) => {
         console.log(`📥 [${Platform.OS}] Received native newShareIntent event:`, sharedText);
-        if (DEBUG_SHARE) {
-          Alert.alert('DEBUG: Native Event', `Received newShareIntent:\n${sharedText?.substring(0, 100) || 'empty'}`);
-        }
         if (sharedText) {
           lastProcessedUrl.current = null; // Reset to allow processing
           handleSharedUrl(sharedText);
@@ -189,9 +156,6 @@ export const useShareIntent = (onUrlReceived) => {
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
-          if (DEBUG_SHARE) {
-            Alert.alert('DEBUG: App Active', 'App became active, checking for shares...');
-          }
           // When app becomes active, check for new shares
           // Reset lastProcessedUrl so same URL can be shared again after app was backgrounded
           console.log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
