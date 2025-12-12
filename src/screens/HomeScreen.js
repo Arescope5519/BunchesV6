@@ -1864,7 +1864,20 @@ export const HomeScreen = ({ user }) => {
                     <Text style={styles.iconButtonText}>📖</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => deleteRecipe(selectedRecipe.id)}
+                    onPress={() => {
+                      Alert.alert(
+                        'Delete Recipe?',
+                        `Move "${selectedRecipe.title}" to Recently Deleted?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: () => deleteRecipe(selectedRecipe.id)
+                          }
+                        ]
+                      );
+                    }}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
