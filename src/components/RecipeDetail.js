@@ -545,17 +545,17 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
         <View style={styles.metaContainer}>
           {localRecipe.prep_time && (
             <Text style={styles.metaText}>
-              ⏱️ Prep Time: {localRecipe.prep_time === 'PTOS' || !localRecipe.prep_time ? '?' : localRecipe.prep_time}
+              ⏱️ Prep Time: {!localRecipe.prep_time || localRecipe.prep_time.match(/^PT0+[HMS]?$/i) ? '?' : localRecipe.prep_time}
             </Text>
           )}
           {localRecipe.cook_time && (
             <Text style={styles.metaText}>
-              🔥 Cook Time: {localRecipe.cook_time === 'PTOS' || !localRecipe.cook_time ? '?' : localRecipe.cook_time}
+              🔥 Cook Time: {!localRecipe.cook_time || localRecipe.cook_time.match(/^PT0+[HMS]?$/i) ? '?' : localRecipe.cook_time}
             </Text>
           )}
           {localRecipe.servings && (
             <Text style={styles.metaText}>
-              🍽️ Serves: {localRecipe.servings === 'PTOS' || !localRecipe.servings ? '?' : localRecipe.servings}
+              🍽️ Serves: {!localRecipe.servings || localRecipe.servings.match(/^PT0+[HMS]?$/i) ? '?' : localRecipe.servings}
             </Text>
           )}
         </View>
@@ -994,9 +994,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   metaContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
     marginBottom: 20,
+    gap: 4,
   },
   metaText: {
     fontSize: 14,
