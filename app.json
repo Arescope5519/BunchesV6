@@ -24,6 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bunchesai.v6",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
