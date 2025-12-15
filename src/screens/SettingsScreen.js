@@ -14,11 +14,11 @@ import {
   ActivityIndicator,
   Switch,
   TextInput,
-  Modal,
-  Share,
-  Clipboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import { cleanupDeletedRecipes, checkFirestoreRecipes } from '../utils/cleanupFirestore';
 
@@ -45,8 +45,6 @@ export const SettingsScreen = ({
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [restoreText, setRestoreText] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const handleClearAllData = () => {
     Alert.alert(
@@ -229,6 +227,38 @@ export const SettingsScreen = ({
     }
   };
 
+  // Helper to convert local image to base64
+  const imageToBase64 = async (imageUri) => {
+    if (!imageUri) return null;
+
+    // Skip remote URLs - we can't backup those
+    if (imageUri.startsWith('http://') || imageUri.startsWith('https://')) {
+      return imageUri; // Keep the URL as-is
+    }
+
+    try {
+      // Check if file exists
+      const fileInfo = await FileSystem.getInfoAsync(imageUri);
+      if (!fileInfo.exists) {
+        return null;
+      }
+
+      // Read as base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Determine mime type from extension
+      const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+
+      return `data:${mimeType};base64,${base64}`;
+    } catch (error) {
+      console.log('Could not read image:', imageUri, error);
+      return null;
+    }
+  };
+
   // Create a backup of all recipes
   const handleExportBackup = async () => {
     if (!recipes || recipes.length === 0) {
@@ -238,7 +268,7 @@ export const SettingsScreen = ({
 
     setIsExporting(true);
     try {
-      // Filter out deleted recipes and prepare backup data
+      // Filter out deleted recipes
       const activeRecipes = recipes.filter(r => !r.deletedAt);
 
       if (activeRecipes.length === 0) {
@@ -247,45 +277,62 @@ export const SettingsScreen = ({
         return;
       }
 
+      // Process recipes with images
+      const recipesWithImages = await Promise.all(
+        activeRecipes.map(async (recipe) => {
+          const imageData = await imageToBase64(recipe.image_url);
+          return {
+            title: recipe.title,
+            folder: recipe.folder,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+            prep_time: recipe.prep_time,
+            cook_time: recipe.cook_time,
+            servings: recipe.servings,
+            notes: recipe.notes,
+            image_url: imageData, // Now contains base64 or original URL
+            source_url: recipe.source_url,
+          };
+        })
+      );
+
       const backupData = {
         type: 'bunches_backup',
-        version: '1.0',
+        version: '2.0',
         exportedAt: new Date().toISOString(),
-        recipeCount: activeRecipes.length,
+        recipeCount: recipesWithImages.length,
         folders: folders || [],
-        recipes: activeRecipes.map(recipe => ({
-          title: recipe.title,
-          folder: recipe.folder,
-          ingredients: recipe.ingredients,
-          instructions: recipe.instructions,
-          prep_time: recipe.prep_time,
-          cook_time: recipe.cook_time,
-          servings: recipe.servings,
-          notes: recipe.notes,
-          image_url: recipe.image_url,
-          source_url: recipe.source_url,
-        })),
+        recipes: recipesWithImages,
       };
 
-      const backupString = JSON.stringify(backupData);
+      // Create filename with date
+      const date = new Date();
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const fileName = `bunches-backup-${dateStr}.json`;
+      const filePath = `${FileSystem.cacheDirectory}${fileName}`;
 
-      // Copy to clipboard
-      Clipboard.setString(backupString);
+      // Write to file
+      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData, null, 2), {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
 
-      // Try to share
-      try {
-        await Share.share({
-          message: backupString,
-          title: 'Bunches Recipe Backup',
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+
+      if (isAvailable) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: 'application/json',
+          dialogTitle: 'Save Bunches Backup',
+          UTI: 'public.json',
         });
-      } catch (shareError) {
-        // Share was cancelled or failed, but we already copied to clipboard
-      }
 
-      Alert.alert(
-        '✅ Backup Created',
-        `Backup of ${activeRecipes.length} recipe${activeRecipes.length !== 1 ? 's' : ''} has been copied to your clipboard.\n\nSave this code somewhere safe to restore your recipes later.`
-      );
+        Alert.alert(
+          '✅ Backup Created',
+          `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} with images has been created.\n\nSave the file somewhere safe to restore later.`
+        );
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
     } catch (error) {
       console.error('Backup error:', error);
       Alert.alert('Error', 'Failed to create backup. Please try again.');
@@ -294,22 +341,32 @@ export const SettingsScreen = ({
     }
   };
 
-  // Restore recipes from backup
-  const handleRestoreBackup = () => {
-    const text = restoreText.trim();
-
-    if (!text) {
-      Alert.alert('Error', 'Please paste your backup code.');
-      return;
-    }
-
+  // Restore recipes from backup file
+  const handleRestoreBackup = async () => {
     try {
-      // Parse as JSON
-      const backupData = JSON.parse(text);
+      // Open document picker
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return; // User cancelled
+      }
+
+      const file = result.assets[0];
+
+      // Read the file
+      const fileContent = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      // Parse JSON
+      const backupData = JSON.parse(fileContent);
 
       // Validate backup data
       if (!backupData.type || backupData.type !== 'bunches_backup') {
-        Alert.alert('Invalid Backup', 'This does not appear to be a valid Bunches backup.');
+        Alert.alert('Invalid Backup', 'This does not appear to be a valid Bunches backup file.');
         return;
       }
 
@@ -319,10 +376,13 @@ export const SettingsScreen = ({
       }
 
       const recipeCount = backupData.recipes.length;
+      const backupDate = backupData.exportedAt
+        ? new Date(backupData.exportedAt).toLocaleDateString()
+        : 'Unknown date';
 
       Alert.alert(
         'Restore Backup',
-        `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${new Date(backupData.exportedAt).toLocaleDateString()}.\n\nThis will add these recipes to your collection. Existing recipes will not be affected.`,
+        `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nThis will add these recipes to your collection. Existing recipes will not be affected.\n\nImages will be restored if they were included in the backup.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -331,8 +391,6 @@ export const SettingsScreen = ({
               try {
                 if (onRestoreBackup) {
                   await onRestoreBackup(backupData);
-                  setShowRestoreModal(false);
-                  setRestoreText('');
                   Alert.alert('✅ Restored', `Successfully restored ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''}.`);
                 }
               } catch (error) {
@@ -344,8 +402,12 @@ export const SettingsScreen = ({
         ]
       );
     } catch (error) {
-      console.error('Parse error:', error);
-      Alert.alert('Invalid Backup', 'Could not read backup data. Make sure you copied the entire backup code.');
+      console.error('Restore error:', error);
+      if (error.message?.includes('JSON')) {
+        Alert.alert('Invalid File', 'Could not read backup file. Make sure you selected a valid Bunches backup file.');
+      } else {
+        Alert.alert('Error', 'Failed to open backup file. Please try again.');
+      }
     }
   };
 
@@ -601,7 +663,7 @@ export const SettingsScreen = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.restoreButton}
-              onPress={() => setShowRestoreModal(true)}
+              onPress={handleRestoreBackup}
             >
               <Text style={styles.restoreButtonText}>📥 Restore from Backup</Text>
             </TouchableOpacity>
@@ -637,54 +699,6 @@ export const SettingsScreen = ({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      {/* Restore Backup Modal */}
-      <Modal
-        visible={showRestoreModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => {
-          setShowRestoreModal(false);
-          setRestoreText('');
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Restore from Backup</Text>
-            <Text style={styles.modalDescription}>
-              Paste your backup code below to restore your recipes.
-            </Text>
-            <TextInput
-              style={styles.restoreInput}
-              placeholder="Paste backup code here..."
-              placeholderTextColor={colors.textSecondary}
-              value={restoreText}
-              onChangeText={setRestoreText}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  setShowRestoreModal(false);
-                  setRestoreText('');
-                }}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalRestoreButton, !restoreText.trim() && styles.buttonDisabled]}
-                onPress={handleRestoreBackup}
-                disabled={!restoreText.trim()}
-              >
-                <Text style={styles.modalRestoreText}>Restore</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };

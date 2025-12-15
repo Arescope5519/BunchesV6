@@ -434,28 +434,79 @@ export const HomeScreen = ({ user }) => {
   // Handle restore from backup
   const handleRestoreBackup = async (backupData) => {
     try {
+      const FileSystem = require('expo-file-system');
       const recipesToRestore = backupData.recipes || [];
 
-      // Generate unique IDs and add metadata for each recipe
-      const newRecipes = recipesToRestore.map((recipeData, index) => ({
-        id: `restored_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
-        title: recipeData.title || 'Untitled Recipe',
-        folder: recipeData.folder || 'All Recipes',
-        ingredients: recipeData.ingredients || {},
-        instructions: recipeData.instructions || [],
-        prep_time: recipeData.prep_time || '',
-        cook_time: recipeData.cook_time || '',
-        servings: recipeData.servings || '',
-        notes: recipeData.notes || '',
-        image_url: recipeData.image_url || null,
-        source_url: recipeData.source_url || null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }));
+      // Helper to save base64 image to local file
+      const saveBase64Image = async (base64Data, recipeId) => {
+        if (!base64Data) return null;
 
-      // Add restored recipes to existing recipes
-      for (const recipe of newRecipes) {
-        await saveRecipe(recipe);
+        // If it's already a URL (not base64), return as-is
+        if (base64Data.startsWith('http://') || base64Data.startsWith('https://')) {
+          return base64Data;
+        }
+
+        // If it's a base64 data URI
+        if (base64Data.startsWith('data:image/')) {
+          try {
+            // Extract mime type and base64 content
+            const matches = base64Data.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (!matches) return null;
+
+            const ext = matches[1] === 'png' ? 'png' : 'jpg';
+            const base64Content = matches[2];
+
+            // Create directory if needed
+            const imageDir = `${FileSystem.documentDirectory}recipe_images/`;
+            const dirInfo = await FileSystem.getInfoAsync(imageDir);
+            if (!dirInfo.exists) {
+              await FileSystem.makeDirectoryAsync(imageDir, { intermediates: true });
+            }
+
+            // Save the image
+            const fileName = `${recipeId}.${ext}`;
+            const filePath = `${imageDir}${fileName}`;
+
+            await FileSystem.writeAsStringAsync(filePath, base64Content, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+
+            return filePath;
+          } catch (error) {
+            console.log('Failed to save image:', error);
+            return null;
+          }
+        }
+
+        // If it's already a local file path, return as-is
+        return base64Data;
+      };
+
+      // Process each recipe
+      for (let index = 0; index < recipesToRestore.length; index++) {
+        const recipeData = recipesToRestore[index];
+        const recipeId = `restored_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Save image if it's base64
+        const imageUrl = await saveBase64Image(recipeData.image_url, recipeId);
+
+        const newRecipe = {
+          id: recipeId,
+          title: recipeData.title || 'Untitled Recipe',
+          folder: recipeData.folder || 'All Recipes',
+          ingredients: recipeData.ingredients || {},
+          instructions: recipeData.instructions || [],
+          prep_time: recipeData.prep_time || '',
+          cook_time: recipeData.cook_time || '',
+          servings: recipeData.servings || '',
+          notes: recipeData.notes || '',
+          image_url: imageUrl,
+          source_url: recipeData.source_url || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        await saveRecipe(newRecipe);
       }
 
       // Also restore any new folders that don't exist
