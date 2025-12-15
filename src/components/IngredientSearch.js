@@ -26,15 +26,12 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
   // Extract all unique normalized ingredients from all recipes
   const allIngredients = useMemo(() => {
-    console.log('🔍 Starting ingredient extraction from', recipes.length, 'recipes');
     const ingredientSet = new Set();
 
     recipes.forEach(recipe => {
       if (!recipe.deletedAt && recipe.ingredients) {
-        console.log(`  Processing recipe: ${recipe.title}, ingredients:`, Object.keys(recipe.ingredients));
         Object.values(recipe.ingredients).forEach(section => {
           if (!Array.isArray(section)) {
-            console.warn('  ⚠️ Section is not an array:', section);
             return;
           }
           section.forEach(ingredient => {
@@ -49,25 +46,16 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
       }
     });
 
-    const sortedIngredients = Array.from(ingredientSet).sort();
-    console.log(`📊 Extracted ${sortedIngredients.length} unique normalized ingredients from ${recipes.length} recipes`);
-    console.log(`📋 Sample ingredients:`, sortedIngredients.slice(0, 20));
-    return sortedIngredients;
+    return Array.from(ingredientSet).sort();
   }, [recipes]);
 
   // Filter suggestions based on search text
   const suggestions = useMemo(() => {
-    console.log('🔍 Filtering suggestions for search text:', searchText);
-    console.log('  All ingredients count:', allIngredients.length);
-    console.log('  Selected ingredients:', selectedIngredients);
-
     if (!searchText.trim() || searchText.trim().length < 2) {
-      console.log('  ❌ Search text too short, returning empty');
       return [];
     }
 
     const search = searchText.toLowerCase().trim();
-    console.log('  Searching for:', search);
 
     // Prioritize ingredients that start with the search term
     const startsWith = [];
@@ -84,15 +72,12 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     });
 
     // Combine results: startsWith first, then contains
-    const results = [...startsWith, ...contains].slice(0, 15);
-    console.log('  ✅ Found suggestions:', results.length, results);
-    return results;
+    return [...startsWith, ...contains].slice(0, 15);
   }, [searchText, allIngredients, selectedIngredients]);
 
   // Add ingredient to selected list
   const addIngredient = (ingredient) => {
     if (!selectedIngredients.includes(ingredient)) {
-      console.log('Adding ingredient:', ingredient);
       setSelectedIngredients([...selectedIngredients, ingredient]);
       setSearchText('');
       setShowSuggestions(false);
@@ -177,12 +162,10 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
             placeholder="e.g., chicken, garlic, tomato..."
             value={searchText}
             onChangeText={(text) => {
-              console.log('🔤 Search text changed:', text);
               setSearchText(text);
               setShowSuggestions(text.trim().length >= 2);
             }}
             onFocus={() => {
-              console.log('🎯 Input focused, search text:', searchText);
               setShowSuggestions(searchText.trim().length >= 2);
             }}
             autoCapitalize="none"
@@ -191,11 +174,6 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
           />
 
           {/* Autocomplete Suggestions */}
-          {(() => {
-            console.log('🎨 RENDER CHECK - showSuggestions:', showSuggestions, 'suggestions.length:', suggestions.length, 'searchText:', searchText);
-            return null;
-          })()}
-
           {showSuggestions && suggestions.length > 0 ? (
             <View style={styles.suggestionsContainer}>
               <Text style={styles.suggestionsHeader}>
@@ -206,30 +184,24 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled={true}
               >
-                {suggestions.map((ingredient, index) => {
-                  console.log('  📝 Rendering suggestion item:', ingredient);
-                  return (
-                    <TouchableOpacity
-                      key={`${ingredient}-${index}`}
-                      style={styles.suggestionItem}
-                      onPress={() => {
-                        console.log('👆 Tapped suggestion:', ingredient);
-                        addIngredient(ingredient);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.suggestionText}>🔍 {ingredient}</Text>
-                      <Text style={styles.suggestionAdd}>+</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {suggestions.map((ingredient, index) => (
+                  <TouchableOpacity
+                    key={`${ingredient}-${index}`}
+                    style={styles.suggestionItem}
+                    onPress={() => addIngredient(ingredient)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.suggestionText}>{ingredient}</Text>
+                    <Text style={styles.suggestionAdd}>+</Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             </View>
           ) : (
             showSuggestions && searchText.trim().length >= 2 && (
               <View style={styles.noSuggestionsContainer}>
                 <Text style={styles.noSuggestionsText}>
-                  No suggestions found for "{searchText}". Have {allIngredients.length} total ingredients available.
+                  No ingredients found for "{searchText}"
                 </Text>
               </View>
             )

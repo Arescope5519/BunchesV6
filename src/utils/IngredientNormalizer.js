@@ -173,17 +173,51 @@ Object.entries(INGREDIENT_MAP).forEach(([canonical, variations]) => {
  * @returns {string} - The normalized canonical ingredient name
  */
 export const normalizeIngredient = (ingredient) => {
-  const cleaned = ingredient
+  let cleaned = ingredient
     .toLowerCase()
-    .trim()
-    // Remove leading numbers and fractions
-    .replace(/^\d+[\s\/\d.-]*/, '')
+    .trim();
+
+  // First, split on common separator phrases that indicate preparation instructions
+  // These typically come AFTER the ingredient name
+  const separatorPatterns = [
+    /\s+for\s+.*/,           // "chicken breast for grilling" -> "chicken breast"
+    /\s+into\s+.*/,          // "chicken cut into cubes" -> "chicken cut"
+    /\s+to\s+taste.*/,       // "salt to taste" -> "salt"
+    /\s*,\s+.*/,             // "chicken, chopped" -> "chicken"
+    /\s*-\s+.*/,             // "chicken - deboned" -> "chicken"
+    /\s+\([^)]*\).*/,        // "chicken (boneless)" -> "chicken"
+    /\s+at\s+room\s+.*/,     // "butter at room temperature" -> "butter"
+    /\s+cut\s+.*/,           // "chicken cut into pieces" -> "chicken"
+    /\s+about\s+.*/,         // "chicken about 2 lbs" -> "chicken"
+    /\s+approximately\s+.*/,
+    /\s+plus\s+.*/,          // "flour plus more for dusting" -> "flour"
+  ];
+
+  for (const pattern of separatorPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  cleaned = cleaned
+    // Remove leading numbers, fractions, and measurements like 1/4", 1-inch, etc.
+    .replace(/^[\d\s\/\-."']+/, '')
+    .replace(/\d+[\s]*["'″]/, '')  // Remove measurements like 1/4"
+    .replace(/\d+[\s]*-?[\s]*(inch|in|cm|mm)\b/gi, '')  // Remove "1 inch", "2-inch", etc.
     // Remove common units
-    .replace(/\b(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|ounce|ounces|lb|lbs|pound|pounds|g|gram|grams|kg|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters|pinch|dash|can|cans|jar|jars|package|packages|box|boxes)\b/gi, '')
-    // Remove common descriptors
-    .replace(/\b(of|and|or|to|a|an|the|fresh|dried|frozen|chopped|diced|sliced|minced|peeled|shredded|grated|crumbled|crushed|ground|finely|coarsely|roughly|thinly|thickly)\b/gi, '')
+    .replace(/\b(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|ounce|ounces|lb|lbs|pound|pounds|g|gram|grams|kg|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters|pinch|dash|can|cans|jar|jars|package|packages|box|boxes|bunch|bunches|head|heads|clove|cloves|slice|slices|piece|pieces|stalk|stalks|sprig|sprigs|handful|handfuls)\b/gi, '')
+    // Remove common cooking/preparation descriptors
+    .replace(/\b(of|and|or|a|an|the|some|few|several|small|medium|large|extra|very|more|less|optional|needed|desired)\b/gi, '')
+    .replace(/\b(fresh|dried|frozen|canned|raw|cooked|uncooked|ripe|firm|soft|warm|cold|hot|room temperature)\b/gi, '')
+    .replace(/\b(chopped|diced|sliced|minced|peeled|shredded|grated|crumbled|crushed|ground|mashed|pureed|julienned|cubed|quartered|halved|whole)\b/gi, '')
+    .replace(/\b(finely|coarsely|roughly|thinly|thickly|lightly|well|slightly)\b/gi, '')
+    .replace(/\b(boneless|skinless|bone-in|skin-on|trimmed|cleaned|washed|rinsed|drained|patted dry)\b/gi, '')
+    .replace(/\b(packed|loosely|tightly|heaping|level|rounded)\b/gi, '')
+    .replace(/\b(low-sodium|reduced-sodium|unsalted|salted|sweetened|unsweetened)\b/gi, '')
+    .replace(/\b(organic|conventional|homemade|store-bought)\b/gi, '')
+    .replace(/\b(divided|separated|reserved|plus|additional|extra)\b/gi, '')
+    .replace(/\b(better|best|good|quality|premium|regular)\b/gi, '')
+    .replace(/\b(searing|cooking|frying|baking|roasting|grilling|serving|garnish|garnishing|topping)\b/gi, '')
     // Remove punctuation
-    .replace(/[,()]/g, '')
+    .replace(/[,()[\]{}'"″"".]/g, '')
     // Clean up extra spaces
     .replace(/\s+/g, ' ')
     .trim();
@@ -191,6 +225,22 @@ export const normalizeIngredient = (ingredient) => {
   // Look up in our mappings
   if (VARIATION_TO_CANONICAL[cleaned]) {
     return VARIATION_TO_CANONICAL[cleaned];
+  }
+
+  // Try partial matching - check if any canonical ingredient is contained in cleaned string
+  // This helps with cases like "chicken breast cubes" -> "chicken breast"
+  const sortedCanonicals = Object.keys(INGREDIENT_MAP).sort((a, b) => b.length - a.length);
+  for (const canonical of sortedCanonicals) {
+    if (cleaned.includes(canonical)) {
+      return canonical;
+    }
+  }
+
+  // Also try matching variations
+  for (const [variation, canonical] of Object.entries(VARIATION_TO_CANONICAL)) {
+    if (cleaned.includes(variation) && variation.length > 3) {
+      return canonical;
+    }
   }
 
   // If not found in map, return the cleaned version
