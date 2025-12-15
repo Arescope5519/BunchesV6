@@ -309,10 +309,19 @@ export const SettingsScreen = ({
       const date = new Date();
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const fileName = `bunches-backup-${dateStr}.json`;
-      const filePath = `${FileSystem.cacheDirectory}${fileName}`;
+
+      // Make sure we have a valid cache directory
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) {
+        Alert.alert('Error', 'Could not access storage. Please try again.');
+        setIsExporting(false);
+        return;
+      }
+
+      const filePath = `${cacheDir}${fileName}`;
 
       // Write to file
-      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData, null, 2), {
+      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData), {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
@@ -323,7 +332,6 @@ export const SettingsScreen = ({
         await Sharing.shareAsync(filePath, {
           mimeType: 'application/json',
           dialogTitle: 'Save Bunches Backup',
-          UTI: 'public.json',
         });
 
         Alert.alert(
@@ -335,7 +343,7 @@ export const SettingsScreen = ({
       }
     } catch (error) {
       console.error('Backup error:', error);
-      Alert.alert('Error', 'Failed to create backup. Please try again.');
+      Alert.alert('Error', `Failed to create backup: ${error.message || 'Unknown error'}`);
     } finally {
       setIsExporting(false);
     }
