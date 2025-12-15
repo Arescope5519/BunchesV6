@@ -310,15 +310,28 @@ export const SettingsScreen = ({
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const fileName = `bunches-backup-${dateStr}.json`;
 
-      // Make sure we have a valid cache directory
-      const cacheDir = FileSystem.cacheDirectory;
-      if (!cacheDir) {
-        Alert.alert('Error', 'Could not access storage. Please try again.');
+      // Try documentDirectory first, then cacheDirectory as fallback
+      let baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+
+      if (!baseDir) {
+        // Last resort - try to get a temp directory
+        try {
+          const tempDir = `${FileSystem.documentDirectory || ''}`;
+          if (tempDir) {
+            baseDir = tempDir;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (!baseDir) {
+        Alert.alert('Error', 'Could not access storage on this device. Try restarting the app.');
         setIsExporting(false);
         return;
       }
 
-      const filePath = `${cacheDir}${fileName}`;
+      const filePath = `${baseDir}${fileName}`;
 
       // Write to file
       await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData), {
