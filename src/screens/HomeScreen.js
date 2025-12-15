@@ -431,6 +431,51 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Handle restore from backup
+  const handleRestoreBackup = async (backupData) => {
+    try {
+      const recipesToRestore = backupData.recipes || [];
+
+      // Generate unique IDs and add metadata for each recipe
+      const newRecipes = recipesToRestore.map((recipeData, index) => ({
+        id: `restored_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+        title: recipeData.title || 'Untitled Recipe',
+        folder: recipeData.folder || 'All Recipes',
+        ingredients: recipeData.ingredients || {},
+        instructions: recipeData.instructions || [],
+        prep_time: recipeData.prep_time || '',
+        cook_time: recipeData.cook_time || '',
+        servings: recipeData.servings || '',
+        notes: recipeData.notes || '',
+        image_url: recipeData.image_url || null,
+        source_url: recipeData.source_url || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+
+      // Add restored recipes to existing recipes
+      for (const recipe of newRecipes) {
+        await saveRecipe(recipe);
+      }
+
+      // Also restore any new folders that don't exist
+      if (backupData.folders && Array.isArray(backupData.folders)) {
+        const existingFolderNames = folders.map(f => f.toLowerCase());
+        const newFolders = backupData.folders.filter(
+          f => f !== 'All Recipes' && !existingFolderNames.includes(f.toLowerCase())
+        );
+        for (const folderName of newFolders) {
+          await addFolder(folderName);
+        }
+      }
+
+      await refreshRecipes();
+    } catch (error) {
+      console.error('Restore backup error:', error);
+      throw error;
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       if (firebaseSignOut) {
@@ -1348,12 +1393,6 @@ export const HomeScreen = ({ user }) => {
                 <Text style={styles.iconHeaderButtonText}>🔍</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setShowImport(true)}
-                style={styles.iconHeaderButton}
-              >
-                <Text style={styles.iconHeaderButtonText}>📥</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
                 onPress={() => setShowFolderManager(true)}
                 style={styles.iconHeaderButton}
               >
@@ -1475,6 +1514,9 @@ export const HomeScreen = ({ user }) => {
           friends={friends}
           onChangeUsername={changeUsername}
           checkUsernameAvailable={checkUsernameAvailable}
+          recipes={recipes}
+          folders={folders}
+          onRestoreBackup={handleRestoreBackup}
         />
       )}
 

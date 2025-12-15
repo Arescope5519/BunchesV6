@@ -14,6 +14,9 @@ import {
   ActivityIndicator,
   Switch,
   TextInput,
+  Modal,
+  Share,
+  Clipboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
@@ -32,6 +35,9 @@ export const SettingsScreen = ({
   friends,
   onChangeUsername,
   checkUsernameAvailable,
+  recipes,
+  folders,
+  onRestoreBackup,
 }) => {
   const [cleaningFirestore, setCleaningFirestore] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
@@ -39,6 +45,9 @@ export const SettingsScreen = ({
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreText, setRestoreText] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -217,6 +226,126 @@ export const SettingsScreen = ({
       console.error('Failed to change username:', error);
     } finally {
       setSavingUsername(false);
+    }
+  };
+
+  // Create a backup of all recipes
+  const handleExportBackup = async () => {
+    if (!recipes || recipes.length === 0) {
+      Alert.alert('No Recipes', 'You have no recipes to backup.');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Filter out deleted recipes and prepare backup data
+      const activeRecipes = recipes.filter(r => !r.deletedAt);
+
+      if (activeRecipes.length === 0) {
+        Alert.alert('No Recipes', 'You have no active recipes to backup.');
+        setIsExporting(false);
+        return;
+      }
+
+      const backupData = {
+        type: 'bunches_backup',
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        recipeCount: activeRecipes.length,
+        folders: folders || [],
+        recipes: activeRecipes.map(recipe => ({
+          title: recipe.title,
+          folder: recipe.folder,
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          prep_time: recipe.prep_time,
+          cook_time: recipe.cook_time,
+          servings: recipe.servings,
+          notes: recipe.notes,
+          image_url: recipe.image_url,
+          source_url: recipe.source_url,
+        })),
+      };
+
+      const backupString = JSON.stringify(backupData);
+
+      // Copy to clipboard
+      Clipboard.setString(backupString);
+
+      // Try to share
+      try {
+        await Share.share({
+          message: backupString,
+          title: 'Bunches Recipe Backup',
+        });
+      } catch (shareError) {
+        // Share was cancelled or failed, but we already copied to clipboard
+      }
+
+      Alert.alert(
+        '✅ Backup Created',
+        `Backup of ${activeRecipes.length} recipe${activeRecipes.length !== 1 ? 's' : ''} has been copied to your clipboard.\n\nSave this code somewhere safe to restore your recipes later.`
+      );
+    } catch (error) {
+      console.error('Backup error:', error);
+      Alert.alert('Error', 'Failed to create backup. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Restore recipes from backup
+  const handleRestoreBackup = () => {
+    const text = restoreText.trim();
+
+    if (!text) {
+      Alert.alert('Error', 'Please paste your backup code.');
+      return;
+    }
+
+    try {
+      // Parse as JSON
+      const backupData = JSON.parse(text);
+
+      // Validate backup data
+      if (!backupData.type || backupData.type !== 'bunches_backup') {
+        Alert.alert('Invalid Backup', 'This does not appear to be a valid Bunches backup.');
+        return;
+      }
+
+      if (!backupData.recipes || !Array.isArray(backupData.recipes)) {
+        Alert.alert('Invalid Backup', 'No recipes found in this backup.');
+        return;
+      }
+
+      const recipeCount = backupData.recipes.length;
+
+      Alert.alert(
+        'Restore Backup',
+        `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${new Date(backupData.exportedAt).toLocaleDateString()}.\n\nThis will add these recipes to your collection. Existing recipes will not be affected.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Restore',
+            onPress: async () => {
+              try {
+                if (onRestoreBackup) {
+                  await onRestoreBackup(backupData);
+                  setShowRestoreModal(false);
+                  setRestoreText('');
+                  Alert.alert('✅ Restored', `Successfully restored ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''}.`);
+                }
+              } catch (error) {
+                console.error('Restore error:', error);
+                Alert.alert('Error', 'Failed to restore backup. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Parse error:', error);
+      Alert.alert('Invalid Backup', 'Could not read backup data. Make sure you copied the entire backup code.');
     }
   };
 
@@ -452,6 +581,33 @@ export const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Backup & Restore Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Backup & Restore</Text>
+          <View style={styles.infoCard}>
+            <Text style={styles.backupDescription}>
+              Create a backup of all your recipes to save locally or restore from a previous backup.
+            </Text>
+            <TouchableOpacity
+              style={[styles.backupButton, isExporting && styles.buttonDisabled]}
+              onPress={handleExportBackup}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.backupButtonText}>📤 Export Backup</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.restoreButton}
+              onPress={() => setShowRestoreModal(true)}
+            >
+              <Text style={styles.restoreButtonText}>📥 Restore from Backup</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Danger Zone */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
@@ -481,6 +637,54 @@ export const SettingsScreen = ({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Restore Backup Modal */}
+      <Modal
+        visible={showRestoreModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowRestoreModal(false);
+          setRestoreText('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Restore from Backup</Text>
+            <Text style={styles.modalDescription}>
+              Paste your backup code below to restore your recipes.
+            </Text>
+            <TextInput
+              style={styles.restoreInput}
+              placeholder="Paste backup code here..."
+              placeholderTextColor={colors.textSecondary}
+              value={restoreText}
+              onChangeText={setRestoreText}
+              multiline
+              numberOfLines={6}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowRestoreModal(false);
+                  setRestoreText('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalRestoreButton, !restoreText.trim() && styles.buttonDisabled]}
+                onPress={handleRestoreBackup}
+                disabled={!restoreText.trim()}
+              >
+                <Text style={styles.modalRestoreText}>Restore</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -838,6 +1042,106 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  // Backup & Restore styles
+  backupDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  backupButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  backupButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  restoreButton: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  restoreButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  restoreInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 120,
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalRestoreButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+  },
+  modalRestoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 
