@@ -133,17 +133,7 @@ export const useShareIntent = (onUrlReceived) => {
         processedInitialShare.current = true;
       }
 
-      // Handle shares when app is already open via library event
-      const eventType = Platform.OS === 'ios' ? 'url' : 'url';
-      const subscription = ReceiveSharingIntent.addEventListener(eventType, (event) => {
-        console.log(`📥 [${Platform.OS}] Received library event while app open:`, event);
-        if (event) {
-          const dataToHandle = event.url || event;
-          handleSharedUrl(dataToHandle);
-        }
-      });
-
-      // Listen for native newShareIntent event (emitted directly from onNewIntent)
+      // Listen for native newShareIntent event (emitted directly from onNewIntent - Android)
       const nativeShareSubscription = DeviceEventEmitter.addListener('newShareIntent', (sharedText) => {
         console.log(`📥 [${Platform.OS}] Received native newShareIntent event:`, sharedText);
         if (sharedText) {
@@ -172,9 +162,6 @@ export const useShareIntent = (onUrlReceived) => {
       // Cleanup
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
-        if (subscription && typeof subscription.remove === 'function') {
-          subscription.remove();
-        }
         if (nativeShareSubscription && typeof nativeShareSubscription.remove === 'function') {
           nativeShareSubscription.remove();
         }
