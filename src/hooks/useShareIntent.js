@@ -5,11 +5,12 @@
  *   - Removed debug alerts, enabled auto-extraction
  *   - Improved iOS support with better URL handling
  *   - Added Platform-specific logging
+ *   - Added iOS Share Extension support via App Groups
  * USED BY: src/screens/HomeScreen.js
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState, DeviceEventEmitter } from 'react-native';
+import { Platform, AppState, DeviceEventEmitter, NativeModules } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -19,6 +20,9 @@ try {
 } catch (error) {
   console.log('⚠️ Share intent not available (will work after rebuild):', error.message);
 }
+
+// iOS App Groups storage module
+const { AppGroupStorage } = NativeModules;
 
 export const useShareIntent = (onUrlReceived) => {
   const processedInitialShare = useRef(false);
@@ -96,9 +100,43 @@ export const useShareIntent = (onUrlReceived) => {
   };
 
   /**
-   * Check for pending share intents
+   * Check for iOS Share Extension shared URL (via App Groups)
+   */
+  const checkIOSShareExtension = async () => {
+    if (Platform.OS !== 'ios' || !AppGroupStorage) {
+      return;
+    }
+
+    try {
+      console.log('🍎 [iOS] Checking Share Extension for shared URL...');
+      const sharedURL = await AppGroupStorage.getSharedURL();
+
+      if (sharedURL) {
+        console.log('🍎 [iOS] Found shared URL from extension:', sharedURL);
+        handleSharedUrl(sharedURL);
+
+        // Clear it so we don't process it again
+        await AppGroupStorage.clearSharedURL();
+        console.log('🍎 [iOS] Cleared shared URL from App Groups');
+      } else {
+        console.log('🍎 [iOS] No shared URL found in App Groups');
+      }
+    } catch (error) {
+      console.log('🍎 [iOS] App Groups not available or error:', error.message);
+    }
+  };
+
+  /**
+   * Check for pending share intents (Android)
    */
   const checkForSharedContent = () => {
+    // Check iOS Share Extension first
+    if (Platform.OS === 'ios') {
+      checkIOSShareExtension();
+      return;
+    }
+
+    // Android: use ReceiveSharingIntent
     if (!ReceiveSharingIntent) return;
 
     console.log(`🔍 [${Platform.OS}] Checking for shared content`);
@@ -119,11 +157,6 @@ export const useShareIntent = (onUrlReceived) => {
    * Setup share intent listener
    */
   useEffect(() => {
-    if (!ReceiveSharingIntent) {
-      console.log('ℹ️ Share intent not available in this environment');
-      return;
-    }
-
     console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
     try {
@@ -151,11 +184,15 @@ export const useShareIntent = (onUrlReceived) => {
           console.log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
           lastProcessedUrl.current = null;
 
-          // Check multiple times - native layer may need time to process onNewIntent
+          // Check for shared content
           checkForSharedContent();
-          setTimeout(() => checkForSharedContent(), 300);
-          setTimeout(() => checkForSharedContent(), 700);
-          setTimeout(() => checkForSharedContent(), 1200);
+
+          // Check multiple times for Android - native layer may need time to process onNewIntent
+          if (Platform.OS === 'android') {
+            setTimeout(() => checkForSharedContent(), 300);
+            setTimeout(() => checkForSharedContent(), 700);
+            setTimeout(() => checkForSharedContent(), 1200);
+          }
         }
       });
 
@@ -175,7 +212,7 @@ export const useShareIntent = (onUrlReceived) => {
   }, []);
 
   return {
-    isAvailable: !!ReceiveSharingIntent,
+    isAvailable: Platform.OS === 'ios' ? !!AppGroupStorage : !!ReceiveSharingIntent,
     platform: Platform.OS,
   };
 };
