@@ -3,8 +3,18 @@
  * Use this to check and clean soft-deleted recipes from Firestore
  */
 
-import firestore from '@react-native-firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  writeBatch,
+  serverTimestamp,
+  arrayUnion
+} from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFirebaseFirestore } from '../services/firebase/config';
 
 const RECIPES_STORAGE_KEY = '@recipes';
 
@@ -13,29 +23,25 @@ const RECIPES_STORAGE_KEY = '@recipes';
  */
 export const checkFirestoreRecipes = async (userId) => {
   try {
+    const db = getFirebaseFirestore();
     console.log('🔍 Checking Firestore recipes for user:', userId);
 
     // Load deletion tracking list (from server to get fresh data)
-    const userDoc = await firestore()
-      .collection('users')
-      .doc(userId)
-      .get({ source: 'server' });
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
 
-    const deletedRecipeIds = new Set(userDoc.exists && userDoc.data().deletedRecipeIds || []);
+    const deletedRecipeIds = new Set(userDoc.exists() && userDoc.data().deletedRecipeIds || []);
 
-    const snapshot = await firestore()
-      .collection('users')
-      .doc(userId)
-      .collection('recipes')
-      .get({ source: 'server' });
+    const recipesRef = collection(db, 'users', userId, 'recipes');
+    const snapshot = await getDocs(recipesRef);
 
     const allRecipes = [];
     const deletedRecipes = [];
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       const recipe = {
-        id: doc.id,
+        id: docSnap.id,
         title: data.title,
         deletedAt: data.deletedAt,
       };
@@ -85,10 +91,10 @@ export const checkFirestoreRecipes = async (userId) => {
 
 /**
  * Clean up all soft-deleted AND stuck recipes from Firestore
- * IMPORTANT: Waits for server confirmation to ensure cleanup persists
  */
 export const cleanupDeletedRecipes = async (userId) => {
   try {
+    const db = getFirebaseFirestore();
     console.log('🧹 Starting Firestore cleanup...');
 
     // Get both soft-deleted and stuck recipes
@@ -104,26 +110,21 @@ export const cleanupDeletedRecipes = async (userId) => {
     // FIRST: Add all recipe IDs to deletion tracking list
     // This ensures they won't be restored even if document deletion fails
     const recipeIdsToDelete = recipesToDelete.map(r => r.id);
-    await firestore()
-      .collection('users')
-      .doc(userId)
-      .set({
-        deletedRecipeIds: firestore.FieldValue.arrayUnion(...recipeIdsToDelete),
-        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
+    const userDocRef = doc(db, 'users', userId);
+
+    await setDoc(userDocRef, {
+      deletedRecipeIds: arrayUnion(...recipeIdsToDelete),
+      lastDeletionAt: serverTimestamp(),
+    }, { merge: true });
 
     console.log(`📝 Tracked ${recipeIdsToDelete.length} recipe IDs in deletion list`);
 
     // Now delete the recipe documents
-    const batch = firestore().batch();
+    const batch = writeBatch(db);
     let count = 0;
 
     recipesToDelete.forEach((recipe) => {
-      const recipeRef = firestore()
-        .collection('users')
-        .doc(userId)
-        .collection('recipes')
-        .doc(recipe.id);
+      const recipeRef = doc(db, 'users', userId, 'recipes', recipe.id);
 
       batch.delete(recipeRef);
       count++;
@@ -132,10 +133,7 @@ export const cleanupDeletedRecipes = async (userId) => {
 
     await batch.commit();
 
-    // CRITICAL: Wait for all pending writes to be acknowledged by the server
-    await firestore().waitForPendingWrites();
-
-    console.log(`✅ Cleaned up ${count} recipes from Firestore and confirmed with server`);
+    console.log(`✅ Cleaned up ${count} recipes from Firestore`);
 
     return count;
   } catch (error) {

@@ -10,42 +10,42 @@ const errors = [];
 
 console.log('🔍 [FIREBASE] Checking Firebase availability...');
 
-// Check if Firebase is available
+// Check if Firebase JS SDK is available
 try {
-  require('@react-native-firebase/app');
+  require('firebase/app');
   firebaseAvailable = true;
-  console.log('✅ [FIREBASE] @react-native-firebase/app available');
+  console.log('✅ [FIREBASE] firebase/app available');
 } catch (e) {
-  console.log('❌ [FIREBASE] @react-native-firebase/app NOT available:', e.message);
+  console.log('❌ [FIREBASE] firebase/app NOT available:', e.message);
   console.log('⚠️ [FIREBASE] Running in local-only mode');
   errors.push({
-    module: '@react-native-firebase/app',
+    module: 'firebase/app',
     message: e.message,
   });
 }
 
 // Check if Auth is available
 try {
-  require('@react-native-firebase/auth');
+  require('firebase/auth');
   authAvailable = firebaseAvailable;
-  console.log('✅ [FIREBASE] @react-native-firebase/auth available');
+  console.log('✅ [FIREBASE] firebase/auth available');
 } catch (e) {
-  console.log('❌ [FIREBASE] @react-native-firebase/auth NOT available:', e.message);
+  console.log('❌ [FIREBASE] firebase/auth NOT available:', e.message);
   errors.push({
-    module: '@react-native-firebase/auth',
+    module: 'firebase/auth',
     message: e.message,
   });
 }
 
 // Check if Firestore is available
 try {
-  require('@react-native-firebase/firestore');
+  require('firebase/firestore');
   firestoreAvailable = firebaseAvailable;
-  console.log('✅ [FIREBASE] @react-native-firebase/firestore available');
+  console.log('✅ [FIREBASE] firebase/firestore available');
 } catch (e) {
-  console.log('❌ [FIREBASE] @react-native-firebase/firestore NOT available:', e.message);
+  console.log('❌ [FIREBASE] firebase/firestore NOT available:', e.message);
   errors.push({
-    module: '@react-native-firebase/firestore',
+    module: 'firebase/firestore',
     message: e.message,
   });
 }

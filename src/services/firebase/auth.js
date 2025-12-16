@@ -3,9 +3,15 @@
  * Handles Google Sign-In and user authentication
  */
 
-import auth from '@react-native-firebase/auth';
+import {
+  signInWithCredential,
+  signOut as firebaseSignOut,
+  onAuthStateChanged as firebaseOnAuthStateChanged,
+  GoogleAuthProvider
+} from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Alert } from 'react-native';
+import { getFirebaseAuth } from './config';
 
 // Track if Google Sign-In has been configured
 let googleSignInConfigured = false;
@@ -85,14 +91,15 @@ export const signInWithGoogle = async () => {
       }
       console.log('✅ [AUTH] Got ID token');
 
-      // Create Firebase credential
+      // Create Firebase credential using JS SDK
       console.log('🔐 [AUTH] Creating Firebase credential...');
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      const googleCredential = GoogleAuthProvider.credential(idToken);
       console.log('✅ [AUTH] Firebase credential created');
 
       // Sign in to Firebase with the Google credential
       console.log('🔐 [AUTH] Signing in to Firebase...');
-      const userCredential = await auth().signInWithCredential(googleCredential);
+      const auth = getFirebaseAuth();
+      const userCredential = await signInWithCredential(auth, googleCredential);
       console.log('✅ [AUTH] Firebase sign-in successful');
 
       console.log('✅ Signed in with Google:', userCredential.user.email);
@@ -178,7 +185,8 @@ export const signOut = async () => {
 
     // Sign out from Firebase
     console.log('🔐 [AUTH] Signing out from Firebase...');
-    await auth().signOut();
+    const auth = getFirebaseAuth();
+    await firebaseSignOut(auth);
     console.log('✅ [AUTH] Signed out from Firebase');
 
     console.log('✅ Signed out successfully');
@@ -194,7 +202,8 @@ export const signOut = async () => {
  * @returns {Object|null} Current user or null
  */
 export const getCurrentUser = () => {
-  const user = auth().currentUser;
+  const auth = getFirebaseAuth();
+  const user = auth.currentUser;
 
   if (user) {
     return {
@@ -214,7 +223,8 @@ export const getCurrentUser = () => {
  * @returns {Function} Unsubscribe function
  */
 export const onAuthStateChanged = (callback) => {
-  return auth().onAuthStateChanged((user) => {
+  const auth = getFirebaseAuth();
+  return firebaseOnAuthStateChanged(auth, (user) => {
     if (user) {
       callback({
         uid: user.uid,
