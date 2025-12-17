@@ -17,7 +17,6 @@ const APP_GROUP_ID = 'group.com.bunchesai.v6';
 function getShareViewControllerContent(bundleId, appGroupId) {
   return `import UIKit
 import Social
-import MobileCoreServices
 import UniformTypeIdentifiers
 
 class ShareViewController: SLComposeServiceViewController {
@@ -25,16 +24,16 @@ class ShareViewController: SLComposeServiceViewController {
     private let appGroupId = "${appGroupId}"
     private let sharedURLKey = "sharedURL"
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        self.placeholder = "Save to Bunches"
+    }
+
     override func isContentValid() -> Bool {
         return true
     }
 
     override func didSelectPost() {
-        handleSharedItems()
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
         handleSharedItems()
     }
 
@@ -49,66 +48,33 @@ class ShareViewController: SLComposeServiceViewController {
 
             for provider in attachments {
                 if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                    provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (item, error) in
-                        if let url = item as? URL {
-                            self?.saveURL(url.absoluteString)
+                    provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, error) in
+                        DispatchQueue.main.async {
+                            if let url = data as? URL {
+                                self?.saveURL(url.absoluteString)
+                            }
+                            self?.completeRequest()
                         }
-                        self?.completeRequest()
-                    }
-                    return
-                } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                    provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (item, error) in
-                        if let text = item as? String, let url = URL(string: text), url.scheme != nil {
-                            self?.saveURL(text)
-                        }
-                        self?.completeRequest()
                     }
                     return
                 }
             }
         }
-
         completeRequest()
     }
 
     private func saveURL(_ urlString: String) {
-        guard let userDefaults = UserDefaults(suiteName: appGroupId) else { return }
+        guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+            print("Failed to get UserDefaults for app group")
+            return
+        }
         userDefaults.set(urlString, forKey: sharedURLKey)
         userDefaults.synchronize()
-
-        // Open main app
-        openMainApp()
-    }
-
-    private func openMainApp() {
-        let urlString = "bunches://share"
-        guard let url = URL(string: urlString) else { return }
-
-        var responder: UIResponder? = self
-        while responder != nil {
-            if let application = responder as? UIApplication {
-                application.open(url, options: [:], completionHandler: nil)
-                return
-            }
-            responder = responder?.next
-        }
-
-        // Alternative method using openURL selector
-        let selector = sel_registerName("openURL:")
-        var currentResponder: UIResponder? = self
-        while currentResponder != nil {
-            if currentResponder!.responds(to: selector) {
-                currentResponder!.perform(selector, with: url)
-                return
-            }
-            currentResponder = currentResponder?.next
-        }
+        print("Saved URL to App Groups: \\(urlString)")
     }
 
     private func completeRequest() {
-        DispatchQueue.main.async {
-            self.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
-        }
+        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
 
     override func configurationItems() -> [Any]! {
@@ -212,7 +178,66 @@ function getMainInterfaceStoryboard() {
 }
 
 /**
- * Plugin to create Share Extension files
+ * Creates the AppGroupStorage.swift native module content
+ */
+function getAppGroupStorageSwift(appGroupId) {
+  return `import Foundation
+import React
+
+@objc(AppGroupStorage)
+class AppGroupStorage: NSObject {
+  private let appGroupId = "${appGroupId}"
+  private let sharedURLKey = "sharedURL"
+
+  @objc
+  func getSharedURL(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve(NSNull())
+      return
+    }
+    let sharedURL = userDefaults.string(forKey: sharedURLKey)
+    resolve(sharedURL as Any?)
+  }
+
+  @objc
+  func clearSharedURL(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve(false)
+      return
+    }
+    userDefaults.removeObject(forKey: sharedURLKey)
+    userDefaults.synchronize()
+    resolve(true)
+  }
+
+  @objc
+  static func requiresMainQueueSetup() -> Bool {
+    return false
+  }
+}
+`;
+}
+
+/**
+ * Creates the AppGroupStorage.m bridge file content
+ */
+function getAppGroupStorageObjC() {
+  return `#import <React/RCTBridgeModule.h>
+
+@interface RCT_EXTERN_MODULE(AppGroupStorage, NSObject)
+
+RCT_EXTERN_METHOD(getSharedURL:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(clearSharedURL:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+@end
+`;
+}
+
+/**
+ * Plugin to create Share Extension files and AppGroupStorage native module
  */
 const withShareExtensionFiles = (config) => {
   return withDangerousMod(config, [
@@ -222,8 +247,10 @@ const withShareExtensionFiles = (config) => {
       const platformProjectRoot = config.modRequest.platformProjectRoot;
       const bundleId = config.ios?.bundleIdentifier || 'com.bunchesai.v6';
       const bundleDisplayName = config.name || 'Bunches';
+      const projectName = config.modRequest.projectName || 'BunchesV6';
 
       const extensionPath = path.join(platformProjectRoot, SHARE_EXTENSION_NAME);
+      const mainAppPath = path.join(platformProjectRoot, projectName);
 
       // Create extension directory
       if (!fs.existsSync(extensionPath)) {
@@ -254,22 +281,65 @@ const withShareExtensionFiles = (config) => {
         getMainInterfaceStoryboard()
       );
 
+      // Create AppGroupStorage native module files in main app
+      console.log('Creating AppGroupStorage native module files...');
+
+      // Write AppGroupStorage.swift
+      fs.writeFileSync(
+        path.join(mainAppPath, 'AppGroupStorage.swift'),
+        getAppGroupStorageSwift(APP_GROUP_ID)
+      );
+
+      // Write AppGroupStorage.m
+      fs.writeFileSync(
+        path.join(mainAppPath, 'AppGroupStorage.m'),
+        getAppGroupStorageObjC()
+      );
+
+      console.log('AppGroupStorage files created successfully');
+
       return config;
     },
   ]);
 };
 
 /**
- * Plugin to add Share Extension target to Xcode project
+ * Plugin to add Share Extension target and AppGroupStorage to Xcode project
  */
 const withShareExtensionTarget = (config) => {
   return withXcodeProject(config, async (config) => {
     const xcodeProject = config.modResults;
     const bundleId = config.ios?.bundleIdentifier || 'com.bunchesai.v6';
     const platformProjectRoot = config.modRequest.platformProjectRoot;
+    const projectName = config.modRequest.projectName || 'BunchesV6';
     const targetName = SHARE_EXTENSION_NAME;
 
-    // Check if target already exists
+    // Add AppGroupStorage files to main app target
+    console.log('Adding AppGroupStorage files to Xcode project...');
+
+    // Find the main app group
+    const mainAppGroup = xcodeProject.pbxGroupByName(projectName);
+    if (mainAppGroup) {
+      // Add AppGroupStorage.swift to main target
+      xcodeProject.addSourceFile(
+        `${projectName}/AppGroupStorage.swift`,
+        { target: xcodeProject.getFirstTarget().uuid },
+        mainAppGroup
+      );
+
+      // Add AppGroupStorage.m to main target
+      xcodeProject.addSourceFile(
+        `${projectName}/AppGroupStorage.m`,
+        { target: xcodeProject.getFirstTarget().uuid },
+        mainAppGroup
+      );
+
+      console.log('AppGroupStorage files added to Xcode project');
+    } else {
+      console.log('Warning: Could not find main app group, AppGroupStorage files may need to be added manually');
+    }
+
+    // Check if Share Extension target already exists
     const existingTarget = xcodeProject.pbxTargetByName(targetName);
     if (existingTarget) {
       console.log(`Share Extension target "${targetName}" already exists`);
