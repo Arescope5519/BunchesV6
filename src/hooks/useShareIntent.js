@@ -5,12 +5,12 @@
  *   - Removed debug alerts, enabled auto-extraction
  *   - Improved iOS support with better URL handling
  *   - Added Platform-specific logging
- *   - Added iOS Share Extension support via App Groups
+ *   - Added iOS Share Extension support via URL scheme (bunches://share?url=...)
  * USED BY: src/screens/HomeScreen.js
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform, AppState, DeviceEventEmitter, NativeModules } from 'react-native';
+import { Platform, AppState, DeviceEventEmitter, NativeModules, Linking } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 // Try to import share library, handle gracefully if it fails
@@ -21,7 +21,7 @@ try {
   console.log('⚠️ Share intent not available (will work after rebuild):', error.message);
 }
 
-// iOS App Groups storage module
+// iOS App Groups storage module (fallback)
 const { AppGroupStorage } = NativeModules;
 
 export const useShareIntent = (onUrlReceived) => {
@@ -100,29 +100,69 @@ export const useShareIntent = (onUrlReceived) => {
   };
 
   /**
-   * Check for iOS Share Extension shared URL (via App Groups)
+   * Parse URL from bunches:// scheme
+   */
+  const parseShareUrl = (url) => {
+    if (!url) return null;
+
+    try {
+      // Handle bunches://share?url=<encoded_url>
+      if (url.startsWith('bunches://share')) {
+        const urlObj = new URL(url);
+        const sharedUrl = urlObj.searchParams.get('url');
+        if (sharedUrl) {
+          return decodeURIComponent(sharedUrl);
+        }
+      }
+    } catch (error) {
+      console.log('🍎 [iOS] Error parsing share URL:', error.message);
+    }
+    return null;
+  };
+
+  /**
+   * Check for iOS Share Extension shared URL (via URL scheme or App Groups)
    */
   const checkIOSShareExtension = async () => {
-    if (Platform.OS !== 'ios' || !AppGroupStorage) {
+    if (Platform.OS !== 'ios') {
       return;
     }
 
     try {
-      console.log('🍎 [iOS] Checking Share Extension for shared URL...');
-      const sharedURL = await AppGroupStorage.getSharedURL();
+      // First try to get URL from Linking (bunches://share?url=...)
+      console.log('🍎 [iOS] Checking for shared URL via Linking...');
+      const initialUrl = await Linking.getInitialURL();
 
-      if (sharedURL) {
-        console.log('🍎 [iOS] Found shared URL from extension:', sharedURL);
-        handleSharedUrl(sharedURL);
+      if (initialUrl) {
+        console.log('🍎 [iOS] Got initial URL:', initialUrl);
+        const sharedUrl = parseShareUrl(initialUrl);
+        if (sharedUrl) {
+          console.log('🍎 [iOS] Extracted shared URL:', sharedUrl);
+          handleSharedUrl(sharedUrl);
+          return;
+        }
+      }
 
-        // Clear it so we don't process it again
-        await AppGroupStorage.clearSharedURL();
-        console.log('🍎 [iOS] Cleared shared URL from App Groups');
+      // Fallback to App Groups if available
+      if (AppGroupStorage) {
+        console.log('🍎 [iOS] Checking Share Extension via App Groups...');
+        const sharedURL = await AppGroupStorage.getSharedURL();
+
+        if (sharedURL) {
+          console.log('🍎 [iOS] Found shared URL from extension:', sharedURL);
+          handleSharedUrl(sharedURL);
+
+          // Clear it so we don't process it again
+          await AppGroupStorage.clearSharedURL();
+          console.log('🍎 [iOS] Cleared shared URL from App Groups');
+        } else {
+          console.log('🍎 [iOS] No shared URL found in App Groups');
+        }
       } else {
-        console.log('🍎 [iOS] No shared URL found in App Groups');
+        console.log('🍎 [iOS] AppGroupStorage not available');
       }
     } catch (error) {
-      console.log('🍎 [iOS] App Groups not available or error:', error.message);
+      console.log('🍎 [iOS] Error checking for shared URL:', error.message);
     }
   };
 
@@ -154,6 +194,19 @@ export const useShareIntent = (onUrlReceived) => {
   };
 
   /**
+   * Handle URL event from Linking (iOS)
+   */
+  const handleLinkingUrl = (event) => {
+    console.log('🍎 [iOS] Received Linking URL event:', event.url);
+    const sharedUrl = parseShareUrl(event.url);
+    if (sharedUrl) {
+      console.log('🍎 [iOS] Extracted shared URL from event:', sharedUrl);
+      lastProcessedUrl.current = null; // Reset to allow processing
+      handleSharedUrl(sharedUrl);
+    }
+  };
+
+  /**
    * Setup share intent listener
    */
   useEffect(() => {
@@ -164,6 +217,13 @@ export const useShareIntent = (onUrlReceived) => {
       if (!processedInitialShare.current) {
         checkForSharedContent();
         processedInitialShare.current = true;
+      }
+
+      // iOS: Listen for URL scheme events (bunches://share?url=...)
+      let linkingSubscription = null;
+      if (Platform.OS === 'ios') {
+        linkingSubscription = Linking.addEventListener('url', handleLinkingUrl);
+        console.log('🍎 [iOS] Added Linking URL listener');
       }
 
       // Listen for native newShareIntent event (emitted directly from onNewIntent - Android)
@@ -199,6 +259,9 @@ export const useShareIntent = (onUrlReceived) => {
       // Cleanup
       return () => {
         console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
+        if (linkingSubscription && typeof linkingSubscription.remove === 'function') {
+          linkingSubscription.remove();
+        }
         if (nativeShareSubscription && typeof nativeShareSubscription.remove === 'function') {
           nativeShareSubscription.remove();
         }
@@ -212,7 +275,7 @@ export const useShareIntent = (onUrlReceived) => {
   }, []);
 
   return {
-    isAvailable: Platform.OS === 'ios' ? !!AppGroupStorage : !!ReceiveSharingIntent,
+    isAvailable: Platform.OS === 'ios' ? true : !!ReceiveSharingIntent,
     platform: Platform.OS,
   };
 };
