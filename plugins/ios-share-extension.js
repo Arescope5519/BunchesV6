@@ -64,12 +64,13 @@ const withIOSShareExtension = (config) => {
       ];
     }
 
-    // Add associated domains for Universal Links
-    if (!entitlements['com.apple.developer.associated-domains']) {
-      entitlements['com.apple.developer.associated-domains'] = [
-        'applinks:bunches.app',
-      ];
-    }
+    // NOTE: Associated Domains removed - requires paid Apple Developer account
+    // To re-enable Universal Links, uncomment and enroll in Apple Developer Program:
+    // if (!entitlements['com.apple.developer.associated-domains']) {
+    //   entitlements['com.apple.developer.associated-domains'] = [
+    //     'applinks:bunches.app',
+    //   ];
+    // }
 
     return config;
   });
