@@ -34,10 +34,7 @@
           }
         ],
         "NSUserTrackingUsageDescription": "This app does not track you."
-      },
-      "associatedDomains": [
-        "applinks:bunches.app"
-      ]
+      }
     },
     "android": {
       "package": "com.bunchesai.v6",
