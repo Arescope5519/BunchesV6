@@ -37,6 +37,9 @@ const withFirebasePodfileFix = (config) => {
 # Must be set before requiring any Firebase/RN scripts
 $RNFirebaseAsStaticFramework = true
 
+# Enable modular headers globally for Firebase Swift pod compatibility
+use_modular_headers!
+
 `;
 
       podfileContent = firebaseConfig + podfileContent;
