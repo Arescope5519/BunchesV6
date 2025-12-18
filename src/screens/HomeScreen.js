@@ -55,6 +55,7 @@ import NotificationPopup from '../components/NotificationPopup';
 // Constants
 import colors from '../constants/colors';
 import { isAuthAvailable, isFirestoreAvailable } from '../services/firebase/availability';
+import { saveRecipeToFirestore, deleteRecipeFromFirestore } from '../services/firebase/firestore';
 
 // Conditionally import Firebase auth
 let firebaseSignOut = null;
@@ -70,18 +71,11 @@ if (isAuthAvailable()) {
 }
 
 /**
- * Helper to save a recipe to Firestore - imports directly to avoid conditional import issues
+ * Helper to save a recipe to Firestore using JS SDK
  */
 const saveToFirestore = async (userId, recipe) => {
   try {
-    const firestore = require('@react-native-firebase/firestore').default;
-    const recipeRef = firestore()
-      .collection('users')
-      .doc(userId)
-      .collection('recipes')
-      .doc(recipe.id);
-
-    await recipeRef.set(recipe, { merge: true });
+    await saveRecipeToFirestore(userId, recipe);
     console.log(`✅ Recipe ${recipe.id} synced to Firestore`);
     return true;
   } catch (err) {
@@ -864,30 +858,13 @@ export const HomeScreen = ({ user }) => {
               await reloadFromStorage();
 
               // Delete from Firestore in background if user is signed in
-              if (user) {
+              if (user && isFirestoreAvailable()) {
                 (async () => {
                   try {
-                    const firestore = require('@react-native-firebase/firestore').default;
-
-                    // Track deletions and delete documents
+                    // Delete each recipe using the JS SDK service
                     for (const recipeId of recipeIds) {
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .set({
-                          deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                          lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                        }, { merge: true });
-
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('recipes')
-                        .doc(recipeId)
-                        .delete();
+                      await deleteRecipeFromFirestore(user.uid, recipeId);
                     }
-
-                    await firestore().waitForPendingWrites();
                     console.log(`✅ Permanently deleted ${recipeCount} recipes from Firestore`);
                   } catch (err) {
                     console.error('❌ Failed to delete some recipes from Firestore:', err);
@@ -906,26 +883,15 @@ export const HomeScreen = ({ user }) => {
               await reloadFromStorage();
 
               // Sync to Firestore in background if user is signed in
-              if (user) {
+              if (user && isFirestoreAvailable()) {
                 (async () => {
                   try {
-                    const firestore = require('@react-native-firebase/firestore').default;
-
-                    // Save each deleted recipe and track in deletion list
+                    // Save each deleted recipe (with deletedAt timestamp) to Firestore
                     for (const recipeId of recipeIds) {
                       const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
                       if (deletedRecipe) {
                         await saveToFirestore(user.uid, deletedRecipe);
                       }
-
-                      // Track in deletion list
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .set({
-                          deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                          lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                        }, { merge: true });
                     }
                     console.log(`✅ Synced ${recipeCount} soft-deleted recipes to Firestore`);
                   } catch (err) {

@@ -13,6 +13,7 @@ import colors from './src/constants/colors';
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isLocalMode, setIsLocalMode] = useState(false);
 
   useEffect(() => {
     // Listen for authentication state changes
@@ -35,6 +36,12 @@ export default function App() {
     setUser(userData);
   };
 
+  const handleSkipToLocalMode = () => {
+    console.log('📱 [APP] User chose local mode');
+    setIsLocalMode(true);
+    setLoading(false);
+  };
+
   // Show loading screen while checking authentication state
   if (loading) {
     return (
@@ -44,12 +51,12 @@ export default function App() {
     );
   }
 
-  // Show auth screen if not signed in
-  if (!user) {
-    return <AuthScreen onSignIn={handleSignIn} />;
+  // Show auth screen if not signed in and not in local mode
+  if (!user && !isLocalMode) {
+    return <AuthScreen onSignIn={handleSignIn} onSkipToLocalMode={handleSkipToLocalMode} />;
   }
 
-  // Show home screen if signed in
+  // Show home screen if signed in OR in local mode
   return <HomeScreen user={user} />;
 }
 

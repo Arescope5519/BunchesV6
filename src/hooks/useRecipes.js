@@ -8,32 +8,25 @@ import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveRecipes as saveRecipesToStorage, loadRecipes as loadRecipesFromStorage } from '../utils/storage';
 import { isFirestoreAvailable } from '../services/firebase/availability';
+import {
+  saveRecipeToFirestore,
+  deleteRecipeFromFirestore,
+  syncRecipes as syncRecipesWithFirestoreService
+} from '../services/firebase/firestore';
 
-// Conditionally import Firestore sync function (for initial load)
-let syncRecipesWithFirestore = null;
-
-if (isFirestoreAvailable()) {
-  try {
-    const firestoreModule = require('../services/firebase/firestore');
-    syncRecipesWithFirestore = firestoreModule.syncRecipes;
-  } catch (e) {
-    console.error('Failed to load Firestore module:', e);
-  }
-}
+// Conditionally use Firestore sync function
+const syncRecipesWithFirestore = isFirestoreAvailable() ? syncRecipesWithFirestoreService : null;
 
 /**
- * Helper to save a recipe to Firestore - imports directly to avoid conditional import issues
+ * Helper to save a recipe to Firestore using JS SDK
  */
 const saveToFirestore = async (userId, recipe) => {
+  if (!isFirestoreAvailable()) {
+    console.log('Firestore not available, skipping sync');
+    return false;
+  }
   try {
-    const firestore = require('@react-native-firebase/firestore').default;
-    const recipeRef = firestore()
-      .collection('users')
-      .doc(userId)
-      .collection('recipes')
-      .doc(recipe.id);
-
-    await recipeRef.set(recipe, { merge: true });
+    await saveRecipeToFirestore(userId, recipe);
     console.log(`✅ Recipe ${recipe.id} synced to Firestore`);
     return true;
   } catch (err) {
@@ -213,30 +206,14 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
 
-      // Sync to Firestore - MUST await to ensure it completes before app closes
-      if (user) {
+      // Sync to Firestore - save recipe with deletedAt flag
+      if (user && isFirestoreAvailable()) {
         const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (deletedRecipe) {
           try {
-            const firestore = require('@react-native-firebase/firestore').default;
-
-            // FIRST: Track it in deletion list to prevent restoration
-            // This is the most important step - even if other sync fails
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .set({
-                deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-              }, { merge: true });
-
-            // Save the recipe with deletedAt flag using direct import
+            // Save the recipe with deletedAt flag
             await saveToFirestore(user.uid, deletedRecipe);
-
-            // CRITICAL: Wait for server confirmation
-            await firestore().waitForPendingWrites();
-
-            console.log(`✅ Soft-deleted recipe ${recipeId} synced and confirmed with server`);
+            console.log(`✅ Soft-deleted recipe ${recipeId} synced to Firestore`);
           } catch (err) {
             console.error('Failed to sync deletion to Firestore:', err);
             // Don't fail the deletion if Firestore sync fails - local deletion still works
@@ -266,27 +243,13 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
 
       // Sync to Firestore if user is signed in
-      if (user) {
+      if (user && isFirestoreAvailable()) {
         const restoredRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (restoredRecipe) {
           try {
-            const firestore = require('@react-native-firebase/firestore').default;
-
-            // Remove from deletion tracking list FIRST
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .set({
-                deletedRecipeIds: firestore.FieldValue.arrayRemove(recipeId),
-              }, { merge: true });
-
-            // Save the restored recipe using direct import
+            // Save the restored recipe (without deletedAt)
             await saveToFirestore(user.uid, restoredRecipe);
-
-            // Wait for server confirmation
-            await firestore().waitForPendingWrites();
-
-            console.log(`✅ Restored recipe ${recipeId} and confirmed with server`);
+            console.log(`✅ Restored recipe ${recipeId} synced to Firestore`);
           } catch (err) {
             console.error('Failed to sync restored recipe:', err);
           }
@@ -318,27 +281,10 @@ export const useRecipes = (user) => {
       }
 
       // Sync to Firestore in background (don't wait for it)
-      if (user) {
+      if (user && isFirestoreAvailable()) {
         (async () => {
           try {
-            const firestore = require('@react-native-firebase/firestore').default;
-
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .set({
-                deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-              }, { merge: true });
-
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .collection('recipes')
-              .doc(recipeId)
-              .delete();
-
-            await firestore().waitForPendingWrites();
+            await deleteRecipeFromFirestore(user.uid, recipeId);
             console.log('✅ Firestore sync complete for deleted recipe');
           } catch (err) {
             console.error('❌ Firestore sync failed:', err);
@@ -382,46 +328,19 @@ export const useRecipes = (user) => {
                 setRecipes(updated);
 
                 // Delete from Firestore if user is signed in
-                if (user) {
+                if (user && isFirestoreAvailable()) {
                   try {
-                    // Show syncing message
-                    Alert.alert('Syncing...', `Deleting ${deletedRecipes.length} recipes from cloud. Please wait.`);
-
-                    // Import firestore directly to ensure it's available
-                    const firestore = require('@react-native-firebase/firestore').default;
-
-                    // Track all deletions first
-                    const recipeIdsToDelete = deletedRecipes.map(r => r.id);
-                    await firestore()
-                      .collection('users')
-                      .doc(user.uid)
-                      .set({
-                        deletedRecipeIds: firestore.FieldValue.arrayUnion(...recipeIdsToDelete),
-                        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                      }, { merge: true });
-
-                    // Delete all recipe documents
-                    const batch = firestore().batch();
-                    deletedRecipes.forEach(recipe => {
-                      const recipeRef = firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('recipes')
-                        .doc(recipe.id);
-                      batch.delete(recipeRef);
-                    });
-                    await batch.commit();
-
-                    // Wait for server confirmation
-                    await firestore().waitForPendingWrites();
-
+                    // Delete each recipe from Firestore
+                    for (const recipe of deletedRecipes) {
+                      await deleteRecipeFromFirestore(user.uid, recipe.id);
+                    }
                     Alert.alert('✅ Emptied', `${deletedRecipes.length} recipes permanently deleted and synced to cloud.`);
                   } catch (err) {
                     console.error('❌ Failed to delete some recipes from Firestore:', err);
                     Alert.alert('Warning', `Recipes deleted locally but cloud sync failed: ${err.message}`);
                   }
                 } else {
-                  Alert.alert('Emptied', 'Recently Deleted has been emptied. Sign in to sync deletions to cloud.');
+                  Alert.alert('Emptied', 'Recently Deleted has been emptied.');
                 }
 
                 resolve(true);
