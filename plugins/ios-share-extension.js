@@ -406,74 +406,15 @@ const withShareExtensionTarget = (config) => {
       console.log('Warning: Could not find main app group, AppGroupStorage files may need to be added manually');
     }
 
-    // Check if Share Extension target already exists
-    const existingTarget = xcodeProject.pbxTargetByName(targetName);
-    if (existingTarget) {
-      console.log(`Share Extension target "${targetName}" already exists`);
-      return config;
-    }
-
-    // Add Share Extension target
-    const target = xcodeProject.addTarget(
-      targetName,
-      'app_extension',
-      targetName,
-      `${bundleId}.${targetName}`
-    );
-
-    // Create group for extension files
-    const groupName = targetName;
-    const groupKey = xcodeProject.pbxCreateGroup(groupName, groupName);
-
-    // Get the main group and add our extension group to it
-    const mainGroupKey = xcodeProject.getFirstProject().firstProject.mainGroup;
-    xcodeProject.addToPbxGroup(groupKey, mainGroupKey);
-
-    // Add source files to the target using the group KEY (not object)
-    xcodeProject.addSourceFile(
-      `${targetName}/ShareViewController.swift`,
-      { target: target.uuid },
-      groupKey
-    );
-
-    // Add storyboard
-    xcodeProject.addResourceFile(
-      `${targetName}/MainInterface.storyboard`,
-      { target: target.uuid },
-      groupKey
-    );
-
-    // Add Info.plist reference (not as build file)
-    xcodeProject.addFile(
-      `${targetName}/Info.plist`,
-      groupKey
-    );
-
-    // Configure build settings for the extension target
-    const configurations = xcodeProject.pbxXCBuildConfigurationSection();
-
-    for (const key in configurations) {
-      if (typeof configurations[key] === 'object' && configurations[key].buildSettings) {
-        const buildSettings = configurations[key].buildSettings;
-
-        // Check if this configuration belongs to our target
-        if (buildSettings.PRODUCT_NAME === `"${targetName}"` ||
-            buildSettings.PRODUCT_BUNDLE_IDENTIFIER === `"${bundleId}.${targetName}"`) {
-
-          buildSettings.INFOPLIST_FILE = `${targetName}/Info.plist`;
-          buildSettings.CODE_SIGN_ENTITLEMENTS = `${targetName}/${targetName}.entitlements`;
-          buildSettings.CODE_SIGN_STYLE = 'Automatic';
-          buildSettings.CURRENT_PROJECT_VERSION = '1';
-          buildSettings.GENERATE_INFOPLIST_FILE = 'NO';
-          buildSettings.IPHONEOS_DEPLOYMENT_TARGET = '14.0';
-          buildSettings.MARKETING_VERSION = '1.0';
-          buildSettings.PRODUCT_BUNDLE_IDENTIFIER = `"${bundleId}.${targetName}"`;
-          buildSettings.SWIFT_VERSION = '5.0';
-          buildSettings.TARGETED_DEVICE_FAMILY = '"1,2"';
-          buildSettings.DEVELOPMENT_TEAM = ''; // Will be set by Xcode
-        }
-      }
-    }
+    // NOTE: Share Extension target must be added manually in Xcode
+    // The extension files are created in ios/ShareExtension/ by withShareExtensionFiles
+    // To add the target in Xcode:
+    // 1. Open the .xcworkspace file
+    // 2. File > New > Target > Share Extension
+    // 3. Use the existing files in ShareExtension folder
+    // 4. Set App Group to group.com.bunchesai.v6
+    console.log('Share Extension files created in ios/ShareExtension/');
+    console.log('To enable: Add Share Extension target manually in Xcode');
 
     return config;
   });
