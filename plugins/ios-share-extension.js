@@ -22,7 +22,7 @@ import UniformTypeIdentifiers
 class ShareViewController: SLComposeServiceViewController {
 
     private let appGroupId = "${appGroupId}"
-    private let sharedURLKey = "sharedURL"
+    private let sharedURLsKey = "sharedURLs"
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,7 +51,7 @@ class ShareViewController: SLComposeServiceViewController {
                     provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, error) in
                         DispatchQueue.main.async {
                             if let url = data as? URL {
-                                self?.saveURL(url.absoluteString)
+                                self?.addURLToQueue(url.absoluteString)
                             }
                             self?.completeRequest()
                         }
@@ -63,14 +63,22 @@ class ShareViewController: SLComposeServiceViewController {
         completeRequest()
     }
 
-    private func saveURL(_ urlString: String) {
+    private func addURLToQueue(_ urlString: String) {
         guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
             print("Failed to get UserDefaults for app group")
             return
         }
-        userDefaults.set(urlString, forKey: sharedURLKey)
-        userDefaults.synchronize()
-        print("Saved URL to App Groups: \\(urlString)")
+
+        // Get existing URLs array or create new one
+        var urls = userDefaults.stringArray(forKey: sharedURLsKey) ?? []
+
+        // Add new URL if not already in queue
+        if !urls.contains(urlString) {
+            urls.append(urlString)
+            userDefaults.set(urls, forKey: sharedURLsKey)
+            userDefaults.synchronize()
+            print("Added URL to queue: \\(urlString). Queue size: \\(urls.count)")
+        }
     }
 
     private func completeRequest() {
@@ -187,7 +195,9 @@ import React
 @objc(AppGroupStorage)
 class AppGroupStorage: NSObject {
   private let appGroupId = "${appGroupId}"
-  private let sharedURLKey = "sharedURL"
+  private let sharedURLsKey = "sharedURLs"
+  // Keep legacy key for backwards compatibility
+  private let legacySharedURLKey = "sharedURL"
 
   @objc
   func getSharedURL(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -195,8 +205,35 @@ class AppGroupStorage: NSObject {
       resolve(NSNull())
       return
     }
-    let sharedURL = userDefaults.string(forKey: sharedURLKey)
-    resolve(sharedURL as Any?)
+    // Check legacy single URL first (backwards compatibility)
+    if let legacyURL = userDefaults.string(forKey: legacySharedURLKey) {
+      resolve(legacyURL)
+      return
+    }
+    // Check new array format - return first URL
+    if let urls = userDefaults.stringArray(forKey: sharedURLsKey), let firstURL = urls.first {
+      resolve(firstURL)
+      return
+    }
+    resolve(NSNull())
+  }
+
+  @objc
+  func getSharedURLs(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve([])
+      return
+    }
+    var allURLs: [String] = []
+    // Check legacy single URL first
+    if let legacyURL = userDefaults.string(forKey: legacySharedURLKey) {
+      allURLs.append(legacyURL)
+    }
+    // Add URLs from array
+    if let urls = userDefaults.stringArray(forKey: sharedURLsKey) {
+      allURLs.append(contentsOf: urls)
+    }
+    resolve(allURLs)
   }
 
   @objc
@@ -205,7 +242,8 @@ class AppGroupStorage: NSObject {
       resolve(false)
       return
     }
-    userDefaults.removeObject(forKey: sharedURLKey)
+    userDefaults.removeObject(forKey: legacySharedURLKey)
+    userDefaults.removeObject(forKey: sharedURLsKey)
     userDefaults.synchronize()
     resolve(true)
   }
@@ -227,6 +265,9 @@ function getAppGroupStorageObjC() {
 @interface RCT_EXTERN_MODULE(AppGroupStorage, NSObject)
 
 RCT_EXTERN_METHOD(getSharedURL:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getSharedURLs:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(clearSharedURL:(RCTPromiseResolveBlock)resolve

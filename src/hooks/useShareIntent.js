@@ -121,7 +121,8 @@ export const useShareIntent = (onUrlReceived) => {
   };
 
   /**
-   * Check for iOS Share Extension shared URL (via URL scheme or App Groups)
+   * Check for iOS Share Extension shared URLs (via URL scheme or App Groups)
+   * Supports multiple queued URLs
    */
   const checkIOSShareExtension = async () => {
     if (Platform.OS !== 'ios') {
@@ -143,26 +144,46 @@ export const useShareIntent = (onUrlReceived) => {
         }
       }
 
-      // Fallback to App Groups if available
+      // Check App Groups for queued URLs
       if (AppGroupStorage) {
         console.log('🍎 [iOS] Checking Share Extension via App Groups...');
-        const sharedURL = await AppGroupStorage.getSharedURL();
 
-        if (sharedURL) {
-          console.log('🍎 [iOS] Found shared URL from extension:', sharedURL);
-          handleSharedUrl(sharedURL);
+        // Try to get all URLs (new method)
+        let sharedURLs = [];
+        try {
+          if (AppGroupStorage.getSharedURLs) {
+            sharedURLs = await AppGroupStorage.getSharedURLs();
+          }
+        } catch (e) {
+          // Fallback to single URL method
+          const singleURL = await AppGroupStorage.getSharedURL();
+          if (singleURL) {
+            sharedURLs = [singleURL];
+          }
+        }
 
-          // Clear it so we don't process it again
+        if (sharedURLs && sharedURLs.length > 0) {
+          console.log(`🍎 [iOS] Found ${sharedURLs.length} shared URL(s) from extension`);
+
+          // Process each URL
+          for (const url of sharedURLs) {
+            console.log('🍎 [iOS] Processing queued URL:', url);
+            handleSharedUrl(url);
+            // Small delay between processing to avoid overwhelming
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+
+          // Clear all URLs after processing
           await AppGroupStorage.clearSharedURL();
-          console.log('🍎 [iOS] Cleared shared URL from App Groups');
+          console.log('🍎 [iOS] Cleared all shared URLs from App Groups');
         } else {
-          console.log('🍎 [iOS] No shared URL found in App Groups');
+          console.log('🍎 [iOS] No shared URLs found in App Groups');
         }
       } else {
         console.log('🍎 [iOS] AppGroupStorage not available');
       }
     } catch (error) {
-      console.log('🍎 [iOS] Error checking for shared URL:', error.message);
+      console.log('🍎 [iOS] Error checking for shared URLs:', error.message);
     }
   };
 
