@@ -1,10 +1,9 @@
 /**
  * Firebase Initialization Service
- * React Native Firebase initializes automatically from native config files
+ * Initializes Firebase JS SDK
  */
 
-import firebase from '@react-native-firebase/app';
-import { isFirebaseConfigured } from './config';
+import { getFirebaseApp, isFirebaseConfigured } from './config';
 
 let initialized = false;
 
@@ -15,15 +14,19 @@ export const initializeFirebase = async () => {
   }
 
   try {
-    // React Native Firebase auto-initializes from GoogleService-Info.plist / google-services.json
-    // We just need to verify it's configured
-    const app = firebase.app();
+    // Check if Firebase is configured
+    if (!isFirebaseConfigured()) {
+      console.log('⚠️ [FIREBASE] Firebase not configured');
+      return false;
+    }
+
+    // Initialize Firebase app
+    const app = getFirebaseApp();
 
     if (app) {
-      const options = app.options;
-      console.log('🔥 [FIREBASE] React Native Firebase initialized');
-      console.log('   - Project ID:', options.projectId);
-      console.log('   - App ID:', options.appId);
+      console.log('🔥 [FIREBASE] Firebase JS SDK initialized');
+      console.log('   - Project ID:', app.options.projectId);
+      console.log('   - App ID:', app.options.appId);
 
       initialized = true;
       return true;
@@ -33,13 +36,6 @@ export const initializeFirebase = async () => {
   } catch (error) {
     console.error('❌ [FIREBASE] Initialization failed:', error);
     console.error('   - Error message:', error.message);
-
-    // Provide helpful error messages
-    if (error.message.includes('No Firebase App')) {
-      console.error('   → Make sure GoogleService-Info.plist is added to your Xcode project');
-      console.error('   → Make sure google-services.json is in android/app/');
-    }
-
     return false;
   }
 };

@@ -1,18 +1,18 @@
 /**
  * Firebase Authentication Service
- * Uses React Native Firebase Auth with Google Sign-In
+ * Uses Firebase JS SDK with Google Sign-In
  */
 
-import auth from '@react-native-firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Alert } from 'react-native';
+import { getFirebaseAuth } from './config';
 
 // Track if Google Sign-In has been configured
 let googleSignInConfigured = false;
 
 /**
  * Configure Google Sign-In (must be called before any sign-in operations)
- * Uses webClientId from GoogleService-Info.plist / google-services.json
  */
 const configureGoogleSignIn = () => {
   if (googleSignInConfigured) {
@@ -80,14 +80,15 @@ export const signInWithGoogle = async () => {
     }
     console.log('✅ [AUTH] Got ID token');
 
-    // Create Firebase credential using React Native Firebase
+    // Create Firebase credential using JS SDK
     console.log('🔐 [AUTH] Creating Firebase credential...');
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+    const googleCredential = GoogleAuthProvider.credential(idToken);
     console.log('✅ [AUTH] Firebase credential created');
 
     // Sign in to Firebase with the Google credential
     console.log('🔐 [AUTH] Signing in to Firebase...');
-    const userCredential = await auth().signInWithCredential(googleCredential);
+    const auth = getFirebaseAuth();
+    const userCredential = await signInWithCredential(auth, googleCredential);
     console.log('✅ [AUTH] Firebase sign-in successful');
 
     console.log('✅ Signed in with Google:', userCredential.user.email);
@@ -118,7 +119,7 @@ export const signInWithGoogle = async () => {
     if (errorCode === '12500') {
       Alert.alert(
         'Configuration Error',
-        'Google Sign-In is not properly configured. Make sure GoogleService-Info.plist is added to your Xcode project.',
+        'Google Sign-In is not properly configured. Please check your Firebase setup.',
         [{ text: 'OK' }]
       );
       const configError = new Error('Google Sign-In configuration error');
@@ -153,7 +154,8 @@ export const signOut = async () => {
 
     // Sign out from Firebase
     console.log('🔐 [AUTH] Signing out from Firebase...');
-    await auth().signOut();
+    const auth = getFirebaseAuth();
+    await firebaseSignOut(auth);
     console.log('✅ [AUTH] Signed out from Firebase');
 
     console.log('✅ Signed out successfully');
@@ -168,7 +170,8 @@ export const signOut = async () => {
  * @returns {Object|null} Current user or null
  */
 export const getCurrentUser = () => {
-  const user = auth().currentUser;
+  const auth = getFirebaseAuth();
+  const user = auth?.currentUser;
 
   if (user) {
     return {
@@ -188,7 +191,8 @@ export const getCurrentUser = () => {
  * @returns {Function} Unsubscribe function
  */
 export const onAuthStateChanged = (callback) => {
-  return auth().onAuthStateChanged((user) => {
+  const auth = getFirebaseAuth();
+  return firebaseOnAuthStateChanged(auth, (user) => {
     if (user) {
       callback({
         uid: user.uid,
