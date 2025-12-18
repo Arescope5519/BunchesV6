@@ -122,7 +122,7 @@ export const useShareIntent = (onUrlReceived) => {
 
   /**
    * Check for iOS Share Extension shared URLs (via URL scheme or App Groups)
-   * Supports multiple queued URLs
+   * Supports multiple queued URLs - passes all URLs at once for batch processing
    */
   const checkIOSShareExtension = async () => {
     if (Platform.OS !== 'ios') {
@@ -165,12 +165,10 @@ export const useShareIntent = (onUrlReceived) => {
         if (sharedURLs && sharedURLs.length > 0) {
           console.log(`🍎 [iOS] Found ${sharedURLs.length} shared URL(s) from extension`);
 
-          // Process each URL
-          for (const url of sharedURLs) {
-            console.log('🍎 [iOS] Processing queued URL:', url);
-            handleSharedUrl(url);
-            // Small delay between processing to avoid overwhelming
-            await new Promise(resolve => setTimeout(resolve, 500));
+          // Pass all URLs at once for batch processing (callback receives array)
+          // This allows the caller to process all and show one summary alert
+          if (onUrlReceivedRef.current) {
+            onUrlReceivedRef.current(sharedURLs, true); // true = isBatch
           }
 
           // Clear all URLs after processing

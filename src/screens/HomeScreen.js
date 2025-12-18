@@ -617,8 +617,8 @@ export const HomeScreen = ({ user }) => {
     setNotificationRequest(null);
   };
 
-  // iOS auto-save: Extract and save directly without showing save screen
-  const extractAndAutoSave = async (recipeUrl) => {
+  // iOS auto-save: Extract and save a single recipe (returns success/failure)
+  const extractAndAutoSaveSingle = async (recipeUrl) => {
     try {
       const RecipeExtractor = require('../../RecipeExtractor').default;
       const extractor = new RecipeExtractor();
@@ -626,7 +626,7 @@ export const HomeScreen = ({ user }) => {
 
       if (result.success) {
         const recipe = {
-          id: Date.now().toString(),
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           url: recipeUrl,
           ...result.data,
           extractedAt: new Date().toISOString(),
@@ -638,31 +638,72 @@ export const HomeScreen = ({ user }) => {
         const saved = await saveRecipe(recipe);
         if (saved) {
           console.log('🍎 [iOS] Recipe auto-saved:', recipe.name);
-          // Optionally show a brief notification
-          Alert.alert('✅ Recipe Saved', recipe.name || 'Recipe saved successfully!');
+          return { success: true, name: recipe.name };
         }
-      } else {
-        console.log('🍎 [iOS] Extraction failed, falling back to save screen');
-        setUrl(recipeUrl);
-        extractRecipe(recipeUrl);
       }
+      console.log('🍎 [iOS] Extraction failed for:', recipeUrl);
+      return { success: false, url: recipeUrl };
     } catch (error) {
       console.error('🍎 [iOS] Auto-save error:', error);
-      // Fallback to showing save screen
-      setUrl(recipeUrl);
-      extractRecipe(recipeUrl);
+      return { success: false, url: recipeUrl };
+    }
+  };
+
+  // iOS batch auto-save: Process multiple URLs and show one summary alert
+  const extractAndAutoSaveBatch = async (urls) => {
+    console.log(`🍎 [iOS] Processing batch of ${urls.length} recipes...`);
+
+    let succeeded = 0;
+    let failed = 0;
+    const savedNames = [];
+
+    for (const url of urls) {
+      const result = await extractAndAutoSaveSingle(url);
+      if (result.success) {
+        succeeded++;
+        if (result.name) savedNames.push(result.name);
+      } else {
+        failed++;
+      }
+      // Small delay between saves to avoid ID collisions
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Show one summary alert
+    if (succeeded > 0 && failed === 0) {
+      Alert.alert(
+        `✅ ${succeeded} Recipe${succeeded > 1 ? 's' : ''} Saved`,
+        savedNames.length > 0 ? savedNames.join('\n') : 'All recipes saved successfully!'
+      );
+    } else if (succeeded > 0 && failed > 0) {
+      Alert.alert(
+        `⚠️ Partially Saved`,
+        `${succeeded} saved, ${failed} failed\n\n${savedNames.length > 0 ? 'Saved: ' + savedNames.join(', ') : ''}`
+      );
+    } else if (failed > 0) {
+      Alert.alert(
+        `❌ Import Failed`,
+        `Could not extract ${failed} recipe${failed > 1 ? 's' : ''}`
+      );
     }
   };
 
   // Share intent handler - iOS auto-saves, Android shows save screen
-  useShareIntent((sharedUrl) => {
+  useShareIntent((sharedUrlOrUrls, isBatch = false) => {
     if (Platform.OS === 'ios') {
       // iOS: Auto-save (Share Extension already showed preview)
-      extractAndAutoSave(sharedUrl);
+      if (isBatch && Array.isArray(sharedUrlOrUrls)) {
+        // Batch of URLs from App Groups
+        extractAndAutoSaveBatch(sharedUrlOrUrls);
+      } else {
+        // Single URL (from URL scheme)
+        extractAndAutoSaveBatch([sharedUrlOrUrls]);
+      }
     } else {
       // Android: Show save screen for confirmation
-      setUrl(sharedUrl);
-      extractRecipe(sharedUrl);
+      const url = Array.isArray(sharedUrlOrUrls) ? sharedUrlOrUrls[0] : sharedUrlOrUrls;
+      setUrl(url);
+      extractRecipe(url);
     }
   });
 
