@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Plugin to fix Firebase Swift pod modular headers issue
- * Adds use_modular_headers! globally to enable module maps for Swift pods
+ * Plugin to fix Firebase Swift pod issues
+ * Uses frameworks with static linkage for proper Swift header generation
  */
 const withFirebasePodfileFix = (config) => {
   return withDangerousMod(config, [
@@ -22,21 +22,69 @@ const withFirebasePodfileFix = (config) => {
 
       let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 
-      // Check if already has use_modular_headers!
-      if (podfileContent.includes('use_modular_headers!')) {
-        console.log('Podfile already has use_modular_headers!');
+      // Debug: Print current Podfile content
+      console.log('=== PODFILE BEFORE MODIFICATION ===');
+      console.log(podfileContent.substring(0, 500));
+      console.log('=== END PODFILE PREVIEW ===');
+
+      // Check if already patched
+      if (podfileContent.includes('# Firebase Swift fix applied')) {
+        console.log('Podfile already has Firebase Swift fix');
         return config;
       }
 
-      // Find the target block and add use_modular_headers! inside it
-      // This is more reliable than adding at the top
-      podfileContent = podfileContent.replace(
-        /(target ['"].*?['"] do)/,
-        `$1\n  use_modular_headers!`
-      );
+      // Add marker and use_frameworks with static linkage
+      // This is the recommended approach for React Native Firebase
+      const firebaseFix = `# Firebase Swift fix applied
+# Use frameworks with static linkage for Firebase Swift compatibility
+use_frameworks! :linkage => :static
+
+# React Native requires these flags
+$RNFirebaseAsStaticFramework = true
+
+`;
+
+      // Add at the very beginning of the file
+      podfileContent = firebaseFix + podfileContent;
+
+      // Also need to add modular headers for specific pods that need them
+      // Find post_install and add configuration
+      if (podfileContent.includes('post_install do |installer|')) {
+        const postInstallAddition = `
+    # Debug: Print Firebase pod info
+    puts "=== Firebase Pods Build Settings ==="
+
+    installer.pods_project.targets.each do |target|
+      # Enable module maps for all targets
+      target.build_configurations.each do |config|
+        config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      end
+
+      # Special handling for Firebase pods
+      if target.name.start_with?('Firebase') || target.name == 'GoogleUtilities'
+        puts "Configuring: #{target.name}"
+        target.build_configurations.each do |config|
+          config.build_settings['DEFINES_MODULE'] = 'YES'
+          config.build_settings['SWIFT_VERSION'] = '5.0'
+        end
+      end
+    end
+    puts "=== End Firebase Pods ==="
+`;
+
+        podfileContent = podfileContent.replace(
+          /post_install do \|installer\|/,
+          `post_install do |installer|${postInstallAddition}`
+        );
+      }
 
       fs.writeFileSync(podfilePath, podfileContent);
-      console.log('Added use_modular_headers! to Podfile for Firebase compatibility');
+
+      console.log('=== PODFILE AFTER MODIFICATION ===');
+      console.log(podfileContent.substring(0, 800));
+      console.log('=== END MODIFIED PODFILE ===');
+
+      console.log('Added Firebase Swift fix to Podfile');
 
       return config;
     },
