@@ -4,7 +4,7 @@ const path = require('path');
 
 /**
  * Plugin to fix Firebase Swift pod issues
- * Uses modular headers WITHOUT use_frameworks! to avoid React Native incompatibility
+ * Adds modular_headers specifically to the pods that need them
  */
 const withFirebasePodfileFix = (config) => {
   return withDangerousMod(config, [
@@ -23,45 +23,64 @@ const withFirebasePodfileFix = (config) => {
       let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 
       // Check if already patched
-      if (podfileContent.includes('# Firebase fix applied')) {
+      if (podfileContent.includes('# Firebase modular headers fix')) {
         console.log('Podfile already has Firebase fix');
         return config;
       }
 
-      // Add configuration at the top - NO use_frameworks!, just modular headers
-      const firebaseConfig = `# Firebase fix applied
-# Enable modular headers globally for Firebase Swift pod compatibility
-use_modular_headers!
+      // Add pre_install hook to set modular headers for specific Firebase pods
+      const preInstallHook = `# Firebase modular headers fix
+# These pods need modular headers for Swift interop
+$FirebaseModularHeadersPods = [
+  'FirebaseCore',
+  'FirebaseCoreInternal',
+  'FirebaseCoreExtension',
+  'FirebaseAuth',
+  'FirebaseAuthInterop',
+  'FirebaseAppCheckInterop',
+  'GoogleUtilities',
+  'RecaptchaInterop',
+  'FirebaseFirestore',
+  'FirebaseFirestoreInternal',
+]
 
-`;
-
-      podfileContent = firebaseConfig + podfileContent;
-
-      // Add post_install hook to configure Firebase pods
-      if (podfileContent.includes('post_install do |installer|')) {
-        const postInstallAddition = `
-    # Configure pods for Firebase compatibility
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |config|
-        # Ensure module maps are generated
-        config.build_settings['DEFINES_MODULE'] = 'YES'
-
-        # For Firebase Swift interop
-        if target.name.include?('Firebase') || target.name == 'GoogleUtilities'
-          config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-        end
+pre_install do |installer|
+  installer.pod_targets.each do |pod|
+    if $FirebaseModularHeadersPods.include?(pod.name)
+      def pod.build_type
+        Pod::BuildType.static_library
       end
     end
+  end
+end
+
 `;
 
-        podfileContent = podfileContent.replace(
-          /post_install do \|installer\|/,
-          `post_install do |installer|${postInstallAddition}`
-        );
-      }
+      // Insert before the first 'require' statement
+      podfileContent = preInstallHook + podfileContent;
+
+      // Also add modular headers in the target block
+      // Find the target block and add pod-specific modular headers
+      const modularHeadersPods = `
+  # Enable modular headers for Firebase pods that need them
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'FirebaseCoreExtension', :modular_headers => true
+  pod 'FirebaseAuth', :modular_headers => true
+  pod 'FirebaseAuthInterop', :modular_headers => true
+  pod 'FirebaseAppCheckInterop', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
+`;
+
+      // Insert after the target line
+      podfileContent = podfileContent.replace(
+        /(target ['"][^'"]+['"] do)/,
+        `$1${modularHeadersPods}`
+      );
 
       fs.writeFileSync(podfilePath, podfileContent);
-      console.log('Added Firebase fix to Podfile (modular headers approach)');
+      console.log('Added Firebase modular headers fix to Podfile');
 
       return config;
     },
