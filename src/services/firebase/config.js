@@ -1,80 +1,65 @@
 /**
  * Firebase Configuration
- * Firebase JS SDK initialization
+ * React Native Firebase - uses native SDKs
  *
- * IMPORTANT: Get your config from Firebase Console:
- * 1. Go to https://console.firebase.google.com/
- * 2. Select your project
- * 3. Click the gear icon (Project Settings)
- * 4. Scroll down to "Your apps" section
- * 5. If you don't have a web app, click "Add app" and select Web
- * 6. Copy the firebaseConfig object values below
+ * Configuration is handled by:
+ * - iOS: GoogleService-Info.plist (add to Xcode project)
+ * - Android: google-services.json (in android/app/)
  */
 
-import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import firebase from '@react-native-firebase/app';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
-// TODO: Replace these with your real Firebase config values from Firebase Console
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+// React Native Firebase initializes automatically from the native config files
+// No manual configuration needed - it reads from GoogleService-Info.plist / google-services.json
 
-// Initialize Firebase (only once)
-let app;
-let auth;
-let db;
-
-export const initializeFirebaseApp = () => {
-  if (getApps().length === 0) {
-    console.log('🔥 [FIREBASE] Initializing Firebase JS SDK...');
-    app = initializeApp(firebaseConfig);
-
-    // Initialize Auth with AsyncStorage persistence
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
-    });
-
-    // Initialize Firestore with offline persistence
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache()
-    });
-
-    console.log('✅ [FIREBASE] Firebase JS SDK initialized');
-    console.log('   - Project ID:', firebaseConfig.projectId);
-  } else {
-    app = getApps()[0];
-  }
-
-  return { app, auth, db };
-};
-
-// Get Firebase instances (initialize if needed)
+/**
+ * Get Firebase App instance
+ */
 export const getFirebaseApp = () => {
-  if (!app) {
-    initializeFirebaseApp();
-  }
-  return app;
+  return firebase.app();
 };
 
+/**
+ * Get Firebase Auth instance
+ */
 export const getFirebaseAuth = () => {
-  if (!auth) {
-    initializeFirebaseApp();
-  }
-  return auth;
+  return auth();
 };
 
+/**
+ * Get Firebase Firestore instance
+ */
 export const getFirebaseFirestore = () => {
-  if (!db) {
-    initializeFirebaseApp();
-  }
-  return db;
+  return firestore();
 };
 
-export { firebaseConfig };
+/**
+ * Check if Firebase is properly configured
+ */
+export const isFirebaseConfigured = () => {
+  try {
+    const app = firebase.app();
+    const options = app.options;
+
+    // Check if we have real config (not placeholder)
+    if (!options.projectId || options.projectId === 'YOUR_PROJECT_ID') {
+      console.log('⚠️ [FIREBASE] Firebase not configured - missing GoogleService-Info.plist or google-services.json');
+      return false;
+    }
+
+    console.log('✅ [FIREBASE] Firebase configured with project:', options.projectId);
+    return true;
+  } catch (error) {
+    console.log('❌ [FIREBASE] Error checking config:', error.message);
+    return false;
+  }
+};
+
+export default {
+  getFirebaseApp,
+  getFirebaseAuth,
+  getFirebaseFirestore,
+  isFirebaseConfigured,
+};
