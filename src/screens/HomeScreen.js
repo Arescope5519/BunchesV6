@@ -139,6 +139,7 @@ export const HomeScreen = ({ user }) => {
     selectedRecipe,
     setSelectedRecipe,
     saveRecipe,
+    saveRecipesBatch,
     updateRecipe,
     deleteRecipe,
     restoreRecipe,
@@ -617,8 +618,8 @@ export const HomeScreen = ({ user }) => {
     setNotificationRequest(null);
   };
 
-  // iOS auto-save: Extract and save a single recipe (returns success/failure)
-  const extractAndAutoSaveSingle = async (recipeUrl) => {
+  // iOS auto-save: Extract a single recipe (returns recipe object or null)
+  const extractRecipeData = async (recipeUrl) => {
     try {
       const RecipeExtractor = require('../../RecipeExtractor').default;
       const extractor = new RecipeExtractor();
@@ -634,42 +635,54 @@ export const HomeScreen = ({ user }) => {
           folder: 'All Recipes',
           isFavorite: false,
         };
-
-        const saved = await saveRecipe(recipe);
-        if (saved) {
-          console.log('🍎 [iOS] Recipe auto-saved:', recipe.name);
-          return { success: true, name: recipe.name };
-        }
+        console.log('🍎 [iOS] Extracted recipe:', recipe.name);
+        return { success: true, recipe };
       }
       console.log('🍎 [iOS] Extraction failed for:', recipeUrl);
       return { success: false, url: recipeUrl };
     } catch (error) {
-      console.error('🍎 [iOS] Auto-save error:', error);
+      console.error('🍎 [iOS] Extraction error:', error);
       return { success: false, url: recipeUrl };
     }
   };
 
-  // iOS batch auto-save: Process multiple URLs and show one summary alert
+  // iOS batch auto-save: Extract all recipes first, then save all at once
   const extractAndAutoSaveBatch = async (urls) => {
     console.log(`🍎 [iOS] Processing batch of ${urls.length} recipes...`);
 
-    let succeeded = 0;
-    let failed = 0;
-    const savedNames = [];
+    // Step 1: Extract all recipes first (no saving yet)
+    const extractedRecipes = [];
+    const failedUrls = [];
 
     for (const url of urls) {
-      const result = await extractAndAutoSaveSingle(url);
+      const result = await extractRecipeData(url);
       if (result.success) {
-        succeeded++;
-        if (result.name) savedNames.push(result.name);
+        extractedRecipes.push(result.recipe);
       } else {
-        failed++;
+        failedUrls.push(url);
       }
-      // Small delay between saves to avoid ID collisions
+      // Small delay between extractions
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Show one summary alert
+    // Step 2: Save all extracted recipes at once using batch save
+    let savedNames = [];
+    if (extractedRecipes.length > 0) {
+      const saved = await saveRecipesBatch(extractedRecipes);
+      if (saved) {
+        savedNames = extractedRecipes.map(r => r.name).filter(Boolean);
+        console.log(`🍎 [iOS] Batch saved ${extractedRecipes.length} recipes`);
+      } else {
+        // If batch save failed, count all as failed
+        failedUrls.push(...extractedRecipes.map(r => r.url));
+        extractedRecipes.length = 0;
+      }
+    }
+
+    const succeeded = extractedRecipes.length;
+    const failed = failedUrls.length;
+
+    // Step 3: Show one summary alert
     if (succeeded > 0 && failed === 0) {
       Alert.alert(
         `✅ ${succeeded} Recipe${succeeded > 1 ? 's' : ''} Saved`,

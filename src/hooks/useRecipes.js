@@ -129,6 +129,48 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * Save multiple recipes at once - avoids state race conditions
+   * Reads fresh from storage instead of using potentially stale state
+   */
+  const saveRecipesBatch = async (newRecipes) => {
+    if (!newRecipes || newRecipes.length === 0) return false;
+
+    // Wait for recipes to load if they haven't yet
+    while (loadingRecipes) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Get fresh recipes from storage to avoid stale state
+    const currentRecipes = await loadRecipesFromStorage(user?.uid || null);
+
+    // Add timestamps to all new recipes
+    const recipesWithTimestamps = newRecipes.map(recipe => ({
+      ...recipe,
+      createdAt: recipe.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    }));
+
+    // Prepend all new recipes at once
+    const updatedRecipes = [...recipesWithTimestamps, ...currentRecipes];
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+
+    if (success) {
+      setRecipes(updatedRecipes);
+      console.log(`✅ Batch saved ${newRecipes.length} recipes! Total recipes:`, updatedRecipes.length);
+
+      // Sync all to Firestore in background if user is signed in
+      if (user) {
+        recipesWithTimestamps.forEach(recipe => {
+          saveToFirestore(user.uid, recipe);
+        });
+      }
+
+      return true;
+    }
+    return false;
+  };
+
+  /**
    * Update existing recipe
    */
   const updateRecipe = async (updatedRecipe) => {
@@ -516,6 +558,7 @@ export const useRecipes = (user) => {
     selectedRecipe,
     setSelectedRecipe,
     saveRecipe,
+    saveRecipesBatch,
     updateRecipe,
     deleteRecipe,
     restoreRecipe,
