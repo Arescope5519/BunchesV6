@@ -1,10 +1,21 @@
 /**
  * Firestore Service
  * Handles all recipe data synchronization with Firebase
- * Uses Firebase JS SDK
  */
 
-import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, serverTimestamp, arrayUnion, getDoc, enableIndexedDbPersistence } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  writeBatch,
+  serverTimestamp,
+  arrayUnion,
+  query,
+  where
+} from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirebaseFirestore } from './config';
 
@@ -25,6 +36,7 @@ export const saveRecipesToFirestore = async (userId, recipes) => {
 
     recipes.forEach((recipe) => {
       const recipeRef = doc(db, 'users', userId, RECIPES_COLLECTION, recipe.id);
+
       batch.set(recipeRef, {
         ...recipe,
         updatedAt: serverTimestamp(),
@@ -48,6 +60,8 @@ export const loadRecipesFromFirestore = async (userId) => {
   try {
     const db = getFirebaseFirestore();
     const recipesRef = collection(db, 'users', userId, RECIPES_COLLECTION);
+
+    // Get all recipes
     const snapshot = await getDocs(recipesRef);
     console.log('✅ Loaded recipes from Firestore');
 
@@ -87,7 +101,7 @@ export const saveRecipeToFirestore = async (userId, recipe) => {
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    console.log(`✅ Saved recipe "${recipe.name || recipe.title}" to Firestore`);
+    console.log(`✅ Saved recipe "${recipe.title}" to Firestore`);
   } catch (error) {
     console.error('❌ Error saving recipe to Firestore:', error);
     throw error;
@@ -136,9 +150,9 @@ export const syncRecipes = async (userId, localRecipes) => {
 
     // Load deleted recipe IDs from user doc
     const userDocRef = doc(db, 'users', userId);
-    const userDocSnap = await getDoc(userDocRef);
+    const userDoc = await getDoc(userDocRef);
 
-    const deletedRecipeIds = new Set(userDocSnap.exists() && userDocSnap.data()?.deletedRecipeIds || []);
+    const deletedRecipeIds = new Set(userDoc.exists() && userDoc.data().deletedRecipeIds || []);
     if (deletedRecipeIds.size > 0) {
       console.log(`🗑️ Found ${deletedRecipeIds.size} previously deleted recipe IDs`);
     }
@@ -173,17 +187,20 @@ export const syncRecipes = async (userId, localRecipes) => {
         // Recipe exists in both - keep the newer version
         // SPECIAL CASE: If local version is deleted, always prefer local to preserve deletion
         if (localRecipe.deletedAt && !firestoreRecipe.deletedAt) {
+          // Local was deleted but Firestore doesn't have the deletion yet - use local
           recipesToUpload.push(localRecipe);
           mergedRecipes.push(localRecipe);
-          console.log(`⚠️ Preserving local deletion for recipe: ${localRecipe.name || localRecipe.id}`);
+          console.log(`⚠️ Preserving local deletion for recipe: ${localRecipe.title || localRecipe.id}`);
         } else {
           const localTime = localRecipe.updatedAt || localRecipe.createdAt || 0;
           const firestoreTime = firestoreRecipe.updatedAt || firestoreRecipe.createdAt || 0;
 
           if (localTime > firestoreTime) {
+            // Local is newer - upload it
             recipesToUpload.push(localRecipe);
             mergedRecipes.push(localRecipe);
           } else {
+            // Firestore is newer or same - use it
             mergedRecipes.push(firestoreRecipe);
           }
         }
@@ -191,24 +208,29 @@ export const syncRecipes = async (userId, localRecipes) => {
     });
 
     // Add recipes that only exist in Firestore
-    // BUT exclude deleted recipes to prevent them from coming back
+    // BUT exclude deleted recipes (soft-deleted OR permanently deleted) to prevent
+    // them from coming back after uninstall/reinstall
     const recipesToDeleteFromFirestore = [];
 
     firestoreRecipes.forEach(firestoreRecipe => {
       if (!localMap.has(firestoreRecipe.id)) {
+        // Recipe only exists in Firestore
         if (firestoreRecipe.deletedAt) {
+          // It's a soft-deleted recipe - don't restore it, and delete it from Firestore
           recipesToDeleteFromFirestore.push(firestoreRecipe.id);
-          console.log(`🗑️ Auto-cleaning soft-deleted recipe from Firestore: ${firestoreRecipe.name || firestoreRecipe.id}`);
+          console.log(`🗑️ Auto-cleaning soft-deleted recipe from Firestore: ${firestoreRecipe.title || firestoreRecipe.id}`);
         } else if (deletedRecipeIds.has(firestoreRecipe.id)) {
+          // It's a permanently deleted recipe - don't restore it, and delete it from Firestore
           recipesToDeleteFromFirestore.push(firestoreRecipe.id);
-          console.log(`🗑️ Auto-cleaning permanently deleted recipe from Firestore: ${firestoreRecipe.name || firestoreRecipe.id}`);
+          console.log(`🗑️ Auto-cleaning permanently deleted recipe from Firestore: ${firestoreRecipe.title || firestoreRecipe.id}`);
         } else {
+          // Normal recipe - add it to merged list
           mergedRecipes.push(firestoreRecipe);
         }
       }
     });
 
-    // Clean up deleted recipes from Firestore
+    // Clean up deleted recipes from Firestore (both soft-deleted and permanently deleted)
     if (recipesToDeleteFromFirestore.length > 0) {
       console.log(`🗑️ Cleaning ${recipesToDeleteFromFirestore.length} deleted recipes from Firestore...`);
       const deleteBatch = writeBatch(db);
@@ -286,22 +308,17 @@ export const loadFoldersFromFirestore = async (userId) => {
 };
 
 /**
- * Enable offline persistence
+ * Enable offline persistence (cached data available without internet)
+ * Note: Firebase JS SDK handles this automatically with persistentLocalCache
  * @returns {Promise<void>}
  */
 export const enableOfflinePersistence = async () => {
   try {
-    const db = getFirebaseFirestore();
-    await enableIndexedDbPersistence(db);
-    console.log('✅ Offline persistence enabled');
+    // Firebase JS SDK with persistentLocalCache already enables offline persistence
+    // in the config.js initialization
+    console.log('✅ Offline persistence enabled (via Firebase JS SDK config)');
   } catch (error) {
-    if (error.code === 'failed-precondition') {
-      console.log('⚠️ Offline persistence unavailable: multiple tabs open');
-    } else if (error.code === 'unimplemented') {
-      console.log('⚠️ Offline persistence not supported in this environment');
-    } else {
-      console.error('❌ Error enabling offline persistence:', error);
-    }
+    console.error('❌ Error enabling offline persistence:', error);
   }
 };
 

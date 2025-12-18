@@ -1,16 +1,14 @@
 /**
  * Firebase Availability Checker
- * Checks if Firebase JS SDK is available and configured
+ * Safely checks if Firebase modules are available
  */
-
-import { isFirebaseConfigured } from './config';
 
 let firebaseAvailable = false;
 let authAvailable = false;
 let firestoreAvailable = false;
 const errors = [];
 
-console.log('🔍 [FIREBASE] Checking Firebase JS SDK availability...');
+console.log('🔍 [FIREBASE] Checking Firebase availability...');
 
 // Check if Firebase JS SDK is available
 try {
@@ -58,15 +56,18 @@ console.log('   - Auth:', authAvailable ? '✅ YES' : '❌ NO');
 console.log('   - Firestore:', firestoreAvailable ? '✅ YES' : '❌ NO');
 
 export const isFirebaseAvailable = () => {
-  return firebaseAvailable && isFirebaseConfigured();
+  console.log('🔍 [FIREBASE] isFirebaseAvailable() called, returning:', firebaseAvailable);
+  return firebaseAvailable;
 };
 
 export const isAuthAvailable = () => {
-  return authAvailable && isFirebaseConfigured();
+  console.log('🔍 [FIREBASE] isAuthAvailable() called, returning:', authAvailable);
+  return authAvailable;
 };
 
 export const isFirestoreAvailable = () => {
-  return firestoreAvailable && isFirebaseConfigured();
+  console.log('🔍 [FIREBASE] isFirestoreAvailable() called, returning:', firestoreAvailable);
+  return firestoreAvailable;
 };
 
 export const getFirebaseDebugInfo = () => {

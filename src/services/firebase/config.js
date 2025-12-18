@@ -1,51 +1,61 @@
 /**
  * Firebase Configuration
- * Uses Firebase JS SDK - works on both iOS and Android without native modules
+ * Firebase JS SDK initialization
+ *
+ * IMPORTANT: Get your config from Firebase Console:
+ * 1. Go to https://console.firebase.google.com/
+ * 2. Select your project
+ * 3. Click the gear icon (Project Settings)
+ * 4. Scroll down to "Your apps" section
+ * 5. If you don't have a web app, click "Add app" and select Web
+ * 6. Copy the firebaseConfig object values below
  */
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase configuration from Firebase Console
+// TODO: Replace these with your real Firebase config values from Firebase Console
 const firebaseConfig = {
-  apiKey: 'AIzaSyDVr5TRpOrhgdMDxMpDQuxdUnMKIlfBqEA',
-  authDomain: 'bunchesv6.firebaseapp.com',
-  projectId: 'bunchesv6',
-  storageBucket: 'bunchesv6.firebasestorage.app',
-  messagingSenderId: '307694075211',
-  appId: '1:307694075211:ios:cc9943a09a04314f168073',
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
-let app = null;
-let auth = null;
-let firestore = null;
+// Initialize Firebase (only once)
+let app;
+let auth;
+let db;
 
-/**
- * Initialize Firebase App
- */
-const initializeFirebaseApp = () => {
-  if (app) return app;
+export const initializeFirebaseApp = () => {
+  if (getApps().length === 0) {
+    console.log('🔥 [FIREBASE] Initializing Firebase JS SDK...');
+    app = initializeApp(firebaseConfig);
 
-  try {
-    if (getApps().length === 0) {
-      app = initializeApp(firebaseConfig);
-      console.log('✅ [FIREBASE] App initialized');
-    } else {
-      app = getApp();
-      console.log('✅ [FIREBASE] Using existing app');
-    }
-    return app;
-  } catch (error) {
-    console.error('❌ [FIREBASE] Failed to initialize app:', error);
-    return null;
+    // Initialize Auth with AsyncStorage persistence
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+
+    // Initialize Firestore with offline persistence
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache()
+    });
+
+    console.log('✅ [FIREBASE] Firebase JS SDK initialized');
+    console.log('   - Project ID:', firebaseConfig.projectId);
+  } else {
+    app = getApps()[0];
   }
+
+  return { app, auth, db };
 };
 
-/**
- * Get Firebase App instance
- */
+// Get Firebase instances (initialize if needed)
 export const getFirebaseApp = () => {
   if (!app) {
     initializeFirebaseApp();
@@ -53,63 +63,18 @@ export const getFirebaseApp = () => {
   return app;
 };
 
-/**
- * Get Firebase Auth instance
- */
 export const getFirebaseAuth = () => {
   if (!auth) {
-    const firebaseApp = getFirebaseApp();
-    if (firebaseApp) {
-      try {
-        // Try to get existing auth instance
-        auth = getAuth(firebaseApp);
-      } catch (error) {
-        // Initialize with React Native persistence
-        auth = initializeAuth(firebaseApp, {
-          persistence: getReactNativePersistence(AsyncStorage),
-        });
-      }
-      console.log('✅ [FIREBASE] Auth initialized');
-    }
+    initializeFirebaseApp();
   }
   return auth;
 };
 
-/**
- * Get Firebase Firestore instance
- */
 export const getFirebaseFirestore = () => {
-  if (!firestore) {
-    const firebaseApp = getFirebaseApp();
-    if (firebaseApp) {
-      firestore = getFirestore(firebaseApp);
-      console.log('✅ [FIREBASE] Firestore initialized');
-    }
+  if (!db) {
+    initializeFirebaseApp();
   }
-  return firestore;
+  return db;
 };
 
-/**
- * Check if Firebase is properly configured
- */
-export const isFirebaseConfigured = () => {
-  try {
-    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_API_KEY') {
-      console.log('⚠️ [FIREBASE] Firebase not configured - missing API key');
-      return false;
-    }
-
-    console.log('✅ [FIREBASE] Firebase configured with project:', firebaseConfig.projectId);
-    return true;
-  } catch (error) {
-    console.log('❌ [FIREBASE] Error checking config:', error.message);
-    return false;
-  }
-};
-
-export default {
-  getFirebaseApp,
-  getFirebaseAuth,
-  getFirebaseFirestore,
-  isFirebaseConfigured,
-};
+export { firebaseConfig };
