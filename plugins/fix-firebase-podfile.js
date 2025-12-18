@@ -4,7 +4,10 @@ const path = require('path');
 
 /**
  * Plugin to fix Firebase Swift pod issues
- * Adds modular_headers specifically to the pods that need them
+ * The problem: Firebase.h umbrella header imports FirebaseAuth-Swift.h
+ * which doesn't exist when building as static libraries.
+ *
+ * Solution: Set $RNFirebaseAsStaticFramework and use modular headers
  */
 const withFirebasePodfileFix = (config) => {
   return withDangerousMod(config, [
@@ -23,64 +26,56 @@ const withFirebasePodfileFix = (config) => {
       let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 
       // Check if already patched
-      if (podfileContent.includes('# Firebase modular headers fix')) {
+      if (podfileContent.includes('# Firebase static framework fix')) {
         console.log('Podfile already has Firebase fix');
         return config;
       }
 
-      // Add pre_install hook to set modular headers for specific Firebase pods
-      const preInstallHook = `# Firebase modular headers fix
-# These pods need modular headers for Swift interop
-$FirebaseModularHeadersPods = [
-  'FirebaseCore',
-  'FirebaseCoreInternal',
-  'FirebaseCoreExtension',
-  'FirebaseAuth',
-  'FirebaseAuthInterop',
-  'FirebaseAppCheckInterop',
-  'GoogleUtilities',
-  'RecaptchaInterop',
-  'FirebaseFirestore',
-  'FirebaseFirestoreInternal',
-]
+      // This must be set BEFORE any require statements
+      // It tells React Native Firebase to use static frameworks
+      const firebaseConfig = `# Firebase static framework fix
+# Must be set before requiring any Firebase/RN scripts
+$RNFirebaseAsStaticFramework = true
 
-pre_install do |installer|
-  installer.pod_targets.each do |pod|
-    if $FirebaseModularHeadersPods.include?(pod.name)
-      def pod.build_type
-        Pod::BuildType.static_library
+`;
+
+      podfileContent = firebaseConfig + podfileContent;
+
+      // Add post_install hook to fix Firebase header issues
+      if (podfileContent.includes('post_install do |installer|')) {
+        const postInstallAddition = `
+    # Fix Firebase umbrella header Swift imports issue
+    # The Firebase.h umbrella header tries to import Swift headers that don't exist
+    # when building as static libraries. This disables the problematic imports.
+    firebase_header = File.join(installer.sandbox.root, 'Headers/Private/Firebase/Firebase.h')
+    if File.exist?(firebase_header)
+      content = File.read(firebase_header)
+      # Comment out Swift header imports that cause build failures
+      modified = content.gsub(/#import <Firebase.*-Swift\\.h>/, '// DISABLED: \\0')
+      if content != modified
+        File.write(firebase_header, modified)
+        puts "Modified Firebase.h to disable Swift imports"
       end
     end
-  end
-end
 
+    # Set modular headers for Firebase pods
+    installer.pods_project.targets.each do |target|
+      if target.name.include?('Firebase') || target.name == 'GoogleUtilities'
+        target.build_configurations.each do |config|
+          config.build_settings['DEFINES_MODULE'] = 'YES'
+        end
+      end
+    end
 `;
 
-      // Insert before the first 'require' statement
-      podfileContent = preInstallHook + podfileContent;
-
-      // Also add modular headers in the target block
-      // Find the target block and add pod-specific modular headers
-      const modularHeadersPods = `
-  # Enable modular headers for Firebase pods that need them
-  pod 'FirebaseCore', :modular_headers => true
-  pod 'FirebaseCoreInternal', :modular_headers => true
-  pod 'FirebaseCoreExtension', :modular_headers => true
-  pod 'FirebaseAuth', :modular_headers => true
-  pod 'FirebaseAuthInterop', :modular_headers => true
-  pod 'FirebaseAppCheckInterop', :modular_headers => true
-  pod 'GoogleUtilities', :modular_headers => true
-  pod 'RecaptchaInterop', :modular_headers => true
-`;
-
-      // Insert after the target line
-      podfileContent = podfileContent.replace(
-        /(target ['"][^'"]+['"] do)/,
-        `$1${modularHeadersPods}`
-      );
+        podfileContent = podfileContent.replace(
+          /post_install do \|installer\|/,
+          `post_install do |installer|${postInstallAddition}`
+        );
+      }
 
       fs.writeFileSync(podfilePath, podfileContent);
-      console.log('Added Firebase modular headers fix to Podfile');
+      console.log('Added Firebase static framework fix to Podfile');
 
       return config;
     },
