@@ -55,18 +55,15 @@ $RNFirebaseAsStaticFramework = true
     puts "=== Firebase Pods Build Settings ==="
 
     installer.pods_project.targets.each do |target|
-      # Enable module maps for all targets
       target.build_configurations.each do |config|
-        config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-      end
-
-      # Special handling for Firebase pods
-      if target.name.start_with?('Firebase') || target.name == 'GoogleUtilities'
-        puts "Configuring: #{target.name}"
-        target.build_configurations.each do |config|
-          config.build_settings['DEFINES_MODULE'] = 'YES'
-          config.build_settings['SWIFT_VERSION'] = '5.0'
+        # Allow non-modular includes in framework modules (fixes RNFirebase + use_frameworks!)
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        # Disable the warning/error for non-modular includes
+        config.build_settings['OTHER_CFLAGS'] ||= ['$(inherited)']
+        if config.build_settings['OTHER_CFLAGS'].is_a?(String)
+          config.build_settings['OTHER_CFLAGS'] = [config.build_settings['OTHER_CFLAGS']]
         end
+        config.build_settings['OTHER_CFLAGS'] << '-Wno-non-modular-include-in-framework-module'
       end
     end
     puts "=== End Firebase Pods ==="
