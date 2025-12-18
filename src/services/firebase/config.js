@@ -16,14 +16,13 @@ import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// TODO: Replace these with your real Firebase config values from Firebase Console
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDbCIFhGnsqWcl9m0y2k4h_v94VoN8Npqc",
+  authDomain: "bunches-1f884.firebaseapp.com",
+  projectId: "bunches-1f884",
+  storageBucket: "bunches-1f884.firebasestorage.app",
+  messagingSenderId: "307694075211",
+  appId: "1:307694075211:android:0795416c14a84fa537fcce"
 };
 
 // Initialize Firebase (only once)

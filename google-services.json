@@ -1,33 +1,41 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "bunches-placeholder",
-    "storage_bucket": "bunches-placeholder.appspot.com"
+    "project_number": "307694075211",
+    "project_id": "bunches-1f884",
+    "storage_bucket": "bunches-1f884.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:307694075211:android:0795416c14a84fa537fcce",
         "android_client_info": {
           "package_name": "com.bunchesai.v6"
         }
       },
       "oauth_client": [
         {
-          "client_id": "000000000000-placeholder.apps.googleusercontent.com",
+          "client_id": "307694075211-2aehhg4cf8uagt5ib3crm9pnej0167up.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bunchesai.v6",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyPlaceholder-Replace-With-Real-Key"
+          "current_key": "AIzaSyDbCIFhGnsqWcl9m0y2k4h_v94VoN8Npqc"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "000000000000-placeholder.apps.googleusercontent.com",
+              "client_id": "307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
