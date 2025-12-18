@@ -617,11 +617,53 @@ export const HomeScreen = ({ user }) => {
     setNotificationRequest(null);
   };
 
-  // Share intent handler - extract and navigate to save screen
+  // iOS auto-save: Extract and save directly without showing save screen
+  const extractAndAutoSave = async (recipeUrl) => {
+    try {
+      const RecipeExtractor = require('../../RecipeExtractor').default;
+      const extractor = new RecipeExtractor();
+      const result = await extractor.extract(recipeUrl);
+
+      if (result.success) {
+        const recipe = {
+          id: Date.now().toString(),
+          url: recipeUrl,
+          ...result.data,
+          extractedAt: new Date().toISOString(),
+          source: result.source,
+          folder: 'All Recipes',
+          isFavorite: false,
+        };
+
+        const saved = await saveRecipe(recipe);
+        if (saved) {
+          console.log('🍎 [iOS] Recipe auto-saved:', recipe.name);
+          // Optionally show a brief notification
+          Alert.alert('✅ Recipe Saved', recipe.name || 'Recipe saved successfully!');
+        }
+      } else {
+        console.log('🍎 [iOS] Extraction failed, falling back to save screen');
+        setUrl(recipeUrl);
+        extractRecipe(recipeUrl);
+      }
+    } catch (error) {
+      console.error('🍎 [iOS] Auto-save error:', error);
+      // Fallback to showing save screen
+      setUrl(recipeUrl);
+      extractRecipe(recipeUrl);
+    }
+  };
+
+  // Share intent handler - iOS auto-saves, Android shows save screen
   useShareIntent((sharedUrl) => {
-    setUrl(sharedUrl);
-    // Extract recipe from shared URL (will navigate to save screen)
-    extractRecipe(sharedUrl);
+    if (Platform.OS === 'ios') {
+      // iOS: Auto-save (Share Extension already showed preview)
+      extractAndAutoSave(sharedUrl);
+    } else {
+      // Android: Show save screen for confirmation
+      setUrl(sharedUrl);
+      extractRecipe(sharedUrl);
+    }
   });
 
   // Grocery list handlers with undo support
