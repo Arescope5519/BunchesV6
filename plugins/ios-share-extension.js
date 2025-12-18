@@ -450,16 +450,15 @@ const withIOSShareExtension = (config) => {
     return config;
   });
 
-  // Add app groups entitlement for main app
-  config = withEntitlementsPlist(config, (config) => {
-    const entitlements = config.modResults;
-
-    if (!entitlements['com.apple.security.application-groups']) {
-      entitlements['com.apple.security.application-groups'] = [APP_GROUP_ID];
-    }
-
-    return config;
-  });
+  // NOTE: App Groups entitlement requires paid Apple Developer account
+  // Commenting out for personal development team compatibility
+  // config = withEntitlementsPlist(config, (config) => {
+  //   const entitlements = config.modResults;
+  //   if (!entitlements['com.apple.security.application-groups']) {
+  //     entitlements['com.apple.security.application-groups'] = [APP_GROUP_ID];
+  //   }
+  //   return config;
+  // });
 
   // Create Share Extension files
   config = withShareExtensionFiles(config);
