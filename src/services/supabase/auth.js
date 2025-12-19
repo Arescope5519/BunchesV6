@@ -24,19 +24,22 @@ const configureGoogleSignIn = () => {
 
   try {
     console.log('🔐 [AUTH] Configuring Google Sign-In...');
+
+    // On iOS, the GIDClientID from Info.plist is used automatically
+    // We only need webClientId for getting the ID token for Supabase
     const config = {
       webClientId: WEB_CLIENT_ID,
-      offlineAccess: true,
+      scopes: ['profile', 'email'],
     };
 
-    // On iOS, add the iOS client ID
+    // On iOS, also specify the iosClientId to ensure proper configuration
     if (Platform.OS === 'ios') {
       config.iosClientId = IOS_CLIENT_ID;
     }
 
     GoogleSignin.configure(config);
     googleSignInConfigured = true;
-    console.log('✅ [AUTH] Google Sign-In configured');
+    console.log('✅ [AUTH] Google Sign-In configured with:', JSON.stringify(config));
   } catch (error) {
     console.error('❌ [AUTH] Failed to configure Google Sign-In:', error);
     throw error;
@@ -48,10 +51,17 @@ const configureGoogleSignIn = () => {
  * @returns {Promise<Object>} User object
  */
 export const signInWithGoogle = async () => {
-  configureGoogleSignIn();
+  try {
+    configureGoogleSignIn();
+  } catch (configError) {
+    console.error('❌ [AUTH] Configuration failed:', configError);
+    Alert.alert('Configuration Error', configError.message);
+    throw configError;
+  }
 
   try {
     console.log('🔐 [AUTH] Starting Google Sign-In...');
+    console.log('🔐 [AUTH] Platform:', Platform.OS);
 
     // Check Play Services (Android) or just proceed (iOS)
     if (Platform.OS === 'android') {
@@ -61,16 +71,19 @@ export const signInWithGoogle = async () => {
     // Clear any cached state
     try {
       await GoogleSignin.signOut();
+      console.log('🔐 [AUTH] Cleared previous sign-in state');
     } catch (e) {
-      // Ignore
+      console.log('🔐 [AUTH] No previous state to clear');
     }
 
     // Sign in with Google
+    console.log('🔐 [AUTH] Calling GoogleSignin.signIn()...');
     const signInResult = await GoogleSignin.signIn();
-    console.log('✅ [AUTH] Google Sign-In successful');
+    console.log('✅ [AUTH] Google Sign-In successful, result:', JSON.stringify(signInResult));
 
     // Get ID token
     let idToken = signInResult?.idToken || signInResult?.data?.idToken;
+    console.log('🔐 [AUTH] ID Token present:', !!idToken);
 
     if (!idToken) {
       throw new Error('No ID token received from Google Sign-In');
