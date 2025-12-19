@@ -5,7 +5,11 @@
 
 import { supabase } from './config';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+
+// Client IDs for Google Sign-In
+const WEB_CLIENT_ID = '307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com';
+const IOS_CLIENT_ID = '307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1.apps.googleusercontent.com';
 
 // Track if Google Sign-In has been configured
 let googleSignInConfigured = false;
@@ -21,7 +25,8 @@ const configureGoogleSignIn = () => {
   try {
     console.log('🔐 [AUTH] Configuring Google Sign-In...');
     GoogleSignin.configure({
-      webClientId: '307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com',
+      webClientId: WEB_CLIENT_ID,
+      iosClientId: Platform.OS === 'ios' ? IOS_CLIENT_ID : undefined,
       offlineAccess: true,
     });
     googleSignInConfigured = true;
