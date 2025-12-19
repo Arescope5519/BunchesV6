@@ -1,21 +1,11 @@
 /**
  * Firestore Service
  * Handles all recipe data synchronization with Firebase
+ * Uses Firebase compat layer for React Native compatibility
  */
 
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  deleteDoc,
-  writeBatch,
-  serverTimestamp,
-  arrayUnion,
-  query,
-  where
-} from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirebaseFirestore } from './config';
 
@@ -32,14 +22,14 @@ const LAST_SYNC_KEY = '@last_sync_timestamp';
 export const saveRecipesToFirestore = async (userId, recipes) => {
   try {
     const db = getFirebaseFirestore();
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     recipes.forEach((recipe) => {
-      const recipeRef = doc(db, 'users', userId, RECIPES_COLLECTION, recipe.id);
+      const recipeRef = db.collection('users').doc(userId).collection(RECIPES_COLLECTION).doc(recipe.id);
 
       batch.set(recipeRef, {
         ...recipe,
-        updatedAt: serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
     });
 
@@ -59,10 +49,10 @@ export const saveRecipesToFirestore = async (userId, recipes) => {
 export const loadRecipesFromFirestore = async (userId) => {
   try {
     const db = getFirebaseFirestore();
-    const recipesRef = collection(db, 'users', userId, RECIPES_COLLECTION);
+    const recipesRef = db.collection('users').doc(userId).collection(RECIPES_COLLECTION);
 
     // Get all recipes
-    const snapshot = await getDocs(recipesRef);
+    const snapshot = await recipesRef.get();
     console.log('✅ Loaded recipes from Firestore');
 
     const recipes = [];
@@ -94,11 +84,11 @@ export const loadRecipesFromFirestore = async (userId) => {
 export const saveRecipeToFirestore = async (userId, recipe) => {
   try {
     const db = getFirebaseFirestore();
-    const recipeRef = doc(db, 'users', userId, RECIPES_COLLECTION, recipe.id);
+    const recipeRef = db.collection('users').doc(userId).collection(RECIPES_COLLECTION).doc(recipe.id);
 
-    await setDoc(recipeRef, {
+    await recipeRef.set({
       ...recipe,
-      updatedAt: serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
     console.log(`✅ Saved recipe "${recipe.title}" to Firestore`);
@@ -118,17 +108,17 @@ export const saveRecipeToFirestore = async (userId, recipe) => {
 export const deleteRecipeFromFirestore = async (userId, recipeId) => {
   try {
     const db = getFirebaseFirestore();
-    const userDocRef = doc(db, 'users', userId);
+    const userDocRef = db.collection('users').doc(userId);
 
     // FIRST: Track this deletion in the user doc to prevent restoration
-    await setDoc(userDocRef, {
-      deletedRecipeIds: arrayUnion(recipeId),
-      lastDeletionAt: serverTimestamp(),
+    await userDocRef.set({
+      deletedRecipeIds: firebase.firestore.FieldValue.arrayUnion(recipeId),
+      lastDeletionAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
     // Delete the recipe document
-    const recipeRef = doc(db, 'users', userId, RECIPES_COLLECTION, recipeId);
-    await deleteDoc(recipeRef);
+    const recipeRef = db.collection('users').doc(userId).collection(RECIPES_COLLECTION).doc(recipeId);
+    await recipeRef.delete();
 
     console.log(`✅ Deleted recipe ${recipeId} from Firestore`);
   } catch (error) {
@@ -149,10 +139,10 @@ export const syncRecipes = async (userId, localRecipes) => {
     const db = getFirebaseFirestore();
 
     // Load deleted recipe IDs from user doc
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
+    const userDocRef = db.collection('users').doc(userId);
+    const userDoc = await userDocRef.get();
 
-    const deletedRecipeIds = new Set(userDoc.exists() && userDoc.data().deletedRecipeIds || []);
+    const deletedRecipeIds = new Set(userDoc.exists && userDoc.data().deletedRecipeIds || []);
     if (deletedRecipeIds.size > 0) {
       console.log(`🗑️ Found ${deletedRecipeIds.size} previously deleted recipe IDs`);
     }
@@ -233,9 +223,9 @@ export const syncRecipes = async (userId, localRecipes) => {
     // Clean up deleted recipes from Firestore (both soft-deleted and permanently deleted)
     if (recipesToDeleteFromFirestore.length > 0) {
       console.log(`🗑️ Cleaning ${recipesToDeleteFromFirestore.length} deleted recipes from Firestore...`);
-      const deleteBatch = writeBatch(db);
+      const deleteBatch = db.batch();
       recipesToDeleteFromFirestore.forEach(recipeId => {
-        const recipeRef = doc(db, 'users', userId, RECIPES_COLLECTION, recipeId);
+        const recipeRef = db.collection('users').doc(userId).collection(RECIPES_COLLECTION).doc(recipeId);
         deleteBatch.delete(recipeRef);
       });
       await deleteBatch.commit();
@@ -268,11 +258,11 @@ export const syncRecipes = async (userId, localRecipes) => {
 export const saveFoldersToFirestore = async (userId, folders) => {
   try {
     const db = getFirebaseFirestore();
-    const userRef = doc(db, 'users', userId);
+    const userRef = db.collection('users').doc(userId);
 
-    await setDoc(userRef, {
+    await userRef.set({
       folders: folders,
-      updatedAt: serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
     console.log(`✅ Saved ${folders.length} folders to Firestore`);
@@ -290,10 +280,10 @@ export const saveFoldersToFirestore = async (userId, folders) => {
 export const loadFoldersFromFirestore = async (userId) => {
   try {
     const db = getFirebaseFirestore();
-    const userRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userRef);
+    const userRef = db.collection('users').doc(userId);
+    const docSnap = await userRef.get();
 
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       const data = docSnap.data();
       const folders = data.folders || [];
       console.log(`✅ Loaded ${folders.length} folders from Firestore`);
@@ -309,14 +299,11 @@ export const loadFoldersFromFirestore = async (userId) => {
 
 /**
  * Enable offline persistence (cached data available without internet)
- * Note: Firebase JS SDK handles this automatically with persistentLocalCache
  * @returns {Promise<void>}
  */
 export const enableOfflinePersistence = async () => {
   try {
-    // Firebase JS SDK with persistentLocalCache already enables offline persistence
-    // in the config.js initialization
-    console.log('✅ Offline persistence enabled (via Firebase JS SDK config)');
+    console.log('✅ Offline persistence enabled (via Firebase compat config)');
   } catch (error) {
     console.error('❌ Error enabling offline persistence:', error);
   }

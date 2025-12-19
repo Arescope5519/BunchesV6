@@ -1,26 +1,11 @@
 /**
  * Social Features Service
  * Handles usernames, friends, sharing, and notifications
+ * Uses Firebase compat layer for React Native compatibility
  */
 
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  writeBatch,
-  query,
-  where,
-  limit,
-  serverTimestamp,
-  arrayUnion,
-  arrayRemove,
-  increment
-} from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 import { getFirebaseFirestore } from './config';
 
 // Collections
@@ -74,10 +59,10 @@ export const isUsernameAvailable = async (username) => {
   try {
     const db = getFirebaseFirestore();
     const normalizedUsername = username.toLowerCase().trim();
-    const usernameRef = doc(db, USERNAMES_COLLECTION, normalizedUsername);
-    const docSnap = await getDoc(usernameRef);
+    const usernameRef = db.collection(USERNAMES_COLLECTION).doc(normalizedUsername);
+    const docSnap = await usernameRef.get();
 
-    return !docSnap.exists();
+    return !docSnap.exists;
   } catch (error) {
     console.error('Error checking username:', error);
     throw error;
@@ -101,18 +86,18 @@ export const setupUserProfile = async (userId, username) => {
       throw new Error('Username is already taken');
     }
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // Generate unique user code
     const userCode = generateUserCode();
 
     // Create user profile
-    const userRef = doc(db, USERS_COLLECTION, userId);
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
     batch.set(userRef, {
       username: normalizedUsername,
       userCode: userCode,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       // Privacy settings
       isPrivate: false, // If true, only friends can share to them
       acceptingFriendRequests: true,
@@ -122,10 +107,10 @@ export const setupUserProfile = async (userId, username) => {
     }, { merge: true });
 
     // Reserve username in lookup collection
-    const usernameRef = doc(db, USERNAMES_COLLECTION, normalizedUsername);
+    const usernameRef = db.collection(USERNAMES_COLLECTION).doc(normalizedUsername);
     batch.set(usernameRef, {
       userId: userId,
-      createdAt: serverTimestamp(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
@@ -159,24 +144,24 @@ export const changeUsername = async (userId, oldUsername, newUsername) => {
       throw new Error('Username is already taken');
     }
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // Update user profile
-    const userRef = doc(db, USERS_COLLECTION, userId);
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
     batch.update(userRef, {
       username: normalizedNew,
-      updatedAt: serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     // Release old username
-    const oldUsernameRef = doc(db, USERNAMES_COLLECTION, normalizedOld);
+    const oldUsernameRef = db.collection(USERNAMES_COLLECTION).doc(normalizedOld);
     batch.delete(oldUsernameRef);
 
     // Reserve new username
-    const newUsernameRef = doc(db, USERNAMES_COLLECTION, normalizedNew);
+    const newUsernameRef = db.collection(USERNAMES_COLLECTION).doc(normalizedNew);
     batch.set(newUsernameRef, {
       userId: userId,
-      createdAt: serverTimestamp(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
@@ -195,10 +180,10 @@ export const changeUsername = async (userId, oldUsername, newUsername) => {
 export const getUserProfile = async (userId) => {
   try {
     const db = getFirebaseFirestore();
-    const userRef = doc(db, USERS_COLLECTION, userId);
-    const docSnap = await getDoc(userRef);
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
+    const docSnap = await userRef.get();
 
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       return { id: docSnap.id, ...docSnap.data() };
     }
     return null;
@@ -216,10 +201,10 @@ export const getUserProfile = async (userId) => {
 export const ensureUserCode = async (userId) => {
   try {
     const db = getFirebaseFirestore();
-    const userRef = doc(db, USERS_COLLECTION, userId);
-    const docSnap = await getDoc(userRef);
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
+    const docSnap = await userRef.get();
 
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
       throw new Error('User not found');
     }
 
@@ -232,9 +217,9 @@ export const ensureUserCode = async (userId) => {
 
     // Generate a new user code for existing account
     const userCode = generateUserCode();
-    await updateDoc(userRef, {
+    await userRef.update({
       userCode: userCode,
-      updatedAt: serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log(`✅ Generated user code for existing account: ${userCode}`);
@@ -260,12 +245,10 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     // Check if it looks like a user code (6 chars, uppercase)
     if (normalizedSearch.length === 6 && /^[A-Z0-9]+$/.test(normalizedSearch.toUpperCase())) {
       // Search by user code
-      const codeQuery = query(
-        collection(db, USERS_COLLECTION),
-        where('userCode', '==', normalizedSearch.toUpperCase()),
-        limit(1)
-      );
-      const codeSnapshot = await getDocs(codeQuery);
+      const codeSnapshot = await db.collection(USERS_COLLECTION)
+        .where('userCode', '==', normalizedSearch.toUpperCase())
+        .limit(1)
+        .get();
 
       codeSnapshot.forEach(docSnap => {
         if (docSnap.id !== currentUserId) {
@@ -285,13 +268,11 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     }
 
     // Search for usernames that start with the search term
-    const usernameQuery = query(
-      collection(db, USERS_COLLECTION),
-      where('username', '>=', normalizedSearch.toLowerCase()),
-      where('username', '<=', normalizedSearch.toLowerCase() + '\uf8ff'),
-      limit(20)
-    );
-    const snapshot = await getDocs(usernameQuery);
+    const snapshot = await db.collection(USERS_COLLECTION)
+      .where('username', '>=', normalizedSearch.toLowerCase())
+      .where('username', '<=', normalizedSearch.toLowerCase() + '\uf8ff')
+      .limit(20)
+      .get();
 
     snapshot.forEach(docSnap => {
       if (docSnap.id !== currentUserId) {
@@ -337,26 +318,22 @@ export const sendFriendRequest = async (fromUserId, toUserId) => {
     }
 
     // Check if request already exists
-    const existingQuery = query(
-      collection(db, FRIEND_REQUESTS_COLLECTION),
-      where('from', '==', fromUserId),
-      where('to', '==', toUserId),
-      where('status', '==', 'pending')
-    );
-    const existingRequest = await getDocs(existingQuery);
+    const existingRequest = await db.collection(FRIEND_REQUESTS_COLLECTION)
+      .where('from', '==', fromUserId)
+      .where('to', '==', toUserId)
+      .where('status', '==', 'pending')
+      .get();
 
     if (!existingRequest.empty) {
       throw new Error('Friend request already sent');
     }
 
     // Check for reverse request (they sent to us)
-    const reverseQuery = query(
-      collection(db, FRIEND_REQUESTS_COLLECTION),
-      where('from', '==', toUserId),
-      where('to', '==', fromUserId),
-      where('status', '==', 'pending')
-    );
-    const reverseRequest = await getDocs(reverseQuery);
+    const reverseRequest = await db.collection(FRIEND_REQUESTS_COLLECTION)
+      .where('from', '==', toUserId)
+      .where('to', '==', fromUserId)
+      .where('status', '==', 'pending')
+      .get();
 
     if (!reverseRequest.empty) {
       // Auto-accept since both want to be friends
@@ -366,11 +343,11 @@ export const sendFriendRequest = async (fromUserId, toUserId) => {
     }
 
     // Create new request
-    const requestRef = await addDoc(collection(db, FRIEND_REQUESTS_COLLECTION), {
+    const requestRef = await db.collection(FRIEND_REQUESTS_COLLECTION).add({
       from: fromUserId,
       to: toUserId,
       status: 'pending',
-      createdAt: serverTimestamp(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log(`✅ Friend request sent: ${requestRef.id}`);
@@ -390,10 +367,10 @@ export const sendFriendRequest = async (fromUserId, toUserId) => {
 export const acceptFriendRequest = async (requestId, currentUserId) => {
   try {
     const db = getFirebaseFirestore();
-    const requestRef = doc(db, FRIEND_REQUESTS_COLLECTION, requestId);
-    const requestDoc = await getDoc(requestRef);
+    const requestRef = db.collection(FRIEND_REQUESTS_COLLECTION).doc(requestId);
+    const requestDoc = await requestRef.get();
 
-    if (!requestDoc.exists()) {
+    if (!requestDoc.exists) {
       throw new Error('Friend request not found');
     }
 
@@ -402,26 +379,26 @@ export const acceptFriendRequest = async (requestId, currentUserId) => {
       throw new Error('Not authorized to accept this request');
     }
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // Update request status
     batch.update(requestRef, {
       status: 'accepted',
-      acceptedAt: serverTimestamp(),
+      acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     // Add each user to the other's friends list
-    const user1Ref = doc(db, USERS_COLLECTION, request.from);
-    const user2Ref = doc(db, USERS_COLLECTION, request.to);
+    const user1Ref = db.collection(USERS_COLLECTION).doc(request.from);
+    const user2Ref = db.collection(USERS_COLLECTION).doc(request.to);
 
     batch.update(user1Ref, {
-      friends: arrayUnion(request.to),
-      friendCount: increment(1),
+      friends: firebase.firestore.FieldValue.arrayUnion(request.to),
+      friendCount: firebase.firestore.FieldValue.increment(1),
     });
 
     batch.update(user2Ref, {
-      friends: arrayUnion(request.from),
-      friendCount: increment(1),
+      friends: firebase.firestore.FieldValue.arrayUnion(request.from),
+      friendCount: firebase.firestore.FieldValue.increment(1),
     });
 
     await batch.commit();
@@ -441,10 +418,10 @@ export const acceptFriendRequest = async (requestId, currentUserId) => {
 export const declineFriendRequest = async (requestId, currentUserId) => {
   try {
     const db = getFirebaseFirestore();
-    const requestRef = doc(db, FRIEND_REQUESTS_COLLECTION, requestId);
-    const requestDoc = await getDoc(requestRef);
+    const requestRef = db.collection(FRIEND_REQUESTS_COLLECTION).doc(requestId);
+    const requestDoc = await requestRef.get();
 
-    if (!requestDoc.exists()) {
+    if (!requestDoc.exists) {
       throw new Error('Friend request not found');
     }
 
@@ -453,9 +430,9 @@ export const declineFriendRequest = async (requestId, currentUserId) => {
       throw new Error('Not authorized to decline this request');
     }
 
-    await updateDoc(requestRef, {
+    await requestRef.update({
       status: 'declined',
-      declinedAt: serverTimestamp(),
+      declinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log(`✅ Friend request declined`);
@@ -474,19 +451,19 @@ export const declineFriendRequest = async (requestId, currentUserId) => {
 export const removeFriend = async (userId, friendId) => {
   try {
     const db = getFirebaseFirestore();
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
-    const userRef = doc(db, USERS_COLLECTION, userId);
-    const friendRef = doc(db, USERS_COLLECTION, friendId);
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
+    const friendRef = db.collection(USERS_COLLECTION).doc(friendId);
 
     batch.update(userRef, {
-      friends: arrayRemove(friendId),
-      friendCount: increment(-1),
+      friends: firebase.firestore.FieldValue.arrayRemove(friendId),
+      friendCount: firebase.firestore.FieldValue.increment(-1),
     });
 
     batch.update(friendRef, {
-      friends: arrayRemove(userId),
-      friendCount: increment(-1),
+      friends: firebase.firestore.FieldValue.arrayRemove(userId),
+      friendCount: firebase.firestore.FieldValue.increment(-1),
     });
 
     await batch.commit();
@@ -508,12 +485,10 @@ export const getPendingFriendRequests = async (userId) => {
     console.log('📥 Getting pending friend requests for:', userId);
 
     // Query without orderBy to avoid needing a composite index
-    const requestsQuery = query(
-      collection(db, FRIEND_REQUESTS_COLLECTION),
-      where('to', '==', userId),
-      where('status', '==', 'pending')
-    );
-    const snapshot = await getDocs(requestsQuery);
+    const snapshot = await db.collection(FRIEND_REQUESTS_COLLECTION)
+      .where('to', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
 
     console.log(`📥 Found ${snapshot.size} pending requests`);
 
@@ -593,7 +568,7 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
     // Clean data to remove undefined values (Firestore doesn't allow them)
     const cleanedData = removeUndefinedFields(data);
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     for (const toUserId of toUserIds) {
       // Check if recipient allows sharing from this user
@@ -606,7 +581,7 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
         }
       }
 
-      const shareRef = doc(collection(db, SHARED_ITEMS_COLLECTION));
+      const shareRef = db.collection(SHARED_ITEMS_COLLECTION).doc();
       batch.set(shareRef, {
         from: fromUserId,
         fromUsername: senderProfile?.username || 'Unknown',
@@ -615,7 +590,7 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
         name: name,
         data: cleanedData,
         status: 'pending', // pending, imported, declined
-        createdAt: serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
     }
 
@@ -637,12 +612,10 @@ export const getReceivedSharedItems = async (userId) => {
     const db = getFirebaseFirestore();
     console.log('🔍 Fetching shared items for user:', userId);
 
-    const sharedQuery = query(
-      collection(db, SHARED_ITEMS_COLLECTION),
-      where('to', '==', userId),
-      where('status', '==', 'pending')
-    );
-    const snapshot = await getDocs(sharedQuery);
+    const snapshot = await db.collection(SHARED_ITEMS_COLLECTION)
+      .where('to', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
 
     const items = [];
     snapshot.forEach(docSnap => {
@@ -674,11 +647,11 @@ export const getReceivedSharedItems = async (userId) => {
 export const markSharedItemImported = async (itemId) => {
   try {
     const db = getFirebaseFirestore();
-    const itemRef = doc(db, SHARED_ITEMS_COLLECTION, itemId);
+    const itemRef = db.collection(SHARED_ITEMS_COLLECTION).doc(itemId);
 
-    await updateDoc(itemRef, {
+    await itemRef.update({
       status: 'imported',
-      importedAt: serverTimestamp(),
+      importedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     console.log(`✅ Marked shared item as imported`);
   } catch (error) {
@@ -695,11 +668,11 @@ export const markSharedItemImported = async (itemId) => {
 export const declineSharedItem = async (itemId) => {
   try {
     const db = getFirebaseFirestore();
-    const itemRef = doc(db, SHARED_ITEMS_COLLECTION, itemId);
+    const itemRef = db.collection(SHARED_ITEMS_COLLECTION).doc(itemId);
 
-    await updateDoc(itemRef, {
+    await itemRef.update({
       status: 'declined',
-      declinedAt: serverTimestamp(),
+      declinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     console.log(`✅ Declined shared item`);
   } catch (error) {
@@ -717,11 +690,11 @@ export const declineSharedItem = async (itemId) => {
 export const updatePrivacySettings = async (userId, settings) => {
   try {
     const db = getFirebaseFirestore();
-    const userRef = doc(db, USERS_COLLECTION, userId);
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
 
-    await updateDoc(userRef, {
+    await userRef.update({
       ...settings,
-      updatedAt: serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     console.log(`✅ Privacy settings updated`);
   } catch (error) {
@@ -740,20 +713,16 @@ export const getNotificationCounts = async (userId) => {
     const db = getFirebaseFirestore();
 
     // Count pending friend requests
-    const requestsQuery = query(
-      collection(db, FRIEND_REQUESTS_COLLECTION),
-      where('to', '==', userId),
-      where('status', '==', 'pending')
-    );
-    const requestsSnapshot = await getDocs(requestsQuery);
+    const requestsSnapshot = await db.collection(FRIEND_REQUESTS_COLLECTION)
+      .where('to', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
 
     // Count pending shared items
-    const sharedQuery = query(
-      collection(db, SHARED_ITEMS_COLLECTION),
-      where('to', '==', userId),
-      where('status', '==', 'pending')
-    );
-    const sharedSnapshot = await getDocs(sharedQuery);
+    const sharedSnapshot = await db.collection(SHARED_ITEMS_COLLECTION)
+      .where('to', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
 
     const friendRequests = requestsSnapshot.size;
     const sharedItems = sharedSnapshot.size;

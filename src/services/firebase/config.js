@@ -1,19 +1,11 @@
 /**
  * Firebase Configuration
- * Firebase JS SDK initialization
- *
- * IMPORTANT: Get your config from Firebase Console:
- * 1. Go to https://console.firebase.google.com/
- * 2. Select your project
- * 3. Click the gear icon (Project Settings)
- * 4. Scroll down to "Your apps" section
- * 5. If you don't have a web app, click "Add app" and select Web
- * 6. Copy the firebaseConfig object values below
+ * Using Firebase compat layer for React Native compatibility
  */
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDbCIFhGnsqWcl9m0y2k4h_v94VoN8Npqc",
@@ -30,39 +22,32 @@ let auth = null;
 let db = null;
 let initError = null;
 
+console.log('🔥 [FIREBASE] Config module loading...');
+
 export const initializeFirebaseApp = () => {
   console.log('🔥 [FIREBASE] initializeFirebaseApp called');
 
   try {
-    if (getApps().length === 0) {
+    if (firebase.apps.length === 0) {
       console.log('🔥 [FIREBASE] No existing apps, initializing...');
-
-      // Step 1: Initialize App
-      console.log('🔥 [FIREBASE] Step 1: Initializing app...');
-      app = initializeApp(firebaseConfig);
-      console.log('✅ [FIREBASE] Step 1 complete: App initialized');
-
-      // Step 2: Initialize Auth (simple - no persistence)
-      console.log('🔥 [FIREBASE] Step 2: Initializing Auth...');
-      auth = getAuth(app);
-      console.log('✅ [FIREBASE] Step 2 complete: Auth initialized');
-
-      // Step 3: Initialize Firestore
-      console.log('🔥 [FIREBASE] Step 3: Initializing Firestore...');
-      db = getFirestore(app);
-      console.log('✅ [FIREBASE] Step 3 complete: Firestore initialized');
-
-      console.log('✅ [FIREBASE] Firebase JS SDK fully initialized');
-      console.log('   - Project ID:', firebaseConfig.projectId);
+      app = firebase.initializeApp(firebaseConfig);
+      console.log('✅ [FIREBASE] App initialized');
     } else {
-      console.log('🔥 [FIREBASE] App already exists, getting instances...');
-      app = getApp();
-      auth = getAuth(app);
-      db = getFirestore(app);
-      console.log('✅ [FIREBASE] Got existing instances');
+      console.log('🔥 [FIREBASE] App already exists');
+      app = firebase.app();
     }
+
+    auth = firebase.auth();
+    console.log('✅ [FIREBASE] Auth initialized');
+
+    db = firebase.firestore();
+    console.log('✅ [FIREBASE] Firestore initialized');
+
+    console.log('✅ [FIREBASE] Firebase fully initialized');
+    console.log('   - Project ID:', firebaseConfig.projectId);
+
   } catch (error) {
-    console.error('❌ [FIREBASE] CRITICAL ERROR during initialization:', error);
+    console.error('❌ [FIREBASE] CRITICAL ERROR:', error);
     console.error('   - Error name:', error.name);
     console.error('   - Error message:', error.message);
     initError = error;
@@ -97,7 +82,7 @@ export const getFirebaseFirestore = () => {
 };
 
 // Auto-initialize Firebase when this module is imported
-console.log('🔥 [FIREBASE] Config module loaded, auto-initializing...');
+console.log('🔥 [FIREBASE] Auto-initializing...');
 try {
   initializeFirebaseApp();
 } catch (error) {

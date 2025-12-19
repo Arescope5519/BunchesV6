@@ -1,6 +1,7 @@
 /**
  * Firebase Availability Checker
  * Safely checks if Firebase modules are available
+ * Uses Firebase compat layer for React Native compatibility
  */
 
 let firebaseAvailable = false;
@@ -10,42 +11,42 @@ const errors = [];
 
 console.log('🔍 [FIREBASE] Checking Firebase availability...');
 
-// Check if Firebase JS SDK is available
+// Check if Firebase compat SDK is available
 try {
-  require('firebase/app');
+  require('firebase/compat/app');
   firebaseAvailable = true;
-  console.log('✅ [FIREBASE] firebase/app available');
+  console.log('✅ [FIREBASE] firebase/compat/app available');
 } catch (e) {
-  console.log('❌ [FIREBASE] firebase/app NOT available:', e.message);
+  console.log('❌ [FIREBASE] firebase/compat/app NOT available:', e.message);
   console.log('⚠️ [FIREBASE] Running in local-only mode');
   errors.push({
-    module: 'firebase/app',
+    module: 'firebase/compat/app',
     message: e.message,
   });
 }
 
 // Check if Auth is available
 try {
-  require('firebase/auth');
+  require('firebase/compat/auth');
   authAvailable = firebaseAvailable;
-  console.log('✅ [FIREBASE] firebase/auth available');
+  console.log('✅ [FIREBASE] firebase/compat/auth available');
 } catch (e) {
-  console.log('❌ [FIREBASE] firebase/auth NOT available:', e.message);
+  console.log('❌ [FIREBASE] firebase/compat/auth NOT available:', e.message);
   errors.push({
-    module: 'firebase/auth',
+    module: 'firebase/compat/auth',
     message: e.message,
   });
 }
 
 // Check if Firestore is available
 try {
-  require('firebase/firestore');
+  require('firebase/compat/firestore');
   firestoreAvailable = firebaseAvailable;
-  console.log('✅ [FIREBASE] firebase/firestore available');
+  console.log('✅ [FIREBASE] firebase/compat/firestore available');
 } catch (e) {
-  console.log('❌ [FIREBASE] firebase/firestore NOT available:', e.message);
+  console.log('❌ [FIREBASE] firebase/compat/firestore NOT available:', e.message);
   errors.push({
-    module: 'firebase/firestore',
+    module: 'firebase/compat/firestore',
     message: e.message,
   });
 }
