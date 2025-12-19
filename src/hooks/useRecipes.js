@@ -1,46 +1,16 @@
 /**
  * useRecipes Hook
- * Manages recipe state and CRUD operations
- * Now with Firebase Firestore sync (when available)
+ * Manages recipe state and CRUD operations with Supabase sync
  */
 
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveRecipes as saveRecipesToStorage, loadRecipes as loadRecipesFromStorage } from '../utils/storage';
-import { isFirestoreAvailable } from '../services/firebase/availability';
-
-// Conditionally import Firestore sync function (for initial load)
-let syncRecipesWithFirestore = null;
-
-if (isFirestoreAvailable()) {
-  try {
-    const firestoreModule = require('../services/firebase/firestore');
-    syncRecipesWithFirestore = firestoreModule.syncRecipes;
-  } catch (e) {
-    console.error('Failed to load Firestore module:', e);
-  }
-}
-
-/**
- * Helper to save a recipe to Firestore - imports directly to avoid conditional import issues
- */
-const saveToFirestore = async (userId, recipe) => {
-  try {
-    const firestore = require('@react-native-firebase/firestore').default;
-    const recipeRef = firestore()
-      .collection('users')
-      .doc(userId)
-      .collection('recipes')
-      .doc(recipe.id);
-
-    await recipeRef.set(recipe, { merge: true });
-    console.log(`✅ Recipe ${recipe.id} synced to Firestore`);
-    return true;
-  } catch (err) {
-    console.error(`Failed to sync recipe ${recipe.id} to Firestore:`, err);
-    return false;
-  }
-};
+import {
+  syncRecipes as syncRecipesWithSupabase,
+  saveRecipeToDatabase,
+  deleteRecipeFromDatabase,
+} from '../services/supabase/database';
 
 export const useRecipes = (user) => {
   const [recipes, setRecipes] = useState([]);
@@ -49,7 +19,7 @@ export const useRecipes = (user) => {
   const [synced, setSynced] = useState(false);
 
   /**
-   * Load saved recipes and sync with Firestore if user is signed in
+   * Load saved recipes and sync with Supabase if user is signed in
    */
   const loadRecipes = async () => {
     try {
@@ -57,38 +27,33 @@ export const useRecipes = (user) => {
       const userId = user?.uid || null;
       const localRecipes = await loadRecipesFromStorage(userId);
 
-      if (user && !synced && syncRecipesWithFirestore) {
-        // User is signed in and Firestore is available - sync
-        console.log('🔄 Syncing with Firestore...');
-        const mergedRecipes = await syncRecipesWithFirestore(user.uid, localRecipes);
-
-        // Save merged recipes locally (user-specific)
-        await saveRecipesToStorage(mergedRecipes, userId);
-        setRecipes(mergedRecipes);
-        setSynced(true);
-        console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
+      if (user && !synced) {
+        // User is signed in - sync with Supabase
+        console.log('🔄 Syncing with Supabase...');
+        try {
+          const mergedRecipes = await syncRecipesWithSupabase(user.uid, localRecipes);
+          await saveRecipesToStorage(mergedRecipes, userId);
+          setRecipes(mergedRecipes);
+          setSynced(true);
+          console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
+        } catch (syncError) {
+          console.error('Sync failed, using local recipes:', syncError);
+          setRecipes(localRecipes);
+        }
       } else {
-        // No user, already synced, or Firestore not available - use local recipes
         setRecipes(localRecipes);
         console.log(`📚 Loaded ${localRecipes.length} recipes`);
       }
     } catch (error) {
       console.error('Failed to load recipes:', error);
-      // Fallback to local recipes
-      try {
-        const localRecipes = await loadRecipesFromStorage(user?.uid || null);
-        setRecipes(localRecipes);
-      } catch (fallbackError) {
-        console.error('Failed to load local recipes:', fallbackError);
-        setRecipes([]);
-      }
+      setRecipes([]);
     } finally {
       setLoadingRecipes(false);
     }
   };
 
   /**
-   * Quick reload from local storage only (no Firestore sync)
+   * Quick reload from local storage only
    */
   const reloadFromStorage = async () => {
     const localRecipes = await loadRecipesFromStorage(user?.uid || null);
@@ -97,10 +62,9 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Save recipe - waits for recipes to load first
+   * Save recipe
    */
   const saveRecipe = async (recipe) => {
-    // Wait for recipes to load if they haven't yet
     while (loadingRecipes) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -118,9 +82,9 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
       console.log('✅ Recipe saved! Total recipes:', updatedRecipes.length);
 
-      // Sync to Firestore in background if user is signed in
+      // Sync to Supabase in background
       if (user) {
-        saveToFirestore(user.uid, recipeWithTimestamp);
+        saveRecipeToDatabase(user.uid, recipeWithTimestamp).catch(console.error);
       }
 
       return true;
@@ -129,39 +93,34 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Save multiple recipes at once - avoids state race conditions
-   * Reads fresh from storage instead of using potentially stale state
+   * Save multiple recipes at once
    */
   const saveRecipesBatch = async (newRecipes) => {
     if (!newRecipes || newRecipes.length === 0) return false;
 
-    // Wait for recipes to load if they haven't yet
     while (loadingRecipes) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Get fresh recipes from storage to avoid stale state
     const currentRecipes = await loadRecipesFromStorage(user?.uid || null);
 
-    // Add timestamps to all new recipes
     const recipesWithTimestamps = newRecipes.map(recipe => ({
       ...recipe,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
     }));
 
-    // Prepend all new recipes at once
     const updatedRecipes = [...recipesWithTimestamps, ...currentRecipes];
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
       setRecipes(updatedRecipes);
-      console.log(`✅ Batch saved ${newRecipes.length} recipes! Total recipes:`, updatedRecipes.length);
+      console.log(`✅ Batch saved ${newRecipes.length} recipes!`);
 
-      // Sync all to Firestore in background if user is signed in
+      // Sync to Supabase in background
       if (user) {
         recipesWithTimestamps.forEach(recipe => {
-          saveToFirestore(user.uid, recipe);
+          saveRecipeToDatabase(user.uid, recipe).catch(console.error);
         });
       }
 
@@ -190,9 +149,8 @@ export const useRecipes = (user) => {
         setSelectedRecipe(recipeWithTimestamp);
       }
 
-      // Sync to Firestore in background if user is signed in
       if (user) {
-        saveToFirestore(user.uid, recipeWithTimestamp);
+        saveRecipeToDatabase(user.uid, recipeWithTimestamp).catch(console.error);
       }
 
       return true;
@@ -201,7 +159,7 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Delete recipe (soft delete - moves to Recently Deleted)
+   * Delete recipe (soft delete)
    */
   const deleteRecipe = async (recipeId) => {
     const updatedRecipes = recipes.map(r =>
@@ -213,35 +171,8 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
 
-      // Sync to Firestore - MUST await to ensure it completes before app closes
       if (user) {
-        const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
-        if (deletedRecipe) {
-          try {
-            const firestore = require('@react-native-firebase/firestore').default;
-
-            // FIRST: Track it in deletion list to prevent restoration
-            // This is the most important step - even if other sync fails
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .set({
-                deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-              }, { merge: true });
-
-            // Save the recipe with deletedAt flag using direct import
-            await saveToFirestore(user.uid, deletedRecipe);
-
-            // CRITICAL: Wait for server confirmation
-            await firestore().waitForPendingWrites();
-
-            console.log(`✅ Soft-deleted recipe ${recipeId} synced and confirmed with server`);
-          } catch (err) {
-            console.error('Failed to sync deletion to Firestore:', err);
-            // Don't fail the deletion if Firestore sync fails - local deletion still works
-          }
-        }
+        deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
       }
 
       return true;
@@ -265,31 +196,10 @@ export const useRecipes = (user) => {
     if (success) {
       setRecipes(updatedRecipes);
 
-      // Sync to Firestore if user is signed in
       if (user) {
         const restoredRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (restoredRecipe) {
-          try {
-            const firestore = require('@react-native-firebase/firestore').default;
-
-            // Remove from deletion tracking list FIRST
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .set({
-                deletedRecipeIds: firestore.FieldValue.arrayRemove(recipeId),
-              }, { merge: true });
-
-            // Save the restored recipe using direct import
-            await saveToFirestore(user.uid, restoredRecipe);
-
-            // Wait for server confirmation
-            await firestore().waitForPendingWrites();
-
-            console.log(`✅ Restored recipe ${recipeId} and confirmed with server`);
-          } catch (err) {
-            console.error('Failed to sync restored recipe:', err);
-          }
+          saveRecipeToDatabase(user.uid, restoredRecipe).catch(console.error);
         }
       }
 
@@ -300,61 +210,32 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Permanently delete recipe (no confirmation - caller should confirm first)
+   * Permanently delete recipe
    */
   const permanentlyDeleteRecipe = async (recipeId) => {
     try {
-      console.log('🗑️ Starting permanent delete for recipe:', recipeId);
-
-      // Load fresh from storage and delete (user-specific)
       const userId = user?.uid || null;
       const currentRecipes = await loadRecipesFromStorage(userId);
       const updated = currentRecipes.filter(r => r.id !== recipeId);
       const success = await saveRecipesToStorage(updated, userId);
 
-      if (!success) {
-        console.error('Failed to delete recipe locally');
-        return false;
-      }
+      if (!success) return false;
 
-      // Sync to Firestore in background (don't wait for it)
+      setRecipes(updated);
+
       if (user) {
-        (async () => {
-          try {
-            const firestore = require('@react-native-firebase/firestore').default;
-
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .set({
-                deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-              }, { merge: true });
-
-            await firestore()
-              .collection('users')
-              .doc(user.uid)
-              .collection('recipes')
-              .doc(recipeId)
-              .delete();
-
-            await firestore().waitForPendingWrites();
-            console.log('✅ Firestore sync complete for deleted recipe');
-          } catch (err) {
-            console.error('❌ Firestore sync failed:', err);
-          }
-        })();
+        deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
       }
 
       return true;
     } catch (err) {
-      console.error('🗑️ Permanent delete failed:', err);
+      console.error('Permanent delete failed:', err);
       return false;
     }
   };
 
   /**
-   * Empty Recently Deleted (permanently delete all deleted recipes)
+   * Empty Recently Deleted
    */
   const emptyRecentlyDeleted = async () => {
     return new Promise((resolve) => {
@@ -381,49 +262,13 @@ export const useRecipes = (user) => {
               if (success) {
                 setRecipes(updated);
 
-                // Delete from Firestore if user is signed in
                 if (user) {
-                  try {
-                    // Show syncing message
-                    Alert.alert('Syncing...', `Deleting ${deletedRecipes.length} recipes from cloud. Please wait.`);
-
-                    // Import firestore directly to ensure it's available
-                    const firestore = require('@react-native-firebase/firestore').default;
-
-                    // Track all deletions first
-                    const recipeIdsToDelete = deletedRecipes.map(r => r.id);
-                    await firestore()
-                      .collection('users')
-                      .doc(user.uid)
-                      .set({
-                        deletedRecipeIds: firestore.FieldValue.arrayUnion(...recipeIdsToDelete),
-                        lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                      }, { merge: true });
-
-                    // Delete all recipe documents
-                    const batch = firestore().batch();
-                    deletedRecipes.forEach(recipe => {
-                      const recipeRef = firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('recipes')
-                        .doc(recipe.id);
-                      batch.delete(recipeRef);
-                    });
-                    await batch.commit();
-
-                    // Wait for server confirmation
-                    await firestore().waitForPendingWrites();
-
-                    Alert.alert('✅ Emptied', `${deletedRecipes.length} recipes permanently deleted and synced to cloud.`);
-                  } catch (err) {
-                    console.error('❌ Failed to delete some recipes from Firestore:', err);
-                    Alert.alert('Warning', `Recipes deleted locally but cloud sync failed: ${err.message}`);
-                  }
-                } else {
-                  Alert.alert('Emptied', 'Recently Deleted has been emptied. Sign in to sync deletions to cloud.');
+                  deletedRecipes.forEach(recipe => {
+                    deleteRecipeFromDatabase(user.uid, recipe.id).catch(console.error);
+                  });
                 }
 
+                Alert.alert('Emptied', 'Recently Deleted has been emptied.');
                 resolve(true);
               } else {
                 resolve(false);
@@ -447,16 +292,14 @@ export const useRecipes = (user) => {
     if (success) {
       setRecipes(updatedRecipes);
 
-      // Update selectedRecipe if it's the one being toggled
       if (selectedRecipe && selectedRecipe.id === recipeId) {
         setSelectedRecipe({ ...selectedRecipe, isFavorite: !selectedRecipe.isFavorite });
       }
 
-      // Sync to Firestore in background if user is signed in
       if (user) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
-          saveToFirestore(user.uid, updatedRecipe);
+          saveRecipeToDatabase(user.uid, updatedRecipe).catch(console.error);
         }
       }
     }
@@ -474,16 +317,14 @@ export const useRecipes = (user) => {
     if (success) {
       setRecipes(updatedRecipes);
 
-      // Update selectedRecipe if it's the one being moved
       if (selectedRecipe && selectedRecipe.id === recipeId) {
         setSelectedRecipe({ ...selectedRecipe, folder: newFolder });
       }
 
-      // Sync to Firestore in background if user is signed in
       if (user) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
-          saveToFirestore(user.uid, updatedRecipe);
+          saveRecipeToDatabase(user.uid, updatedRecipe).catch(console.error);
         }
       }
 
@@ -494,7 +335,7 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Move multiple recipes to folder (for batch operations)
+   * Move multiple recipes to folder
    */
   const moveManyToFolder = async (recipeIds, newFolder) => {
     const recipeIdSet = new Set(recipeIds);
@@ -506,16 +347,14 @@ export const useRecipes = (user) => {
     if (success) {
       setRecipes(updatedRecipes);
 
-      // Update selectedRecipe if it's one of the ones being moved
       if (selectedRecipe && recipeIdSet.has(selectedRecipe.id)) {
         setSelectedRecipe({ ...selectedRecipe, folder: newFolder });
       }
 
-      // Sync to Firestore in background if user is signed in
       if (user) {
         const movedRecipes = updatedRecipes.filter(r => recipeIdSet.has(r.id));
         movedRecipes.forEach(recipe => {
-          saveToFirestore(user.uid, recipe);
+          saveRecipeToDatabase(user.uid, recipe).catch(console.error);
         });
       }
 
@@ -525,14 +364,13 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Get filtered recipes by folder (excludes deleted recipes except in Recently Deleted)
+   * Get filtered recipes by folder
    */
   const getFilteredRecipes = (currentFolder) => {
     if (currentFolder === 'Recently Deleted') {
       return recipes.filter(r => r.deletedAt);
     }
 
-    // For all other folders, exclude deleted recipes
     const activeRecipes = recipes.filter(r => !r.deletedAt);
 
     if (currentFolder === 'All Recipes') {
@@ -544,13 +382,11 @@ export const useRecipes = (user) => {
     }
   };
 
-  // Load recipes on mount and when user changes
   useEffect(() => {
-    // Clear recipes immediately when user changes to prevent showing wrong user's data
     setRecipes([]);
-    setSynced(false); // Reset sync flag when user changes
+    setSynced(false);
     loadRecipes();
-  }, [user?.uid]); // Reload when user ID changes
+  }, [user?.uid]);
 
   return {
     recipes,

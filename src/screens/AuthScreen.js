@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
-import { signInWithGoogle } from '../services/firebase/auth';
+import { signInWithGoogle } from '../services/supabase/auth';
 
 export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
   const [loading, setLoading] = useState(false);

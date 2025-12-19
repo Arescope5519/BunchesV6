@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, Component } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, ScrollView } from 'react-native';
-import { onAuthStateChanged } from './src/services/firebase/auth';
+import { onAuthStateChanged } from './src/services/supabase/auth';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import colors from './src/constants/colors';
@@ -68,16 +68,14 @@ function MainApp() {
   const [initError, setInitError] = useState(null);
 
   useEffect(() => {
-    // Listen for authentication state changes
     console.log('🔐 [APP] Setting up auth state listener...');
     try {
-      const unsubscribe = onAuthStateChanged((userData) => {
+      const { unsubscribe } = onAuthStateChanged((userData) => {
         console.log('🔐 [APP] Auth state changed:', userData ? 'Signed in' : 'Signed out');
         setUser(userData);
         setLoading(false);
       });
 
-      // Cleanup subscription on unmount
       return () => {
         console.log('🔐 [APP] Cleaning up auth state listener');
         unsubscribe();
@@ -94,7 +92,6 @@ function MainApp() {
     setUser(userData);
   };
 
-  // Show error screen if initialization failed
   if (initError) {
     return (
       <View style={errorStyles.container}>
@@ -107,7 +104,6 @@ function MainApp() {
     );
   }
 
-  // Show loading screen while checking authentication state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -117,12 +113,10 @@ function MainApp() {
     );
   }
 
-  // Show auth screen if not signed in
   if (!user) {
     return <AuthScreen onSignIn={handleSignIn} />;
   }
 
-  // Show home screen if signed in
   return <HomeScreen user={user} />;
 }
 

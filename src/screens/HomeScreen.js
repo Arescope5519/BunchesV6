@@ -54,41 +54,10 @@ import NotificationPopup from '../components/NotificationPopup';
 
 // Constants
 import colors from '../constants/colors';
-import { isAuthAvailable, isFirestoreAvailable } from '../services/firebase/availability';
 
-// Conditionally import Firebase auth
-let firebaseSignOut = null;
-let firebaseSignIn = null;
-if (isAuthAvailable()) {
-  try {
-    const authModule = require('../services/firebase/auth');
-    firebaseSignOut = authModule.signOut;
-    firebaseSignIn = authModule.signInWithGoogle;
-  } catch (e) {
-    console.error('Failed to load Firebase auth:', e);
-  }
-}
-
-/**
- * Helper to save a recipe to Firestore - imports directly to avoid conditional import issues
- */
-const saveToFirestore = async (userId, recipe) => {
-  try {
-    const firestore = require('@react-native-firebase/firestore').default;
-    const recipeRef = firestore()
-      .collection('users')
-      .doc(userId)
-      .collection('recipes')
-      .doc(recipe.id);
-
-    await recipeRef.set(recipe, { merge: true });
-    console.log(`✅ Recipe ${recipe.id} synced to Firestore`);
-    return true;
-  } catch (err) {
-    console.error(`Failed to sync recipe ${recipe.id} to Firestore:`, err);
-    return false;
-  }
-};
+// Supabase auth
+import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
+import { saveRecipeToDatabase } from '../services/supabase/database';
 
 export const HomeScreen = ({ user }) => {
   // Navigation state
@@ -132,7 +101,7 @@ export const HomeScreen = ({ user }) => {
   const [notificationRequest, setNotificationRequest] = useState(null);
   const prevFriendRequestsRef = useRef([]);
 
-  // Hooks - Pass user to useRecipes for Firestore sync
+  // Hooks - Pass user to useRecipes for Supabase sync
   const {
     recipes,
     loadingRecipes,
@@ -530,11 +499,8 @@ export const HomeScreen = ({ user }) => {
 
   const handleSignOut = async () => {
     try {
-      if (firebaseSignOut) {
-        await firebaseSignOut();
-        // App.js auth listener will detect the sign-out and show AuthScreen
-        Alert.alert('✅ Signed Out', 'You have been successfully signed out');
-      }
+      await supabaseSignOut();
+      Alert.alert('Signed Out', 'You have been successfully signed out');
     } catch (error) {
       console.error('Sign out error:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
@@ -543,13 +509,8 @@ export const HomeScreen = ({ user }) => {
 
   const handleSignIn = async () => {
     try {
-      if (firebaseSignIn) {
-        const userData = await firebaseSignIn();
-        // App.js auth listener will detect the sign-in and update user state
-        Alert.alert('✅ Signed In', 'Welcome ' + (userData.displayName || userData.email) + '!');
-      } else {
-        Alert.alert('Error', 'Sign-in is not available. Please restart the app.');
-      }
+      const userData = await supabaseSignIn();
+      Alert.alert('Signed In', 'Welcome ' + (userData.displayName || userData.email) + '!');
     } catch (error) {
       console.error('Sign in error:', error);
 
@@ -863,36 +824,12 @@ export const HomeScreen = ({ user }) => {
               // Reload UI from storage
               await reloadFromStorage();
 
-              // Delete from Firestore in background if user is signed in
+              // Delete from Supabase in background if user is signed in
               if (user) {
-                (async () => {
-                  try {
-                    const firestore = require('@react-native-firebase/firestore').default;
-
-                    // Track deletions and delete documents
-                    for (const recipeId of recipeIds) {
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .set({
-                          deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                          lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                        }, { merge: true });
-
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .collection('recipes')
-                        .doc(recipeId)
-                        .delete();
-                    }
-
-                    await firestore().waitForPendingWrites();
-                    console.log(`✅ Permanently deleted ${recipeCount} recipes from Firestore`);
-                  } catch (err) {
-                    console.error('❌ Failed to delete some recipes from Firestore:', err);
-                  }
-                })();
+                recipeIds.forEach(recipeId => {
+                  saveRecipeToDatabase(user.uid, { id: recipeId, deletedAt: Date.now() }).catch(console.error);
+                });
+                console.log(`✅ Permanently deleted ${recipeCount} recipes`);
               }
             } else {
               // Soft delete: mark all selected recipes with deletedAt timestamp
@@ -905,33 +842,15 @@ export const HomeScreen = ({ user }) => {
               // Reload UI from storage
               await reloadFromStorage();
 
-              // Sync to Firestore in background if user is signed in
+              // Sync to Supabase in background if user is signed in
               if (user) {
-                (async () => {
-                  try {
-                    const firestore = require('@react-native-firebase/firestore').default;
-
-                    // Save each deleted recipe and track in deletion list
-                    for (const recipeId of recipeIds) {
-                      const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
-                      if (deletedRecipe) {
-                        await saveToFirestore(user.uid, deletedRecipe);
-                      }
-
-                      // Track in deletion list
-                      await firestore()
-                        .collection('users')
-                        .doc(user.uid)
-                        .set({
-                          deletedRecipeIds: firestore.FieldValue.arrayUnion(recipeId),
-                          lastDeletionAt: firestore.FieldValue.serverTimestamp(),
-                        }, { merge: true });
-                    }
-                    console.log(`✅ Synced ${recipeCount} soft-deleted recipes to Firestore`);
-                  } catch (err) {
-                    console.error('Failed to sync deletions to Firestore:', err);
+                recipeIds.forEach(recipeId => {
+                  const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
+                  if (deletedRecipe) {
+                    saveRecipeToDatabase(user.uid, deletedRecipe).catch(console.error);
                   }
-                })();
+                });
+                console.log(`✅ Synced ${recipeCount} soft-deleted recipes`);
               }
             }
           }

@@ -20,7 +20,6 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
-import { cleanupDeletedRecipes, checkFirestoreRecipes } from '../utils/cleanupFirestore';
 
 export const SettingsScreen = ({
   onClose,
@@ -39,7 +38,6 @@ export const SettingsScreen = ({
   folders,
   onRestoreBackup,
 }) => {
-  const [cleaningFirestore, setCleaningFirestore] = useState(false);
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState(null);
@@ -71,79 +69,6 @@ export const SettingsScreen = ({
           text: 'Sign Out',
           style: 'destructive',
           onPress: onSignOut,
-        },
-      ]
-    );
-  };
-
-  const handleCleanupFirestore = async () => {
-    if (!user) {
-      Alert.alert('Not Signed In', 'You must be signed in to clean Firestore.');
-      return;
-    }
-
-    Alert.alert(
-      'Clean Firestore Database',
-      'This will compare your local recipes with Firestore and remove any that were deleted locally but are stuck in the cloud.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Check & Clean',
-          onPress: async () => {
-            setCleaningFirestore(true);
-            try {
-              // First check what's there
-              const { allRecipes, deletedRecipes, stuckRecipes } = await checkFirestoreRecipes(user.uid);
-
-              const totalToClean = deletedRecipes.length + stuckRecipes.length;
-
-              if (totalToClean === 0) {
-                Alert.alert('✅ Clean!', `Firestore has ${allRecipes.length} recipes and they all match your local data. Nothing to clean!`);
-                setCleaningFirestore(false);
-                return;
-              }
-
-              // Found recipes to clean
-              let message = `Found ${totalToClean} recipe${totalToClean !== 1 ? 's' : ''} to remove:\n\n`;
-              if (deletedRecipes.length > 0) {
-                message += `• ${deletedRecipes.length} soft-deleted (in Recently Deleted)\n`;
-              }
-              if (stuckRecipes.length > 0) {
-                message += `• ${stuckRecipes.length} permanently deleted locally but stuck in cloud\n`;
-              }
-              message += `\nThis will clean them from Firestore.`;
-
-              Alert.alert(
-                'Found Items to Clean',
-                message,
-                [
-                  { text: 'Cancel', style: 'cancel', onPress: () => setCleaningFirestore(false) },
-                  {
-                    text: 'Clean Now',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const count = await cleanupDeletedRecipes(user.uid);
-                        Alert.alert(
-                          '✅ Cleanup Complete',
-                          `Removed ${count} recipe${count !== 1 ? 's' : ''} from Firestore.\n\nYou now have ${allRecipes.length - count} active recipes in the cloud.`
-                        );
-                      } catch (error) {
-                        console.error('Cleanup error:', error);
-                        Alert.alert('Error', 'Failed to clean Firestore. Check your internet connection.');
-                      } finally {
-                        setCleaningFirestore(false);
-                      }
-                    },
-                  },
-                ]
-              );
-            } catch (error) {
-              console.error('Cleanup error:', error);
-              Alert.alert('Error', 'Failed to clean Firestore. Check your internet connection.');
-              setCleaningFirestore(false);
-            }
-          },
         },
       ]
     );
@@ -695,23 +620,8 @@ export const SettingsScreen = ({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
 
-          {/* Cleanup Firestore Button - Only show if signed in */}
-          {user && (
-            <TouchableOpacity
-              style={[styles.cleanupButton, cleaningFirestore && styles.buttonDisabled]}
-              onPress={handleCleanupFirestore}
-              disabled={cleaningFirestore}
-            >
-              {cleaningFirestore ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.dangerButtonText}>🧹 Clean Firestore Database</Text>
-              )}
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity
-            style={[styles.dangerButton, user && { marginTop: 12 }]}
+            style={styles.dangerButton}
             onPress={handleClearAllData}
           >
             <Text style={styles.dangerButtonText}>🗑️ Clear All Data</Text>
