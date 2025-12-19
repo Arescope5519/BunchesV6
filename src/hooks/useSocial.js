@@ -308,14 +308,23 @@ export const useSocial = (user) => {
    * Update privacy settings
    */
   const updatePrivacySettings = async (settings) => {
-    if (!user) return false;
+    if (!user || !profile) return false;
+
+    // Optimistic update - immediately update UI
+    const previousProfile = { ...profile };
+    setProfile({
+      ...profile,
+      ...(settings.isPrivate !== undefined && { isPrivate: settings.isPrivate }),
+      ...(settings.acceptingFriendRequests !== undefined && { acceptingFriendRequests: settings.acceptingFriendRequests }),
+    });
 
     try {
       await socialModule.updatePrivacySettings(user.uid, settings);
-      await loadProfile();
       return true;
     } catch (error) {
       console.error('Error updating privacy settings:', error);
+      // Revert on error
+      setProfile(previousProfile);
       Alert.alert('Error', error.message || 'Failed to update privacy settings');
       return false;
     }
