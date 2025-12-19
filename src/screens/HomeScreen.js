@@ -26,6 +26,7 @@ import {
   Animated,
   PanResponder,
   Image,
+  AppState,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -58,6 +59,9 @@ import colors from '../constants/colors';
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
 import { saveRecipeToDatabase } from '../services/supabase/database';
+
+// iOS Share Extension pending recipes
+import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
 
 export const HomeScreen = ({ user }) => {
   // Navigation state
@@ -262,6 +266,75 @@ export const HomeScreen = ({ user }) => {
 
     hideNavigationBar();
   }, []);
+
+  // Check for pending recipes from iOS Share Extension
+  useEffect(() => {
+    const checkPendingRecipes = async () => {
+      if (Platform.OS !== 'ios') return;
+
+      try {
+        const pending = await getPendingRecipes();
+        if (pending && pending.length > 0) {
+          console.log(`Found ${pending.length} pending recipe(s) from Share Extension`);
+
+          // Show alert to import
+          Alert.alert(
+            'Import Shared Recipes',
+            `You have ${pending.length} recipe${pending.length > 1 ? 's' : ''} waiting to be imported.`,
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => clearPendingRecipes(),
+              },
+              {
+                text: 'Import All',
+                onPress: async () => {
+                  let imported = 0;
+                  for (const recipe of pending) {
+                    try {
+                      await saveRecipe({
+                        title: recipe.title || 'Untitled Recipe',
+                        ingredients: recipe.ingredients || '',
+                        instructions: recipe.instructions || '',
+                        prep_time: recipe.prep_time || '',
+                        cook_time: recipe.cook_time || '',
+                        servings: recipe.servings || '',
+                        image_url: recipe.image_url || null,
+                        source_url: recipe.source_url || '',
+                        folder: 'All Recipes',
+                      });
+                      imported++;
+                    } catch (err) {
+                      console.error('Failed to import recipe:', err);
+                    }
+                  }
+                  await clearPendingRecipes();
+                  Alert.alert('Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''}!`);
+                },
+              },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error('Error checking pending recipes:', error);
+      }
+    };
+
+    // Check on mount
+    checkPendingRecipes();
+
+    // Check when app comes to foreground
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        checkPendingRecipes();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [saveRecipe]);
 
   const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
     // Navigate to save recipe screen with extracted recipe
