@@ -6,7 +6,6 @@
 import { supabase } from './config';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Alert, Platform } from 'react-native';
-import * as Crypto from 'expo-crypto';
 
 // Client IDs for Google Sign-In
 const WEB_CLIENT_ID = '307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com';
@@ -14,28 +13,6 @@ const IOS_CLIENT_ID = '307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1.apps.google
 
 // Track if Google Sign-In has been configured
 let googleSignInConfigured = false;
-
-/**
- * Generate a random nonce for authentication
- */
-const generateNonce = async () => {
-  const randomBytes = await Crypto.getRandomBytesAsync(16);
-  const nonce = Array.from(new Uint8Array(randomBytes))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-  return nonce;
-};
-
-/**
- * Hash a nonce using SHA256
- */
-const hashNonce = async (nonce) => {
-  const hash = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    nonce
-  );
-  return hash;
-};
 
 /**
  * Configure Google Sign-In
@@ -88,15 +65,6 @@ export const signInWithGoogle = async () => {
       // Ignore
     }
 
-    // Generate nonce for iOS
-    let rawNonce = null;
-    if (Platform.OS === 'ios') {
-      rawNonce = await generateNonce();
-      const hashedNonce = await hashNonce(rawNonce);
-      // Note: react-native-google-signin doesn't support passing nonce directly
-      // So we'll try without it first, and if it fails, use a different approach
-    }
-
     // Sign in with Google
     const signInResult = await GoogleSignin.signIn();
     console.log('✅ [AUTH] Google Sign-In successful');
@@ -111,8 +79,6 @@ export const signInWithGoogle = async () => {
     // Sign in to Supabase with the Google ID token
     console.log('🔐 [AUTH] Signing in to Supabase...');
 
-    // For Supabase, we need to handle the case where Google's token may or may not have a nonce
-    // Try without nonce first (works for Android and some iOS cases)
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
