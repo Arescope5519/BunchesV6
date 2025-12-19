@@ -269,6 +269,76 @@ export const useSocial = (user) => {
     }
   };
 
+  /**
+   * Decline friend request
+   */
+  const declineFriendRequest = async (requestId) => {
+    if (!user) return false;
+
+    try {
+      await socialModule.declineFriendRequest(requestId);
+      await refreshSocialData();
+      return true;
+    } catch (error) {
+      console.error('Error declining friend request:', error);
+      Alert.alert('Error', error.message || 'Failed to decline friend request');
+      return false;
+    }
+  };
+
+  /**
+   * Remove friend
+   */
+  const removeFriend = async (friendId) => {
+    if (!user) return false;
+
+    try {
+      await socialModule.removeFriend(user.uid, friendId);
+      await refreshSocialData();
+      Alert.alert('Success', 'Friend removed');
+      return true;
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      Alert.alert('Error', error.message || 'Failed to remove friend');
+      return false;
+    }
+  };
+
+  /**
+   * Update privacy settings
+   */
+  const updatePrivacySettings = async (settings) => {
+    if (!user) return false;
+
+    try {
+      await socialModule.updatePrivacySettings(user.uid, settings);
+      await loadProfile();
+      return true;
+    } catch (error) {
+      console.error('Error updating privacy settings:', error);
+      Alert.alert('Error', error.message || 'Failed to update privacy settings');
+      return false;
+    }
+  };
+
+  /**
+   * Change username
+   */
+  const changeUsername = async (newUsername) => {
+    if (!user) return false;
+
+    try {
+      await socialModule.changeUsername(user.uid, newUsername);
+      await loadProfile();
+      Alert.alert('Success', 'Username updated!');
+      return true;
+    } catch (error) {
+      console.error('Error changing username:', error);
+      Alert.alert('Error', error.message || 'Failed to change username');
+      return false;
+    }
+  };
+
   // Load profile when user changes
   useEffect(() => {
     loadProfile();
@@ -306,9 +376,13 @@ export const useSocial = (user) => {
     searchUsers,
     sendFriendRequest,
     acceptFriendRequest,
+    declineFriendRequest,
+    removeFriend,
     shareWithFriends,
     importSharedItem,
     declineSharedItem,
+    updatePrivacySettings,
+    changeUsername,
     refreshSocialData,
   };
 };

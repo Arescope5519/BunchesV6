@@ -365,6 +365,145 @@ export const markSharedItemImported = async (itemId) => {
 };
 
 /**
+ * Decline shared item
+ */
+export const declineSharedItem = async (itemId) => {
+  try {
+    await supabase
+      .from('shared_items')
+      .update({ status: 'declined', updated_at: new Date().toISOString() })
+      .eq('id', itemId);
+
+    console.log('✅ Shared item declined');
+  } catch (error) {
+    console.error('Error declining shared item:', error);
+    throw error;
+  }
+};
+
+/**
+ * Decline friend request
+ */
+export const declineFriendRequest = async (requestId) => {
+  try {
+    await supabase
+      .from('friend_requests')
+      .update({ status: 'declined', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+
+    console.log('✅ Friend request declined');
+  } catch (error) {
+    console.error('Error declining friend request:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove friend
+ */
+export const removeFriend = async (userId, friendId) => {
+  try {
+    // Get both profiles
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('friends, friend_count')
+      .eq('user_id', userId)
+      .single();
+
+    const { data: friendProfile } = await supabase
+      .from('user_profiles')
+      .select('friends, friend_count')
+      .eq('user_id', friendId)
+      .single();
+
+    // Remove from user's friends
+    await supabase
+      .from('user_profiles')
+      .update({
+        friends: (userProfile?.friends || []).filter(id => id !== friendId),
+        friend_count: Math.max((userProfile?.friend_count || 1) - 1, 0),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    // Remove from friend's friends
+    await supabase
+      .from('user_profiles')
+      .update({
+        friends: (friendProfile?.friends || []).filter(id => id !== userId),
+        friend_count: Math.max((friendProfile?.friend_count || 1) - 1, 0),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', friendId);
+
+    console.log('✅ Friend removed');
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update privacy settings
+ */
+export const updatePrivacySettings = async (userId, settings) => {
+  try {
+    const updates = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (settings.isPrivate !== undefined) {
+      updates.is_private = settings.isPrivate;
+    }
+    if (settings.acceptingFriendRequests !== undefined) {
+      updates.accepting_friend_requests = settings.acceptingFriendRequests;
+    }
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .update(updates)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    console.log('✅ Privacy settings updated');
+  } catch (error) {
+    console.error('Error updating privacy settings:', error);
+    throw error;
+  }
+};
+
+/**
+ * Change username
+ */
+export const changeUsername = async (userId, newUsername) => {
+  try {
+    const normalized = newUsername.toLowerCase().trim();
+
+    // Check availability
+    const available = await isUsernameAvailable(normalized);
+    if (!available) {
+      throw new Error('Username is already taken');
+    }
+
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        username: normalized,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    console.log(`✅ Username changed to: ${normalized}`);
+  } catch (error) {
+    console.error('Error changing username:', error);
+    throw error;
+  }
+};
+
+/**
  * Get notification counts
  */
 export const getNotificationCounts = async (userId) => {
@@ -399,9 +538,14 @@ export default {
   searchUsersByUsername,
   sendFriendRequest,
   acceptFriendRequest,
+  declineFriendRequest,
+  removeFriend,
   getPendingFriendRequests,
   shareWithFriends,
   getReceivedSharedItems,
   markSharedItemImported,
+  declineSharedItem,
+  updatePrivacySettings,
+  changeUsername,
   getNotificationCounts,
 };
