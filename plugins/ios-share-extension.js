@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SHARE_EXTENSION_NAME = 'ShareExtension';
-const APP_GROUP_ID = 'group.com.bunchesai.v6';
+const APP_GROUP_ID = 'group.com.bunchesai.v6.shared';
 
 /**
  * Creates the ShareViewController.swift file content
@@ -17,76 +17,250 @@ const APP_GROUP_ID = 'group.com.bunchesai.v6';
 function getShareViewControllerContent(bundleId, appGroupId) {
   return `import UIKit
 import Social
+import MobileCoreServices
 import UniformTypeIdentifiers
 
-class ShareViewController: SLComposeServiceViewController {
+class ShareViewController: UIViewController {
 
-    private let appGroupId = "${appGroupId}"
-    private let sharedURLsKey = "sharedURLs"
+    private let containerView = UIView()
+    private let titleLabel = UILabel()
+    private let recipeNameLabel = UILabel()
+    private let statusLabel = UILabel()
+    private let ingredientsTextView = UITextView()
+    private let instructionsTextView = UITextView()
+    private let saveButton = UIButton(type: .system)
+    private let cancelButton = UIButton(type: .system)
+    private let loadingIndicator = UIActivityIndicatorView(style: .large)
+    private let segmentedControl = UISegmentedControl(items: ["Ingredients", "Instructions"])
+
+    private var recipeData: [String: Any]?
+    private var sharedURL: String?
+    private let appGroupIdentifier = "${appGroupId}"
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.placeholder = "Save to Bunches"
+        setupUI()
+        extractSharedContent()
     }
 
-    override func isContentValid() -> Bool {
-        return true
+    private func setupUI() {
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        containerView.backgroundColor = .systemBackground
+        containerView.layer.cornerRadius = 16
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(containerView)
+
+        titleLabel.text = "Save to Bunches"
+        titleLabel.font = .boldSystemFont(ofSize: 20)
+        titleLabel.textAlignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(titleLabel)
+
+        recipeNameLabel.text = "Loading recipe..."
+        recipeNameLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        recipeNameLabel.textAlignment = .center
+        recipeNameLabel.numberOfLines = 2
+        recipeNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(recipeNameLabel)
+
+        statusLabel.font = .systemFont(ofSize: 14)
+        statusLabel.textColor = .secondaryLabel
+        statusLabel.textAlignment = .center
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(statusLabel)
+
+        segmentedControl.selectedSegmentIndex = 0
+        segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(segmentedControl)
+
+        ingredientsTextView.isEditable = false
+        ingredientsTextView.font = .systemFont(ofSize: 14)
+        ingredientsTextView.backgroundColor = .secondarySystemBackground
+        ingredientsTextView.layer.cornerRadius = 8
+        ingredientsTextView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(ingredientsTextView)
+
+        instructionsTextView.isEditable = false
+        instructionsTextView.font = .systemFont(ofSize: 14)
+        instructionsTextView.backgroundColor = .secondarySystemBackground
+        instructionsTextView.layer.cornerRadius = 8
+        instructionsTextView.isHidden = true
+        instructionsTextView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(instructionsTextView)
+
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        loadingIndicator.hidesWhenStopped = true
+        containerView.addSubview(loadingIndicator)
+
+        cancelButton.setTitle("Cancel", for: .normal)
+        cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(cancelButton)
+
+        saveButton.setTitle("Save Recipe", for: .normal)
+        saveButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
+        saveButton.backgroundColor = UIColor(red: 0.36, green: 0.68, blue: 0.49, alpha: 1.0)
+        saveButton.setTitleColor(.white, for: .normal)
+        saveButton.layer.cornerRadius = 10
+        saveButton.isEnabled = false
+        saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
+        saveButton.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(saveButton)
+
+        NSLayoutConstraint.activate([
+            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            containerView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            containerView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.9),
+            containerView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.7),
+            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            recipeNameLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            recipeNameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            recipeNameLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            statusLabel.topAnchor.constraint(equalTo: recipeNameLabel.bottomAnchor, constant: 4),
+            statusLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            statusLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            segmentedControl.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 12),
+            segmentedControl.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            segmentedControl.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            ingredientsTextView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 12),
+            ingredientsTextView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            ingredientsTextView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            ingredientsTextView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -16),
+            instructionsTextView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 12),
+            instructionsTextView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            instructionsTextView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            instructionsTextView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -16),
+            loadingIndicator.centerXAnchor.constraint(equalTo: ingredientsTextView.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: ingredientsTextView.centerYAnchor),
+            cancelButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            cancelButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
+            cancelButton.widthAnchor.constraint(equalToConstant: 80),
+            cancelButton.heightAnchor.constraint(equalToConstant: 44),
+            saveButton.leadingAnchor.constraint(equalTo: cancelButton.trailingAnchor, constant: 16),
+            saveButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            saveButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
+            saveButton.heightAnchor.constraint(equalToConstant: 44),
+        ])
     }
 
-    override func didSelectPost() {
-        handleSharedItems()
+    @objc private func segmentChanged() {
+        ingredientsTextView.isHidden = segmentedControl.selectedSegmentIndex == 1
+        instructionsTextView.isHidden = segmentedControl.selectedSegmentIndex == 0
     }
 
-    private func handleSharedItems() {
+    private func extractSharedContent() {
+        loadingIndicator.startAnimating()
         guard let extensionItems = extensionContext?.inputItems as? [NSExtensionItem] else {
-            completeRequest()
+            showError("No content to share")
             return
         }
-
         for item in extensionItems {
             guard let attachments = item.attachments else { continue }
-
             for provider in attachments {
                 if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                     provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, error) in
-                        DispatchQueue.main.async {
-                            if let url = data as? URL {
-                                self?.addURLToQueue(url.absoluteString)
-                            }
-                            self?.completeRequest()
+                        if let url = data as? URL {
+                            self?.sharedURL = url.absoluteString
+                            self?.fetchRecipe(from: url.absoluteString)
                         }
                     }
                     return
                 }
             }
         }
-        completeRequest()
     }
 
-    private func addURLToQueue(_ urlString: String) {
-        guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
-            print("Failed to get UserDefaults for app group")
-            return
-        }
-
-        // Get existing URLs array or create new one
-        var urls = userDefaults.stringArray(forKey: sharedURLsKey) ?? []
-
-        // Add new URL if not already in queue
-        if !urls.contains(urlString) {
-            urls.append(urlString)
-            userDefaults.set(urls, forKey: sharedURLsKey)
-            userDefaults.synchronize()
-            print("Added URL to queue: \\(urlString). Queue size: \\(urls.count)")
-        }
+    private func fetchRecipe(from urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard let self = self, let data = data, let html = String(data: data, encoding: .utf8) else { return }
+            let recipe = self.parseRecipe(from: html, url: urlString)
+            DispatchQueue.main.async {
+                self.loadingIndicator.stopAnimating()
+                if let recipe = recipe {
+                    self.recipeData = recipe
+                    self.displayRecipe(recipe)
+                } else {
+                    self.showError("Could not find recipe")
+                }
+            }
+        }.resume()
     }
 
-    private func completeRequest() {
+    private func parseRecipe(from html: String, url: String) -> [String: Any]? {
+        var recipe: [String: Any] = ["source_url": url, "id": UUID().uuidString]
+        if let jsonLD = parseJSONLD(from: html) { recipe.merge(jsonLD) { _, new in new } }
+        if recipe["title"] == nil { recipe["title"] = extractTitle(from: html) }
+        return recipe["title"] != nil ? recipe : nil
+    }
+
+    private func parseJSONLD(from html: String) -> [String: Any]? {
+        let pattern = "<script[^>]*type=[\\"']application/ld\\\\+json[\\"'][^>]*>(.*?)</script>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else { return nil }
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        for match in matches {
+            guard let jsonRange = Range(match.range(at: 1), in: html),
+                  let jsonData = String(html[jsonRange]).data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else { continue }
+            if let recipe = extractRecipeFromJSONLD(json) { return recipe }
+            if let graph = json["@graph"] as? [[String: Any]] {
+                for item in graph { if let recipe = extractRecipeFromJSONLD(item) { return recipe } }
+            }
+        }
+        return nil
+    }
+
+    private func extractRecipeFromJSONLD(_ json: [String: Any]) -> [String: Any]? {
+        guard let type = json["@type"] as? String, type.lowercased().contains("recipe") else { return nil }
+        var recipe: [String: Any] = [:]
+        recipe["title"] = json["name"] as? String
+        if let ingredients = json["recipeIngredient"] as? [String] { recipe["ingredients"] = ingredients.joined(separator: "\\n") }
+        if let instructions = json["recipeInstructions"] as? [[String: Any]] {
+            recipe["instructions"] = instructions.compactMap { $0["text"] as? String }.enumerated().map { "\\($0.offset + 1). \\($0.element)" }.joined(separator: "\\n")
+        }
+        if let image = json["image"] as? String { recipe["image_url"] = image }
+        else if let images = json["image"] as? [String] { recipe["image_url"] = images.first }
+        return recipe
+    }
+
+    private func extractTitle(from html: String) -> String? {
+        let pattern = "<title[^>]*>([^<]+)</title>"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+              let range = Range(match.range(at: 1), in: html) else { return nil }
+        return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func displayRecipe(_ recipe: [String: Any]) {
+        recipeNameLabel.text = recipe["title"] as? String ?? "Recipe"
+        ingredientsTextView.text = recipe["ingredients"] as? String ?? "No ingredients found"
+        instructionsTextView.text = recipe["instructions"] as? String ?? "No instructions found"
+        saveButton.isEnabled = true
+    }
+
+    private func showError(_ message: String) {
+        loadingIndicator.stopAnimating()
+        recipeNameLabel.text = "Error"
+        ingredientsTextView.text = message
+    }
+
+    @objc private func cancelTapped() {
         extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
     }
 
-    override func configurationItems() -> [Any]! {
-        return []
+    @objc private func saveTapped() {
+        guard let recipe = recipeData, let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+        var queue = userDefaults.array(forKey: "pendingRecipes") as? [[String: Any]] ?? []
+        queue.append(recipe)
+        userDefaults.set(queue, forKey: "pendingRecipes")
+        saveButton.setTitle("Saved!", for: .normal)
+        saveButton.isEnabled = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+        }
     }
 }
 `;
@@ -103,7 +277,7 @@ function getExtensionInfoPlist(bundleId, bundleDisplayName) {
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>${bundleDisplayName}</string>
+    <string>Save to Bunches</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -115,7 +289,7 @@ function getExtensionInfoPlist(bundleId, bundleDisplayName) {
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>6.06</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>NSExtension</key>
@@ -126,16 +300,14 @@ function getExtensionInfoPlist(bundleId, bundleDisplayName) {
             <dict>
                 <key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
                 <integer>1</integer>
-                <key>NSExtensionActivationSupportsWebPageWithMaxCount</key>
-                <integer>1</integer>
                 <key>NSExtensionActivationSupportsText</key>
                 <true/>
             </dict>
         </dict>
-        <key>NSExtensionMainStoryboard</key>
-        <string>MainInterface</string>
         <key>NSExtensionPointIdentifier</key>
         <string>com.apple.share-services</string>
+        <key>NSExtensionPrincipalClass</key>
+        <string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
     </dict>
 </dict>
 </plist>`;
