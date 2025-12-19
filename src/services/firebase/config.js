@@ -12,9 +12,8 @@
  */
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDbCIFhGnsqWcl9m0y2k4h_v94VoN8Npqc",
@@ -26,9 +25,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (only once)
-let app;
-let auth;
-let db;
+let app = null;
+let auth = null;
+let db = null;
 let initError = null;
 
 export const initializeFirebaseApp = () => {
@@ -36,50 +35,29 @@ export const initializeFirebaseApp = () => {
 
   try {
     if (getApps().length === 0) {
-      console.log('🔥 [FIREBASE] No existing apps, initializing new Firebase JS SDK...');
+      console.log('🔥 [FIREBASE] No existing apps, initializing...');
 
       // Step 1: Initialize App
       console.log('🔥 [FIREBASE] Step 1: Initializing app...');
       app = initializeApp(firebaseConfig);
       console.log('✅ [FIREBASE] Step 1 complete: App initialized');
 
-      // Step 2: Initialize Auth with AsyncStorage persistence
+      // Step 2: Initialize Auth (simple - no persistence)
       console.log('🔥 [FIREBASE] Step 2: Initializing Auth...');
-      try {
-        auth = initializeAuth(app, {
-          persistence: getReactNativePersistence(AsyncStorage)
-        });
-        console.log('✅ [FIREBASE] Step 2 complete: Auth initialized');
-      } catch (authError) {
-        console.error('❌ [FIREBASE] Auth init error:', authError.message);
-        // Try getting existing auth instance
-        auth = getAuth(app);
-        console.log('✅ [FIREBASE] Got existing Auth instance');
-      }
+      auth = getAuth(app);
+      console.log('✅ [FIREBASE] Step 2 complete: Auth initialized');
 
-      // Step 3: Initialize Firestore (without persistent cache - can cause issues in RN)
+      // Step 3: Initialize Firestore
       console.log('🔥 [FIREBASE] Step 3: Initializing Firestore...');
-      try {
-        db = getFirestore(app);
-        console.log('✅ [FIREBASE] Step 3 complete: Firestore initialized');
-      } catch (dbError) {
-        console.error('❌ [FIREBASE] Firestore init error:', dbError.message);
-        throw dbError;
-      }
+      db = getFirestore(app);
+      console.log('✅ [FIREBASE] Step 3 complete: Firestore initialized');
 
       console.log('✅ [FIREBASE] Firebase JS SDK fully initialized');
       console.log('   - Project ID:', firebaseConfig.projectId);
     } else {
       console.log('🔥 [FIREBASE] App already exists, getting instances...');
       app = getApp();
-      try {
-        auth = getAuth(app);
-      } catch (e) {
-        console.log('🔥 [FIREBASE] Getting auth failed, will try initializeAuth');
-        auth = initializeAuth(app, {
-          persistence: getReactNativePersistence(AsyncStorage)
-        });
-      }
+      auth = getAuth(app);
       db = getFirestore(app);
       console.log('✅ [FIREBASE] Got existing instances');
     }
@@ -87,7 +65,6 @@ export const initializeFirebaseApp = () => {
     console.error('❌ [FIREBASE] CRITICAL ERROR during initialization:', error);
     console.error('   - Error name:', error.name);
     console.error('   - Error message:', error.message);
-    console.error('   - Error stack:', error.stack);
     initError = error;
     throw error;
   }
