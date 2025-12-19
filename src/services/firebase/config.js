@@ -119,4 +119,12 @@ export const getFirebaseFirestore = () => {
   return db;
 };
 
+// Auto-initialize Firebase when this module is imported
+console.log('🔥 [FIREBASE] Config module loaded, auto-initializing...');
+try {
+  initializeFirebaseApp();
+} catch (error) {
+  console.error('❌ [FIREBASE] Auto-initialization failed:', error);
+}
+
 export { firebaseConfig };
