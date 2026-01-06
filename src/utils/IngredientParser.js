@@ -342,12 +342,43 @@ export function convertIngredientUnits(parsedIngredient, toMetric = true) {
 
 /**
  * Parse all ingredients in a recipe
+ * Handles different formats: object with sections, array, or null
  */
 export function parseRecipeIngredients(ingredients) {
+  // Handle null/undefined
+  if (!ingredients) {
+    return { main: [] };
+  }
+
+  // Handle array format (old recipes) - convert to object
+  if (Array.isArray(ingredients)) {
+    return {
+      main: ingredients.map(item =>
+        typeof item === 'string' ? parseIngredient(item) : item
+      )
+    };
+  }
+
+  // Handle string format (very old recipes)
+  if (typeof ingredients === 'string') {
+    const items = ingredients.split('\n').filter(line => line.trim());
+    return {
+      main: items.map(item => parseIngredient(item))
+    };
+  }
+
+  // Handle object format (current format)
   const parsed = {};
 
   for (const [section, items] of Object.entries(ingredients)) {
-    parsed[section] = items.map(item => parseIngredient(item));
+    // Skip if items is not an array
+    if (!Array.isArray(items)) {
+      parsed[section] = [];
+      continue;
+    }
+    parsed[section] = items.map(item =>
+      typeof item === 'string' ? parseIngredient(item) : item
+    );
   }
 
   return parsed;

@@ -42,9 +42,26 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
   // Update local recipe when prop changes
   useEffect(() => {
-    setLocalRecipe(recipe);
+    // Normalize recipe format for old recipes
+    const normalizedRecipe = { ...recipe };
+
+    // Ensure ingredients is an object with sections
+    if (!normalizedRecipe.ingredients) {
+      normalizedRecipe.ingredients = { main: [] };
+    } else if (Array.isArray(normalizedRecipe.ingredients)) {
+      normalizedRecipe.ingredients = { main: normalizedRecipe.ingredients };
+    }
+
+    // Ensure instructions is an array
+    if (!normalizedRecipe.instructions) {
+      normalizedRecipe.instructions = [];
+    } else if (typeof normalizedRecipe.instructions === 'string') {
+      normalizedRecipe.instructions = normalizedRecipe.instructions.split('\n').filter(line => line.trim());
+    }
+
+    setLocalRecipe(normalizedRecipe);
     // Parse ingredients when recipe changes
-    const parsed = parseRecipeIngredients(recipe.ingredients);
+    const parsed = parseRecipeIngredients(normalizedRecipe.ingredients);
     setParsedIngredients(parsed);
   }, [recipe]);
 
