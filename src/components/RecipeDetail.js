@@ -15,9 +15,34 @@ import {
   convertRecipeIngredients
 } from '../utils/IngredientParser';
 
+// Helper to normalize recipe format
+const normalizeRecipe = (recipe) => {
+  if (!recipe) return { ingredients: { main: [] }, instructions: [] };
+
+  const normalized = { ...recipe };
+
+  // Ensure ingredients is an object with sections
+  if (!normalized.ingredients) {
+    normalized.ingredients = { main: [] };
+  } else if (Array.isArray(normalized.ingredients)) {
+    normalized.ingredients = { main: normalized.ingredients };
+  }
+
+  // Ensure instructions is an array
+  if (!normalized.instructions) {
+    normalized.instructions = [];
+  } else if (typeof normalized.instructions === 'string') {
+    normalized.instructions = normalized.instructions.split('\n').filter(line => line.trim());
+  } else if (!Array.isArray(normalized.instructions)) {
+    normalized.instructions = [];
+  }
+
+  return normalized;
+};
+
 export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoAction }) => {
-  // Local editable copy of recipe
-  const [localRecipe, setLocalRecipe] = useState(recipe);
+  // Local editable copy of recipe - initialize with normalized data
+  const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
 
   // Scaling and conversion state
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -42,46 +67,17 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
   // Update local recipe when prop changes
   useEffect(() => {
-    console.log('🍳 [RecipeDetail] Recipe prop received:', JSON.stringify(recipe, null, 2));
+    console.log('🍳 [RecipeDetail] Recipe prop received');
 
-    if (!recipe) {
-      console.log('🍳 [RecipeDetail] Recipe is null/undefined, skipping');
-      return;
-    }
+    const normalizedRecipe = normalizeRecipe(recipe);
+    console.log('🍳 [RecipeDetail] Normalized - ingredients sections:', Object.keys(normalizedRecipe.ingredients || {}));
+    console.log('🍳 [RecipeDetail] Normalized - instructions count:', (normalizedRecipe.instructions || []).length);
 
-    // Normalize recipe format for old recipes
-    const normalizedRecipe = { ...recipe };
-    console.log('🍳 [RecipeDetail] Ingredients type:', typeof normalizedRecipe.ingredients);
-    console.log('🍳 [RecipeDetail] Ingredients isArray:', Array.isArray(normalizedRecipe.ingredients));
-    console.log('🍳 [RecipeDetail] Instructions type:', typeof normalizedRecipe.instructions);
-    console.log('🍳 [RecipeDetail] Instructions isArray:', Array.isArray(normalizedRecipe.instructions));
-
-    // Ensure ingredients is an object with sections
-    if (!normalizedRecipe.ingredients) {
-      console.log('🍳 [RecipeDetail] No ingredients, setting empty main');
-      normalizedRecipe.ingredients = { main: [] };
-    } else if (Array.isArray(normalizedRecipe.ingredients)) {
-      console.log('🍳 [RecipeDetail] Converting array ingredients to object');
-      normalizedRecipe.ingredients = { main: normalizedRecipe.ingredients };
-    }
-
-    // Ensure instructions is an array
-    if (!normalizedRecipe.instructions) {
-      console.log('🍳 [RecipeDetail] No instructions, setting empty array');
-      normalizedRecipe.instructions = [];
-    } else if (typeof normalizedRecipe.instructions === 'string') {
-      console.log('🍳 [RecipeDetail] Converting string instructions to array');
-      normalizedRecipe.instructions = normalizedRecipe.instructions.split('\n').filter(line => line.trim());
-    }
-
-    console.log('🍳 [RecipeDetail] Normalized recipe:', JSON.stringify(normalizedRecipe, null, 2));
     setLocalRecipe(normalizedRecipe);
 
     // Parse ingredients when recipe changes
     try {
-      console.log('🍳 [RecipeDetail] Parsing ingredients...');
       const parsed = parseRecipeIngredients(normalizedRecipe.ingredients);
-      console.log('🍳 [RecipeDetail] Parsed ingredients:', JSON.stringify(parsed, null, 2));
       setParsedIngredients(parsed);
     } catch (parseError) {
       console.error('🍳 [RecipeDetail] Error parsing ingredients:', parseError);
@@ -877,7 +873,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       })}
 
       <Text style={styles.sectionTitle}>Instructions</Text>
-      {(scaledInstructions || localRecipe.instructions).map((step, idx) => (
+      {(scaledInstructions || localRecipe?.instructions || []).map((step, idx) => (
         <View key={`instruction-${idx}`}>
           <TouchableOpacity
             onLongPress={() => handleLongPress('instruction', null, idx, step)}
