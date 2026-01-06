@@ -450,6 +450,94 @@ RCT_EXTERN_METHOD(clearSharedURL:(RCTPromiseResolveBlock)resolve
 }
 
 /**
+ * Creates the PendingRecipesModule.swift native module content
+ */
+function getPendingRecipesSwift(appGroupId) {
+  return `import Foundation
+import React
+
+@objc(PendingRecipesModule)
+class PendingRecipesModule: NSObject {
+  private let appGroupId = "${appGroupId}"
+  private let pendingRecipesKey = "pendingRecipes"
+
+  @objc
+  func getPendingRecipes(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve("[]")
+      return
+    }
+
+    if let recipes = userDefaults.array(forKey: pendingRecipesKey) {
+      do {
+        let jsonData = try JSONSerialization.data(withJSONObject: recipes)
+        let jsonString = String(data: jsonData, encoding: .utf8) ?? "[]"
+        resolve(jsonString)
+      } catch {
+        resolve("[]")
+      }
+    } else {
+      resolve("[]")
+    }
+  }
+
+  @objc
+  func clearPendingRecipes(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve(false)
+      return
+    }
+    userDefaults.removeObject(forKey: pendingRecipesKey)
+    userDefaults.synchronize()
+    resolve(true)
+  }
+
+  @objc
+  func removePendingRecipe(_ recipeId: String, resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    guard let userDefaults = UserDefaults(suiteName: appGroupId) else {
+      resolve(false)
+      return
+    }
+
+    if var recipes = userDefaults.array(forKey: pendingRecipesKey) as? [[String: Any]] {
+      recipes.removeAll { ($0["id"] as? String) == recipeId }
+      userDefaults.set(recipes, forKey: pendingRecipesKey)
+      userDefaults.synchronize()
+    }
+    resolve(true)
+  }
+
+  @objc
+  static func requiresMainQueueSetup() -> Bool {
+    return false
+  }
+}
+`;
+}
+
+/**
+ * Creates the PendingRecipesModule.m bridge file content
+ */
+function getPendingRecipesObjC() {
+  return `#import <React/RCTBridgeModule.h>
+
+@interface RCT_EXTERN_MODULE(PendingRecipesModule, NSObject)
+
+RCT_EXTERN_METHOD(getPendingRecipes:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(clearPendingRecipes:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(removePendingRecipe:(NSString *)recipeId
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+@end
+`;
+}
+
+/**
  * Plugin to create Share Extension files and AppGroupStorage native module
  */
 const withShareExtensionFiles = (config) => {
@@ -509,7 +597,19 @@ const withShareExtensionFiles = (config) => {
         getAppGroupStorageObjC()
       );
 
-      console.log('AppGroupStorage files created successfully');
+      // Write PendingRecipesModule.swift
+      fs.writeFileSync(
+        path.join(mainAppPath, 'PendingRecipesModule.swift'),
+        getPendingRecipesSwift(APP_GROUP_ID)
+      );
+
+      // Write PendingRecipesModule.m
+      fs.writeFileSync(
+        path.join(mainAppPath, 'PendingRecipesModule.m'),
+        getPendingRecipesObjC()
+      );
+
+      console.log('Native module files created successfully');
 
       return config;
     },
@@ -547,7 +647,21 @@ const withShareExtensionTarget = (config) => {
         mainAppGroup
       );
 
-      console.log('AppGroupStorage files added to Xcode project');
+      // Add PendingRecipesModule.swift to main target
+      xcodeProject.addSourceFile(
+        `${projectName}/PendingRecipesModule.swift`,
+        { target: xcodeProject.getFirstTarget().uuid },
+        mainAppGroup
+      );
+
+      // Add PendingRecipesModule.m to main target
+      xcodeProject.addSourceFile(
+        `${projectName}/PendingRecipesModule.m`,
+        { target: xcodeProject.getFirstTarget().uuid },
+        mainAppGroup
+      );
+
+      console.log('Native module files added to Xcode project');
     } else {
       console.log('Warning: Could not find main app group, AppGroupStorage files may need to be added manually');
     }
