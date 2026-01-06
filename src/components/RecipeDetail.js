@@ -42,27 +42,51 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
   // Update local recipe when prop changes
   useEffect(() => {
+    console.log('🍳 [RecipeDetail] Recipe prop received:', JSON.stringify(recipe, null, 2));
+
+    if (!recipe) {
+      console.log('🍳 [RecipeDetail] Recipe is null/undefined, skipping');
+      return;
+    }
+
     // Normalize recipe format for old recipes
     const normalizedRecipe = { ...recipe };
+    console.log('🍳 [RecipeDetail] Ingredients type:', typeof normalizedRecipe.ingredients);
+    console.log('🍳 [RecipeDetail] Ingredients isArray:', Array.isArray(normalizedRecipe.ingredients));
+    console.log('🍳 [RecipeDetail] Instructions type:', typeof normalizedRecipe.instructions);
+    console.log('🍳 [RecipeDetail] Instructions isArray:', Array.isArray(normalizedRecipe.instructions));
 
     // Ensure ingredients is an object with sections
     if (!normalizedRecipe.ingredients) {
+      console.log('🍳 [RecipeDetail] No ingredients, setting empty main');
       normalizedRecipe.ingredients = { main: [] };
     } else if (Array.isArray(normalizedRecipe.ingredients)) {
+      console.log('🍳 [RecipeDetail] Converting array ingredients to object');
       normalizedRecipe.ingredients = { main: normalizedRecipe.ingredients };
     }
 
     // Ensure instructions is an array
     if (!normalizedRecipe.instructions) {
+      console.log('🍳 [RecipeDetail] No instructions, setting empty array');
       normalizedRecipe.instructions = [];
     } else if (typeof normalizedRecipe.instructions === 'string') {
+      console.log('🍳 [RecipeDetail] Converting string instructions to array');
       normalizedRecipe.instructions = normalizedRecipe.instructions.split('\n').filter(line => line.trim());
     }
 
+    console.log('🍳 [RecipeDetail] Normalized recipe:', JSON.stringify(normalizedRecipe, null, 2));
     setLocalRecipe(normalizedRecipe);
+
     // Parse ingredients when recipe changes
-    const parsed = parseRecipeIngredients(normalizedRecipe.ingredients);
-    setParsedIngredients(parsed);
+    try {
+      console.log('🍳 [RecipeDetail] Parsing ingredients...');
+      const parsed = parseRecipeIngredients(normalizedRecipe.ingredients);
+      console.log('🍳 [RecipeDetail] Parsed ingredients:', JSON.stringify(parsed, null, 2));
+      setParsedIngredients(parsed);
+    } catch (parseError) {
+      console.error('🍳 [RecipeDetail] Error parsing ingredients:', parseError);
+      setParsedIngredients({ main: [] });
+    }
   }, [recipe]);
 
   /**
