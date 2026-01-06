@@ -388,9 +388,15 @@ export function parseRecipeIngredients(ingredients) {
  * Scale all ingredients in a recipe
  */
 export function scaleRecipeIngredients(parsedIngredients, multiplier) {
+  if (!parsedIngredients) return { main: [] };
+
   const scaled = {};
 
   for (const [section, items] of Object.entries(parsedIngredients)) {
+    if (!Array.isArray(items)) {
+      scaled[section] = [];
+      continue;
+    }
     scaled[section] = items.map(item => scaleIngredient(item, multiplier));
   }
 
@@ -401,9 +407,15 @@ export function scaleRecipeIngredients(parsedIngredients, multiplier) {
  * Convert all ingredients in a recipe to different unit system
  */
 export function convertRecipeIngredients(parsedIngredients, toMetric = true) {
+  if (!parsedIngredients) return { main: [] };
+
   const converted = {};
 
   for (const [section, items] of Object.entries(parsedIngredients)) {
+    if (!Array.isArray(items)) {
+      converted[section] = [];
+      continue;
+    }
     converted[section] = items.map(item => convertIngredientUnits(item, toMetric));
   }
 

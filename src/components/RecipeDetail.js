@@ -113,7 +113,11 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       ingredients = convertRecipeIngredients(parsedIngredients, true);
       // Scale after conversion
       const parsedConverted = {};
-      for (const [section, items] of Object.entries(ingredients)) {
+      for (const [section, items] of Object.entries(ingredients || {})) {
+        if (!Array.isArray(items)) {
+          parsedConverted[section] = [];
+          continue;
+        }
         parsedConverted[section] = items.map(item => {
           if (typeof item === 'string') {
             const { parseIngredient } = require('../utils/IngredientParser');
@@ -128,11 +132,11 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     setDisplayedIngredients(ingredients);
 
     // Scale instructions
-    if (localRecipe.instructions) {
+    if (localRecipe?.instructions && Array.isArray(localRecipe.instructions)) {
       const scaled = localRecipe.instructions.map(step => scaleInstructionNumbers(step, scaleFactor));
       setScaledInstructions(scaled);
     }
-  }, [parsedIngredients, scaleFactor, useMetric, localRecipe.instructions]);
+  }, [parsedIngredients, scaleFactor, useMetric, localRecipe?.instructions]);
 
   /**
    * Save current state to global undo history
