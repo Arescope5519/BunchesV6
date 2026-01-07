@@ -267,7 +267,7 @@ class ShareViewController: UIViewController {
 }
 
 /**
- * Creates the Share Extension Info.plist content
+ * Creates the Share Extension Info.plist content - NO storyboard, pure code UI
  */
 function getExtensionInfoPlist(bundleId, bundleDisplayName) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -300,8 +300,6 @@ function getExtensionInfoPlist(bundleId, bundleDisplayName) {
             <dict>
                 <key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
                 <integer>1</integer>
-                <key>NSExtensionActivationSupportsText</key>
-                <true/>
             </dict>
         </dict>
         <key>NSExtensionPointIdentifier</key>
@@ -576,11 +574,7 @@ const withShareExtensionFiles = (config) => {
         getExtensionEntitlements(APP_GROUP_ID)
       );
 
-      // Write MainInterface.storyboard
-      fs.writeFileSync(
-        path.join(extensionPath, 'MainInterface.storyboard'),
-        getMainInterfaceStoryboard()
-      );
+      // NOTE: No storyboard - using pure programmatic UI via NSExtensionPrincipalClass
 
       // Create AppGroupStorage native module files in main app
       console.log('Creating AppGroupStorage native module files...');
@@ -699,12 +693,7 @@ const withShareExtensionTarget = (config) => {
       groupKey
     );
 
-    // Add storyboard
-    xcodeProject.addResourceFile(
-      `${targetName}/MainInterface.storyboard`,
-      { target: target.uuid },
-      groupKey
-    );
+    // NOTE: No storyboard - using pure programmatic UI
 
     // Add Info.plist reference (not as build file)
     xcodeProject.addFile(
