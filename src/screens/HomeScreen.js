@@ -275,12 +275,20 @@ export const HomeScreen = ({ user }) => {
     const extractor = new RecipeExtractor();
 
     const checkPendingRecipes = async () => {
-      if (Platform.OS !== 'ios') return;
+      console.log('[HomeScreen] checkPendingRecipes called, Platform:', Platform.OS);
+
+      if (Platform.OS !== 'ios') {
+        console.log('[HomeScreen] Not iOS, skipping pending recipes check');
+        return;
+      }
 
       try {
+        console.log('[HomeScreen] Fetching pending recipes...');
         const pending = await getPendingRecipes();
+        console.log('[HomeScreen] Pending recipes result:', JSON.stringify(pending, null, 2));
+
         if (pending && pending.length > 0) {
-          console.log(`Found ${pending.length} pending recipe(s) from Share Extension`);
+          console.log(`[HomeScreen] Found ${pending.length} pending recipe(s) from Share Extension`);
 
           // Build preview text showing titles or URLs
           const previewText = pending.map((item, i) => {
@@ -394,13 +402,16 @@ export const HomeScreen = ({ user }) => {
               },
             ]
           );
+        } else {
+          console.log('[HomeScreen] No pending recipes found');
         }
       } catch (error) {
-        console.error('Error checking pending recipes:', error);
+        console.error('[HomeScreen] Error checking pending recipes:', error);
       }
     };
 
     // Check on mount
+    console.log('[HomeScreen] Mounting, will check pending recipes...');
     checkPendingRecipes();
 
     // Check when app comes to foreground
