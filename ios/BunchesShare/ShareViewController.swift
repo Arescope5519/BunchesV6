@@ -22,7 +22,7 @@ class ShareViewController: UIViewController {
     private var sharedURL: String?
 
     // App Group identifier - must match your app group
-    private let appGroupIdentifier = "group.com.bunchesai.v6.shared"
+    private let appGroupIdentifier = "group.com.bunchesai.v6"
 
     override func viewDidLoad() {
         super.viewDidLoad()

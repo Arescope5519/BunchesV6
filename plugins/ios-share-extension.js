@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SHARE_EXTENSION_NAME = 'ShareExtension';
-const APP_GROUP_ID = 'group.com.bunchesai.v6.shared';
+const APP_GROUP_ID = 'group.com.bunchesai.v6';
 
 /**
  * Creates the ShareViewController.swift file content
