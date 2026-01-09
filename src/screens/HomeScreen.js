@@ -63,6 +63,9 @@ import { saveRecipeToDatabase } from '../services/supabase/database';
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
 
+// Recipe extractor for parsing shared URLs (consistent with Android)
+import RecipeExtractor from '../../RecipeExtractor';
+
 export const HomeScreen = ({ user }) => {
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState('recipes'); // recipes, social, settings, grocery
@@ -269,6 +272,8 @@ export const HomeScreen = ({ user }) => {
 
   // Check for pending recipes from iOS Share Extension
   useEffect(() => {
+    const extractor = new RecipeExtractor();
+
     const checkPendingRecipes = async () => {
       if (Platform.OS !== 'ios') return;
 
@@ -277,10 +282,16 @@ export const HomeScreen = ({ user }) => {
         if (pending && pending.length > 0) {
           console.log(`Found ${pending.length} pending recipe(s) from Share Extension`);
 
+          // Build preview text showing titles or URLs
+          const previewText = pending.map((item, i) => {
+            const title = item.preview_title || item.title || 'Recipe';
+            return `${i + 1}. ${title}`;
+          }).join('\n');
+
           // Show alert to import
           Alert.alert(
             'Import Shared Recipes',
-            `You have ${pending.length} recipe${pending.length > 1 ? 's' : ''} waiting to be imported.`,
+            `You have ${pending.length} recipe${pending.length > 1 ? 's' : ''} waiting to be imported:\n\n${previewText}`,
             [
               {
                 text: 'Cancel',
@@ -291,26 +302,94 @@ export const HomeScreen = ({ user }) => {
                 text: 'Import All',
                 onPress: async () => {
                   let imported = 0;
-                  for (const recipe of pending) {
+                  let failed = 0;
+
+                  for (const item of pending) {
                     try {
-                      await saveRecipe({
-                        title: recipe.title || 'Untitled Recipe',
-                        ingredients: recipe.ingredients || '',
-                        instructions: recipe.instructions || '',
-                        prep_time: recipe.prep_time || '',
-                        cook_time: recipe.cook_time || '',
-                        servings: recipe.servings || '',
-                        image_url: recipe.image_url || null,
-                        source_url: recipe.source_url || '',
-                        folder: 'All Recipes',
-                      });
+                      let recipeData;
+
+                      // Check if this needs parsing (new format with URL only)
+                      if (item.needs_parsing && item.url) {
+                        console.log(`Parsing URL with RecipeExtractor: ${item.url}`);
+                        const result = await extractor.extract(item.url);
+
+                        if (result.success && result.data) {
+                          // Convert RecipeExtractor format to app format
+                          const extracted = result.data;
+
+                          // Handle ingredients - can be object with sections or string
+                          let ingredientsStr = '';
+                          if (typeof extracted.ingredients === 'object') {
+                            // Convert sectioned ingredients to string
+                            ingredientsStr = Object.entries(extracted.ingredients)
+                              .map(([section, items]) => {
+                                if (section === 'main') return items.join('\n');
+                                return `${section}:\n${items.join('\n')}`;
+                              })
+                              .join('\n\n');
+                          } else if (typeof extracted.ingredients === 'string') {
+                            ingredientsStr = extracted.ingredients;
+                          }
+
+                          // Handle instructions - convert array to numbered string
+                          let instructionsStr = '';
+                          if (Array.isArray(extracted.instructions)) {
+                            instructionsStr = extracted.instructions
+                              .map((step, i) => `${i + 1}. ${step}`)
+                              .join('\n');
+                          } else if (typeof extracted.instructions === 'string') {
+                            instructionsStr = extracted.instructions;
+                          }
+
+                          recipeData = {
+                            title: extracted.title || item.preview_title || 'Untitled Recipe',
+                            ingredients: ingredientsStr,
+                            instructions: instructionsStr,
+                            prep_time: extracted.prep_time || '',
+                            cook_time: extracted.cook_time || '',
+                            servings: extracted.servings || '',
+                            image_url: extracted.image || item.preview_image || null,
+                            source_url: item.url,
+                            folder: 'All Recipes',
+                          };
+                        } else {
+                          console.warn(`Failed to extract recipe from ${item.url}: ${result.error}`);
+                          failed++;
+                          continue;
+                        }
+                      } else {
+                        // Legacy format - recipe data already parsed by share extension
+                        recipeData = {
+                          title: item.title || 'Untitled Recipe',
+                          ingredients: item.ingredients || '',
+                          instructions: item.instructions || '',
+                          prep_time: item.prep_time || '',
+                          cook_time: item.cook_time || '',
+                          servings: item.servings || '',
+                          image_url: item.image_url || null,
+                          source_url: item.source_url || item.url || '',
+                          folder: 'All Recipes',
+                        };
+                      }
+
+                      await saveRecipe(recipeData);
                       imported++;
                     } catch (err) {
                       console.error('Failed to import recipe:', err);
+                      failed++;
                     }
                   }
+
                   await clearPendingRecipes();
-                  Alert.alert('Success', `Imported ${imported} recipe${imported > 1 ? 's' : ''}!`);
+
+                  if (failed > 0) {
+                    Alert.alert(
+                      'Import Complete',
+                      `Imported ${imported} recipe${imported !== 1 ? 's' : ''}.\n${failed} recipe${failed !== 1 ? 's' : ''} failed to import.`
+                    );
+                  } else {
+                    Alert.alert('Success', `Imported ${imported} recipe${imported !== 1 ? 's' : ''}!`);
+                  }
                 },
               },
             ]

@@ -300,9 +300,25 @@ class ShareViewController: UIViewController {
     }
 
     @objc private func saveTapped() {
-        guard let recipe = recipeData, let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+        guard let url = sharedURL, let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
         var queue = userDefaults.array(forKey: "pendingRecipes") as? [[String: Any]] ?? []
-        queue.append(recipe)
+
+        // Save URL only - main app will use JS RecipeExtractor for full parsing
+        // This ensures consistent parsing between iOS and Android
+        var pendingItem: [String: Any] = [
+            "id": UUID().uuidString,
+            "url": url,
+            "created_at": ISO8601DateFormatter().string(from: Date()),
+            "needs_parsing": true
+        ]
+
+        // Include preview data for display while parsing
+        if let preview = recipeData {
+            pendingItem["preview_title"] = preview["title"]
+            pendingItem["preview_image"] = preview["image_url"]
+        }
+
+        queue.append(pendingItem)
         userDefaults.set(queue, forKey: "pendingRecipes")
         saveButton.setTitle("Saved!", for: .normal)
         saveButton.isEnabled = false

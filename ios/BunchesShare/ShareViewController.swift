@@ -636,10 +636,11 @@ class ShareViewController: UIViewController {
     }
 
     @objc private func saveTapped() {
-        guard let recipe = recipeData else { return }
+        guard let url = sharedURL else { return }
 
-        // Save to shared App Group storage
-        saveRecipeToQueue(recipe)
+        // Save URL to queue - main app will use JS RecipeExtractor for full parsing
+        // This ensures consistent parsing between iOS and Android
+        saveURLToQueue(url, previewData: recipeData)
 
         // Show success and close
         saveButton.setTitle("Saved!", for: .normal)
@@ -650,7 +651,7 @@ class ShareViewController: UIViewController {
         }
     }
 
-    private func saveRecipeToQueue(_ recipe: [String: Any]) {
+    private func saveURLToQueue(_ url: String, previewData: [String: Any]?) {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
             print("Failed to access App Group")
             return
@@ -659,13 +660,26 @@ class ShareViewController: UIViewController {
         // Get existing queue
         var queue = userDefaults.array(forKey: "pendingRecipes") as? [[String: Any]] ?? []
 
-        // Add new recipe
-        queue.append(recipe)
+        // Save minimal data - URL is required, preview data is optional for display
+        var pendingItem: [String: Any] = [
+            "id": UUID().uuidString,
+            "url": url,
+            "created_at": ISO8601DateFormatter().string(from: Date()),
+            "needs_parsing": true  // Flag to indicate main app should parse with RecipeExtractor
+        ]
+
+        // Include preview data for potential display while parsing
+        if let preview = previewData {
+            pendingItem["preview_title"] = preview["title"]
+            pendingItem["preview_image"] = preview["image_url"]
+        }
+
+        queue.append(pendingItem)
 
         // Save back
         userDefaults.set(queue, forKey: "pendingRecipes")
         userDefaults.synchronize()
 
-        print("Recipe saved to queue. Total pending: \(queue.count)")
+        print("URL saved to queue. Total pending: \(queue.count)")
     }
 }
