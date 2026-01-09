@@ -352,15 +352,67 @@ class ShareViewController: UIViewController {
             recipe["ingredients"] = ingredients.joined(separator: "\n")
         }
 
-        // Instructions
+        // Instructions - handle multiple formats like the JS RecipeExtractor
         if let instructions = json["recipeInstructions"] {
+            var steps: [String] = []
+
             if let instructionString = instructions as? String {
-                recipe["instructions"] = instructionString
-            } else if let instructionArray = instructions as? [String] {
-                recipe["instructions"] = instructionArray.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
-            } else if let instructionObjects = instructions as? [[String: Any]] {
-                let steps = instructionObjects.compactMap { $0["text"] as? String }
-                recipe["instructions"] = steps.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+                // Single string instruction
+                steps.append(instructionString)
+            } else if let instructionArray = instructions as? [Any] {
+                // Array of instructions
+                for instruction in instructionArray {
+                    if let stepString = instruction as? String {
+                        // Plain string step
+                        let cleaned = stepString.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !cleaned.isEmpty {
+                            steps.append(cleaned)
+                        }
+                    } else if let stepObject = instruction as? [String: Any] {
+                        let stepType = stepObject["@type"] as? String ?? ""
+
+                        if stepType == "HowToSection" {
+                            // HowToSection contains itemListElement with nested steps
+                            if let itemListElement = stepObject["itemListElement"] as? [Any] {
+                                for item in itemListElement {
+                                    if let itemString = item as? String {
+                                        steps.append(itemString.trimmingCharacters(in: .whitespacesAndNewlines))
+                                    } else if let itemObject = item as? [String: Any] {
+                                        // HowToStep or plain object
+                                        if let text = itemObject["text"] as? String {
+                                            steps.append(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                                        } else if let name = itemObject["name"] as? String {
+                                            steps.append(name.trimmingCharacters(in: .whitespacesAndNewlines))
+                                        } else if let description = itemObject["description"] as? String {
+                                            steps.append(description.trimmingCharacters(in: .whitespacesAndNewlines))
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // HowToStep or plain object with text/name/description
+                            if let text = stepObject["text"] as? String {
+                                steps.append(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                            } else if let name = stepObject["name"] as? String {
+                                steps.append(name.trimmingCharacters(in: .whitespacesAndNewlines))
+                            } else if let description = stepObject["description"] as? String {
+                                steps.append(description.trimmingCharacters(in: .whitespacesAndNewlines))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Clean up step numbers and filter empty steps
+            let cleanedSteps = steps.compactMap { step -> String? in
+                // Remove leading "Step X." or just "X." patterns
+                var cleaned = step.replacingOccurrences(of: "^(Step\\s+)?\\d+[.:\\s]+", with: "", options: .regularExpression)
+                cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+                return cleaned.count > 5 ? cleaned : nil
+            }
+
+            if !cleanedSteps.isEmpty {
+                recipe["instructions"] = cleanedSteps.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
             }
         }
 

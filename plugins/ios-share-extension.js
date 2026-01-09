@@ -214,15 +214,63 @@ class ShareViewController: UIViewController {
     }
 
     private func extractRecipeFromJSONLD(_ json: [String: Any]) -> [String: Any]? {
-        guard let type = json["@type"] as? String, type.lowercased().contains("recipe") else { return nil }
+        let typeValue = json["@type"]
+        var isRecipe = false
+        if let typeString = typeValue as? String { isRecipe = typeString.lowercased().contains("recipe") }
+        else if let typeArray = typeValue as? [String] { isRecipe = typeArray.contains { $0.lowercased().contains("recipe") } }
+
+        // Check @graph for nested recipes
+        if !isRecipe, let graph = json["@graph"] as? [[String: Any]] {
+            for item in graph { if let recipe = extractRecipeFromJSONLD(item) { return recipe } }
+            return nil
+        }
+        guard isRecipe else { return nil }
+
         var recipe: [String: Any] = [:]
         recipe["title"] = json["name"] as? String
         if let ingredients = json["recipeIngredient"] as? [String] { recipe["ingredients"] = ingredients.joined(separator: "\\n") }
-        if let instructions = json["recipeInstructions"] as? [[String: Any]] {
-            recipe["instructions"] = instructions.compactMap { $0["text"] as? String }.enumerated().map { "\\($0.offset + 1). \\($0.element)" }.joined(separator: "\\n")
+
+        // Handle multiple instruction formats (HowToSection, HowToStep, plain objects, strings)
+        if let instructions = json["recipeInstructions"] {
+            var steps: [String] = []
+            if let instructionString = instructions as? String { steps.append(instructionString) }
+            else if let instructionArray = instructions as? [Any] {
+                for instruction in instructionArray {
+                    if let stepString = instruction as? String {
+                        let cleaned = stepString.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !cleaned.isEmpty { steps.append(cleaned) }
+                    } else if let stepObject = instruction as? [String: Any] {
+                        let stepType = stepObject["@type"] as? String ?? ""
+                        if stepType == "HowToSection" {
+                            if let itemList = stepObject["itemListElement"] as? [Any] {
+                                for item in itemList {
+                                    if let itemStr = item as? String { steps.append(itemStr.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                                    else if let itemObj = item as? [String: Any] {
+                                        if let text = itemObj["text"] as? String { steps.append(text.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                                        else if let name = itemObj["name"] as? String { steps.append(name.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                                    }
+                                }
+                            }
+                        } else {
+                            if let text = stepObject["text"] as? String { steps.append(text.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                            else if let name = stepObject["name"] as? String { steps.append(name.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                        }
+                    }
+                }
+            }
+            let cleanedSteps = steps.compactMap { step -> String? in
+                var cleaned = step.replacingOccurrences(of: "^(Step\\\\s+)?\\\\d+[.:\\\\s]+", with: "", options: .regularExpression)
+                cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+                return cleaned.count > 5 ? cleaned : nil
+            }
+            if !cleanedSteps.isEmpty {
+                recipe["instructions"] = cleanedSteps.enumerated().map { "\\($0.offset + 1). \\($0.element)" }.joined(separator: "\\n")
+            }
         }
+
         if let image = json["image"] as? String { recipe["image_url"] = image }
         else if let images = json["image"] as? [String] { recipe["image_url"] = images.first }
+        else if let imageObj = json["image"] as? [String: Any], let url = imageObj["url"] as? String { recipe["image_url"] = url }
         return recipe
     }
 
