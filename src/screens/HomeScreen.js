@@ -1845,9 +1845,9 @@ export const HomeScreen = ({ user }) => {
                         )}
                       </View>
                     )}
-                    {viewMode === 'photo' && recipe.image && (
+                    {viewMode === 'photo' && recipe.image_url && (
                       <Image
-                        source={{ uri: recipe.image }}
+                        source={{ uri: recipe.image_url }}
                         style={styles.recipeImage}
                         resizeMode="cover"
                       />
