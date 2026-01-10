@@ -688,35 +688,47 @@ const withShareExtensionTarget = (config) => {
     // Add AppGroupStorage files to main app target
     console.log('Adding AppGroupStorage files to Xcode project...');
 
-    // Find the main app group
-    const mainAppGroup = xcodeProject.pbxGroupByName(projectName);
-    if (mainAppGroup) {
+    // Find the main app group key (not the object)
+    const mainTarget = xcodeProject.getFirstTarget();
+    const pbxGroupSection = xcodeProject.hash.project.objects['PBXGroup'];
+    let mainAppGroupKey = null;
+
+    // Find the group key for the project name
+    for (const key in pbxGroupSection) {
+      const group = pbxGroupSection[key];
+      if (typeof group === 'object' && group.name === projectName) {
+        mainAppGroupKey = key;
+        break;
+      }
+    }
+
+    if (mainAppGroupKey) {
       // Add AppGroupStorage.swift to main target
       xcodeProject.addSourceFile(
         `${projectName}/AppGroupStorage.swift`,
-        { target: xcodeProject.getFirstTarget().uuid },
-        mainAppGroup
+        { target: mainTarget.uuid },
+        mainAppGroupKey
       );
 
       // Add AppGroupStorage.m to main target
       xcodeProject.addSourceFile(
         `${projectName}/AppGroupStorage.m`,
-        { target: xcodeProject.getFirstTarget().uuid },
-        mainAppGroup
+        { target: mainTarget.uuid },
+        mainAppGroupKey
       );
 
       // Add PendingRecipesModule.swift to main target
       xcodeProject.addSourceFile(
         `${projectName}/PendingRecipesModule.swift`,
-        { target: xcodeProject.getFirstTarget().uuid },
-        mainAppGroup
+        { target: mainTarget.uuid },
+        mainAppGroupKey
       );
 
       // Add PendingRecipesModule.m to main target
       xcodeProject.addSourceFile(
         `${projectName}/PendingRecipesModule.m`,
-        { target: xcodeProject.getFirstTarget().uuid },
-        mainAppGroup
+        { target: mainTarget.uuid },
+        mainAppGroupKey
       );
 
       console.log('Native module files added to Xcode project');
