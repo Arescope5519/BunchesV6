@@ -675,137 +675,23 @@ const withShareExtensionFiles = (config) => {
 };
 
 /**
- * Plugin to add Share Extension target and AppGroupStorage to Xcode project
+ * Plugin to log instructions for Share Extension setup
+ * NOTE: Xcode project modifications removed due to compatibility issues
+ * The Share Extension target must be created manually in Xcode
  */
 const withShareExtensionTarget = (config) => {
-  return withXcodeProject(config, async (config) => {
-    const xcodeProject = config.modResults;
-    const bundleId = config.ios?.bundleIdentifier || 'com.bunchesai.v6';
-    const platformProjectRoot = config.modRequest.platformProjectRoot;
-    const projectName = config.modRequest.projectName || 'BunchesV6';
-    const targetName = SHARE_EXTENSION_NAME;
-
-    // Add AppGroupStorage files to main app target
-    console.log('Adding AppGroupStorage files to Xcode project...');
-
-    // Find the main app group key (not the object)
-    const mainTarget = xcodeProject.getFirstTarget();
-    const pbxGroupSection = xcodeProject.hash.project.objects['PBXGroup'];
-    let mainAppGroupKey = null;
-
-    // Find the group key for the project name
-    for (const key in pbxGroupSection) {
-      const group = pbxGroupSection[key];
-      if (typeof group === 'object' && group.name === projectName) {
-        mainAppGroupKey = key;
-        break;
-      }
-    }
-
-    if (mainAppGroupKey) {
-      // Add AppGroupStorage.swift to main target
-      xcodeProject.addSourceFile(
-        `${projectName}/AppGroupStorage.swift`,
-        { target: mainTarget.uuid },
-        mainAppGroupKey
-      );
-
-      // Add AppGroupStorage.m to main target
-      xcodeProject.addSourceFile(
-        `${projectName}/AppGroupStorage.m`,
-        { target: mainTarget.uuid },
-        mainAppGroupKey
-      );
-
-      // Add PendingRecipesModule.swift to main target
-      xcodeProject.addSourceFile(
-        `${projectName}/PendingRecipesModule.swift`,
-        { target: mainTarget.uuid },
-        mainAppGroupKey
-      );
-
-      // Add PendingRecipesModule.m to main target
-      xcodeProject.addSourceFile(
-        `${projectName}/PendingRecipesModule.m`,
-        { target: mainTarget.uuid },
-        mainAppGroupKey
-      );
-
-      console.log('Native module files added to Xcode project');
-    } else {
-      console.log('Warning: Could not find main app group, AppGroupStorage files may need to be added manually');
-    }
-
-    // Check if Share Extension target already exists
-    const existingTarget = xcodeProject.pbxTargetByName(targetName);
-    if (existingTarget) {
-      console.log(`Share Extension target "${targetName}" already exists`);
-      return config;
-    }
-
-    // Add Share Extension target
-    const target = xcodeProject.addTarget(
-      targetName,
-      'app_extension',
-      targetName,
-      `${bundleId}.${targetName}`
-    );
-
-    // Add build phases
-    const groupName = targetName;
-    const groupKey = xcodeProject.pbxCreateGroup(groupName, groupName);
-
-    // Get the main group and add our extension group to it
-    const mainGroupKey = xcodeProject.getFirstProject().firstProject.mainGroup;
-    xcodeProject.addToPbxGroup(groupKey, mainGroupKey);
-
-    // Add source files to the target
-    const extensionPath = path.join(platformProjectRoot, targetName);
-
-    // Add Swift file
-    xcodeProject.addSourceFile(
-      `${targetName}/ShareViewController.swift`,
-      { target: target.uuid },
-      groupKey
-    );
-
-    // NOTE: No storyboard - using pure programmatic UI
-
-    // Add Info.plist reference (not as build file)
-    xcodeProject.addFile(
-      `${targetName}/Info.plist`,
-      groupKey
-    );
-
-    // Configure build settings for the extension target
-    const configurations = xcodeProject.pbxXCBuildConfigurationSection();
-
-    for (const key in configurations) {
-      if (typeof configurations[key] === 'object' && configurations[key].buildSettings) {
-        const buildSettings = configurations[key].buildSettings;
-        const name = configurations[key].name;
-
-        // Check if this configuration belongs to our target
-        if (buildSettings.PRODUCT_NAME === `"${targetName}"` ||
-            buildSettings.PRODUCT_BUNDLE_IDENTIFIER === `"${bundleId}.${targetName}"`) {
-
-          buildSettings.INFOPLIST_FILE = `${targetName}/Info.plist`;
-          buildSettings.CODE_SIGN_ENTITLEMENTS = `${targetName}/${targetName}.entitlements`;
-          buildSettings.CODE_SIGN_STYLE = 'Automatic';
-          buildSettings.CURRENT_PROJECT_VERSION = '1';
-          buildSettings.GENERATE_INFOPLIST_FILE = 'NO';
-          buildSettings.IPHONEOS_DEPLOYMENT_TARGET = '14.0';
-          buildSettings.MARKETING_VERSION = '1.0';
-          buildSettings.PRODUCT_BUNDLE_IDENTIFIER = `"${bundleId}.${targetName}"`;
-          buildSettings.SWIFT_VERSION = '5.0';
-          buildSettings.TARGETED_DEVICE_FAMILY = '"1,2"';
-          buildSettings.DEVELOPMENT_TEAM = ''; // Will be set by Xcode
-        }
-      }
-    }
-
-    return config;
-  });
+  console.log('\n========================================');
+  console.log('SHARE EXTENSION SETUP REQUIRED');
+  console.log('========================================');
+  console.log('Files have been created in ios/ShareExtension/');
+  console.log('You must manually add the Share Extension target in Xcode:');
+  console.log('1. Open ios/BunchesV6.xcworkspace');
+  console.log('2. File > New > Target > Share Extension');
+  console.log('3. Name it "ShareExtension"');
+  console.log('4. Delete the generated files and use the ones in ios/ShareExtension/');
+  console.log('5. Add App Groups capability to both targets');
+  console.log('========================================\n');
+  return config;
 };
 
 /**
