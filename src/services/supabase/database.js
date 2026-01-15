@@ -86,6 +86,9 @@ export const loadRecipesFromDatabase = async (userId) => {
  */
 export const saveRecipeToDatabase = async (userId, recipe) => {
   try {
+    const imageUrl = recipe.imageUrl || recipe.image_url;
+    console.log('📸 Saving recipe with image_url:', imageUrl);
+
     const { error } = await supabase
       .from('recipes')
       .upsert({
@@ -96,7 +99,7 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
         instructions: recipe.instructions,
         folder: recipe.folder,
         source_url: recipe.sourceUrl || recipe.source_url,
-        image_url: recipe.imageUrl || recipe.image_url,
+        image_url: imageUrl,
         notes: recipe.notes,
         created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
         updated_at: new Date().toISOString(),
