@@ -24,6 +24,9 @@ const normalizeRecipe = (recipe) => {
   // Ensure ingredients is an object with sections
   if (!normalized.ingredients) {
     normalized.ingredients = { main: [] };
+  } else if (typeof normalized.ingredients === 'string') {
+    // Handle string ingredients (from share extension imports)
+    normalized.ingredients = { main: normalized.ingredients.split('\n').filter(line => line.trim()) };
   } else if (Array.isArray(normalized.ingredients)) {
     normalized.ingredients = { main: normalized.ingredients };
   }
