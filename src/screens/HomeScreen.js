@@ -1387,6 +1387,7 @@ export const HomeScreen = ({ user }) => {
     if (success) {
       setNewFolderName('');
       setShowAddFolder(false);
+      setTimeout(() => setShowFolderManager(true), 100);
     }
   };
 
@@ -1901,7 +1902,10 @@ export const HomeScreen = ({ user }) => {
                 <Text style={styles.addFolderHeaderButton}>Empty</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={() => setShowAddFolder(true)}>
+              <TouchableOpacity onPress={() => {
+                setShowFolderManager(false);
+                setTimeout(() => setShowAddFolder(true), 100);
+              }}>
                 <Text style={styles.addFolderHeaderButton}>+ New</Text>
               </TouchableOpacity>
             )}
@@ -2255,6 +2259,7 @@ export const HomeScreen = ({ user }) => {
                 onPress={() => {
                   setNewFolderName('');
                   setShowAddFolder(false);
+                  setTimeout(() => setShowFolderManager(true), 100);
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
