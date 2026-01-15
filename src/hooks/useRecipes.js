@@ -71,6 +71,7 @@ export const useRecipes = (user) => {
 
     const recipeWithTimestamp = {
       ...recipe,
+      id: recipe.id || `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
@@ -84,7 +85,10 @@ export const useRecipes = (user) => {
 
       // Sync to Supabase in background
       if (user) {
-        saveRecipeToDatabase(user.uid, recipeWithTimestamp).catch(console.error);
+        console.log('🔄 Syncing recipe to Supabase:', recipeWithTimestamp.title);
+        saveRecipeToDatabase(user.uid, recipeWithTimestamp)
+          .then(() => console.log('✅ Recipe synced to Supabase'))
+          .catch(err => console.error('❌ Supabase sync failed:', err));
       }
 
       return true;
@@ -104,8 +108,9 @@ export const useRecipes = (user) => {
 
     const currentRecipes = await loadRecipesFromStorage(user?.uid || null);
 
-    const recipesWithTimestamps = newRecipes.map(recipe => ({
+    const recipesWithTimestamps = newRecipes.map((recipe, index) => ({
       ...recipe,
+      id: recipe.id || `recipe-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
     }));
@@ -119,8 +124,11 @@ export const useRecipes = (user) => {
 
       // Sync to Supabase in background
       if (user) {
+        console.log('🔄 Syncing batch to Supabase...');
         recipesWithTimestamps.forEach(recipe => {
-          saveRecipeToDatabase(user.uid, recipe).catch(console.error);
+          saveRecipeToDatabase(user.uid, recipe)
+            .then(() => console.log(`✅ Synced: ${recipe.title}`))
+            .catch(err => console.error(`❌ Failed to sync ${recipe.title}:`, err));
         });
       }
 
