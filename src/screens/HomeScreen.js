@@ -1871,7 +1871,7 @@ export const HomeScreen = ({ user }) => {
                         )}
                       </View>
                       <Text style={styles.recipeMeta} numberOfLines={1}>
-                        {recipe.folder} • {recipe.ingredients ? Object.values(recipe.ingredients).flat().length : 0} ingredients
+                        {recipe.folder} • {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
                       </Text>
                     </View>
                   </TouchableOpacity>

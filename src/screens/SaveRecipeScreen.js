@@ -83,7 +83,9 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   }
 
   const ingredientCount = localRecipe.ingredients
-    ? Object.values(localRecipe.ingredients).flat().length
+    ? (typeof localRecipe.ingredients === 'string'
+        ? localRecipe.ingredients.split('\n').filter(l => l.trim()).length
+        : Object.values(localRecipe.ingredients).flat().length)
     : 0;
 
   const instructionCount = localRecipe.instructions?.length || 0;

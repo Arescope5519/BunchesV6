@@ -271,7 +271,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                     <View style={styles.recipeInfo}>
                       <Text style={styles.recipeTitle}>{item.recipe.title}</Text>
                       <Text style={styles.recipeMeta}>
-                        {item.recipe.folder} • {Object.values(item.recipe.ingredients || {}).flat().length} ingredients
+                        {item.recipe.folder} • {typeof item.recipe.ingredients === 'string' ? item.recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(item.recipe.ingredients || {}).flat().length} ingredients
                       </Text>
                     </View>
                     <View style={styles.matchBadge}>
