@@ -299,8 +299,8 @@ export const useRecipes = (user) => {
         setSelectedRecipe({ ...selectedRecipe, folder: newFolder });
       }
 
-      // Sync to Firestore in background if user is signed in
-      if (user) {
+      // Sync to Firestore in background if user is signed in and Firestore is available
+      if (user && saveRecipeToFirestore) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
           saveRecipeToFirestore(user.uid, updatedRecipe).catch(err =>
