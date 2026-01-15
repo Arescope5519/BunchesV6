@@ -37,6 +37,7 @@ export const SettingsScreen = ({
   recipes,
   folders,
   onRestoreBackup,
+  onSyncNow,
 }) => {
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -44,6 +45,22 @@ export const SettingsScreen = ({
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const handleSyncNow = async () => {
+    if (!onSyncNow || !user) return;
+
+    setIsSyncing(true);
+    try {
+      await onSyncNow();
+      Alert.alert('Sync Complete', 'Your recipes have been synced to the cloud.');
+    } catch (error) {
+      console.error('Sync failed:', error);
+      Alert.alert('Sync Failed', 'Unable to sync recipes. Please try again later.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -404,6 +421,17 @@ export const SettingsScreen = ({
                   </Text>
                 </View>
               )}
+              <TouchableOpacity
+                style={[styles.syncButton, isSyncing && styles.buttonDisabled]}
+                onPress={handleSyncNow}
+                disabled={isSyncing}
+              >
+                {isSyncing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.syncButtonText}>🔄 Sync Now</Text>
+                )}
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.signOutButton}
                 onPress={handleSignOut}
@@ -774,8 +802,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  signOutButton: {
+  syncButton: {
     marginTop: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  syncButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  signOutButton: {
+    marginTop: 10,
     backgroundColor: colors.error,
     paddingVertical: 12,
     paddingHorizontal: 16,

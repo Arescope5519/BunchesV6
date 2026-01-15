@@ -58,10 +58,13 @@ import colors from '../constants/colors';
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
-import { saveRecipeToDatabase } from '../services/supabase/database';
+import { saveRecipeToDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
+
+// Storage utilities for manual sync
+import { saveRecipes as saveRecipesToStorage } from '../utils/storage';
 
 // Recipe extractor for parsing shared URLs (consistent with Android)
 import RecipeExtractor from '../../RecipeExtractor';
@@ -651,6 +654,24 @@ export const HomeScreen = ({ user }) => {
     } catch (error) {
       console.error('Sign out error:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
+  };
+
+  const handleSyncNow = async () => {
+    if (!user) return;
+
+    try {
+      console.log('🔄 Manual sync started...');
+      // Sync local recipes with Supabase
+      const mergedRecipes = await syncRecipesWithSupabase(user.uid, recipes);
+      // Save merged result to local storage
+      await saveRecipesToStorage(mergedRecipes, user.uid);
+      // Reload UI from storage
+      await reloadFromStorage();
+      console.log('✅ Manual sync complete');
+    } catch (error) {
+      console.error('Manual sync failed:', error);
+      throw error;
     }
   };
 
@@ -1731,6 +1752,7 @@ export const HomeScreen = ({ user }) => {
           recipes={recipes}
           folders={folders}
           onRestoreBackup={handleRestoreBackup}
+          onSyncNow={handleSyncNow}
         />
       )}
 
