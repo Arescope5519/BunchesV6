@@ -2306,12 +2306,14 @@ export const HomeScreen = ({ user }) => {
                   <Text style={styles.folderItemText}>{folder}</Text>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity
-                style={[styles.addFolderButton, styles.cancelButton]}
-                onPress={() => setShowMoveToFolder(false)}
-              >
-                <Text style={styles.cancelButtonText}>Close</Text>
-              </TouchableOpacity>
+              <View style={styles.addFolderButtons}>
+                <TouchableOpacity
+                  style={[styles.addFolderButton, styles.cancelButton]}
+                  onPress={() => setShowMoveToFolder(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
