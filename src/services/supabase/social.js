@@ -260,27 +260,52 @@ export const acceptFriendRequest = async (requestId, currentUserId) => {
  */
 export const getPendingFriendRequests = async (userId) => {
   try {
+    // First get the pending requests
     const { data, error } = await supabase
       .from('friend_requests')
-      .select(`
-        id,
-        from_user_id,
-        status,
-        created_at,
-        user_profiles!friend_requests_from_user_id_fkey (username)
-      `)
+      .select('id, from_user_id, status, created_at')
       .eq('to_user_id', userId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching friend requests:', error);
+      throw error;
+    }
 
-    return data.map(r => ({
-      id: r.id,
-      from: r.from_user_id,
-      senderUsername: r.user_profiles?.username || 'Unknown',
-      createdAt: new Date(r.created_at).getTime(),
-    }));
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Now fetch sender usernames for each request
+    const requests = await Promise.all(
+      data.map(async (r) => {
+        let senderUsername = 'Unknown';
+        try {
+          const { data: senderProfile } = await supabase
+            .from('user_profiles')
+            .select('username')
+            .eq('user_id', r.from_user_id)
+            .single();
+
+          if (senderProfile?.username) {
+            senderUsername = senderProfile.username;
+          }
+        } catch (e) {
+          console.log('Could not fetch sender username:', e);
+        }
+
+        return {
+          id: r.id,
+          from: r.from_user_id,
+          senderUsername,
+          createdAt: new Date(r.created_at).getTime(),
+        };
+      })
+    );
+
+    console.log(`📬 Found ${requests.length} pending friend request(s)`);
+    return requests;
   } catch (error) {
     console.error('Error getting friend requests:', error);
     return [];
