@@ -15,28 +15,58 @@ const LAST_SYNC_KEY = '@last_sync_timestamp';
  */
 export const saveRecipesToDatabase = async (userId, recipes) => {
   try {
-    const recipesToUpsert = recipes.map(recipe => ({
-      id: recipe.id,
-      user_id: userId,
-      title: recipe.title,
-      ingredients: recipe.ingredients,
-      instructions: recipe.instructions,
-      folder: recipe.folder,
-      source_url: recipe.sourceUrl || recipe.source_url,
-      image_url: recipe.imageUrl || recipe.image_url,
-      notes: recipe.notes,
-      deleted_at: recipe.deletedAt || null,
-      created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    const recipesToUpsert = recipes.map(recipe => {
+      // Handle createdAt - could be number, string, or Date
+      let createdAtISO;
+      if (recipe.createdAt) {
+        if (typeof recipe.createdAt === 'number') {
+          createdAtISO = new Date(recipe.createdAt).toISOString();
+        } else if (typeof recipe.createdAt === 'string') {
+          createdAtISO = new Date(recipe.createdAt).toISOString();
+        } else {
+          createdAtISO = new Date().toISOString();
+        }
+      } else {
+        createdAtISO = new Date().toISOString();
+      }
+
+      return {
+        id: recipe.id,
+        user_id: userId,
+        title: recipe.title || 'Untitled Recipe',
+        ingredients: recipe.ingredients || '',
+        instructions: recipe.instructions || '',
+        folder: recipe.folder || 'All Recipes',
+        source_url: recipe.sourceUrl || recipe.source_url || null,
+        image_url: recipe.imageUrl || recipe.image_url || recipe.image || null,
+        notes: recipe.notes || null,
+        prep_time: recipe.prep_time || recipe.prepTime || null,
+        cook_time: recipe.cook_time || recipe.cookTime || null,
+        servings: recipe.servings || null,
+        deleted_at: recipe.deletedAt ? new Date(recipe.deletedAt).toISOString() : null,
+        created_at: createdAtISO,
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    // Filter out any recipes that somehow still don't have an ID
+    const validRecipes = recipesToUpsert.filter(r => r.id);
+
+    if (validRecipes.length === 0) {
+      console.log('⚠️ No valid recipes to save (all missing IDs)');
+      return;
+    }
 
     const { error } = await supabase
       .from('recipes')
-      .upsert(recipesToUpsert, { onConflict: 'id' });
+      .upsert(validRecipes, { onConflict: 'id' });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      throw error;
+    }
 
-    console.log(`✅ Saved ${recipes.length} recipes to Supabase`);
+    console.log(`✅ Saved ${validRecipes.length} recipes to Supabase`);
   } catch (error) {
     console.error('❌ Error saving recipes:', error);
     throw error;
@@ -145,25 +175,42 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
 export const syncRecipes = async (userId, localRecipes) => {
   try {
     console.log('🔄 Starting recipe sync...');
+    console.log(`📦 Local recipes to sync: ${localRecipes.length}`);
+
+    // Ensure all local recipes have IDs (for pre-migration data)
+    const localRecipesWithIds = localRecipes.map(recipe => {
+      if (!recipe.id) {
+        console.log(`⚠️ Recipe "${recipe.title}" missing ID, generating one...`);
+        return {
+          ...recipe,
+          id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: recipe.createdAt || Date.now(),
+          updatedAt: Date.now(),
+        };
+      }
+      return recipe;
+    });
 
     // Load from database
     const dbRecipes = await loadRecipesFromDatabase(userId);
+    console.log(`☁️ Database recipes: ${dbRecipes.length}`);
 
     // Create maps for quick lookup
     const dbMap = new Map(dbRecipes.map(r => [r.id, r]));
-    const localMap = new Map(localRecipes.map(r => [r.id, r]));
+    const localMap = new Map(localRecipesWithIds.map(r => [r.id, r]));
 
     const mergedRecipes = [];
     const recipesToUpload = [];
 
     // Process local recipes
-    localRecipes.forEach(localRecipe => {
+    localRecipesWithIds.forEach(localRecipe => {
       if (localRecipe.deletedAt) return; // Skip deleted
 
       const dbRecipe = dbMap.get(localRecipe.id);
 
       if (!dbRecipe) {
         // Only in local - upload it
+        console.log(`📤 Uploading local recipe: "${localRecipe.title}"`);
         recipesToUpload.push(localRecipe);
         mergedRecipes.push(localRecipe);
       } else {
@@ -189,7 +236,10 @@ export const syncRecipes = async (userId, localRecipes) => {
 
     // Upload local changes
     if (recipesToUpload.length > 0) {
+      console.log(`📤 Uploading ${recipesToUpload.length} recipes to database...`);
       await saveRecipesToDatabase(userId, recipesToUpload);
+    } else {
+      console.log('✓ No new recipes to upload');
     }
 
     await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
