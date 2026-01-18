@@ -97,6 +97,9 @@ export const loadRecipesFromDatabase = async (userId) => {
       source_url: row.source_url,
       image_url: row.image_url,
       notes: row.notes,
+      prep_time: row.prep_time,
+      cook_time: row.cook_time,
+      servings: row.servings,
       createdAt: new Date(row.created_at).getTime(),
       updatedAt: new Date(row.updated_at).getTime(),
     }));

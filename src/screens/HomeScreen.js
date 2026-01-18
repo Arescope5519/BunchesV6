@@ -2297,6 +2297,13 @@ export const HomeScreen = ({ user }) => {
                   : 'Move to Cookbook'
                 }
               </Text>
+              {/* Option to remove from cookbook */}
+              <TouchableOpacity
+                style={[styles.folderItem, styles.removeFromFolderItem]}
+                onPress={() => handleMoveToFolder('All Recipes')}
+              >
+                <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
+              </TouchableOpacity>
               {getCustomFolders().map(folder => (
                 <TouchableOpacity
                   key={folder}
@@ -2879,6 +2886,17 @@ const styles = StyleSheet.create({
   folderItemText: {
     fontSize: 15,
     color: colors.text,
+  },
+  removeFromFolderItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 8,
+    paddingBottom: 16,
+  },
+  removeFromFolderText: {
+    fontSize: 15,
+    color: colors.error,
+    fontWeight: '500',
   },
   globalUndoButton: {
     position: 'absolute',
