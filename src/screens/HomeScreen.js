@@ -1780,7 +1780,39 @@ export const HomeScreen = ({ user }) => {
             <Text style={styles.loadingText}>Loading recipes...</Text>
           </View>
         ) : (
-          <ScrollView style={styles.recipeList}>
+          <View style={{ flex: 1 }}>
+            {/* Sticky multiselect toolbar - outside ScrollView */}
+            {multiselectMode && (
+              <View style={styles.multiselectToolbar}>
+                <TouchableOpacity onPress={exitMultiselectMode} style={styles.toolbarButton}>
+                  <Text style={styles.toolbarButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.toolbarTitle}>
+                  {selectedRecipes.size} selected
+                </Text>
+                <View style={styles.toolbarActions}>
+                  <TouchableOpacity
+                    onPress={moveSelectedRecipesToFolder}
+                    style={[styles.toolbarButton, styles.folderButton]}
+                    disabled={selectedRecipes.size === 0}
+                  >
+                    <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
+                      Move
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={deleteSelectedRecipes}
+                    style={[styles.toolbarButton, styles.deleteButton]}
+                    disabled={selectedRecipes.size === 0}
+                  >
+                    <Text style={[styles.toolbarButtonText, styles.deleteButtonText]}>
+                      🗑️ Delete
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            <ScrollView style={styles.recipeList}>
           {sortedRecipes.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>No recipes yet</Text>
@@ -1790,36 +1822,6 @@ export const HomeScreen = ({ user }) => {
             </View>
           ) : (
             <>
-              {multiselectMode && (
-                <View style={styles.multiselectToolbar}>
-                  <TouchableOpacity onPress={exitMultiselectMode} style={styles.toolbarButton}>
-                    <Text style={styles.toolbarButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.toolbarTitle}>
-                    {selectedRecipes.size} selected
-                  </Text>
-                  <View style={styles.toolbarActions}>
-                    <TouchableOpacity
-                      onPress={moveSelectedRecipesToFolder}
-                      style={[styles.toolbarButton, styles.folderButton]}
-                      disabled={selectedRecipes.size === 0}
-                    >
-                      <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
-                        Move
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={deleteSelectedRecipes}
-                      style={[styles.toolbarButton, styles.deleteButton]}
-                      disabled={selectedRecipes.size === 0}
-                    >
-                      <Text style={[styles.toolbarButtonText, styles.deleteButtonText]}>
-                        🗑️ Delete
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
               {sortedRecipes.map((recipe) => {
                 const isSelected = selectedRecipes.has(recipe.id);
                 return (
@@ -1860,6 +1862,10 @@ export const HomeScreen = ({ user }) => {
                       />
                     )}
                     <View style={styles.recipeCardContent}>
+                      {/* Folder badge - shown if recipe is in a cookbook */}
+                      {recipe.folder && recipe.folder !== 'All Recipes' && (
+                        <Text style={styles.recipeCardFolder}>{recipe.folder}</Text>
+                      )}
                       <View style={styles.recipeCardHeader}>
                         <Text style={styles.recipeTitle}>{recipe.title}</Text>
                         {!multiselectMode && (
@@ -1878,7 +1884,7 @@ export const HomeScreen = ({ user }) => {
                         )}
                       </View>
                       <Text style={styles.recipeMeta} numberOfLines={1}>
-                        {recipe.folder} • {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
+                        {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1887,6 +1893,7 @@ export const HomeScreen = ({ user }) => {
             </>
           )}
         </ScrollView>
+          </View>
         )
       )}
 
@@ -2619,6 +2626,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  recipeCardFolder: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   recipeTitle: {
     fontSize: 15,
