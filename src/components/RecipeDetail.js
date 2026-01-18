@@ -583,6 +583,10 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
   return (
     <>
+      {/* Folder badge - shown if recipe is in a cookbook */}
+      {localRecipe.folder && localRecipe.folder !== 'All Recipes' && (
+        <Text style={styles.folderBadge}>{localRecipe.folder}</Text>
+      )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 
       {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.servings) && (
@@ -1032,6 +1036,14 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 };
 
 const styles = StyleSheet.create({
+  folderBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
