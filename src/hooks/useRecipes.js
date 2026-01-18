@@ -76,7 +76,9 @@ export const useRecipes = (user) => {
       updatedAt: Date.now(),
     };
 
-    const updatedRecipes = [recipeWithTimestamp, ...recipes];
+    // Filter out any existing recipe with the same ID to prevent duplicates
+    const existingRecipes = recipes.filter(r => r.id !== recipeWithTimestamp.id);
+    const updatedRecipes = [recipeWithTimestamp, ...existingRecipes];
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
@@ -115,7 +117,10 @@ export const useRecipes = (user) => {
       updatedAt: Date.now(),
     }));
 
-    const updatedRecipes = [...recipesWithTimestamps, ...currentRecipes];
+    // Get IDs of new recipes to filter out duplicates from existing recipes
+    const newRecipeIds = new Set(recipesWithTimestamps.map(r => r.id));
+    const existingRecipes = currentRecipes.filter(r => !newRecipeIds.has(r.id));
+    const updatedRecipes = [...recipesWithTimestamps, ...existingRecipes];
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
