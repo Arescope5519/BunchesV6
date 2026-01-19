@@ -2210,6 +2210,46 @@ export const HomeScreen = ({ user }) => {
               <View style={styles.bottomSpacer} />
             </ScrollView>
 
+            {/* Move to Folder Modal - inside Recipe Detail for proper stacking */}
+            {showMoveToFolder && selectedRecipe && (
+              <Modal
+                visible={showMoveToFolder}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setShowMoveToFolder(false)}
+              >
+                <View style={styles.modalOverlay}>
+                  <View style={styles.addFolderModal}>
+                    <Text style={styles.addFolderTitle}>Move to Cookbook</Text>
+                    {/* Option to remove from cookbook */}
+                    <TouchableOpacity
+                      style={[styles.folderItem, styles.removeFromFolderItem]}
+                      onPress={() => handleMoveToFolder('All Recipes')}
+                    >
+                      <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
+                    </TouchableOpacity>
+                    {getCustomFolders().map(folder => (
+                      <TouchableOpacity
+                        key={folder}
+                        style={styles.folderItem}
+                        onPress={() => handleMoveToFolder(folder)}
+                      >
+                        <Text style={styles.folderItemText}>{folder}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View style={styles.addFolderButtons}>
+                      <TouchableOpacity
+                        style={[styles.addFolderButton, styles.cancelButton]}
+                        onPress={() => setShowMoveToFolder(false)}
+                      >
+                        <Text style={styles.cancelButtonText}>Close</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </Modal>
+            )}
+
             {/* Undo Button inside Modal */}
             {showUndoButton && canUndo && !undoButtonDismissed && (
               <Animated.View
@@ -2288,8 +2328,8 @@ export const HomeScreen = ({ user }) => {
         </View>
       </Modal>
 
-      {/* Move to Folder Modal */}
-      {showMoveToFolder && (selectedRecipe || multiselectMode) && (
+      {/* Move to Folder Modal - for multiselect mode only */}
+      {showMoveToFolder && multiselectMode && (
         <Modal
           visible={showMoveToFolder}
           animationType="fade"
@@ -2299,10 +2339,7 @@ export const HomeScreen = ({ user }) => {
           <View style={styles.modalOverlay}>
             <View style={styles.addFolderModal}>
               <Text style={styles.addFolderTitle}>
-                {multiselectMode
-                  ? `Move ${selectedRecipes.size} Recipe${selectedRecipes.size > 1 ? 's' : ''} to Cookbook`
-                  : 'Move to Cookbook'
-                }
+                {`Move ${selectedRecipes.size} Recipe${selectedRecipes.size > 1 ? 's' : ''} to Cookbook`}
               </Text>
               {/* Option to remove from cookbook */}
               <TouchableOpacity
