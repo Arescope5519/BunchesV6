@@ -16,28 +16,85 @@ import {
   convertRecipeIngredients
 } from '../utils/IngredientParser';
 
+// Helper to safely parse JSON if it's a string
+const tryParseJSON = (value) => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
 // Helper to normalize recipe format
 const normalizeRecipe = (recipe) => {
   if (!recipe) return { ingredients: { main: [] }, instructions: [] };
 
   const normalized = { ...recipe };
 
+  // Try to parse ingredients if it's a JSON string
+  let ingredients = tryParseJSON(normalized.ingredients);
+
   // Ensure ingredients is an object with sections
-  if (!normalized.ingredients) {
+  if (!ingredients) {
     normalized.ingredients = { main: [] };
-  } else if (typeof normalized.ingredients === 'string') {
+  } else if (typeof ingredients === 'string') {
     // Handle string ingredients (from share extension imports)
-    normalized.ingredients = { main: normalized.ingredients.split('\n').filter(line => line.trim()) };
-  } else if (Array.isArray(normalized.ingredients)) {
-    normalized.ingredients = { main: normalized.ingredients };
+    // Check if it looks like a stringified array "[...]"
+    if (ingredients.trim().startsWith('[')) {
+      const parsed = tryParseJSON(ingredients);
+      if (Array.isArray(parsed)) {
+        normalized.ingredients = { main: parsed };
+      } else {
+        normalized.ingredients = { main: ingredients.split('\n').filter(line => line.trim()) };
+      }
+    } else {
+      normalized.ingredients = { main: ingredients.split('\n').filter(line => line.trim()) };
+    }
+  } else if (Array.isArray(ingredients)) {
+    normalized.ingredients = { main: ingredients };
+  } else if (typeof ingredients === 'object') {
+    // It's an object - make sure each section value is an array
+    normalized.ingredients = {};
+    for (const [key, value] of Object.entries(ingredients)) {
+      const parsedValue = tryParseJSON(value);
+      if (Array.isArray(parsedValue)) {
+        normalized.ingredients[key] = parsedValue;
+      } else if (typeof parsedValue === 'string') {
+        normalized.ingredients[key] = parsedValue.split('\n').filter(line => line.trim());
+      } else {
+        normalized.ingredients[key] = [];
+      }
+    }
+    // Ensure at least one section exists
+    if (Object.keys(normalized.ingredients).length === 0) {
+      normalized.ingredients = { main: [] };
+    }
+  } else {
+    normalized.ingredients = { main: [] };
   }
 
+  // Try to parse instructions if it's a JSON string
+  let instructions = tryParseJSON(normalized.instructions);
+
   // Ensure instructions is an array
-  if (!normalized.instructions) {
+  if (!instructions) {
     normalized.instructions = [];
-  } else if (typeof normalized.instructions === 'string') {
-    normalized.instructions = normalized.instructions.split('\n').filter(line => line.trim());
-  } else if (!Array.isArray(normalized.instructions)) {
+  } else if (typeof instructions === 'string') {
+    // Check if it looks like a stringified array "[...]"
+    if (instructions.trim().startsWith('[')) {
+      const parsed = tryParseJSON(instructions);
+      if (Array.isArray(parsed)) {
+        normalized.instructions = parsed;
+      } else {
+        normalized.instructions = instructions.split('\n').filter(line => line.trim());
+      }
+    } else {
+      normalized.instructions = instructions.split('\n').filter(line => line.trim());
+    }
+  } else if (Array.isArray(instructions)) {
+    normalized.instructions = instructions;
+  } else {
     normalized.instructions = [];
   }
 
