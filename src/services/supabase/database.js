@@ -197,7 +197,17 @@ export const syncRecipes = async (userId, localRecipes) => {
       return recipe;
     });
 
-    // Load from database
+    // Load ALL recipes from database (including deleted) to check sync status
+    const { data: allDbData, error: allDbError } = await supabase
+      .from('recipes')
+      .select('id, deleted_at, updated_at')
+      .eq('user_id', userId);
+
+    if (allDbError) throw allDbError;
+
+    const dbDeletedMap = new Map(allDbData.map(r => [r.id, r.deleted_at]));
+
+    // Load non-deleted from database for merge
     const dbRecipes = await loadRecipesFromDatabase(userId);
     console.log(`☁️ Database recipes: ${dbRecipes.length}`);
 
@@ -207,12 +217,24 @@ export const syncRecipes = async (userId, localRecipes) => {
 
     const mergedRecipes = [];
     const recipesToUpload = [];
+    const recipesToDelete = [];
 
     // Process local recipes
     localRecipesWithIds.forEach(localRecipe => {
-      if (localRecipe.deletedAt) return; // Skip deleted
-
       const dbRecipe = dbMap.get(localRecipe.id);
+      const dbDeletedAt = dbDeletedMap.get(localRecipe.id);
+
+      if (localRecipe.deletedAt) {
+        // Recipe is deleted locally
+        if (!dbDeletedAt) {
+          // But not deleted in database - sync the deletion
+          console.log(`🗑️ Syncing deletion for: "${localRecipe.title}"`);
+          recipesToDelete.push(localRecipe.id);
+        }
+        // Keep in merged for "Recently Deleted" functionality
+        mergedRecipes.push(localRecipe);
+        return;
+      }
 
       if (!dbRecipe) {
         // Only in local - upload it
@@ -233,7 +255,7 @@ export const syncRecipes = async (userId, localRecipes) => {
       }
     });
 
-    // Add recipes only in database
+    // Add recipes only in database (not deleted)
     dbRecipes.forEach(dbRecipe => {
       if (!localMap.has(dbRecipe.id)) {
         mergedRecipes.push(dbRecipe);
@@ -246,6 +268,14 @@ export const syncRecipes = async (userId, localRecipes) => {
       await saveRecipesToDatabase(userId, recipesToUpload);
     } else {
       console.log('✓ No new recipes to upload');
+    }
+
+    // Sync deletions to database
+    if (recipesToDelete.length > 0) {
+      console.log(`🗑️ Syncing ${recipesToDelete.length} deletions to database...`);
+      for (const recipeId of recipesToDelete) {
+        await deleteRecipeFromDatabase(userId, recipeId);
+      }
     }
 
     await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
