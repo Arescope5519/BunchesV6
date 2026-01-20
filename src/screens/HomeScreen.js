@@ -2221,13 +2221,15 @@ export const HomeScreen = ({ user }) => {
                 <View style={styles.modalOverlay}>
                   <View style={styles.addFolderModal}>
                     <Text style={styles.addFolderTitle}>Move to Cookbook</Text>
-                    {/* Option to remove from cookbook */}
-                    <TouchableOpacity
-                      style={[styles.folderItem, styles.removeFromFolderItem]}
-                      onPress={() => handleMoveToFolder('All Recipes')}
-                    >
-                      <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
-                    </TouchableOpacity>
+                    {/* Option to remove from cookbook - only show if recipe is in a folder */}
+                    {selectedRecipe.folder && selectedRecipe.folder !== 'All Recipes' && (
+                      <TouchableOpacity
+                        style={[styles.folderItem, styles.removeFromFolderItem]}
+                        onPress={() => handleMoveToFolder('All Recipes')}
+                      >
+                        <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
+                      </TouchableOpacity>
+                    )}
                     {getCustomFolders().map(folder => (
                       <TouchableOpacity
                         key={folder}
@@ -2341,13 +2343,15 @@ export const HomeScreen = ({ user }) => {
               <Text style={styles.addFolderTitle}>
                 {`Move ${selectedRecipes.size} Recipe${selectedRecipes.size > 1 ? 's' : ''} to Cookbook`}
               </Text>
-              {/* Option to remove from cookbook */}
-              <TouchableOpacity
-                style={[styles.folderItem, styles.removeFromFolderItem]}
-                onPress={() => handleMoveToFolder('All Recipes')}
-              >
-                <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
-              </TouchableOpacity>
+              {/* Option to remove from cookbook - only show if any selected recipe is in a folder */}
+              {recipes.some(r => selectedRecipes.has(r.id) && r.folder && r.folder !== 'All Recipes') && (
+                <TouchableOpacity
+                  style={[styles.folderItem, styles.removeFromFolderItem]}
+                  onPress={() => handleMoveToFolder('All Recipes')}
+                >
+                  <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
+                </TouchableOpacity>
+              )}
               {getCustomFolders().map(folder => (
                 <TouchableOpacity
                   key={folder}
