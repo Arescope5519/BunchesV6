@@ -1781,50 +1781,52 @@ export const HomeScreen = ({ user }) => {
           {/* Tag Filter Dropdown */}
           {showTagFilter && (
             <View style={styles.tagFilterDropdown}>
-              <Text style={styles.tagFilterSectionTitle}>Suggested Tags</Text>
-              <View style={styles.tagFilterGrid}>
-                {PREDEFINED_TAGS.map(tag => (
-                  <TouchableOpacity
-                    key={tag.name}
-                    style={[
-                      styles.tagFilterChip,
-                      selectedTags.includes(tag.name) && styles.tagFilterChipSelected
-                    ]}
-                    onPress={() => toggleTagFilter(tag.name)}
-                  >
-                    <Text style={[
-                      styles.tagFilterChipText,
-                      selectedTags.includes(tag.name) && styles.tagFilterChipTextSelected
-                    ]}>
-                      {tag.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).length > 0 && (
-                <>
-                  <Text style={styles.tagFilterSectionTitle}>Custom Tags</Text>
-                  <View style={styles.tagFilterGrid}>
-                    {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).map(tag => (
-                      <TouchableOpacity
-                        key={tag}
-                        style={[
-                          styles.tagFilterChip,
-                          selectedTags.includes(tag) && styles.tagFilterChipSelected
-                        ]}
-                        onPress={() => toggleTagFilter(tag)}
-                      >
-                        <Text style={[
-                          styles.tagFilterChipText,
-                          selectedTags.includes(tag) && styles.tagFilterChipTextSelected
-                        ]}>
-                          {tag}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
+              <ScrollView style={styles.tagFilterScrollView} nestedScrollEnabled>
+                <Text style={styles.tagFilterSectionTitle}>Suggested Tags</Text>
+                <View style={styles.tagFilterGrid}>
+                  {PREDEFINED_TAGS.map(tag => (
+                    <TouchableOpacity
+                      key={tag.name}
+                      style={[
+                        styles.tagFilterChip,
+                        selectedTags.includes(tag.name) && styles.tagFilterChipSelected
+                      ]}
+                      onPress={() => toggleTagFilter(tag.name)}
+                    >
+                      <Text style={[
+                        styles.tagFilterChipText,
+                        selectedTags.includes(tag.name) && styles.tagFilterChipTextSelected
+                      ]}>
+                        {tag.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).length > 0 && (
+                  <>
+                    <Text style={styles.tagFilterSectionTitle}>Custom Tags</Text>
+                    <View style={styles.tagFilterGrid}>
+                      {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).map(tag => (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[
+                            styles.tagFilterChip,
+                            selectedTags.includes(tag) && styles.tagFilterChipSelected
+                          ]}
+                          onPress={() => toggleTagFilter(tag)}
+                        >
+                          <Text style={[
+                            styles.tagFilterChipText,
+                            selectedTags.includes(tag) && styles.tagFilterChipTextSelected
+                          ]}>
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </ScrollView>
               <TouchableOpacity
                 style={styles.tagFilterCloseButton}
                 onPress={() => setShowTagFilter(false)}
@@ -3362,10 +3364,20 @@ const styles = StyleSheet.create({
   tagFilterDropdown: {
     backgroundColor: colors.white,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    maxHeight: 300,
+    maxHeight: 320,
+    zIndex: 1000,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  tagFilterScrollView: {
+    maxHeight: 220,
   },
   tagFilterSectionTitle: {
     fontSize: 12,
