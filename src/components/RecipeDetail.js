@@ -44,9 +44,25 @@ const normalizeRecipe = (recipe) => {
   return normalized;
 };
 
-export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoAction }) => {
+export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoAction, allRecipes = [] }) => {
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
+
+  // Get all custom tags from user's recipes (tags not in predefined list)
+  const predefinedTagNames = getPredefinedTagNames().map(t => t.toLowerCase());
+  const myCustomTags = React.useMemo(() => {
+    const customTagSet = new Set();
+    allRecipes.forEach(r => {
+      if (r.tags && Array.isArray(r.tags)) {
+        r.tags.forEach(tag => {
+          if (!predefinedTagNames.includes(tag.toLowerCase())) {
+            customTagSet.add(tag);
+          }
+        });
+      }
+    });
+    return Array.from(customTagSet).sort();
+  }, [allRecipes]);
 
   // Scaling and conversion state
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -1114,7 +1130,46 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
               </View>
             )}
 
-            {/* Predefined Tags */}
+            {/* My Custom Tags */}
+            {myCustomTags.length > 0 && (
+              <View style={styles.currentTagsSection}>
+                <Text style={styles.tagEditorSectionTitle}>My Custom Tags</Text>
+                <View style={styles.tagEditorTagsGrid}>
+                  {myCustomTags.map(tag => {
+                    const isSelected = localRecipe.tags?.some(
+                      t => t.toLowerCase() === tag.toLowerCase()
+                    );
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[
+                          styles.tagEditorChipOutline,
+                          isSelected && styles.tagEditorChipOutlineSelected
+                        ]}
+                        onPress={() => {
+                          if (isSelected) {
+                            removeTag(tag);
+                          } else {
+                            addTag(tag);
+                          }
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.tagEditorChipOutlineText,
+                            isSelected && styles.tagEditorChipOutlineTextSelected
+                          ]}
+                        >
+                          {tag}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Suggested Tags */}
             <ScrollView style={styles.predefinedTagsScroll}>
               <Text style={styles.tagEditorSectionTitle}>Suggested Tags</Text>
               <View style={styles.tagEditorTagsGrid}>

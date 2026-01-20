@@ -2359,6 +2359,7 @@ export const HomeScreen = ({ user }) => {
                 onUpdate={selectedRecipe.deletedAt ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 addUndoAction={addUndoAction}
+                allRecipes={recipes}
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>
