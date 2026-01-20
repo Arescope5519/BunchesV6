@@ -72,6 +72,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
   // Tag editing state
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [customTagInput, setCustomTagInput] = useState('');
+  const [tagsExpanded, setTagsExpanded] = useState(false);
 
   // Update local recipe when prop changes
   useEffect(() => {
@@ -639,6 +640,42 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 
+      {/* Tags - right below title */}
+      <View style={styles.tagsRow}>
+        {localRecipe.tags && localRecipe.tags.length > 0 ? (
+          <View style={styles.tagsInlineContainer}>
+            {(tagsExpanded ? localRecipe.tags : localRecipe.tags.slice(0, 3)).map(tag => (
+              <View key={tag} style={styles.tagChipSimple}>
+                <Text style={styles.tagChipSimpleText}>{tag}</Text>
+              </View>
+            ))}
+            {localRecipe.tags.length > 3 && (
+              <TouchableOpacity
+                onPress={() => setTagsExpanded(!tagsExpanded)}
+                style={styles.tagExpandButton}
+              >
+                <Text style={styles.tagExpandButtonText}>
+                  {tagsExpanded ? 'less' : `+${localRecipe.tags.length - 3}`}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => setShowTagEditor(true)}
+              style={styles.tagEditButton}
+            >
+              <Text style={styles.tagEditButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => setShowTagEditor(true)}
+            style={styles.addTagsLink}
+          >
+            <Text style={styles.addTagsLinkText}>+ Add tags</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.servings) && (
         <View style={styles.metaContainer}>
           {localRecipe.prep_time && (
@@ -1025,39 +1062,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
         </TouchableOpacity>
       </View>
 
-      {/* Tags Section */}
-      <View style={styles.tagsSection}>
-        <View style={styles.tagsSectionHeader}>
-          <Text style={styles.tagsSectionTitle}>Tags</Text>
-          <TouchableOpacity
-            onPress={() => setShowTagEditor(true)}
-            style={styles.editTagsButton}
-          >
-            <Text style={styles.editTagsButtonText}>+ Add Tags</Text>
-          </TouchableOpacity>
-        </View>
-        {localRecipe.tags && localRecipe.tags.length > 0 ? (
-          <View style={styles.tagsContainer}>
-            {localRecipe.tags.map(tag => (
-              <View
-                key={tag}
-                style={[styles.tagChip, { backgroundColor: getTagColor(tag) }]}
-              >
-                <Text style={styles.tagChipText}>{tag}</Text>
-                <TouchableOpacity
-                  onPress={() => removeTag(tag)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.tagChipRemove}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.noTagsText}>No tags added yet</Text>
-        )}
-      </View>
-
       {/* Tag Editor Modal */}
       <Modal
         visible={showTagEditor}
@@ -1100,7 +1104,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                   {localRecipe.tags.map(tag => (
                     <TouchableOpacity
                       key={tag}
-                      style={[styles.tagEditorChip, { backgroundColor: getTagColor(tag) }]}
+                      style={styles.tagEditorChip}
                       onPress={() => removeTag(tag)}
                     >
                       <Text style={styles.tagEditorChipText}>{tag} ✕</Text>
@@ -1123,8 +1127,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                       key={tag.name}
                       style={[
                         styles.tagEditorChipOutline,
-                        { borderColor: tag.color },
-                        isSelected && { backgroundColor: tag.color }
+                        isSelected && styles.tagEditorChipOutlineSelected
                       ]}
                       onPress={() => {
                         if (isSelected) {
@@ -1137,7 +1140,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
                       <Text
                         style={[
                           styles.tagEditorChipOutlineText,
-                          { color: isSelected ? '#fff' : tag.color }
+                          isSelected && styles.tagEditorChipOutlineTextSelected
                         ]}
                       >
                         {tag.name}
@@ -1711,63 +1714,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  // Tags Section Styles
-  tagsSection: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: colors.lightGray,
-    borderRadius: 8,
+  // Tags Inline Styles (below title)
+  tagsRow: {
+    marginBottom: 12,
   },
-  tagsSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  tagsSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  editTagsButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-  },
-  editTagsButtonText: {
-    fontSize: 13,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  tagsContainer: {
+  tagsInlineContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  tagChip: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingLeft: 12,
-    paddingRight: 8,
-    borderRadius: 16,
+    gap: 6,
   },
-  tagChipText: {
-    fontSize: 13,
-    color: '#fff',
-    fontWeight: '600',
-    marginRight: 6,
+  tagChipSimple: {
+    backgroundColor: '#E8E8E8',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
   },
-  tagChipRemove: {
+  tagChipSimpleText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: 'bold',
+    color: '#555',
+    fontWeight: '500',
   },
-  noTagsText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
+  tagExpandButton: {
+    backgroundColor: '#E0E0E0',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  tagExpandButtonText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  tagEditButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  tagEditButtonText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  addTagsLink: {
+    paddingVertical: 4,
+  },
+  addTagsLinkText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
   },
   // Tag Editor Modal Styles
   tagEditorOverlay: {
@@ -1846,6 +1840,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
+    backgroundColor: '#666',
   },
   tagEditorChipText: {
     fontSize: 14,
@@ -1856,12 +1851,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    borderColor: '#999',
     backgroundColor: 'transparent',
+  },
+  tagEditorChipOutlineSelected: {
+    backgroundColor: '#666',
+    borderColor: '#666',
   },
   tagEditorChipOutlineText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#666',
+  },
+  tagEditorChipOutlineTextSelected: {
+    color: '#fff',
   },
   predefinedTagsScroll: {
     paddingHorizontal: 16,

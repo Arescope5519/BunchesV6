@@ -1769,7 +1769,7 @@ export const HomeScreen = ({ user }) => {
               {selectedTags.map(tag => (
                 <TouchableOpacity
                   key={tag}
-                  style={[styles.tagChipActive, { backgroundColor: getTagColor(tag) }]}
+                  style={styles.tagChipActive}
                   onPress={() => toggleTagFilter(tag)}
                 >
                   <Text style={styles.tagChipActiveText}>{tag} ✕</Text>
@@ -1781,21 +1781,20 @@ export const HomeScreen = ({ user }) => {
           {/* Tag Filter Dropdown */}
           {showTagFilter && (
             <View style={styles.tagFilterDropdown}>
-              <Text style={styles.tagFilterSectionTitle}>Predefined Tags</Text>
+              <Text style={styles.tagFilterSectionTitle}>Suggested Tags</Text>
               <View style={styles.tagFilterGrid}>
                 {PREDEFINED_TAGS.map(tag => (
                   <TouchableOpacity
                     key={tag.name}
                     style={[
                       styles.tagFilterChip,
-                      { borderColor: tag.color },
-                      selectedTags.includes(tag.name) && { backgroundColor: tag.color }
+                      selectedTags.includes(tag.name) && styles.tagFilterChipSelected
                     ]}
                     onPress={() => toggleTagFilter(tag.name)}
                   >
                     <Text style={[
                       styles.tagFilterChipText,
-                      { color: selectedTags.includes(tag.name) ? '#fff' : tag.color }
+                      selectedTags.includes(tag.name) && styles.tagFilterChipTextSelected
                     ]}>
                       {tag.name}
                     </Text>
@@ -1811,14 +1810,13 @@ export const HomeScreen = ({ user }) => {
                         key={tag}
                         style={[
                           styles.tagFilterChip,
-                          { borderColor: getTagColor(tag) },
-                          selectedTags.includes(tag) && { backgroundColor: getTagColor(tag) }
+                          selectedTags.includes(tag) && styles.tagFilterChipSelected
                         ]}
                         onPress={() => toggleTagFilter(tag)}
                       >
                         <Text style={[
                           styles.tagFilterChipText,
-                          { color: selectedTags.includes(tag) ? '#fff' : getTagColor(tag) }
+                          selectedTags.includes(tag) && styles.tagFilterChipTextSelected
                         ]}>
                           {tag}
                         </Text>
@@ -2014,7 +2012,7 @@ export const HomeScreen = ({ user }) => {
                           {(expandedTagsRecipeId === recipe.id ? recipe.tags : recipe.tags.slice(0, 3)).map(tag => (
                             <View
                               key={tag}
-                              style={[styles.recipeCardTagChip, { backgroundColor: getTagColor(tag) }]}
+                              style={styles.recipeCardTagChip}
                             >
                               <Text style={styles.recipeCardTagText}>{tag}</Text>
                             </View>
@@ -2030,7 +2028,7 @@ export const HomeScreen = ({ user }) => {
                               style={styles.recipeCardExpandTags}
                             >
                               <Text style={styles.recipeCardExpandTagsText}>
-                                {expandedTagsRecipeId === recipe.id ? 'Show less' : `+${recipe.tags.length - 3} more`}
+                                {expandedTagsRecipeId === recipe.id ? 'less' : `+${recipe.tags.length - 3}`}
                               </Text>
                             </TouchableOpacity>
                           )}
@@ -3354,6 +3352,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginRight: 6,
+    backgroundColor: '#666',
   },
   tagChipActiveText: {
     fontSize: 12,
@@ -3387,11 +3386,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
     borderWidth: 1.5,
+    borderColor: '#999',
     marginBottom: 4,
+  },
+  tagFilterChipSelected: {
+    backgroundColor: '#666',
+    borderColor: '#666',
   },
   tagFilterChipText: {
     fontSize: 13,
     fontWeight: '500',
+    color: '#666',
+  },
+  tagFilterChipTextSelected: {
+    color: '#fff',
   },
   tagFilterCloseButton: {
     marginTop: 12,
@@ -3418,16 +3426,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 10,
+    backgroundColor: '#E8E8E8',
   },
   recipeCardTagText: {
     fontSize: 11,
-    color: '#fff',
-    fontWeight: '600',
+    color: '#555',
+    fontWeight: '500',
   },
   recipeCardExpandTags: {
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: colors.lightGray,
+    backgroundColor: '#E0E0E0',
     borderRadius: 10,
   },
   recipeCardExpandTagsText: {
