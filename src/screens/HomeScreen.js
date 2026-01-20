@@ -55,6 +55,7 @@ import NotificationPopup from '../components/NotificationPopup';
 
 // Constants
 import colors from '../constants/colors';
+import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constants/tags';
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
@@ -96,6 +97,10 @@ export const HomeScreen = ({ user }) => {
 
   // View mode state
   const [viewMode, setViewMode] = useState('photo'); // 'list' or 'photo'
+
+  // Tag filter state
+  const [selectedTags, setSelectedTags] = useState([]); // Array of tag names to filter by
+  const [showTagFilter, setShowTagFilter] = useState(false);
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -1486,9 +1491,42 @@ export const HomeScreen = ({ user }) => {
   const filteredRecipes = getFilteredRecipes(currentFolder);
   const nonDeletedRecipeCount = recipes.filter(r => !r.deletedAt).length;
 
-  // Sort recipes based on selected sort option
+  // Get all unique tags from recipes for the filter
+  const allTags = useMemo(() => {
+    const tagSet = new Set();
+    recipes.forEach(recipe => {
+      if (recipe.tags && Array.isArray(recipe.tags)) {
+        recipe.tags.forEach(tag => tagSet.add(tag));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [recipes]);
+
+  // Toggle tag in filter
+  const toggleTagFilter = (tag) => {
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  // Clear all tag filters
+  const clearTagFilters = () => {
+    setSelectedTags([]);
+  };
+
+  // Sort and filter recipes based on selected sort option and tags
   const sortedRecipes = useMemo(() => {
-    const recipesToSort = [...filteredRecipes];
+    let recipesToSort = [...filteredRecipes];
+
+    // Filter by selected tags (show recipes that have ANY of the selected tags)
+    if (selectedTags.length > 0) {
+      recipesToSort = recipesToSort.filter(recipe => {
+        if (!recipe.tags || !Array.isArray(recipe.tags)) return false;
+        return selectedTags.some(tag => recipe.tags.includes(tag));
+      });
+    }
 
     switch (sortBy) {
       case 'alphabetical':
@@ -1522,7 +1560,7 @@ export const HomeScreen = ({ user }) => {
     }
 
     return recipesToSort;
-  }, [filteredRecipes, sortBy, sortOrder]);
+  }, [filteredRecipes, sortBy, sortOrder, selectedTags]);
 
   // Reusable Swipeable Undo Button Component
   const renderSwipeableUndoButton = () => {
@@ -1710,6 +1748,92 @@ export const HomeScreen = ({ user }) => {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Tag Filter Bar */}
+          <View style={styles.tagFilterBar}>
+            <TouchableOpacity
+              style={[styles.tagFilterButton, showTagFilter && styles.tagFilterButtonActive]}
+              onPress={() => setShowTagFilter(!showTagFilter)}
+            >
+              <Text style={[styles.tagFilterButtonText, showTagFilter && styles.tagFilterButtonTextActive]}>
+                🏷️ Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
+              </Text>
+            </TouchableOpacity>
+            {selectedTags.length > 0 && (
+              <TouchableOpacity onPress={clearTagFilters} style={styles.clearTagsButton}>
+                <Text style={styles.clearTagsButtonText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedTagsScroll}>
+              {selectedTags.map(tag => (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.tagChipActive, { backgroundColor: getTagColor(tag) }]}
+                  onPress={() => toggleTagFilter(tag)}
+                >
+                  <Text style={styles.tagChipActiveText}>{tag} ✕</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Tag Filter Dropdown */}
+          {showTagFilter && (
+            <View style={styles.tagFilterDropdown}>
+              <Text style={styles.tagFilterSectionTitle}>Predefined Tags</Text>
+              <View style={styles.tagFilterGrid}>
+                {PREDEFINED_TAGS.map(tag => (
+                  <TouchableOpacity
+                    key={tag.name}
+                    style={[
+                      styles.tagFilterChip,
+                      { borderColor: tag.color },
+                      selectedTags.includes(tag.name) && { backgroundColor: tag.color }
+                    ]}
+                    onPress={() => toggleTagFilter(tag.name)}
+                  >
+                    <Text style={[
+                      styles.tagFilterChipText,
+                      { color: selectedTags.includes(tag.name) ? '#fff' : tag.color }
+                    ]}>
+                      {tag.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).length > 0 && (
+                <>
+                  <Text style={styles.tagFilterSectionTitle}>Custom Tags</Text>
+                  <View style={styles.tagFilterGrid}>
+                    {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).map(tag => (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[
+                          styles.tagFilterChip,
+                          { borderColor: getTagColor(tag) },
+                          selectedTags.includes(tag) && { backgroundColor: getTagColor(tag) }
+                        ]}
+                        onPress={() => toggleTagFilter(tag)}
+                      >
+                        <Text style={[
+                          styles.tagFilterChipText,
+                          { color: selectedTags.includes(tag) ? '#fff' : getTagColor(tag) }
+                        ]}>
+                          {tag}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+              <TouchableOpacity
+                style={styles.tagFilterCloseButton}
+                onPress={() => setShowTagFilter(false)}
+              >
+                <Text style={styles.tagFilterCloseButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </>
       )}
 
@@ -1886,6 +2010,22 @@ export const HomeScreen = ({ user }) => {
                       <Text style={styles.recipeMeta} numberOfLines={1}>
                         {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
                       </Text>
+                      {/* Tag chips on recipe card */}
+                      {recipe.tags && recipe.tags.length > 0 && (
+                        <View style={styles.recipeCardTags}>
+                          {recipe.tags.slice(0, 3).map(tag => (
+                            <View
+                              key={tag}
+                              style={[styles.recipeCardTagChip, { backgroundColor: getTagColor(tag) }]}
+                            >
+                              <Text style={styles.recipeCardTagText}>{tag}</Text>
+                            </View>
+                          ))}
+                          {recipe.tags.length > 3 && (
+                            <Text style={styles.recipeCardMoreTags}>+{recipe.tags.length - 3}</Text>
+                          )}
+                        </View>
+                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -3146,6 +3286,135 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     fontWeight: '700',
+  },
+  // Tag Filter Styles
+  tagFilterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tagFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tagFilterButtonActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  tagFilterButtonText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  tagFilterButtonTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  clearTagsButton: {
+    marginLeft: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  clearTagsButtonText: {
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: '500',
+  },
+  selectedTagsScroll: {
+    marginLeft: 8,
+    flexGrow: 0,
+  },
+  tagChipActive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginRight: 6,
+  },
+  tagChipActiveText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  tagFilterDropdown: {
+    backgroundColor: colors.white,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    maxHeight: 300,
+  },
+  tagFilterSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tagFilterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tagFilterChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    marginBottom: 4,
+  },
+  tagFilterChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  tagFilterCloseButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  tagFilterCloseButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  // Recipe Card Tag Styles
+  recipeCardTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
+    gap: 4,
+  },
+  recipeCardTagChip: {
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  recipeCardTagText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  recipeCardMoreTags: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    marginLeft: 4,
+    alignSelf: 'center',
   },
   // Navigation Bar Styles
   navigationBar: {

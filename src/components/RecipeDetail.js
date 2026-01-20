@@ -7,8 +7,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView } from 'react-native';
 import colors from '../constants/colors';
+import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constants/tags';
 import {
   parseRecipeIngredients,
   scaleRecipeIngredients,
@@ -67,6 +68,10 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
   // Add section modal state
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+
+  // Tag editing state
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [customTagInput, setCustomTagInput] = useState('');
 
   // Update local recipe when prop changes
   useEffect(() => {
@@ -503,6 +508,51 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       setNewSectionName('');
     } else {
       Alert.alert('Error', 'Please enter a section name');
+    }
+  };
+
+  /**
+   * Add a tag to the recipe
+   */
+  const addTag = (tagName) => {
+    const normalizedTag = tagName.trim();
+    if (!normalizedTag) return;
+
+    const currentTags = localRecipe.tags || [];
+    if (currentTags.some(t => t.toLowerCase() === normalizedTag.toLowerCase())) {
+      return; // Tag already exists
+    }
+
+    saveToHistory('Add Tag');
+    const updated = {
+      ...localRecipe,
+      tags: [...currentTags, normalizedTag]
+    };
+    setLocalRecipe(updated);
+    if (onUpdate) onUpdate(updated);
+  };
+
+  /**
+   * Remove a tag from the recipe
+   */
+  const removeTag = (tagName) => {
+    const currentTags = localRecipe.tags || [];
+    saveToHistory('Remove Tag');
+    const updated = {
+      ...localRecipe,
+      tags: currentTags.filter(t => t !== tagName)
+    };
+    setLocalRecipe(updated);
+    if (onUpdate) onUpdate(updated);
+  };
+
+  /**
+   * Add custom tag from input
+   */
+  const addCustomTag = () => {
+    if (customTagInput.trim()) {
+      addTag(customTagInput.trim());
+      setCustomTagInput('');
     }
   };
 
@@ -974,6 +1024,132 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
           <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Tags Section */}
+      <View style={styles.tagsSection}>
+        <View style={styles.tagsSectionHeader}>
+          <Text style={styles.tagsSectionTitle}>Tags</Text>
+          <TouchableOpacity
+            onPress={() => setShowTagEditor(true)}
+            style={styles.editTagsButton}
+          >
+            <Text style={styles.editTagsButtonText}>+ Add Tags</Text>
+          </TouchableOpacity>
+        </View>
+        {localRecipe.tags && localRecipe.tags.length > 0 ? (
+          <View style={styles.tagsContainer}>
+            {localRecipe.tags.map(tag => (
+              <View
+                key={tag}
+                style={[styles.tagChip, { backgroundColor: getTagColor(tag) }]}
+              >
+                <Text style={styles.tagChipText}>{tag}</Text>
+                <TouchableOpacity
+                  onPress={() => removeTag(tag)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.tagChipRemove}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.noTagsText}>No tags added yet</Text>
+        )}
+      </View>
+
+      {/* Tag Editor Modal */}
+      <Modal
+        visible={showTagEditor}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTagEditor(false)}
+      >
+        <View style={styles.tagEditorOverlay}>
+          <View style={styles.tagEditorContainer}>
+            <View style={styles.tagEditorHeader}>
+              <Text style={styles.tagEditorTitle}>Add Tags</Text>
+              <TouchableOpacity onPress={() => setShowTagEditor(false)}>
+                <Text style={styles.tagEditorClose}>Done</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Custom Tag Input */}
+            <View style={styles.customTagInputContainer}>
+              <TextInput
+                style={styles.customTagInput}
+                placeholder="Add custom tag..."
+                value={customTagInput}
+                onChangeText={setCustomTagInput}
+                onSubmitEditing={addCustomTag}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                onPress={addCustomTag}
+                style={styles.addCustomTagButton}
+              >
+                <Text style={styles.addCustomTagButtonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Current Tags */}
+            {localRecipe.tags && localRecipe.tags.length > 0 && (
+              <View style={styles.currentTagsSection}>
+                <Text style={styles.tagEditorSectionTitle}>Current Tags</Text>
+                <View style={styles.tagEditorTagsGrid}>
+                  {localRecipe.tags.map(tag => (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[styles.tagEditorChip, { backgroundColor: getTagColor(tag) }]}
+                      onPress={() => removeTag(tag)}
+                    >
+                      <Text style={styles.tagEditorChipText}>{tag} ✕</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Predefined Tags */}
+            <ScrollView style={styles.predefinedTagsScroll}>
+              <Text style={styles.tagEditorSectionTitle}>Suggested Tags</Text>
+              <View style={styles.tagEditorTagsGrid}>
+                {PREDEFINED_TAGS.map(tag => {
+                  const isSelected = localRecipe.tags?.some(
+                    t => t.toLowerCase() === tag.name.toLowerCase()
+                  );
+                  return (
+                    <TouchableOpacity
+                      key={tag.name}
+                      style={[
+                        styles.tagEditorChipOutline,
+                        { borderColor: tag.color },
+                        isSelected && { backgroundColor: tag.color }
+                      ]}
+                      onPress={() => {
+                        if (isSelected) {
+                          removeTag(tag.name);
+                        } else {
+                          addTag(tag.name);
+                        }
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.tagEditorChipOutlineText,
+                          { color: isSelected ? '#fff' : tag.color }
+                        ]}
+                      >
+                        {tag.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {swapMode && (
         <View style={styles.swapModeNotice}>
@@ -1534,6 +1710,162 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  // Tags Section Styles
+  tagsSection: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+  },
+  tagsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  tagsSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  editTagsButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+  },
+  editTagsButtonText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    borderRadius: 16,
+  },
+  tagChipText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  tagChipRemove: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: 'bold',
+  },
+  noTagsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  // Tag Editor Modal Styles
+  tagEditorOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  tagEditorContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 30,
+  },
+  tagEditorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tagEditorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  tagEditorClose: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  customTagInputContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 10,
+  },
+  customTagInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  addCustomTagButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  addCustomTagButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  currentTagsSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  tagEditorSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  tagEditorTagsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagEditorChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+  },
+  tagEditorChipText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  tagEditorChipOutline: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
+  tagEditorChipOutlineText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  predefinedTagsScroll: {
+    paddingHorizontal: 16,
+    maxHeight: 300,
   },
 });
 
