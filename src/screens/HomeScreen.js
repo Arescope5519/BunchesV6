@@ -101,6 +101,7 @@ export const HomeScreen = ({ user }) => {
   // Tag filter state
   const [selectedTags, setSelectedTags] = useState([]); // Array of tag names to filter by
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [expandedTagsRecipeId, setExpandedTagsRecipeId] = useState(null); // Track which recipe has expanded tags
 
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
@@ -2007,13 +2008,10 @@ export const HomeScreen = ({ user }) => {
                           </TouchableOpacity>
                         )}
                       </View>
-                      <Text style={styles.recipeMeta} numberOfLines={1}>
-                        {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
-                      </Text>
-                      {/* Tag chips on recipe card */}
+                      {/* Tag chips on recipe card - below title */}
                       {recipe.tags && recipe.tags.length > 0 && (
                         <View style={styles.recipeCardTags}>
-                          {recipe.tags.slice(0, 3).map(tag => (
+                          {(expandedTagsRecipeId === recipe.id ? recipe.tags : recipe.tags.slice(0, 3)).map(tag => (
                             <View
                               key={tag}
                               style={[styles.recipeCardTagChip, { backgroundColor: getTagColor(tag) }]}
@@ -2022,10 +2020,25 @@ export const HomeScreen = ({ user }) => {
                             </View>
                           ))}
                           {recipe.tags.length > 3 && (
-                            <Text style={styles.recipeCardMoreTags}>+{recipe.tags.length - 3}</Text>
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                setExpandedTagsRecipeId(
+                                  expandedTagsRecipeId === recipe.id ? null : recipe.id
+                                );
+                              }}
+                              style={styles.recipeCardExpandTags}
+                            >
+                              <Text style={styles.recipeCardExpandTagsText}>
+                                {expandedTagsRecipeId === recipe.id ? 'Show less' : `+${recipe.tags.length - 3} more`}
+                              </Text>
+                            </TouchableOpacity>
                           )}
                         </View>
                       )}
+                      <Text style={styles.recipeMeta} numberOfLines={1}>
+                        {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -3396,25 +3409,31 @@ const styles = StyleSheet.create({
   recipeCardTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 6,
+    marginTop: 4,
+    marginBottom: 4,
     gap: 4,
+    alignItems: 'center',
   },
   recipeCardTagChip: {
-    paddingVertical: 2,
+    paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 10,
   },
   recipeCardTagText: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#fff',
     fontWeight: '600',
   },
-  recipeCardMoreTags: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    marginLeft: 4,
-    alignSelf: 'center',
+  recipeCardExpandTags: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    backgroundColor: colors.lightGray,
+    borderRadius: 10,
+  },
+  recipeCardExpandTagsText: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
   },
   // Navigation Bar Styles
   navigationBar: {
