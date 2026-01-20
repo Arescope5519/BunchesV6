@@ -25,7 +25,11 @@ export const useRecipes = (user) => {
     try {
       setLoadingRecipes(true);
       const userId = user?.uid || null;
+      console.log(`📱 Loading recipes... User: ${userId ? 'logged in' : 'not logged in'}`);
+
       const localRecipes = await loadRecipesFromStorage(userId);
+      const deletedCount = localRecipes.filter(r => r.deletedAt).length;
+      console.log(`📦 Local storage: ${localRecipes.length} recipes (${deletedCount} deleted)`);
 
       if (user && !synced) {
         // User is signed in - sync with Supabase
@@ -35,14 +39,15 @@ export const useRecipes = (user) => {
           await saveRecipesToStorage(mergedRecipes, userId);
           setRecipes(mergedRecipes);
           setSynced(true);
-          console.log(`📚 Loaded and synced ${mergedRecipes.length} recipes`);
+          const mergedDeletedCount = mergedRecipes.filter(r => r.deletedAt).length;
+          console.log(`📚 Synced: ${mergedRecipes.length} recipes (${mergedDeletedCount} deleted)`);
         } catch (syncError) {
           console.error('Sync failed, using local recipes:', syncError);
           setRecipes(localRecipes);
         }
       } else {
         setRecipes(localRecipes);
-        console.log(`📚 Loaded ${localRecipes.length} recipes`);
+        console.log(`📚 Loaded ${localRecipes.length} recipes (no sync needed)`);
       }
     } catch (error) {
       console.error('Failed to load recipes:', error);
@@ -175,21 +180,36 @@ export const useRecipes = (user) => {
    * Delete recipe (soft delete)
    */
   const deleteRecipe = async (recipeId) => {
+    const recipeToDelete = recipes.find(r => r.id === recipeId);
+    console.log(`🗑️ Deleting recipe: "${recipeToDelete?.title}" (ID: ${recipeId})`);
+
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, deletedAt: Date.now(), updatedAt: Date.now() } : r
     );
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
+      console.log(`✅ Recipe marked as deleted locally`);
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
 
+      // Sync deletion to database
       if (user) {
-        deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
+        console.log(`🔄 Syncing deletion to Supabase...`);
+        try {
+          await deleteRecipeFromDatabase(user.uid, recipeId);
+          console.log(`✅ Recipe deleted from Supabase`);
+        } catch (dbError) {
+          console.error(`❌ Failed to delete from Supabase:`, dbError);
+          // Still return true since local delete succeeded
+        }
+      } else {
+        console.log(`⚠️ No user logged in, skipping Supabase sync`);
       }
 
       return true;
     }
+    console.error(`❌ Failed to save deleted recipe to local storage`);
     return false;
   };
 
