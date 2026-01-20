@@ -59,7 +59,7 @@ import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constant
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
-import { saveRecipeToDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
+import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -1000,10 +1000,10 @@ export const HomeScreen = ({ user }) => {
 
               // Delete from Supabase in background if user is signed in
               if (user) {
-                recipeIds.forEach(recipeId => {
-                  saveRecipeToDatabase(user.uid, { id: recipeId, deletedAt: Date.now() }).catch(console.error);
-                });
-                console.log(`✅ Permanently deleted ${recipeCount} recipes`);
+                for (const recipeId of recipeIds) {
+                  deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
+                }
+                console.log(`✅ Permanently deleted ${recipeCount} recipes from database`);
               }
             } else {
               // Soft delete: mark all selected recipes with deletedAt timestamp
@@ -1016,15 +1016,12 @@ export const HomeScreen = ({ user }) => {
               // Reload UI from storage
               await reloadFromStorage();
 
-              // Sync to Supabase in background if user is signed in
+              // Sync soft-deletion to Supabase in background if user is signed in
               if (user) {
-                recipeIds.forEach(recipeId => {
-                  const deletedRecipe = updatedRecipes.find(r => r.id === recipeId);
-                  if (deletedRecipe) {
-                    saveRecipeToDatabase(user.uid, deletedRecipe).catch(console.error);
-                  }
-                });
-                console.log(`✅ Synced ${recipeCount} soft-deleted recipes`);
+                for (const recipeId of recipeIds) {
+                  deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
+                }
+                console.log(`✅ Soft-deleted ${recipeCount} recipes in database`);
               }
             }
           }
