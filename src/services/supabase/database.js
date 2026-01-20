@@ -183,6 +183,11 @@ export const syncRecipes = async (userId, localRecipes) => {
     console.log('🔄 Starting recipe sync...');
     console.log(`📦 Local recipes to sync: ${localRecipes.length}`);
 
+    // Debug: Log deleted recipes
+    const deletedLocal = localRecipes.filter(r => r.deletedAt);
+    console.log(`🗑️ Locally deleted recipes: ${deletedLocal.length}`);
+    deletedLocal.forEach(r => console.log(`  - "${r.title}" (deletedAt: ${r.deletedAt})`));
+
     // Ensure all local recipes have IDs (for pre-migration data)
     const localRecipesWithIds = localRecipes.map(recipe => {
       if (!recipe.id) {
@@ -219,13 +224,18 @@ export const syncRecipes = async (userId, localRecipes) => {
     const recipesToUpload = [];
     const recipesToDelete = [];
 
+    // Track locally deleted recipe IDs to ensure they don't come back
+    const locallyDeletedIds = new Set(
+      localRecipesWithIds.filter(r => r.deletedAt).map(r => r.id)
+    );
+
     // Process local recipes
     localRecipesWithIds.forEach(localRecipe => {
       const dbRecipe = dbMap.get(localRecipe.id);
       const dbDeletedAt = dbDeletedMap.get(localRecipe.id);
 
       if (localRecipe.deletedAt) {
-        // Recipe is deleted locally
+        // Recipe is deleted locally - ALWAYS keep local deleted version
         if (!dbDeletedAt) {
           // But not deleted in database - sync the deletion
           console.log(`🗑️ Syncing deletion for: "${localRecipe.title}"`);
@@ -255,9 +265,10 @@ export const syncRecipes = async (userId, localRecipes) => {
       }
     });
 
-    // Add recipes only in database (not deleted)
+    // Add recipes only in database (not in local AND not locally deleted)
     dbRecipes.forEach(dbRecipe => {
-      if (!localMap.has(dbRecipe.id)) {
+      // Don't add back recipes that are locally deleted
+      if (!localMap.has(dbRecipe.id) && !locallyDeletedIds.has(dbRecipe.id)) {
         mergedRecipes.push(dbRecipe);
       }
     });
@@ -280,7 +291,11 @@ export const syncRecipes = async (userId, localRecipes) => {
 
     await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
 
+    // Debug: Log merged results
+    const deletedInMerged = mergedRecipes.filter(r => r.deletedAt);
+    const activeInMerged = mergedRecipes.filter(r => !r.deletedAt);
     console.log(`✅ Sync complete. ${mergedRecipes.length} total recipes`);
+    console.log(`   - Active: ${activeInMerged.length}, Deleted: ${deletedInMerged.length}`);
     return mergedRecipes;
   } catch (error) {
     console.error('❌ Error syncing recipes:', error);
