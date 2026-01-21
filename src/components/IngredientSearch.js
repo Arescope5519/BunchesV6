@@ -19,6 +19,60 @@ import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 import { normalizeIngredient, matchesCanonical } from '../utils/IngredientNormalizer';
 
+/**
+ * Helper to extract ingredients array from various formats
+ */
+const extractIngredientsArray = (ingredients) => {
+  if (!ingredients) return [];
+
+  // If it's a string, split by newlines
+  if (typeof ingredients === 'string') {
+    // Check if it's JSON
+    try {
+      const parsed = JSON.parse(ingredients);
+      return extractIngredientsArray(parsed);
+    } catch {
+      return ingredients.split('\n').filter(line => line.trim());
+    }
+  }
+
+  // If it's an array, return it
+  if (Array.isArray(ingredients)) {
+    return ingredients.filter(i => typeof i === 'string' && i.trim());
+  }
+
+  // If it's an object with sections, flatten all sections
+  if (typeof ingredients === 'object') {
+    const allIngredients = [];
+    Object.values(ingredients).forEach(section => {
+      if (Array.isArray(section)) {
+        section.forEach(item => {
+          if (typeof item === 'string' && item.trim()) {
+            allIngredients.push(item);
+          }
+        });
+      } else if (typeof section === 'string') {
+        // Section might be a JSON string
+        try {
+          const parsed = JSON.parse(section);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(item => {
+              if (typeof item === 'string' && item.trim()) {
+                allIngredients.push(item);
+              }
+            });
+          }
+        } catch {
+          section.split('\n').filter(line => line.trim()).forEach(item => allIngredients.push(item));
+        }
+      }
+    });
+    return allIngredients;
+  }
+
+  return [];
+};
+
 export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) => {
   const [searchText, setSearchText] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState([]);
@@ -29,24 +83,23 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     const ingredientSet = new Set();
 
     recipes.forEach(recipe => {
-      if (!recipe.deletedAt && recipe.ingredients) {
-        Object.values(recipe.ingredients).forEach(section => {
-          if (!Array.isArray(section)) {
-            return;
-          }
-          section.forEach(ingredient => {
-            // Normalize ingredient to canonical form
-            const normalized = normalizeIngredient(ingredient);
+      if (recipe.deletedAt) return;
 
-            if (normalized.length > 2) {
-              ingredientSet.add(normalized);
-            }
-          });
-        });
-      }
+      const ingredientsArray = extractIngredientsArray(recipe.ingredients);
+
+      ingredientsArray.forEach(ingredient => {
+        // Normalize ingredient to canonical form
+        const normalized = normalizeIngredient(ingredient);
+
+        if (normalized && normalized.length > 2) {
+          ingredientSet.add(normalized);
+        }
+      });
     });
 
-    return Array.from(ingredientSet).sort();
+    const result = Array.from(ingredientSet).sort();
+    console.log(`🔍 IngredientSearch: Found ${result.length} unique ingredients from ${recipes.length} recipes`);
+    return result;
   }, [recipes]);
 
   // Filter suggestions based on search text
@@ -101,13 +154,12 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
       let matchCount = 0;
 
-      // Normalize all recipe ingredients
+      // Normalize all recipe ingredients using the same helper
       const normalizedRecipeIngredients = new Set();
-      Object.values(recipe.ingredients)
-        .flat()
-        .forEach(ing => {
-          normalizedRecipeIngredients.add(normalizeIngredient(ing));
-        });
+      const ingredientsArray = extractIngredientsArray(recipe.ingredients);
+      ingredientsArray.forEach(ing => {
+        normalizedRecipeIngredients.add(normalizeIngredient(ing));
+      });
 
       // Check how many selected ingredients match
       selectedIngredients.forEach(selected => {
