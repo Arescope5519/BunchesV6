@@ -40,6 +40,30 @@ export const SocialModal = ({
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showAddFriends, setShowAddFriends] = useState(false);
+  const [selectedThread, setSelectedThread] = useState(null); // For threaded inbox
+  const [previewRecipe, setPreviewRecipe] = useState(null); // For recipe preview
+
+  // Group shared items by sender for threaded view
+  const threadedInbox = React.useMemo(() => {
+    const threads = {};
+    sharedItems.forEach(item => {
+      const key = item.from || item.fromUsername;
+      if (!threads[key]) {
+        threads[key] = {
+          fromUserId: item.from,
+          fromUsername: item.fromUsername,
+          items: [],
+          latestAt: item.createdAt,
+        };
+      }
+      threads[key].items.push(item);
+      if (item.createdAt > threads[key].latestAt) {
+        threads[key].latestAt = item.createdAt;
+      }
+    });
+    // Sort threads by latest activity
+    return Object.values(threads).sort((a, b) => b.latestAt - a.latestAt);
+  }, [sharedItems]);
 
   const handleSearch = async () => {
     if (!searchQuery || searchQuery.length < 2) return;
@@ -244,9 +268,229 @@ export const SocialModal = ({
     </ScrollView>
   );
 
-  const renderInboxTab = () => (
+  // Format time ago for thread list
+  const formatTimeAgo = (timestamp) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+
+  // Render recipe preview
+  const renderRecipePreview = () => {
+    if (!previewRecipe) return null;
+    const recipe = previewRecipe.type === 'recipe' ? previewRecipe.data : null;
+
+    return (
+      <View style={styles.previewContainer}>
+        <View style={styles.previewHeader}>
+          <TouchableOpacity onPress={() => setPreviewRecipe(null)}>
+            <Text style={styles.backButton}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.previewTitle}>Recipe Preview</Text>
+          <View style={{ width: 50 }} />
+        </View>
+
+        <ScrollView style={styles.previewContent}>
+          {recipe ? (
+            <>
+              <Text style={styles.previewRecipeTitle}>{recipe.title || previewRecipe.name}</Text>
+              <Text style={styles.previewFrom}>Shared by @{previewRecipe.fromUsername}</Text>
+
+              {recipe.image_url && (
+                <View style={styles.previewImagePlaceholder}>
+                  <Text style={styles.previewImageText}>📷 Image</Text>
+                </View>
+              )}
+
+              {/* Recipe meta info */}
+              <View style={styles.previewMeta}>
+                {recipe.prep_time && (
+                  <Text style={styles.previewMetaItem}>Prep: {recipe.prep_time}</Text>
+                )}
+                {recipe.cook_time && (
+                  <Text style={styles.previewMetaItem}>Cook: {recipe.cook_time}</Text>
+                )}
+                {recipe.servings && (
+                  <Text style={styles.previewMetaItem}>Servings: {recipe.servings}</Text>
+                )}
+              </View>
+
+              {/* Ingredients */}
+              <Text style={styles.previewSectionTitle}>Ingredients</Text>
+              {recipe.ingredients && typeof recipe.ingredients === 'object' ? (
+                Object.entries(recipe.ingredients).map(([section, items]) => (
+                  <View key={section}>
+                    {section !== 'main' && (
+                      <Text style={styles.previewSubsectionTitle}>{section}</Text>
+                    )}
+                    {Array.isArray(items) && items.map((item, idx) => (
+                      <Text key={idx} style={styles.previewIngredient}>• {item}</Text>
+                    ))}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.previewIngredient}>{String(recipe.ingredients || 'No ingredients')}</Text>
+              )}
+
+              {/* Instructions */}
+              <Text style={styles.previewSectionTitle}>Instructions</Text>
+              {Array.isArray(recipe.instructions) ? (
+                recipe.instructions.map((step, idx) => (
+                  <Text key={idx} style={styles.previewInstruction}>
+                    {idx + 1}. {step}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.previewInstruction}>{String(recipe.instructions || 'No instructions')}</Text>
+              )}
+
+              {recipe.notes && (
+                <>
+                  <Text style={styles.previewSectionTitle}>Notes</Text>
+                  <Text style={styles.previewNotes}>{recipe.notes}</Text>
+                </>
+              )}
+            </>
+          ) : (
+            <Text style={styles.previewError}>Unable to preview this recipe</Text>
+          )}
+        </ScrollView>
+
+        <View style={styles.previewActions}>
+          <TouchableOpacity
+            onPress={() => {
+              handleImport(previewRecipe);
+              setPreviewRecipe(null);
+              setSelectedThread(null);
+            }}
+            style={styles.importButton}
+          >
+            <Text style={styles.importButtonText}>Import Recipe</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              onDeclineSharedItem(previewRecipe.id);
+              setPreviewRecipe(null);
+            }}
+            style={styles.declineButton}
+          >
+            <Text style={styles.declineButtonText}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // Render thread detail view
+  const renderThreadDetail = () => {
+    if (!selectedThread) return null;
+
+    return (
+      <View style={styles.threadDetailContainer}>
+        <View style={styles.threadDetailHeader}>
+          <TouchableOpacity onPress={() => setSelectedThread(null)}>
+            <Text style={styles.backButton}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.threadDetailHeaderCenter}>
+            <Text style={styles.threadDetailTitle}>@{selectedThread.fromUsername}</Text>
+            <Text style={styles.threadDetailSubtitle}>
+              {selectedThread.items.length} recipe{selectedThread.items.length !== 1 ? 's' : ''} shared
+            </Text>
+          </View>
+          <View style={{ width: 50 }} />
+        </View>
+
+        <ScrollView style={styles.threadDetailContent}>
+          {selectedThread.items.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.threadRecipeCard}
+              onPress={() => setPreviewRecipe(item)}
+            >
+              <View style={styles.threadRecipeInfo}>
+                <Text style={styles.threadRecipeType}>
+                  {item.type === 'recipe' ? '📄' : '📚'} {item.type === 'recipe' ? 'Recipe' : 'Cookbook'}
+                </Text>
+                <Text style={styles.threadRecipeName}>{item.name}</Text>
+                {item.type === 'cookbook' && (
+                  <Text style={styles.threadRecipeCount}>
+                    {item.data?.length || 0} recipes
+                  </Text>
+                )}
+                <Text style={styles.threadRecipeTime}>{formatTimeAgo(item.createdAt)}</Text>
+              </View>
+              <Text style={styles.threadRecipeArrow}>›</Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Import All / Decline All buttons */}
+          <View style={styles.threadBulkActions}>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Import All',
+                  `Import all ${selectedThread.items.length} recipe${selectedThread.items.length !== 1 ? 's' : ''} from @${selectedThread.fromUsername}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Import All',
+                      onPress: async () => {
+                        for (const item of selectedThread.items) {
+                          await handleImport(item);
+                        }
+                        setSelectedThread(null);
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={styles.bulkImportButton}
+            >
+              <Text style={styles.bulkImportButtonText}>Import All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Decline All',
+                  `Decline all recipes from @${selectedThread.fromUsername}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Decline All',
+                      style: 'destructive',
+                      onPress: async () => {
+                        for (const item of selectedThread.items) {
+                          await onDeclineSharedItem(item.id);
+                        }
+                        setSelectedThread(null);
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={styles.bulkDeclineButton}
+            >
+              <Text style={styles.bulkDeclineButtonText}>Decline All</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Render thread list (main inbox view)
+  const renderThreadList = () => (
     <ScrollView style={styles.tabContent}>
-      {sharedItems.length === 0 ? (
+      {threadedInbox.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>No shared items</Text>
           <Text style={styles.emptyStateSubtext}>
@@ -254,41 +498,47 @@ export const SocialModal = ({
           </Text>
         </View>
       ) : (
-        sharedItems.map(item => (
-          <View key={item.id} style={styles.sharedItem}>
-            <View style={styles.sharedItemHeader}>
-              <Text style={styles.sharedItemType}>
-                {item.type === 'recipe' ? 'Recipe' : 'Cookbook'}
-              </Text>
-              <Text style={styles.sharedItemFrom}>
-                from @{item.fromUsername}
+        threadedInbox.map(thread => (
+          <TouchableOpacity
+            key={thread.fromUserId}
+            style={styles.threadItem}
+            onPress={() => setSelectedThread(thread)}
+          >
+            <View style={styles.threadAvatar}>
+              <Text style={styles.threadAvatarText}>
+                {thread.fromUsername?.charAt(0).toUpperCase() || '?'}
               </Text>
             </View>
-            <Text style={styles.sharedItemName}>{item.name}</Text>
-            {item.type === 'cookbook' && (
-              <Text style={styles.sharedItemCount}>
-                {item.data.length} recipes
+            <View style={styles.threadInfo}>
+              <View style={styles.threadTopRow}>
+                <Text style={styles.threadUsername}>@{thread.fromUsername}</Text>
+                <Text style={styles.threadTime}>{formatTimeAgo(thread.latestAt)}</Text>
+              </View>
+              <Text style={styles.threadPreview}>
+                {thread.items.length} recipe{thread.items.length !== 1 ? 's' : ''} shared
               </Text>
-            )}
-            <View style={styles.sharedItemActions}>
-              <TouchableOpacity
-                onPress={() => handleImport(item)}
-                style={styles.importButton}
-              >
-                <Text style={styles.importButtonText}>Import</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onDeclineSharedItem(item.id)}
-                style={styles.declineButton}
-              >
-                <Text style={styles.declineButtonText}>Decline</Text>
-              </TouchableOpacity>
             </View>
-          </View>
+            <View style={styles.threadBadge}>
+              <Text style={styles.threadBadgeText}>{thread.items.length}</Text>
+            </View>
+          </TouchableOpacity>
         ))
       )}
     </ScrollView>
   );
+
+  const renderInboxTab = () => {
+    // Show recipe preview if one is selected
+    if (previewRecipe) {
+      return renderRecipePreview();
+    }
+    // Show thread detail if a thread is selected
+    if (selectedThread) {
+      return renderThreadDetail();
+    }
+    // Show thread list
+    return renderThreadList();
+  };
 
   return (
     <View style={styles.container}>
@@ -795,6 +1045,276 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 16,
     fontStyle: 'italic',
+  },
+  // Thread list styles
+  threadItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  threadAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  threadAvatarText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  threadInfo: {
+    flex: 1,
+  },
+  threadTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  threadUsername: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  threadTime: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  threadPreview: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  threadBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginLeft: 8,
+  },
+  threadBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  // Thread detail styles
+  threadDetailContainer: {
+    flex: 1,
+  },
+  threadDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  threadDetailHeaderCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  threadDetailTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  threadDetailSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  threadDetailContent: {
+    flex: 1,
+    padding: 16,
+  },
+  backButton: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  threadRecipeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  threadRecipeInfo: {
+    flex: 1,
+  },
+  threadRecipeType: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  threadRecipeName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  threadRecipeCount: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  threadRecipeTime: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  threadRecipeArrow: {
+    fontSize: 24,
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  threadBulkActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  bulkImportButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  bulkImportButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  bulkDeclineButton: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bulkDeclineButtonText: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  // Recipe preview styles
+  previewContainer: {
+    flex: 1,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  previewContent: {
+    flex: 1,
+    padding: 16,
+  },
+  previewRecipeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  previewFrom: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  previewImagePlaceholder: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  previewImageText: {
+    fontSize: 32,
+  },
+  previewMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  previewMetaItem: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  previewSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  previewSubsectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  previewIngredient: {
+    fontSize: 15,
+    color: colors.text,
+    marginBottom: 6,
+    paddingLeft: 8,
+  },
+  previewInstruction: {
+    fontSize: 15,
+    color: colors.text,
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  previewNotes: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  previewError: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 40,
+  },
+  previewActions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
 });
 
