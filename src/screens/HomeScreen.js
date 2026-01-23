@@ -1271,6 +1271,8 @@ export const HomeScreen = ({ user }) => {
         data: cleanedRecipes,
         name: cookbookName,
       });
+      // Close the folder manager first, then show friends picker
+      setShowFolderManager(false);
       setShowShareToFriends(true);
     } else {
       // Not logged in - show message
