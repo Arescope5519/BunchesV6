@@ -470,11 +470,20 @@ export const SettingsScreen = ({
       }
 
       const file = result.assets[0];
+      console.log('Selected file:', file.name, file.uri);
+
+      // Check file extension
+      const fileName = file.name || file.uri.split('/').pop() || '';
+      if (!fileName.toLowerCase().endsWith('.bunches') && !fileName.toLowerCase().endsWith('.txt') && !fileName.toLowerCase().endsWith('.json')) {
+        Alert.alert('Invalid File Type', 'Please select a .bunches backup file created by the Bunches app.');
+        return;
+      }
+
       let fileContent = null;
 
       // Try multiple methods to read the file
-      // Method 1: Try FileSystem.readAsStringAsync
-      if (FileSystem.readAsStringAsync) {
+      // Method 1: Try FileSystem.readAsStringAsync (check EncodingType exists)
+      if (FileSystem.readAsStringAsync && FileSystem.EncodingType?.UTF8) {
         try {
           fileContent = await FileSystem.readAsStringAsync(file.uri, {
             encoding: FileSystem.EncodingType.UTF8,
@@ -490,7 +499,7 @@ export const SettingsScreen = ({
         try {
           const response = await fetch(file.uri);
           fileContent = await response.text();
-          console.log('File read via fetch');
+          console.log('File read via fetch, length:', fileContent?.length);
         } catch (fetchError) {
           console.log('Fetch read failed:', fetchError);
         }
@@ -507,12 +516,22 @@ export const SettingsScreen = ({
         return;
       }
 
+      console.log('File content preview:', fileContent.substring(0, 100));
+
       // Decode and parse the backup
-      const backupData = decodeBackupContent(fileContent.trim());
+      let backupData;
+      try {
+        backupData = decodeBackupContent(fileContent.trim());
+        console.log('Backup decoded successfully, recipes:', backupData?.recipes?.length);
+      } catch (decodeError) {
+        console.log('Decode error:', decodeError);
+        Alert.alert('Invalid File', 'This file is not a valid Bunches backup. Please select a .bunches file created by the Export Backup feature.');
+        return;
+      }
 
       // Validate backup data
-      if (!backupData.type || backupData.type !== 'bunches_backup') {
-        Alert.alert('Invalid Backup', 'This does not appear to be a valid Bunches backup file.');
+      if (!backupData || !backupData.type || backupData.type !== 'bunches_backup') {
+        Alert.alert('Invalid Backup', 'This does not appear to be a valid Bunches backup file. Please select a file created by the Export Backup feature.');
         return;
       }
 
@@ -521,14 +540,11 @@ export const SettingsScreen = ({
         return;
       }
 
+      console.log('Showing restore options for', backupData.recipes.length, 'recipes');
       showRestoreOptions(backupData);
     } catch (error) {
       console.error('Restore error:', error);
-      if (error.message?.includes('JSON') || error.message?.includes('atob')) {
-        Alert.alert('Invalid File', 'Could not read backup file. Make sure you selected a valid Bunches backup file (.bunches).');
-      } else {
-        Alert.alert('Error', `Failed to open backup file: ${error.message}`);
-      }
+      Alert.alert('Error', `Failed to open backup file: ${error.message || 'Unknown error'}`);
     }
   };
 
