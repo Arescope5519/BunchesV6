@@ -14,6 +14,8 @@ import {
   ActivityIndicator,
   Switch,
   TextInput,
+  Platform,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as FileSystem from 'expo-file-system';
@@ -203,6 +205,15 @@ export const SettingsScreen = ({
     }
   };
 
+  // Open app settings for permissions
+  const openAppSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      Linking.openSettings();
+    }
+  };
+
   // Create a backup of all recipes
   const handleExportBackup = async () => {
     if (!recipes || recipes.length === 0) {
@@ -252,36 +263,58 @@ export const SettingsScreen = ({
         recipes: recipesWithImages,
       };
 
+      const jsonContent = JSON.stringify(backupData, null, 2);
+
       // Create filename with date
       const date = new Date();
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const fileName = `bunches-backup-${dateStr}.json`;
 
-      // Try multiple directory options for compatibility
-      let baseDir = FileSystem.cacheDirectory;
+      // On Android, try using StorageAccessFramework to let user pick save location
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+        try {
+          // Request permission to access a directory
+          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
 
-      // If cacheDirectory is null, try documentDirectory
-      if (!baseDir) {
-        baseDir = FileSystem.documentDirectory;
-      }
+          if (permissions.granted) {
+            // Create file in the selected directory
+            const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+              permissions.directoryUri,
+              fileName,
+              'application/json'
+            );
 
-      // Last resort - use a temp approach
-      if (!baseDir) {
-        // Use Sharing directly with data URI approach
-        const jsonString = JSON.stringify(backupData);
-        const isAvailable = await Sharing.isAvailableAsync();
+            // Write content to the file
+            await FileSystem.writeAsStringAsync(fileUri, jsonContent, {
+              encoding: FileSystem.EncodingType.UTF8,
+            });
 
-        if (isAvailable) {
-          // Create a temporary file using expo-file-system's temp directory
-          const tempUri = FileSystem.cacheDirectory || FileSystem.documentDirectory;
-          if (!tempUri) {
-            Alert.alert('Error', 'Unable to access storage on this device. Please check app permissions.');
+            Alert.alert(
+              'Backup Saved',
+              `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} has been saved.`
+            );
             setIsExporting(false);
             return;
           }
+          // If permission denied, fall through to sharing method
+        } catch (safError) {
+          console.log('StorageAccessFramework error, falling back to share:', safError);
+          // Fall through to sharing method
         }
+      }
 
-        Alert.alert('Error', 'Unable to access storage on this device. Please check app permissions in your device settings.');
+      // Fallback: Use cache directory + sharing (works on iOS and as Android fallback)
+      let baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+
+      if (!baseDir) {
+        Alert.alert(
+          'Storage Access Required',
+          'Unable to access storage on this device. Please grant storage permissions in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: openAppSettings }
+          ]
+        );
         setIsExporting(false);
         return;
       }
@@ -289,7 +322,7 @@ export const SettingsScreen = ({
       const filePath = `${baseDir}${fileName}`;
 
       // Write to file
-      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData, null, 2), {
+      await FileSystem.writeAsStringAsync(filePath, jsonContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
@@ -308,11 +341,25 @@ export const SettingsScreen = ({
           `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} is ready to save.`
         );
       } else {
-        Alert.alert('Error', 'Sharing is not available on this device.');
+        Alert.alert(
+          'Sharing Not Available',
+          'Unable to share the backup file. Please check app permissions.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: openAppSettings }
+          ]
+        );
       }
     } catch (error) {
       console.error('Backup error:', error);
-      Alert.alert('Error', `Failed to create backup: ${error.message || 'Unknown error'}\n\nTry restarting the app or checking storage permissions.`);
+      Alert.alert(
+        'Backup Failed',
+        `${error.message || 'Unknown error'}\n\nThis may be a permissions issue.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: openAppSettings }
+        ]
+      );
     } finally {
       setIsExporting(false);
     }
