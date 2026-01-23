@@ -647,7 +647,9 @@ export const HomeScreen = ({ user }) => {
   const handleRestoreBackup = async (backupData) => {
     try {
       const FileSystem = require('expo-file-system');
+      const { saveRecipes } = require('../utils/storage');
       const recipesToRestore = backupData.recipes || [];
+      const mode = backupData.mode || 'add'; // 'add' or 'replace'
 
       // Helper to save base64 image to local file
       const saveBase64Image = async (base64Data, recipeId) => {
@@ -694,9 +696,32 @@ export const HomeScreen = ({ user }) => {
         return base64Data;
       };
 
+      // If replace mode, clear all existing recipes first
+      if (mode === 'replace') {
+        await saveRecipes([], user?.uid || null);
+      }
+
+      // Get existing recipe titles for duplicate detection (case-insensitive)
+      const existingTitles = mode === 'add'
+        ? recipes.filter(r => !r.deletedAt).map(r => r.title?.toLowerCase().trim())
+        : [];
+
       // Process each recipe
+      let addedCount = 0;
+      let skippedCount = 0;
+
       for (let index = 0; index < recipesToRestore.length; index++) {
         const recipeData = recipesToRestore[index];
+
+        // Check for duplicates in 'add' mode
+        if (mode === 'add') {
+          const titleLower = recipeData.title?.toLowerCase().trim();
+          if (existingTitles.includes(titleLower)) {
+            skippedCount++;
+            continue; // Skip duplicate
+          }
+        }
+
         const recipeId = `restored_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
 
         // Save image if it's base64
@@ -714,11 +739,13 @@ export const HomeScreen = ({ user }) => {
           notes: recipeData.notes || '',
           image_url: imageUrl,
           source_url: recipeData.source_url || null,
-          createdAt: new Date().toISOString(),
+          tags: recipeData.tags || [],
+          createdAt: recipeData.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
         await saveRecipe(newRecipe);
+        addedCount++;
       }
 
       // Also restore any new folders that don't exist
@@ -733,6 +760,8 @@ export const HomeScreen = ({ user }) => {
       }
 
       await refreshRecipes();
+
+      console.log(`Restore complete: ${addedCount} added, ${skippedCount} skipped (duplicates)`);
     } catch (error) {
       console.error('Restore backup error:', error);
       throw error;

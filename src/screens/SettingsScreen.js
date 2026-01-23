@@ -221,7 +221,7 @@ export const SettingsScreen = ({
         return;
       }
 
-      // Process recipes with images
+      // Process recipes with images - include ALL fields for exact reproduction
       const recipesWithImages = await Promise.all(
         activeRecipes.map(async (recipe) => {
           const imageData = await imageToBase64(recipe.image_url);
@@ -234,15 +234,18 @@ export const SettingsScreen = ({
             cook_time: recipe.cook_time,
             servings: recipe.servings,
             notes: recipe.notes,
-            image_url: imageData, // Now contains base64 or original URL
+            image_url: imageData,
             source_url: recipe.source_url,
+            tags: recipe.tags || [],
+            createdAt: recipe.createdAt,
+            updatedAt: recipe.updatedAt,
           };
         })
       );
 
       const backupData = {
         type: 'bunches_backup',
-        version: '2.0',
+        version: '2.1',
         exportedAt: new Date().toISOString(),
         recipeCount: recipesWithImages.length,
         folders: folders || [],
@@ -254,11 +257,31 @@ export const SettingsScreen = ({
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const fileName = `bunches-backup-${dateStr}.json`;
 
-      // Use cacheDirectory as it's more reliable on iOS
-      const baseDir = FileSystem.cacheDirectory;
+      // Try multiple directory options for compatibility
+      let baseDir = FileSystem.cacheDirectory;
 
+      // If cacheDirectory is null, try documentDirectory
       if (!baseDir) {
-        Alert.alert('Error', 'Storage not available. Please try again.');
+        baseDir = FileSystem.documentDirectory;
+      }
+
+      // Last resort - use a temp approach
+      if (!baseDir) {
+        // Use Sharing directly with data URI approach
+        const jsonString = JSON.stringify(backupData);
+        const isAvailable = await Sharing.isAvailableAsync();
+
+        if (isAvailable) {
+          // Create a temporary file using expo-file-system's temp directory
+          const tempUri = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+          if (!tempUri) {
+            Alert.alert('Error', 'Unable to access storage on this device. Please check app permissions.');
+            setIsExporting(false);
+            return;
+          }
+        }
+
+        Alert.alert('Error', 'Unable to access storage on this device. Please check app permissions in your device settings.');
         setIsExporting(false);
         return;
       }
@@ -266,7 +289,7 @@ export const SettingsScreen = ({
       const filePath = `${baseDir}${fileName}`;
 
       // Write to file
-      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData), {
+      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(backupData, null, 2), {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
@@ -281,15 +304,15 @@ export const SettingsScreen = ({
         });
 
         Alert.alert(
-          '✅ Backup Created',
-          `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} has been created.`
+          'Backup Created',
+          `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} is ready to save.`
         );
       } else {
         Alert.alert('Error', 'Sharing is not available on this device.');
       }
     } catch (error) {
       console.error('Backup error:', error);
-      Alert.alert('Error', `Failed to create backup: ${error.message || 'Unknown error'}`);
+      Alert.alert('Error', `Failed to create backup: ${error.message || 'Unknown error'}\n\nTry restarting the app or checking storage permissions.`);
     } finally {
       setIsExporting(false);
     }
@@ -298,9 +321,9 @@ export const SettingsScreen = ({
   // Restore recipes from backup file
   const handleRestoreBackup = async () => {
     try {
-      // Open document picker
+      // Open document picker - accept any file type for better compatibility
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
+        type: ['application/json', '*/*'],
         copyToCacheDirectory: true,
       });
 
@@ -334,23 +357,52 @@ export const SettingsScreen = ({
         ? new Date(backupData.exportedAt).toLocaleDateString()
         : 'Unknown date';
 
+      // Show options: Replace All or Add New
       Alert.alert(
         'Restore Backup',
-        `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nThis will add these recipes to your collection. Existing recipes will not be affected.\n\nImages will be restored if they were included in the backup.`,
+        `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nHow would you like to restore?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Restore',
+            text: 'Add New Only',
             onPress: async () => {
               try {
                 if (onRestoreBackup) {
-                  await onRestoreBackup(backupData);
-                  Alert.alert('✅ Restored', `Successfully restored ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''}.`);
+                  await onRestoreBackup({ ...backupData, mode: 'add' });
+                  Alert.alert('Restored', `Added new recipes from backup. Duplicates were skipped.`);
                 }
               } catch (error) {
                 console.error('Restore error:', error);
                 Alert.alert('Error', 'Failed to restore backup. Please try again.');
               }
+            },
+          },
+          {
+            text: 'Replace All',
+            style: 'destructive',
+            onPress: async () => {
+              Alert.alert(
+                'Confirm Replace',
+                'This will DELETE all your current recipes and replace them with the backup. This cannot be undone.\n\nAre you sure?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Replace All',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        if (onRestoreBackup) {
+                          await onRestoreBackup({ ...backupData, mode: 'replace' });
+                          Alert.alert('Restored', `Successfully replaced with ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from backup.`);
+                        }
+                      } catch (error) {
+                        console.error('Restore error:', error);
+                        Alert.alert('Error', 'Failed to restore backup. Please try again.');
+                      }
+                    },
+                  },
+                ]
+              );
             },
           },
         ]
