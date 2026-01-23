@@ -1232,70 +1232,22 @@ export const HomeScreen = ({ user }) => {
 
   // Share recipe handler
   const shareRecipe = async (recipe) => {
-    // If user is logged in and has friends, offer both options
-    if (user && profile && friends.length > 0) {
-      Alert.alert(
-        'Share Recipe',
-        `How do you want to share "${recipe.title}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Share to Friends',
-            onPress: () => {
-              // Clean recipe data for sharing
-              // Clean recipe for sharing - remove undefined fields and system fields
-              const { deletedAt, id, ...cleanRecipe } = recipe;
-              setShareItem({
-                type: 'recipe',
-                data: cleanRecipe,
-                name: recipe.title,
-              });
-              setShowShareToFriends(true);
-            }
-          },
-          {
-            text: 'Copy Code',
-            onPress: async () => {
-              try {
-                const recipeData = {
-                  version: '1.0',
-                  type: 'recipe',
-                  data: {
-                    ...recipe,
-                    deletedAt: undefined,
-                  }
-                };
-                const jsonString = JSON.stringify(recipeData);
-                const encoded = encodeBase64(jsonString);
-                const shareCode = `BUNCHES_RECIPE:${encoded}`;
-                await copyToClipboard(shareCode, `Recipe: ${recipe.title}`);
-              } catch (error) {
-                console.error('Error sharing recipe:', error);
-                Alert.alert('Error', 'Failed to share recipe');
-              }
-            }
-          }
-        ]
-      );
+    // If user is logged in, open friends picker directly
+    if (user && profile) {
+      const { deletedAt, id, ...cleanRecipe } = recipe;
+      setShareItem({
+        type: 'recipe',
+        data: cleanRecipe,
+        name: recipe.title,
+      });
+      setShowShareToFriends(true);
     } else {
-      // Fallback to clipboard sharing
-      try {
-        const recipeData = {
-          version: '1.0',
-          type: 'recipe',
-          data: {
-            ...recipe,
-            deletedAt: undefined,
-          }
-        };
-        const jsonString = JSON.stringify(recipeData);
-        const encoded = encodeBase64(jsonString);
-        const shareCode = `BUNCHES_RECIPE:${encoded}`;
-        await copyToClipboard(shareCode, `Recipe: ${recipe.title}`);
-      } catch (error) {
-        console.error('Error sharing recipe:', error);
-        Alert.alert('Error', 'Failed to share recipe');
-      }
+      // Not logged in - show message
+      Alert.alert(
+        'Sign In Required',
+        'Sign in to share recipes with friends in the app.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -1308,75 +1260,25 @@ export const HomeScreen = ({ user }) => {
       return;
     }
 
-    // If user is logged in and has friends, offer both options
-    if (user && profile && friends.length > 0) {
-      Alert.alert(
-        'Share Cookbook',
-        `How do you want to share "${cookbookName}" (${recipesInCookbook.length} recipes)?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Share to Friends',
-            onPress: () => {
-              // Clean recipes for sharing
-              // Clean recipes for sharing - remove undefined fields and system fields
-              const cleanedRecipes = recipesInCookbook.map(r => {
-                const { deletedAt, id, ...cleanRecipe } = r;
-                return cleanRecipe;
-              });
-              setShareItem({
-                type: 'cookbook',
-                data: cleanedRecipes,
-                name: cookbookName,
-              });
-              setShowShareToFriends(true);
-            }
-          },
-          {
-            text: 'Copy Code',
-            onPress: async () => {
-              try {
-                const cookbookData = {
-                  version: '1.0',
-                  type: 'cookbook',
-                  name: cookbookName,
-                  data: recipesInCookbook.map(r => ({
-                    ...r,
-                    deletedAt: undefined,
-                  }))
-                };
-                const jsonString = JSON.stringify(cookbookData);
-                const encoded = encodeBase64(jsonString);
-                const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
-                await copyToClipboard(shareCode, `Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)`);
-              } catch (error) {
-                console.error('Error sharing cookbook:', error);
-                Alert.alert('Error', 'Failed to share cookbook');
-              }
-            }
-          }
-        ]
-      );
+    // If user is logged in, open friends picker directly
+    if (user && profile) {
+      const cleanedRecipes = recipesInCookbook.map(r => {
+        const { deletedAt, id, ...cleanRecipe } = r;
+        return cleanRecipe;
+      });
+      setShareItem({
+        type: 'cookbook',
+        data: cleanedRecipes,
+        name: cookbookName,
+      });
+      setShowShareToFriends(true);
     } else {
-      // Fallback to clipboard sharing
-      try {
-        const cookbookData = {
-          version: '1.0',
-          type: 'cookbook',
-          name: cookbookName,
-          data: recipesInCookbook.map(r => ({
-            ...r,
-            deletedAt: undefined,
-          }))
-        };
-        const jsonString = JSON.stringify(cookbookData);
-        const encoded = encodeBase64(jsonString);
-        const shareCode = `BUNCHES_COOKBOOK:${encoded}`;
-        await copyToClipboard(shareCode, `Cookbook: ${cookbookName} (${recipesInCookbook.length} recipes)`);
-      } catch (error) {
-        console.error('Error sharing cookbook:', error);
-        Alert.alert('Error', 'Failed to share cookbook');
-      }
+      // Not logged in - show message
+      Alert.alert(
+        'Sign In Required',
+        'Sign in to share cookbooks with friends in the app.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
