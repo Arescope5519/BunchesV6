@@ -353,7 +353,7 @@ export const HomeScreen = ({ user }) => {
         setExtractedRecipe(recipeData);
         setShowQuickLinkModal(false);
         setQuickLinkUrl('');
-        setCurrentScreen('save');
+        setCurrentScreen('saveRecipe');
       } else {
         Alert.alert('Error', result.error || 'Could not extract recipe from this URL');
       }
