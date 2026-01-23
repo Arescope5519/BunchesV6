@@ -22,7 +22,6 @@ import { StatusBar } from 'expo-status-bar';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import * as Clipboard from 'expo-clipboard';
 import colors from '../constants/colors';
 
 export const SettingsScreen = ({
@@ -314,44 +313,26 @@ export const SettingsScreen = ({
       const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
 
       if (!baseDir) {
-        // FileSystem not available - use clipboard/share fallback
-        console.log('FileSystem directories not available, using fallback');
+        // FileSystem not available - use Share API as fallback
+        console.log('FileSystem directories not available, using Share fallback');
 
-        // Offer to copy to clipboard or share as text
-        Alert.alert(
-          'Save Backup',
-          'Choose how to save your backup:',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Copy to Clipboard',
-              onPress: async () => {
-                try {
-                  await Clipboard.setStringAsync(jsonContent);
-                  Alert.alert(
-                    'Copied!',
-                    `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} copied to clipboard.\n\nPaste it into a text file to save it.`
-                  );
-                } catch (e) {
-                  Alert.alert('Error', 'Failed to copy to clipboard');
-                }
-              },
-            },
-            {
-              text: 'Share',
-              onPress: async () => {
-                try {
-                  await Share.share({
-                    message: jsonContent,
-                    title: fileName,
-                  });
-                } catch (e) {
-                  console.log('Share error:', e);
-                }
-              },
-            },
-          ]
-        );
+        try {
+          const result = await Share.share({
+            message: jsonContent,
+            title: fileName,
+          });
+
+          if (result.action === Share.sharedAction) {
+            Alert.alert(
+              'Backup Shared',
+              `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} shared. Save it to Files or Notes app.`
+            );
+          }
+        } catch (e) {
+          console.log('Share error:', e);
+          Alert.alert('Error', 'Failed to share backup. Please try again.');
+        }
+
         setIsExporting(false);
         return;
       }
@@ -379,41 +360,16 @@ export const SettingsScreen = ({
 
         // Don't show alert after share sheet - user already sees it
       } else {
-        // Fallback to Share API or clipboard
-        Alert.alert(
-          'Save Backup',
-          'Choose how to save your backup:',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Copy to Clipboard',
-              onPress: async () => {
-                try {
-                  await Clipboard.setStringAsync(jsonContent);
-                  Alert.alert(
-                    'Copied!',
-                    `Backup copied to clipboard. Paste into a text file to save.`
-                  );
-                } catch (e) {
-                  Alert.alert('Error', 'Failed to copy to clipboard');
-                }
-              },
-            },
-            {
-              text: 'Share as Text',
-              onPress: async () => {
-                try {
-                  await Share.share({
-                    message: jsonContent,
-                    title: fileName,
-                  });
-                } catch (e) {
-                  console.log('Share error:', e);
-                }
-              },
-            },
-          ]
-        );
+        // Fallback to Share API
+        try {
+          await Share.share({
+            message: jsonContent,
+            title: fileName,
+          });
+        } catch (e) {
+          console.log('Share fallback error:', e);
+          Alert.alert('Error', 'Unable to share backup on this device.');
+        }
       }
     } catch (error) {
       console.error('Backup error:', error);
