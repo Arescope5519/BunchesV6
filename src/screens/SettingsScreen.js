@@ -458,7 +458,7 @@ export const SettingsScreen = ({
         {/* Social Profile Section */}
         {user && profile && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Social Profile</Text>
+            <Text style={styles.sectionTitle}>Profile</Text>
             <View style={styles.infoCard}>
               {/* Username */}
               <View style={styles.profileItem}>
@@ -620,7 +620,7 @@ export const SettingsScreen = ({
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>6.05</Text>
+              <Text style={styles.infoValue}>Alpha6.07</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Total Recipes</Text>
