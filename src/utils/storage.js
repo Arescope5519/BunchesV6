@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   RECIPES: 'recipes',
   FOLDERS: 'folders',
   GROCERY_LIST: 'groceryList',
+  APP_SETTINGS: 'appSettings',
 };
 
 /**
@@ -133,5 +134,43 @@ export const loadGroceryList = async (userId = null) => {
   } catch (error) {
     console.error('Failed to load grocery list:', error);
     return [];
+  }
+};
+
+/**
+ * Save app settings to storage
+ * @param {Object} settings - The settings to save
+ * @param {string|null} userId - Optional user ID for user-specific storage
+ */
+export const saveAppSettings = async (settings, userId = null) => {
+  try {
+    const key = getUserKey(STORAGE_KEYS.APP_SETTINGS, userId);
+    await AsyncStorage.setItem(key, JSON.stringify(settings));
+    return true;
+  } catch (error) {
+    console.error('Failed to save app settings:', error);
+    return false;
+  }
+};
+
+/**
+ * Load app settings from storage
+ * @param {string|null} userId - Optional user ID for user-specific storage
+ */
+export const loadAppSettings = async (userId = null) => {
+  try {
+    const key = getUserKey(STORAGE_KEYS.APP_SETTINGS, userId);
+    const stored = await AsyncStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return {
+      showQuickLinkButton: false, // Default: hidden
+    };
+  } catch (error) {
+    console.error('Failed to load app settings:', error);
+    return {
+      showQuickLinkButton: false,
+    };
   }
 };

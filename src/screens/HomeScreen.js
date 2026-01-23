@@ -65,7 +65,7 @@ import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncReci
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
 
 // Storage utilities for manual sync
-import { saveRecipes as saveRecipesToStorage } from '../utils/storage';
+import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings } from '../utils/storage';
 
 // Recipe extractor for parsing shared URLs (consistent with Android)
 import RecipeExtractor from '../../RecipeExtractor';
@@ -116,6 +116,12 @@ export const HomeScreen = ({ user }) => {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [notificationRequest, setNotificationRequest] = useState(null);
   const prevFriendRequestsRef = useRef([]);
+
+  // Quick link button setting
+  const [showQuickLinkButton, setShowQuickLinkButton] = useState(false);
+  const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
+  const [quickLinkUrl, setQuickLinkUrl] = useState('');
+  const [quickLinkLoading, setQuickLinkLoading] = useState(false);
 
   // Hooks - Pass user to useRecipes for Supabase sync
   const {
@@ -278,6 +284,86 @@ export const HomeScreen = ({ user }) => {
 
     hideNavigationBar();
   }, []);
+
+  // Load app settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      const settings = await loadAppSettings(user?.uid);
+      if (settings.showQuickLinkButton !== undefined) {
+        setShowQuickLinkButton(settings.showQuickLinkButton);
+      }
+    };
+    loadSettings();
+  }, [user?.uid]);
+
+  // Save app settings when they change
+  const updateAppSetting = async (key, value) => {
+    const currentSettings = await loadAppSettings(user?.uid);
+    const newSettings = { ...currentSettings, [key]: value };
+    await saveAppSettings(newSettings, user?.uid);
+    if (key === 'showQuickLinkButton') {
+      setShowQuickLinkButton(value);
+    }
+  };
+
+  // Handle quick link URL submission
+  const handleQuickLinkSubmit = async () => {
+    if (!quickLinkUrl.trim()) {
+      Alert.alert('Error', 'Please enter a URL');
+      return;
+    }
+
+    setQuickLinkLoading(true);
+    try {
+      const extractor = new RecipeExtractor();
+      const result = await extractor.extract(quickLinkUrl.trim());
+
+      if (result.success && result.data) {
+        const extracted = result.data;
+
+        // Convert to app format
+        let ingredients = { main: [] };
+        if (typeof extracted.ingredients === 'object' && !Array.isArray(extracted.ingredients)) {
+          ingredients = extracted.ingredients;
+        } else if (Array.isArray(extracted.ingredients)) {
+          ingredients = { main: extracted.ingredients };
+        } else if (typeof extracted.ingredients === 'string') {
+          ingredients = { main: extracted.ingredients.split('\n').filter(line => line.trim()) };
+        }
+
+        let instructions = [];
+        if (Array.isArray(extracted.instructions)) {
+          instructions = extracted.instructions;
+        } else if (typeof extracted.instructions === 'string') {
+          instructions = extracted.instructions.split('\n').filter(line => line.trim());
+        }
+
+        const recipeData = {
+          title: extracted.title || 'Untitled Recipe',
+          ingredients,
+          instructions,
+          prepTime: extracted.prepTime || extracted.prep_time || '',
+          cookTime: extracted.cookTime || extracted.cook_time || '',
+          servings: extracted.servings || '',
+          image_url: extracted.image || extracted.image_url || '',
+          source_url: quickLinkUrl.trim(),
+          notes: '',
+        };
+
+        setExtractedRecipe(recipeData);
+        setShowQuickLinkModal(false);
+        setQuickLinkUrl('');
+        setCurrentScreen('save');
+      } else {
+        Alert.alert('Error', result.error || 'Could not extract recipe from this URL');
+      }
+    } catch (error) {
+      console.error('Quick link extraction error:', error);
+      Alert.alert('Error', 'Failed to extract recipe. Please check the URL and try again.');
+    } finally {
+      setQuickLinkLoading(false);
+    }
+  };
 
   // Check for pending recipes from iOS Share Extension
   useEffect(() => {
@@ -1441,6 +1527,11 @@ export const HomeScreen = ({ user }) => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       // Priority order for back button
+      if (showQuickLinkModal) {
+        setShowQuickLinkModal(false);
+        setQuickLinkUrl('');
+        return true;
+      }
       if (showIngredientSearch) {
         setShowIngredientSearch(false);
         return true;
@@ -1657,6 +1748,14 @@ export const HomeScreen = ({ user }) => {
               >
                 <Text style={styles.iconHeaderButtonText}>➕</Text>
               </TouchableOpacity>
+              {showQuickLinkButton && (
+                <TouchableOpacity
+                  onPress={() => setShowQuickLinkModal(true)}
+                  style={styles.iconHeaderButton}
+                >
+                  <Text style={styles.iconHeaderButtonText}>🔗</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 onPress={() => setShowIngredientSearch(true)}
                 style={styles.iconHeaderButton}
@@ -1875,6 +1974,8 @@ export const HomeScreen = ({ user }) => {
           folders={folders}
           onRestoreBackup={handleRestoreBackup}
           onSyncNow={handleSyncNow}
+          showQuickLinkButton={showQuickLinkButton}
+          onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
         />
       )}
 
@@ -2438,6 +2539,69 @@ export const HomeScreen = ({ user }) => {
         recipes={recipes}
         onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
       />
+
+      {/* Quick Link Modal */}
+      <Modal
+        visible={showQuickLinkModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setShowQuickLinkModal(false);
+          setQuickLinkUrl('');
+        }}
+      >
+        <View style={styles.quickLinkOverlay}>
+          <View style={styles.quickLinkContainer}>
+            <View style={styles.quickLinkHeader}>
+              <Text style={styles.quickLinkTitle}>Add Recipe from URL</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowQuickLinkModal(false);
+                  setQuickLinkUrl('');
+                }}
+              >
+                <Text style={styles.quickLinkClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.quickLinkDescription}>
+              Paste a recipe URL to extract and save it
+            </Text>
+            <TextInput
+              style={styles.quickLinkInput}
+              placeholder="https://example.com/recipe"
+              placeholderTextColor={colors.textSecondary}
+              value={quickLinkUrl}
+              onChangeText={setQuickLinkUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              autoFocus
+            />
+            <View style={styles.quickLinkActions}>
+              <TouchableOpacity
+                style={styles.quickLinkCancelButton}
+                onPress={() => {
+                  setShowQuickLinkModal(false);
+                  setQuickLinkUrl('');
+                }}
+              >
+                <Text style={styles.quickLinkCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickLinkSubmitButton, quickLinkLoading && styles.quickLinkButtonDisabled]}
+                onPress={handleQuickLinkSubmit}
+                disabled={quickLinkLoading}
+              >
+                {quickLinkLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.quickLinkSubmitText}>Extract Recipe</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Add Folder Modal */}
       <Modal
@@ -3510,6 +3674,85 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     paddingHorizontal: 4,
+  },
+  // Quick Link Modal styles
+  quickLinkOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  quickLinkContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  quickLinkHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickLinkTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  quickLinkClose: {
+    fontSize: 20,
+    color: colors.textSecondary,
+    padding: 4,
+  },
+  quickLinkDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  quickLinkInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 16,
+  },
+  quickLinkActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickLinkCancelButton: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickLinkCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  quickLinkSubmitButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  quickLinkSubmitText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  quickLinkButtonDisabled: {
+    opacity: 0.6,
   },
 });
 

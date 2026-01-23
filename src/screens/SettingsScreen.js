@@ -38,6 +38,8 @@ export const SettingsScreen = ({
   folders,
   onRestoreBackup,
   onSyncNow,
+  showQuickLinkButton,
+  onToggleQuickLinkButton,
 }) => {
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -601,6 +603,27 @@ export const SettingsScreen = ({
             </View>
           </View>
         )}
+
+        {/* Preferences Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.infoCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Quick Link Button</Text>
+                <Text style={styles.settingDescription}>
+                  Show a link button on the home screen to quickly add recipes by URL
+                </Text>
+              </View>
+              <Switch
+                value={showQuickLinkButton || false}
+                onValueChange={onToggleQuickLinkButton}
+                trackColor={{ false: '#D1D5DB', true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+        </View>
 
         {/* App Info Section */}
         <View style={styles.section}>
