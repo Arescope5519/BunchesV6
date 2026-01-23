@@ -270,6 +270,10 @@ export const SettingsScreen = ({
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const fileName = `bunches-backup-${dateStr}.json`;
 
+      // Debug: Log available directories
+      console.log('FileSystem.cacheDirectory:', FileSystem.cacheDirectory);
+      console.log('FileSystem.documentDirectory:', FileSystem.documentDirectory);
+
       // On Android, try using StorageAccessFramework to let user pick save location
       if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
         try {
@@ -303,31 +307,34 @@ export const SettingsScreen = ({
         }
       }
 
-      // Fallback: Use cache directory + sharing (works on iOS and as Android fallback)
-      let baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+      // Use cache directory for temp file (always available on iOS)
+      // On iOS, cacheDirectory is always available within the app sandbox
+      const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
 
       if (!baseDir) {
+        // This shouldn't happen on iOS, but handle it gracefully
         Alert.alert(
-          'Storage Access Required',
-          'Unable to access storage on this device. Please grant storage permissions in your device settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: openAppSettings }
-          ]
+          'Storage Error',
+          'Unable to access app storage. Try restarting the app.',
+          [{ text: 'OK' }]
         );
         setIsExporting(false);
         return;
       }
 
       const filePath = `${baseDir}${fileName}`;
+      console.log('Writing backup to:', filePath);
 
       // Write to file
       await FileSystem.writeAsStringAsync(filePath, jsonContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
+      console.log('File written successfully');
+
       // Check if sharing is available
       const isAvailable = await Sharing.isAvailableAsync();
+      console.log('Sharing available:', isAvailable);
 
       if (isAvailable) {
         await Sharing.shareAsync(filePath, {
@@ -336,29 +343,20 @@ export const SettingsScreen = ({
           UTI: 'public.json',
         });
 
-        Alert.alert(
-          'Backup Created',
-          `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} is ready to save.`
-        );
+        // Don't show alert after share sheet - user already sees it
       } else {
         Alert.alert(
           'Sharing Not Available',
-          'Unable to share the backup file. Please check app permissions.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: openAppSettings }
-          ]
+          'Unable to share the backup file on this device.',
+          [{ text: 'OK' }]
         );
       }
     } catch (error) {
       console.error('Backup error:', error);
+      console.error('Error stack:', error.stack);
       Alert.alert(
         'Backup Failed',
-        `${error.message || 'Unknown error'}\n\nThis may be a permissions issue.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: openAppSettings }
-        ]
+        `${error.message || 'Unknown error'}\n\nPlease try again or restart the app.`
       );
     } finally {
       setIsExporting(false);
