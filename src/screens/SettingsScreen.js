@@ -16,11 +16,13 @@ import {
   TextInput,
   Platform,
   Linking,
+  Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Clipboard from 'expo-clipboard';
 import colors from '../constants/colors';
 
 export const SettingsScreen = ({
@@ -312,11 +314,43 @@ export const SettingsScreen = ({
       const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
 
       if (!baseDir) {
-        // This shouldn't happen on iOS, but handle it gracefully
+        // FileSystem not available - use clipboard/share fallback
+        console.log('FileSystem directories not available, using fallback');
+
+        // Offer to copy to clipboard or share as text
         Alert.alert(
-          'Storage Error',
-          'Unable to access app storage. Try restarting the app.',
-          [{ text: 'OK' }]
+          'Save Backup',
+          'Choose how to save your backup:',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Copy to Clipboard',
+              onPress: async () => {
+                try {
+                  await Clipboard.setStringAsync(jsonContent);
+                  Alert.alert(
+                    'Copied!',
+                    `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} copied to clipboard.\n\nPaste it into a text file to save it.`
+                  );
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to copy to clipboard');
+                }
+              },
+            },
+            {
+              text: 'Share',
+              onPress: async () => {
+                try {
+                  await Share.share({
+                    message: jsonContent,
+                    title: fileName,
+                  });
+                } catch (e) {
+                  console.log('Share error:', e);
+                }
+              },
+            },
+          ]
         );
         setIsExporting(false);
         return;
@@ -345,10 +379,40 @@ export const SettingsScreen = ({
 
         // Don't show alert after share sheet - user already sees it
       } else {
+        // Fallback to Share API or clipboard
         Alert.alert(
-          'Sharing Not Available',
-          'Unable to share the backup file on this device.',
-          [{ text: 'OK' }]
+          'Save Backup',
+          'Choose how to save your backup:',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Copy to Clipboard',
+              onPress: async () => {
+                try {
+                  await Clipboard.setStringAsync(jsonContent);
+                  Alert.alert(
+                    'Copied!',
+                    `Backup copied to clipboard. Paste into a text file to save.`
+                  );
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to copy to clipboard');
+                }
+              },
+            },
+            {
+              text: 'Share as Text',
+              onPress: async () => {
+                try {
+                  await Share.share({
+                    message: jsonContent,
+                    title: fileName,
+                  });
+                } catch (e) {
+                  console.log('Share error:', e);
+                }
+              },
+            },
+          ]
         );
       }
     } catch (error) {
