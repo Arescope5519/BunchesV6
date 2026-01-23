@@ -254,23 +254,11 @@ export const SettingsScreen = ({
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const fileName = `bunches-backup-${dateStr}.json`;
 
-      // Try documentDirectory first, then cacheDirectory as fallback
-      let baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+      // Use cacheDirectory as it's more reliable on iOS
+      const baseDir = FileSystem.cacheDirectory;
 
       if (!baseDir) {
-        // Last resort - try to get a temp directory
-        try {
-          const tempDir = `${FileSystem.documentDirectory || ''}`;
-          if (tempDir) {
-            baseDir = tempDir;
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      if (!baseDir) {
-        Alert.alert('Error', 'Could not access storage on this device. Try restarting the app.');
+        Alert.alert('Error', 'Storage not available. Please try again.');
         setIsExporting(false);
         return;
       }
@@ -289,11 +277,12 @@ export const SettingsScreen = ({
         await Sharing.shareAsync(filePath, {
           mimeType: 'application/json',
           dialogTitle: 'Save Bunches Backup',
+          UTI: 'public.json',
         });
 
         Alert.alert(
           '✅ Backup Created',
-          `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} with images has been created.\n\nSave the file somewhere safe to restore later.`
+          `Backup of ${recipesWithImages.length} recipe${recipesWithImages.length !== 1 ? 's' : ''} has been created.`
         );
       } else {
         Alert.alert('Error', 'Sharing is not available on this device.');
@@ -667,15 +656,15 @@ export const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Danger Zone */}
+        {/* Danger */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={styles.sectionTitle}>DANGER</Text>
 
           <TouchableOpacity
             style={styles.dangerButton}
             onPress={handleClearAllData}
           >
-            <Text style={styles.dangerButtonText}>🗑️ Clear All Data</Text>
+            <Text style={styles.dangerButtonText}>Clear All Data</Text>
           </TouchableOpacity>
         </View>
 
