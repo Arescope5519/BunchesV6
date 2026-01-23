@@ -284,10 +284,84 @@ export const SocialModal = ({
     return new Date(timestamp).toLocaleDateString();
   };
 
+  // Render cookbook preview (folder view with scrollable recipes)
+  const renderCookbookPreview = () => {
+    if (!previewRecipe || previewRecipe.type !== 'cookbook') return null;
+    const recipes = previewRecipe.data || [];
+
+    return (
+      <View style={styles.previewContainer}>
+        <View style={styles.previewHeader}>
+          <TouchableOpacity onPress={() => setPreviewRecipe(null)}>
+            <Text style={styles.backButton}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.previewTitle}>Cookbook</Text>
+          <View style={{ width: 50 }} />
+        </View>
+
+        <ScrollView style={styles.previewContent}>
+          {/* Cookbook header */}
+          <View style={styles.cookbookHeader}>
+            <Text style={styles.cookbookIcon}>📁</Text>
+            <Text style={styles.cookbookName}>{previewRecipe.name}</Text>
+            <Text style={styles.previewFrom}>Shared by @{previewRecipe.fromUsername}</Text>
+            <Text style={styles.cookbookCount}>{recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</Text>
+          </View>
+
+          {/* Recipe list */}
+          <Text style={styles.cookbookListTitle}>Recipes in this cookbook:</Text>
+          {recipes.map((recipe, index) => (
+            <View key={index} style={styles.cookbookRecipeItem}>
+              <Text style={styles.cookbookRecipeNumber}>{index + 1}</Text>
+              <View style={styles.cookbookRecipeInfo}>
+                <Text style={styles.cookbookRecipeTitle}>{recipe.title || 'Untitled Recipe'}</Text>
+                {(recipe.prep_time || recipe.cook_time) && (
+                  <Text style={styles.cookbookRecipeMeta}>
+                    {recipe.prep_time && `Prep: ${recipe.prep_time}`}
+                    {recipe.prep_time && recipe.cook_time && ' • '}
+                    {recipe.cook_time && `Cook: ${recipe.cook_time}`}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        <View style={styles.previewActions}>
+          <TouchableOpacity
+            onPress={() => {
+              handleImport(previewRecipe);
+              setPreviewRecipe(null);
+              setSelectedThread(null);
+            }}
+            style={styles.importButton}
+          >
+            <Text style={styles.importButtonText}>Import All ({recipes.length})</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              onDeclineSharedItem(previewRecipe.id);
+              setPreviewRecipe(null);
+            }}
+            style={styles.declineButton}
+          >
+            <Text style={styles.declineButtonText}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   // Render recipe preview
   const renderRecipePreview = () => {
     if (!previewRecipe) return null;
-    const recipe = previewRecipe.type === 'recipe' ? previewRecipe.data : null;
+
+    // Handle cookbook separately
+    if (previewRecipe.type === 'cookbook') {
+      return renderCookbookPreview();
+    }
+
+    const recipe = previewRecipe.data;
 
     return (
       <View style={styles.previewContainer}>
@@ -1315,6 +1389,70 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  // Cookbook preview styles
+  cookbookHeader: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginBottom: 16,
+  },
+  cookbookIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  cookbookName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  cookbookCount: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  cookbookListTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  cookbookRecipeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  cookbookRecipeNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 28,
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  cookbookRecipeInfo: {
+    flex: 1,
+  },
+  cookbookRecipeTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  cookbookRecipeMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });
 
