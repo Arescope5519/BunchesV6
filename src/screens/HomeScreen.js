@@ -696,19 +696,16 @@ export const HomeScreen = ({ user }) => {
         return base64Data;
       };
 
-      // If replace mode, clear all existing recipes first
-      if (mode === 'replace') {
-        await saveRecipes([], user?.uid || null);
-      }
-
       // Get existing recipe titles for duplicate detection (case-insensitive)
+      const existingRecipes = recipes.filter(r => !r.deletedAt);
       const existingTitles = mode === 'add'
-        ? recipes.filter(r => !r.deletedAt).map(r => r.title?.toLowerCase().trim())
+        ? existingRecipes.map(r => r.title?.toLowerCase().trim())
         : [];
 
-      // Process each recipe
+      // Process each recipe and build array
       let addedCount = 0;
       let skippedCount = 0;
+      const processedRecipes = [];
 
       for (let index = 0; index < recipesToRestore.length; index++) {
         const recipeData = recipesToRestore[index];
@@ -744,8 +741,17 @@ export const HomeScreen = ({ user }) => {
           updatedAt: new Date().toISOString(),
         };
 
-        await saveRecipe(newRecipe);
+        processedRecipes.push(newRecipe);
         addedCount++;
+      }
+
+      // Save all recipes at once based on mode
+      if (mode === 'replace') {
+        // Replace mode: save only the new recipes (clears everything else)
+        await saveRecipes(processedRecipes, user?.uid || null);
+      } else {
+        // Add mode: merge new recipes with existing ones
+        await saveRecipes([...processedRecipes, ...existingRecipes], user?.uid || null);
       }
 
       // Also restore any new folders that don't exist
