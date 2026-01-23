@@ -470,21 +470,45 @@ export const SettingsScreen = ({
       }
 
       const file = result.assets[0];
-      let fileContent;
+      let fileContent = null;
 
-      // Try to read file content
-      try {
-        fileContent = await FileSystem.readAsStringAsync(file.uri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-      } catch (readError) {
-        console.log('File read error:', readError);
-        Alert.alert('Error', 'Unable to read the backup file. Please try again.');
+      // Try multiple methods to read the file
+      // Method 1: Try FileSystem.readAsStringAsync
+      if (FileSystem.readAsStringAsync) {
+        try {
+          fileContent = await FileSystem.readAsStringAsync(file.uri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+          console.log('File read via FileSystem');
+        } catch (fsError) {
+          console.log('FileSystem read failed:', fsError);
+        }
+      }
+
+      // Method 2: Try fetch() as fallback
+      if (!fileContent) {
+        try {
+          const response = await fetch(file.uri);
+          fileContent = await response.text();
+          console.log('File read via fetch');
+        } catch (fetchError) {
+          console.log('Fetch read failed:', fetchError);
+        }
+      }
+
+      // Method 3: Check if file object has content directly
+      if (!fileContent && file.content) {
+        fileContent = file.content;
+        console.log('File read from content property');
+      }
+
+      if (!fileContent) {
+        Alert.alert('Error', 'Unable to read the backup file. Please try saving it to your Files app first, then selecting it from there.');
         return;
       }
 
       // Decode and parse the backup
-      const backupData = decodeBackupContent(fileContent);
+      const backupData = decodeBackupContent(fileContent.trim());
 
       // Validate backup data
       if (!backupData.type || backupData.type !== 'bunches_backup') {
@@ -503,7 +527,7 @@ export const SettingsScreen = ({
       if (error.message?.includes('JSON') || error.message?.includes('atob')) {
         Alert.alert('Invalid File', 'Could not read backup file. Make sure you selected a valid Bunches backup file (.bunches).');
       } else {
-        Alert.alert('Error', 'Failed to open backup file. Please try again.');
+        Alert.alert('Error', `Failed to open backup file: ${error.message}`);
       }
     }
   };
