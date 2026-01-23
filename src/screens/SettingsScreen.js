@@ -257,19 +257,21 @@ export const SettingsScreen = ({
 
       const backupData = {
         type: 'bunches_backup',
-        version: '2.1',
+        version: '2.2',
         exportedAt: new Date().toISOString(),
         recipeCount: recipesWithImages.length,
         folders: folders || [],
         recipes: recipesWithImages,
       };
 
-      const jsonContent = JSON.stringify(backupData, null, 2);
+      // Encode as base64 to make it non-editable
+      const jsonString = JSON.stringify(backupData);
+      const encodedContent = `BUNCHES_BKP_V2:${btoa(unescape(encodeURIComponent(jsonString)))}`;
 
-      // Create filename with date
+      // Create filename with date and custom extension
       const date = new Date();
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      const fileName = `bunches-backup-${dateStr}.json`;
+      const fileName = `bunches-backup-${dateStr}.bunches`;
 
       // Debug: Log available directories
       console.log('FileSystem.cacheDirectory:', FileSystem.cacheDirectory);
@@ -286,11 +288,11 @@ export const SettingsScreen = ({
             const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
               permissions.directoryUri,
               fileName,
-              'application/json'
+              'application/octet-stream'
             );
 
             // Write content to the file
-            await FileSystem.writeAsStringAsync(fileUri, jsonContent, {
+            await FileSystem.writeAsStringAsync(fileUri, encodedContent, {
               encoding: FileSystem.EncodingType.UTF8,
             });
 
@@ -318,7 +320,7 @@ export const SettingsScreen = ({
 
         try {
           const result = await Share.share({
-            message: jsonContent,
+            message: encodedContent,
             title: fileName,
           });
 
@@ -341,7 +343,7 @@ export const SettingsScreen = ({
       console.log('Writing backup to:', filePath);
 
       // Write to file
-      await FileSystem.writeAsStringAsync(filePath, jsonContent, {
+      await FileSystem.writeAsStringAsync(filePath, encodedContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
@@ -353,9 +355,9 @@ export const SettingsScreen = ({
 
       if (isAvailable) {
         await Sharing.shareAsync(filePath, {
-          mimeType: 'application/json',
+          mimeType: 'application/octet-stream',
           dialogTitle: 'Save Bunches Backup',
-          UTI: 'public.json',
+          UTI: 'public.data',
         });
 
         // Don't show alert after share sheet - user already sees it
@@ -363,7 +365,7 @@ export const SettingsScreen = ({
         // Fallback to Share API
         try {
           await Share.share({
-            message: jsonContent,
+            message: encodedContent,
             title: fileName,
           });
         } catch (e) {
@@ -383,12 +385,83 @@ export const SettingsScreen = ({
     }
   };
 
+  // Decode backup content (handles both new encoded format and legacy JSON)
+  const decodeBackupContent = (content) => {
+    // Check for new encoded format
+    if (content.startsWith('BUNCHES_BKP_V2:')) {
+      const encoded = content.substring('BUNCHES_BKP_V2:'.length);
+      const decoded = decodeURIComponent(escape(atob(encoded)));
+      return JSON.parse(decoded);
+    }
+
+    // Try parsing as legacy JSON
+    return JSON.parse(content);
+  };
+
+  // Process and show restore options
+  const showRestoreOptions = (backupData) => {
+    const recipeCount = backupData.recipes.length;
+    const backupDate = backupData.exportedAt
+      ? new Date(backupData.exportedAt).toLocaleDateString()
+      : 'Unknown date';
+
+    Alert.alert(
+      'Restore Backup',
+      `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nHow would you like to restore?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add New Only',
+          onPress: async () => {
+            try {
+              if (onRestoreBackup) {
+                await onRestoreBackup({ ...backupData, mode: 'add' });
+                Alert.alert('Restored', `Added new recipes from backup. Duplicates were skipped.`);
+              }
+            } catch (error) {
+              console.error('Restore error:', error);
+              Alert.alert('Error', 'Failed to restore backup. Please try again.');
+            }
+          },
+        },
+        {
+          text: 'Replace All',
+          style: 'destructive',
+          onPress: async () => {
+            Alert.alert(
+              'Confirm Replace',
+              'This will DELETE all your current recipes and replace them with the backup. This cannot be undone.\n\nAre you sure?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Replace All',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      if (onRestoreBackup) {
+                        await onRestoreBackup({ ...backupData, mode: 'replace' });
+                        Alert.alert('Restored', `Successfully replaced with ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from backup.`);
+                      }
+                    } catch (error) {
+                      console.error('Restore error:', error);
+                      Alert.alert('Error', 'Failed to restore backup. Please try again.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   // Restore recipes from backup file
   const handleRestoreBackup = async () => {
     try {
       // Open document picker - accept any file type for better compatibility
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/json', '*/*'],
+        type: '*/*',
         copyToCacheDirectory: true,
       });
 
@@ -397,14 +470,21 @@ export const SettingsScreen = ({
       }
 
       const file = result.assets[0];
+      let fileContent;
 
-      // Read the file
-      const fileContent = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      // Try to read file content
+      try {
+        fileContent = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+      } catch (readError) {
+        console.log('File read error:', readError);
+        Alert.alert('Error', 'Unable to read the backup file. Please try again.');
+        return;
+      }
 
-      // Parse JSON
-      const backupData = JSON.parse(fileContent);
+      // Decode and parse the backup
+      const backupData = decodeBackupContent(fileContent);
 
       // Validate backup data
       if (!backupData.type || backupData.type !== 'bunches_backup') {
@@ -417,65 +497,11 @@ export const SettingsScreen = ({
         return;
       }
 
-      const recipeCount = backupData.recipes.length;
-      const backupDate = backupData.exportedAt
-        ? new Date(backupData.exportedAt).toLocaleDateString()
-        : 'Unknown date';
-
-      // Show options: Replace All or Add New
-      Alert.alert(
-        'Restore Backup',
-        `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nHow would you like to restore?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Add New Only',
-            onPress: async () => {
-              try {
-                if (onRestoreBackup) {
-                  await onRestoreBackup({ ...backupData, mode: 'add' });
-                  Alert.alert('Restored', `Added new recipes from backup. Duplicates were skipped.`);
-                }
-              } catch (error) {
-                console.error('Restore error:', error);
-                Alert.alert('Error', 'Failed to restore backup. Please try again.');
-              }
-            },
-          },
-          {
-            text: 'Replace All',
-            style: 'destructive',
-            onPress: async () => {
-              Alert.alert(
-                'Confirm Replace',
-                'This will DELETE all your current recipes and replace them with the backup. This cannot be undone.\n\nAre you sure?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Replace All',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        if (onRestoreBackup) {
-                          await onRestoreBackup({ ...backupData, mode: 'replace' });
-                          Alert.alert('Restored', `Successfully replaced with ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from backup.`);
-                        }
-                      } catch (error) {
-                        console.error('Restore error:', error);
-                        Alert.alert('Error', 'Failed to restore backup. Please try again.');
-                      }
-                    },
-                  },
-                ]
-              );
-            },
-          },
-        ]
-      );
+      showRestoreOptions(backupData);
     } catch (error) {
       console.error('Restore error:', error);
-      if (error.message?.includes('JSON')) {
-        Alert.alert('Invalid File', 'Could not read backup file. Make sure you selected a valid Bunches backup file.');
+      if (error.message?.includes('JSON') || error.message?.includes('atob')) {
+        Alert.alert('Invalid File', 'Could not read backup file. Make sure you selected a valid Bunches backup file (.bunches).');
       } else {
         Alert.alert('Error', 'Failed to open backup file. Please try again.');
       }
