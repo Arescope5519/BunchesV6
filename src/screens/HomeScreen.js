@@ -27,6 +27,7 @@ import {
   PanResponder,
   Image,
   AppState,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -52,6 +53,7 @@ import { UsernameSetupModal } from '../components/UsernameSetupModal';
 import { SocialModal } from '../components/SocialModal';
 import { ShareToFriendsModal } from '../components/ShareToFriendsModal';
 import NotificationPopup from '../components/NotificationPopup';
+import { WelcomeModal } from '../components/WelcomeModal';
 
 // Constants
 import colors from '../constants/colors';
@@ -122,6 +124,13 @@ export const HomeScreen = ({ user }) => {
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
   const [quickLinkUrl, setQuickLinkUrl] = useState('');
   const [quickLinkLoading, setQuickLinkLoading] = useState(false);
+
+  // Welcome modal state
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
+
+  // Deep link friend request state
+  const [pendingFriendUsername, setPendingFriendUsername] = useState(null);
 
   // Hooks - Pass user to useRecipes for Supabase sync
   const {
@@ -292,9 +301,14 @@ export const HomeScreen = ({ user }) => {
       if (settings.showQuickLinkButton !== undefined) {
         setShowQuickLinkButton(settings.showQuickLinkButton);
       }
+      // Check if user has seen welcome modal
+      if (!hasCheckedWelcome && user && !settings.hasSeenWelcome) {
+        setShowWelcomeModal(true);
+      }
+      setHasCheckedWelcome(true);
     };
     loadSettings();
-  }, [user?.uid]);
+  }, [user?.uid, hasCheckedWelcome]);
 
   // Save app settings when they change
   const updateAppSetting = async (key, value) => {
@@ -305,6 +319,95 @@ export const HomeScreen = ({ user }) => {
       setShowQuickLinkButton(value);
     }
   };
+
+  // Handle welcome modal "don't show again"
+  const handleWelcomeDontShowAgain = async () => {
+    await updateAppSetting('hasSeenWelcome', true);
+  };
+
+  // Handle deep link for adding friends
+  const handleDeepLink = (url) => {
+    if (!url) return;
+
+    console.log('Deep link received:', url);
+
+    // Parse bunches://add-friend/username
+    const match = url.match(/bunches:\/\/add-friend\/([^\/\?]+)/);
+    if (match && match[1]) {
+      const username = decodeURIComponent(match[1]);
+      console.log('Friend request from deep link:', username);
+
+      if (!user) {
+        Alert.alert(
+          'Sign In Required',
+          'Please sign in to add friends.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Store the username and open social modal
+      setPendingFriendUsername(username);
+      setCurrentScreen('social');
+    }
+  };
+
+  // Listen for deep links
+  useEffect(() => {
+    // Handle initial URL (app opened via link)
+    const getInitialURL = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        handleDeepLink(initialUrl);
+      }
+    };
+    getInitialURL();
+
+    // Handle URLs while app is open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [user]);
+
+  // Handle pending friend request when social data is ready
+  useEffect(() => {
+    if (pendingFriendUsername && searchUsers && user) {
+      const handlePendingFriend = async () => {
+        try {
+          const results = await searchUsers(pendingFriendUsername);
+          if (results && results.length > 0) {
+            const foundUser = results.find(
+              u => u.username?.toLowerCase() === pendingFriendUsername.toLowerCase()
+            );
+            if (foundUser) {
+              if (foundUser.isFriend) {
+                Alert.alert('Already Friends', `You're already friends with @${foundUser.username}!`);
+              } else if (foundUser.requestSent) {
+                Alert.alert('Request Pending', `You already have a pending request to @${foundUser.username}.`);
+              } else {
+                // Send friend request
+                await sendFriendRequest(foundUser.id);
+                Alert.alert('Request Sent!', `Friend request sent to @${foundUser.username}!`);
+              }
+            } else {
+              Alert.alert('User Not Found', `Could not find user @${pendingFriendUsername}`);
+            }
+          } else {
+            Alert.alert('User Not Found', `Could not find user @${pendingFriendUsername}`);
+          }
+        } catch (error) {
+          console.error('Error handling friend link:', error);
+          Alert.alert('Error', 'Failed to process friend request. Please try again.');
+        }
+        setPendingFriendUsername(null);
+      };
+      handlePendingFriend();
+    }
+  }, [pendingFriendUsername, searchUsers, sendFriendRequest, user]);
 
   // Handle quick link URL submission
   const handleQuickLinkSubmit = async () => {
@@ -2790,6 +2893,13 @@ export const HomeScreen = ({ user }) => {
         onDecline={handleDeclineFriendRequestFromPopup}
         onDismiss={handleDismissNotificationPopup}
         colors={colors}
+      />
+
+      {/* Welcome Modal for first-time users */}
+      <WelcomeModal
+        visible={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        onDontShowAgain={handleWelcomeDontShowAgain}
       />
 
       {/* Bottom Navigation Bar */}

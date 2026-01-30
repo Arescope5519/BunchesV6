@@ -735,6 +735,28 @@ export const SettingsScreen = ({
                 <Text style={styles.profileLabel}>Friends</Text>
                 <Text style={styles.profileValue}>{friends?.length || 0}</Text>
               </View>
+
+              {/* Share Profile Button */}
+              <TouchableOpacity
+                style={styles.shareProfileButton}
+                onPress={async () => {
+                  const username = profile?.username;
+                  if (!username) {
+                    Alert.alert('Error', 'Please set up your username first');
+                    return;
+                  }
+                  const deepLink = `bunches://add-friend/${username}`;
+                  try {
+                    await Share.share({
+                      message: `Add me on Bunches! ${deepLink}`,
+                    });
+                  } catch (error) {
+                    console.error('Share error:', error);
+                  }
+                }}
+              >
+                <Text style={styles.shareProfileButtonText}>Share Profile Link</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1124,6 +1146,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  shareProfileButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  shareProfileButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   displayNameRow: {
     flexDirection: 'row',
