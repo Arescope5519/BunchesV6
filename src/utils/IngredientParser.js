@@ -160,6 +160,14 @@ export function parseIngredient(ingredientString) {
     /^(\d+(?:\.\d+)?)\s+(.+)/i,
   ];
 
+  // Additional patterns for mid-string quantities like "juice of 1 lime"
+  const midStringPatterns = [
+    // "juice of 1 lime", "zest of 2 lemons", "whites of 3 eggs"
+    /^(.+?)\s+of\s+(\d+(?:\.\d+)?)\s+(.+)$/i,
+    // "juice of 1/2 lime", "zest of ½ lemon"
+    /^(.+?)\s+of\s+([¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+)\s+(.+)$/i,
+  ];
+
   for (const pattern of patterns) {
     const match = original.match(pattern);
 
@@ -224,6 +232,40 @@ export function parseIngredient(ingredientString) {
     }
   }
 
+  // Try mid-string patterns like "juice of 1 lime"
+  for (const pattern of midStringPatterns) {
+    const match = original.match(pattern);
+
+    if (match) {
+      const prefix = match[1].trim();  // "juice"
+      const quantityPart = match[2];    // "1" or "1/2" or "½"
+      const suffix = match[3].trim();   // "lime"
+
+      let quantity = 0;
+
+      // Check if unicode fraction
+      const unicodeFrac = Object.entries(UNICODE_FRACTIONS).find(
+        ([key, val]) => val === quantityPart
+      );
+      if (unicodeFrac) {
+        quantity = fractionToDecimal(unicodeFrac[0]);
+      } else if (quantityPart.includes('/')) {
+        quantity = fractionToDecimal(quantityPart);
+      } else {
+        quantity = parseFloat(quantityPart);
+      }
+
+      return {
+        quantity,
+        unit: '',
+        ingredient: `${prefix} of ${suffix}`,  // Store as "juice of lime"
+        original,
+        parsed: true,
+        midStringQuantity: true,  // Flag to indicate mid-string format
+      };
+    }
+  }
+
   // Could not parse - return original
   return {
     quantity: 0,
@@ -244,6 +286,15 @@ export function scaleIngredient(parsedIngredient, multiplier) {
 
   const scaledQuantity = parsedIngredient.quantity * multiplier;
   const formattedQuantity = formatQuantity(scaledQuantity);
+
+  // Handle mid-string quantity format like "juice of 1 lime"
+  if (parsedIngredient.midStringQuantity) {
+    // ingredient is stored as "juice of lime", we need to insert quantity
+    const parts = parsedIngredient.ingredient.split(' of ');
+    if (parts.length === 2) {
+      return `${parts[0]} of ${formattedQuantity} ${parts[1]}`;
+    }
+  }
 
   if (parsedIngredient.unit) {
     return `${formattedQuantity} ${parsedIngredient.unit} ${parsedIngredient.ingredient}`;
