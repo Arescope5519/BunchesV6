@@ -101,7 +101,7 @@ const normalizeRecipe = (recipe) => {
   return normalized;
 };
 
-export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoAction, allRecipes = [] }) => {
+export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes = [] }) => {
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
 
@@ -240,23 +240,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     }
   }, [parsedIngredients, scaleFactor, useMetric, localRecipe?.instructions]);
 
-  /**
-   * Save current state to global undo history
-   */
-  const saveToHistory = (description = 'Recipe Edit') => {
-    if (!addUndoAction) return; // Skip if no undo function provided
-
-    const snapshot = JSON.parse(JSON.stringify(localRecipe));
-
-    addUndoAction({
-      type: 'recipe_edit',
-      description: description,
-      undo: () => {
-        setLocalRecipe(snapshot);
-        if (onUpdate) onUpdate(snapshot);
-      }
-    });
-  };
 
   /**
    * Handle long press on ingredient/instruction/section
@@ -276,10 +259,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
     const { type, sectionKey, index, value } = editingItem;
 
-    // Save to undo history before making changes
-    const description = type === 'ingredient' ? 'Edit Ingredient' :
-                       type === 'instruction' ? 'Edit Instruction' : 'Rename Section';
-    saveToHistory(description);
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
@@ -318,7 +297,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
     Alert.alert(
       'Delete Item?',
-      'You can undo this change using the Undo button.',
+      'Are you sure you want to delete this item?',
       [
         {
           text: 'Cancel',
@@ -332,11 +311,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
             console.log('Delete confirmed');
 
             const { type, sectionKey, index } = editingItem;
-
-            // Save to undo history before deleting
-            const description = type === 'ingredient' ? 'Delete Ingredient' :
-                               type === 'instruction' ? 'Delete Instruction' : 'Delete Section';
-            saveToHistory(description);
             let updated = { ...localRecipe };
 
             if (type === 'ingredient') {
@@ -405,9 +379,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
     console.log('🔍 Checking if ingredient->section move:', swapMode.type === 'ingredient', '&&', type === 'section');
     if (swapMode.type === 'ingredient' && type === 'section') {
       console.log('✅ YES! Moving ingredient to different section:', sourceSectionKey, '->', sectionKey);
-
-      // Save to undo history before moving
-      saveToHistory('Move Ingredient to Section');
       let updated = { ...localRecipe };
 
       // Get the ingredient to move
@@ -443,10 +414,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       return;
     }
 
-    // Save to undo history before swapping
-    const description = type === 'ingredient' ? 'Swap Ingredients' :
-                       type === 'section' ? 'Swap Sections' : 'Swap Instructions';
-    saveToHistory(description);
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
@@ -518,10 +485,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
     const { type, sectionKey, index } = addingBelow;
 
-    // Save to undo history before adding
-    const description = type === 'ingredient' ? 'Add Ingredient' :
-                       type === 'section' ? 'Add Ingredient to Section' : 'Add Instruction';
-    saveToHistory(description);
     console.log('Saving new item below:', type, sectionKey, index, newItemValue);
     let updated = { ...localRecipe };
 
@@ -566,9 +529,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
 
   const confirmAddSection = () => {
     if (newSectionName && newSectionName.trim()) {
-      // Save to undo history before adding section
-      saveToHistory('Add Section');
-
       const updated = {
         ...localRecipe,
         ingredients: {
@@ -597,7 +557,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       return; // Tag already exists
     }
 
-    saveToHistory('Add Tag');
     const updated = {
       ...localRecipe,
       tags: [...currentTags, normalizedTag]
@@ -611,7 +570,6 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
    */
   const removeTag = (tagName) => {
     const currentTags = localRecipe.tags || [];
-    saveToHistory('Remove Tag');
     const updated = {
       ...localRecipe,
       tags: currentTags.filter(t => t !== tagName)
@@ -1350,24 +1308,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 14,
     color: colors.textSecondary,
-  },
-  undoButton: {
-    backgroundColor: colors.warning,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginVertical: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  undoButtonText: {
-    fontSize: 15,
-    color: colors.white,
-    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',

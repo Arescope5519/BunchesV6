@@ -38,7 +38,6 @@ import { useFolders } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 import { useGroceryList } from '../hooks/useGroceryList';
-import { useGlobalUndo } from '../hooks/useGlobalUndo';
 import { useSocial } from '../hooks/useSocial';
 
 // Components
@@ -175,16 +174,6 @@ export const HomeScreen = ({ user }) => {
     restoreList: restoreGroceryList,
   } = useGroceryList(user);
 
-  // Global undo system
-  const {
-    addUndoAction,
-    performUndo,
-    clearUndoStack,
-    showUndoButton,
-    canUndo,
-    lastActionDescription,
-    undoCount,
-  } = useGlobalUndo();
 
   // Social features
   const {
@@ -209,54 +198,6 @@ export const HomeScreen = ({ user }) => {
     refreshSocialData,
   } = useSocial(user);
 
-  // Swipeable undo button
-  const undoButtonPosition = useRef(new Animated.ValueXY()).current;
-  const [undoButtonDismissed, setUndoButtonDismissed] = useState(false);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only start pan if swiping (not just tapping)
-        return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // Allow swiping in any direction
-        undoButtonPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        // If swiped far enough in any direction, dismiss
-        const threshold = 80;
-        if (Math.abs(gestureState.dx) > threshold || Math.abs(gestureState.dy) > threshold) {
-          // Animate out
-          Animated.timing(undoButtonPosition, {
-            toValue: {
-              x: gestureState.dx > 0 ? 400 : -400,
-              y: gestureState.dy
-            },
-            duration: 200,
-            useNativeDriver: false,
-          }).start(() => {
-            setUndoButtonDismissed(true);
-            undoButtonPosition.setValue({ x: 0, y: 0 });
-          });
-        } else {
-          // Snap back
-          Animated.spring(undoButtonPosition, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  // Reset dismissed state when a new undo action is available
-  useEffect(() => {
-    if (showUndoButton && canUndo) {
-      setUndoButtonDismissed(false);
-    }
-  }, [undoCount]); // Reset whenever undo stack count changes (new action added)
 
   // Detect new friend requests and show notification popup
   useEffect(() => {
@@ -1079,86 +1020,26 @@ export const HomeScreen = ({ user }) => {
     }
   });
 
-  // Grocery list handlers with undo support
+  // Grocery list handlers
   const handleAddToGroceryList = async (selectedItems) => {
     if (!selectedRecipe || selectedItems.length === 0) return;
-
-    // Save state for undo
-    const previousList = JSON.parse(JSON.stringify(groceryList));
-    addUndoAction({
-      type: 'grocery_add',
-      description: `Add ${selectedItems.length} Items`,
-      undo: async () => {
-        await restoreGroceryList(previousList);
-      }
-    });
-
-    // Add all selected items to grocery list
     const ingredientTexts = selectedItems.map(item => item.text);
     await addItemsToGroceryList(ingredientTexts, selectedRecipe, selectedItems[0]?.section || 'main');
   };
 
   const handleToggleGroceryItem = async (itemId) => {
-    const previousList = JSON.parse(JSON.stringify(groceryList));
-    const item = groceryList.find(i => i.id === itemId);
-    if (!item) return;
-
-    addUndoAction({
-      type: 'grocery_toggle',
-      description: item.checked ? 'Uncheck Item' : 'Check Item',
-      undo: async () => {
-        await restoreGroceryList(previousList);
-      }
-    });
-
     await toggleItemChecked(itemId);
   };
 
   const handleRemoveGroceryItem = async (itemId) => {
-    const previousList = JSON.parse(JSON.stringify(groceryList));
-    const item = groceryList.find(i => i.id === itemId);
-    if (!item) return;
-
-    addUndoAction({
-      type: 'grocery_remove',
-      description: 'Remove Item',
-      undo: async () => {
-        await restoreGroceryList(previousList);
-      }
-    });
-
     await removeGroceryItem(itemId);
   };
 
   const handleClearCheckedItems = async () => {
-    const checkedItems = groceryList.filter(item => item.checked);
-    if (checkedItems.length === 0) return;
-
-    const previousList = JSON.parse(JSON.stringify(groceryList));
-    addUndoAction({
-      type: 'grocery_clear_checked',
-      description: `Clear ${checkedItems.length} Items`,
-      undo: async () => {
-        await restoreGroceryList(previousList);
-      }
-    });
-
     await clearCheckedItems();
   };
 
   const handleClearAllItems = async () => {
-    const itemCount = groceryList.length;
-    if (itemCount === 0) return;
-
-    const previousList = JSON.parse(JSON.stringify(groceryList));
-    addUndoAction({
-      type: 'grocery_clear_all',
-      description: `Clear All (${itemCount} items)`,
-      undo: async () => {
-        await restoreGroceryList(previousList);
-      }
-    });
-
     await clearAllItems();
   };
 
@@ -1693,34 +1574,6 @@ export const HomeScreen = ({ user }) => {
     return recipesToSort;
   }, [filteredRecipes, sortBy, sortOrder, selectedTags]);
 
-  // Reusable Swipeable Undo Button Component
-  const renderSwipeableUndoButton = () => {
-    if (!showUndoButton || !canUndo || undoButtonDismissed) return null;
-
-    return (
-      <Animated.View
-        style={[
-          styles.globalUndoButton,
-          {
-            transform: [
-              { translateX: undoButtonPosition.x },
-              { translateY: undoButtonPosition.y }
-            ]
-          }
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <TouchableOpacity
-          onPress={performUndo}
-          activeOpacity={0.8}
-          style={styles.undoButtonTouchable}
-        >
-          <Text style={styles.undoButtonIcon}>↶</Text>
-          <Text style={styles.undoButtonLabel}>Undo</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
 
   // Render different screens based on currentScreen state
   if (currentScreen === 'saveRecipe') {
@@ -1743,9 +1596,6 @@ export const HomeScreen = ({ user }) => {
           folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
         />
 
-        {/* Swipeable Undo Button */}
-        {renderSwipeableUndoButton()}
-
         {/* Bottom Navigation Bar */}
         {renderNavigationBar()}
       </SafeAreaView>
@@ -1761,9 +1611,6 @@ export const HomeScreen = ({ user }) => {
           onSave={handleSaveExtractedRecipe}
           onCancel={handleCancelSave}
         />
-
-        {/* Swipeable Undo Button */}
-        {renderSwipeableUndoButton()}
 
         {/* Bottom Navigation Bar */}
         {renderNavigationBar()}
@@ -2494,7 +2341,6 @@ export const HomeScreen = ({ user }) => {
                 recipe={selectedRecipe}
                 onUpdate={selectedRecipe.deletedAt ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
-                addUndoAction={addUndoAction}
                 allRecipes={recipes}
               />
               <View style={styles.bottomSpacer} />
@@ -2540,31 +2386,6 @@ export const HomeScreen = ({ user }) => {
                   </View>
                 </View>
               </Modal>
-            )}
-
-            {/* Undo Button inside Modal */}
-            {showUndoButton && canUndo && !undoButtonDismissed && (
-              <Animated.View
-                style={[
-                  styles.globalUndoButton,
-                  {
-                    transform: [
-                      { translateX: undoButtonPosition.x },
-                      { translateY: undoButtonPosition.y }
-                    ]
-                  }
-                ]}
-                {...panResponder.panHandlers}
-              >
-                <TouchableOpacity
-                  onPress={performUndo}
-                  activeOpacity={0.8}
-                  style={styles.undoButtonTouchable}
-                >
-                  <Text style={styles.undoButtonIcon}>↶</Text>
-                  <Text style={styles.undoButtonLabel}>Undo</Text>
-                </TouchableOpacity>
-              </Animated.View>
             )}
           </KeyboardAvoidingView>
         </Modal>
@@ -2853,9 +2674,6 @@ export const HomeScreen = ({ user }) => {
           </View>
         </View>
       </Modal>
-
-      {/* Global Undo Button - Hide when modals are open */}
-      {!selectedRecipe && !showGroceryList && !showAddFolder && !showMoveToFolder && !showRenameFolder && renderSwipeableUndoButton()}
 
       {/* Username Setup Modal */}
       <UsernameSetupModal
@@ -3313,38 +3131,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.error,
     fontWeight: '500',
-  },
-  globalUndoButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 70,
-    height: 70,
-    backgroundColor: colors.warning,
-    borderRadius: 12,
-    zIndex: 99999,
-    elevation: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  undoButtonTouchable: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  undoButtonIcon: {
-    fontSize: 28,
-    color: colors.white,
-    fontWeight: '700',
-  },
-  undoButtonLabel: {
-    fontSize: 11,
-    color: colors.white,
-    fontWeight: '600',
-    marginTop: 2,
   },
   deletedBanner: {
     backgroundColor: colors.error,
