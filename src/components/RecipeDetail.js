@@ -674,10 +674,12 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, addUndoActi
       items.forEach((item, index) => {
         const key = `${section}_${index}`;
         if (selectedIngredients[key]) {
-          // Get the display text (scaled/converted if applicable)
-          const displayText = typeof item === 'object' && item.original
-            ? item.original
-            : localRecipe.ingredients[section][index];
+          // Use the displayed text which includes scaling/conversion
+          const displayText = typeof item === 'string'
+            ? item
+            : typeof item === 'object' && item.original
+              ? item.original
+              : localRecipe.ingredients[section][index];
           selectedItems.push({ text: displayText, section });
         }
       });
