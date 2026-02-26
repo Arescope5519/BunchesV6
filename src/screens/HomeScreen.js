@@ -2030,10 +2030,6 @@ export const HomeScreen = ({ user }) => {
           onRemoveItem={handleRemoveGroceryItem}
           onClearChecked={handleClearCheckedItems}
           onClearAll={handleClearAllItems}
-          showUndoButton={showUndoButton}
-          canUndo={canUndo}
-          lastActionDescription={lastActionDescription}
-          performUndo={performUndo}
         />
       )}
 
