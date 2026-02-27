@@ -166,6 +166,7 @@ export const HomeScreen = ({ user }) => {
     groceryList,
     loading: groceryListLoading,
     addItems: addItemsToGroceryList,
+    addCustomItem: addCustomGroceryItem,
     removeItem: removeGroceryItem,
     toggleItemChecked,
     clearCheckedItems,
@@ -1877,6 +1878,7 @@ export const HomeScreen = ({ user }) => {
           onRemoveItem={handleRemoveGroceryItem}
           onClearChecked={handleClearCheckedItems}
           onClearAll={handleClearAllItems}
+          onAddCustomItem={addCustomGroceryItem}
         />
       )}
 

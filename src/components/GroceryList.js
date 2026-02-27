@@ -3,7 +3,7 @@
  * Displays and manages the grocery list
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,15 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  TextInput,
+  Keyboard,
 } from 'react-native';
 import { colors } from '../constants/colors';
 
-export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll }) => {
+export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onAddCustomItem }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
+  const [customItemText, setCustomItemText] = useState('');
+  const inputRef = useRef(null);
 
   // Group items by recipe
   const groupedByRecipe = () => {
@@ -62,6 +66,16 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
         { text: 'Clear All', style: 'destructive', onPress: onClearAll },
       ]
     );
+  };
+
+  const handleAddCustomItem = async () => {
+    if (!customItemText.trim()) return;
+
+    if (onAddCustomItem) {
+      await onAddCustomItem(customItemText.trim());
+      setCustomItemText('');
+      Keyboard.dismiss();
+    }
   };
 
   const renderFlatList = () => {
@@ -209,6 +223,27 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
           </TouchableOpacity>
         </View>
 
+        {/* Add Custom Item */}
+        <View style={styles.addItemBar}>
+          <TextInput
+            ref={inputRef}
+            style={styles.addItemInput}
+            placeholder="Add custom item..."
+            placeholderTextColor={colors.textTertiary}
+            value={customItemText}
+            onChangeText={setCustomItemText}
+            onSubmitEditing={handleAddCustomItem}
+            returnKeyType="done"
+          />
+          <TouchableOpacity
+            style={[styles.addItemButton, !customItemText.trim() && styles.addItemButtonDisabled]}
+            onPress={handleAddCustomItem}
+            disabled={!customItemText.trim()}
+          >
+            <Text style={styles.addItemButtonText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* List Content */}
         <ScrollView style={styles.content}>
           {groupBy === 'flat' ? renderFlatList() : renderGroupedList()}
@@ -287,6 +322,40 @@ const styles = StyleSheet.create({
   },
   clearAllButtonText: {
     fontSize: 13,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  addItemBar: {
+    flexDirection: 'row',
+    padding: 10,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 10,
+  },
+  addItemInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addItemButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  addItemButtonDisabled: {
+    backgroundColor: colors.border,
+  },
+  addItemButtonText: {
+    fontSize: 14,
     color: colors.white,
     fontWeight: '600',
   },

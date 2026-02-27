@@ -50,6 +50,29 @@ export const useGroceryList = (user) => {
   };
 
   /**
+   * Add a custom item to grocery list (not from a recipe)
+   * @param {String} text - The item text
+   */
+  const addCustomItem = async (text) => {
+    if (!text || !text.trim()) return false;
+
+    const newItem = {
+      id: `${Date.now()}_${Math.random()}`,
+      text: text.trim(),
+      recipeId: null,
+      recipeTitle: 'Custom',
+      section: 'custom',
+      checked: false,
+      addedAt: new Date().toISOString(),
+    };
+
+    const updatedList = [...groceryList, newItem];
+    setGroceryList(updatedList);
+    await saveGroceryList(updatedList, user?.uid || null);
+    return true;
+  };
+
+  /**
    * Remove item from grocery list
    */
   const removeItem = async (itemId) => {
@@ -112,6 +135,7 @@ export const useGroceryList = (user) => {
     groceryList,
     loading,
     addItems,
+    addCustomItem,
     removeItem,
     toggleItemChecked,
     clearCheckedItems,
