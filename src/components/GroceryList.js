@@ -93,10 +93,14 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                 >
                   <View style={[styles.checkboxInner, item.checked && styles.checkboxChecked]} />
                 </TouchableOpacity>
-                <View style={styles.itemContent}>
+                <TouchableOpacity
+                  style={styles.itemContent}
+                  onPress={() => onToggleItem(item.id)}
+                  activeOpacity={0.6}
+                >
                   <Text style={styles.itemText}>{item.text}</Text>
                   <Text style={styles.itemRecipe}>{item.recipeTitle}</Text>
-                </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => onRemoveItem(item.id)}
@@ -122,10 +126,14 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                     <Text style={styles.checkmark}>✓</Text>
                   </View>
                 </TouchableOpacity>
-                <View style={styles.itemContent}>
+                <TouchableOpacity
+                  style={styles.itemContent}
+                  onPress={() => onToggleItem(item.id)}
+                  activeOpacity={0.6}
+                >
                   <Text style={[styles.itemText, styles.itemTextChecked]}>{item.text}</Text>
                   <Text style={styles.itemRecipe}>{item.recipeTitle}</Text>
-                </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => onRemoveItem(item.id)}
@@ -179,11 +187,15 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                     {item.checked && <Text style={styles.checkmark}>✓</Text>}
                   </View>
                 </TouchableOpacity>
-                <View style={styles.itemContent}>
+                <TouchableOpacity
+                  style={styles.itemContent}
+                  onPress={() => onToggleItem(item.id)}
+                  activeOpacity={0.6}
+                >
                   <Text style={[styles.itemText, item.checked && styles.itemTextChecked]}>
                     {item.text}
                   </Text>
-                </View>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => onRemoveItem(item.id)}
