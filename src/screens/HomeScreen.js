@@ -66,7 +66,7 @@ import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncReci
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
 
 // Storage utilities for manual sync
-import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings } from '../utils/storage';
+import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, saveFollowedCookbooks, loadFollowedCookbooks } from '../utils/storage';
 
 // Recipe extractor for parsing shared URLs (consistent with Android)
 import RecipeExtractor from '../../RecipeExtractor';
@@ -112,6 +112,7 @@ export const HomeScreen = ({ user }) => {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showShareToFriends, setShowShareToFriends] = useState(false);
   const [shareItem, setShareItem] = useState(null); // { type, data, name }
+  const [followedCookbooks, setFollowedCookbooks] = useState([]);
 
   // Notification popup state
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
@@ -248,6 +249,10 @@ export const HomeScreen = ({ user }) => {
         setShowWelcomeModal(true);
       }
       setHasCheckedWelcome(true);
+
+      // Load followed cookbooks
+      const cookbooks = await loadFollowedCookbooks(user?.uid);
+      setFollowedCookbooks(cookbooks);
     };
     loadSettings();
   }, [user?.uid, hasCheckedWelcome]);
@@ -265,6 +270,14 @@ export const HomeScreen = ({ user }) => {
   // Handle welcome modal "don't show again"
   const handleWelcomeDontShowAgain = async () => {
     await updateAppSetting('hasSeenWelcome', true);
+  };
+
+  // Handle following a cookbook
+  const handleFollowCookbook = async (cookbookData) => {
+    const updatedCookbooks = [...followedCookbooks, cookbookData];
+    setFollowedCookbooks(updatedCookbooks);
+    await saveFollowedCookbooks(updatedCookbooks, user?.uid);
+    console.log('📚 Following cookbook:', cookbookData.name);
   };
 
   // Handle deep link for adding friends
@@ -479,7 +492,8 @@ export const HomeScreen = ({ user }) => {
                     cook_time: extracted.cook_time || '',
                     servings: extracted.servings || '',
                     image_url: extracted.image || item.preview_image || null,
-                    source_url: item.url,
+                    url: item.url,
+                    source: result.source || 'web',
                     folder: 'All Recipes',
                   };
                 } else {
@@ -497,7 +511,8 @@ export const HomeScreen = ({ user }) => {
                   cook_time: item.cook_time || '',
                   servings: item.servings || '',
                   image_url: item.image_url || null,
-                  source_url: item.source_url || item.url || '',
+                  url: item.source_url || item.url || '',
+                  source: 'web',
                   folder: 'All Recipes',
                 };
               }
@@ -565,6 +580,11 @@ export const HomeScreen = ({ user }) => {
       folder: selectedFolder === 'Favorites' || selectedFolder === 'Recently Deleted'
         ? 'All Recipes'
         : selectedFolder,
+      // Add creator info if user is logged in
+      createdBy: profile ? {
+        id: user?.uid,
+        username: profile.username,
+      } : null,
     };
 
     const saved = await saveRecipe(recipeWithFolder);
@@ -665,11 +685,20 @@ export const HomeScreen = ({ user }) => {
 
   // Handle recipe creation
   const handleCreateRecipe = async (recipe) => {
-    const saved = await saveRecipe(recipe);
+    // Add creator info for manually created recipes
+    const recipeWithCreator = {
+      ...recipe,
+      createdBy: profile ? {
+        id: user?.uid,
+        username: profile.username,
+      } : null,
+    };
+
+    const saved = await saveRecipe(recipeWithCreator);
     if (saved) {
       Alert.alert('✅ Success', `Recipe "${recipe.title}" created!`);
       setCurrentScreen('recipes');
-      setSelectedRecipe(recipe);
+      setSelectedRecipe(recipeWithCreator);
     } else {
       Alert.alert('Error', 'Failed to create recipe. Please try again.');
     }
@@ -1840,6 +1869,7 @@ export const HomeScreen = ({ user }) => {
           onImportSharedItem={importSharedItem}
           onDeclineSharedItem={declineSharedItem}
           onImportRecipe={saveRecipe}
+          onFollowCookbook={handleFollowCookbook}
           profile={profile}
           onChangeUsername={changeUsername}
           checkUsernameAvailable={checkUsernameAvailable}
@@ -2024,6 +2054,17 @@ export const HomeScreen = ({ user }) => {
                       <Text style={styles.recipeMeta} numberOfLines={1}>
                         {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
                       </Text>
+                      {/* Source/Creator badge */}
+                      {recipe.source === 'manual' && recipe.createdBy?.username && (
+                        <Text style={styles.recipeCreator} numberOfLines={1}>
+                          ✏️ by {recipe.createdBy.username}
+                        </Text>
+                      )}
+                      {recipe.url && (
+                        <Text style={styles.recipeSource} numberOfLines={1}>
+                          🔗 {new URL(recipe.url).hostname.replace('www.', '')}
+                        </Text>
+                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -2874,6 +2915,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 3,
+  },
+  recipeCreator: {
+    fontSize: 10,
+    color: colors.primary,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  recipeSource: {
+    fontSize: 10,
+    color: colors.textTertiary,
+    marginTop: 2,
   },
   multiselectToolbar: {
     flexDirection: 'row',

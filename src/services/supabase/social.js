@@ -61,6 +61,7 @@ export const setupUserProfile = async (userId, username) => {
         username: normalized,
         user_code: userCode,
         is_private: false,
+        is_public: false,  // Default: not publicly visible/searchable
         accepting_friend_requests: true,
         friends: [],
         friend_count: 0,
@@ -98,6 +99,7 @@ export const getUserProfile = async (userId) => {
       username: data.username,
       userCode: data.user_code,
       isPrivate: data.is_private,
+      isPublic: data.is_public || false,
       acceptingFriendRequests: data.accepting_friend_requests,
       friends: data.friends || [],
       friendCount: data.friend_count || 0,
@@ -479,6 +481,9 @@ export const updatePrivacySettings = async (userId, settings) => {
 
     if (settings.isPrivate !== undefined) {
       updates.is_private = settings.isPrivate;
+    }
+    if (settings.isPublic !== undefined) {
+      updates.is_public = settings.isPublic;
     }
     if (settings.acceptingFriendRequests !== undefined) {
       updates.accepting_friend_requests = settings.acceptingFriendRequests;

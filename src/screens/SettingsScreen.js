@@ -106,6 +106,11 @@ export const SettingsScreen = ({
     await onUpdatePrivacySettings({ acceptingFriendRequests: value });
   };
 
+  const handlePublicToggle = async (value) => {
+    if (!onUpdatePrivacySettings) return;
+    await onUpdatePrivacySettings({ isPublic: value });
+  };
+
   const validateUsername = (value) => {
     const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
     return cleaned.substring(0, 20);
@@ -790,6 +795,20 @@ export const SettingsScreen = ({
                 <Switch
                   value={profile.acceptingFriendRequests || false}
                   onValueChange={handleAcceptingRequestsToggle}
+                  trackColor={{ false: '#D1D5DB', true: colors.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
+              <View style={[styles.settingRow, styles.settingRowBorder]}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Public Profile</Text>
+                  <Text style={styles.settingDescription}>
+                    Allow others to find you in public search (coming soon)
+                  </Text>
+                </View>
+                <Switch
+                  value={profile.isPublic || false}
+                  onValueChange={handlePublicToggle}
                   trackColor={{ false: '#D1D5DB', true: colors.primary }}
                   thumbColor="#fff"
                 />

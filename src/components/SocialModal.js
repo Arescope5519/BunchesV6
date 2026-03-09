@@ -31,6 +31,7 @@ export const SocialModal = ({
   onImportSharedItem,
   onDeclineSharedItem,
   onImportRecipe,
+  onFollowCookbook,
   profile,
   onChangeUsername,
   checkUsernameAvailable,
@@ -327,17 +328,57 @@ export const SocialModal = ({
           ))}
         </ScrollView>
 
-        <View style={styles.previewActions}>
+        {/* Cookbook Import Options */}
+        <View style={styles.cookbookOptionsContainer}>
+          <Text style={styles.cookbookOptionsTitle}>How would you like to add this cookbook?</Text>
+
+          <TouchableOpacity
+            onPress={() => {
+              if (onFollowCookbook) {
+                onFollowCookbook({
+                  id: previewRecipe.id,
+                  name: previewRecipe.name,
+                  ownerId: previewRecipe.from,
+                  ownerUsername: previewRecipe.fromUsername,
+                  recipeCount: recipes.length,
+                  followedAt: Date.now(),
+                });
+                onImportSharedItem(previewRecipe.id);
+                setPreviewRecipe(null);
+                setSelectedThread(null);
+                Alert.alert('Following!', `You're now following "${previewRecipe.name}". You'll see updates when recipes are added or changed.`);
+              }
+            }}
+            style={styles.followCookbookButton}
+          >
+            <Text style={styles.followCookbookIcon}>👁️</Text>
+            <View style={styles.followCookbookTextContainer}>
+              <Text style={styles.followCookbookTitle}>Follow Cookbook</Text>
+              <Text style={styles.followCookbookDescription}>
+                See live updates when recipes are added or changed
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => {
               handleImport(previewRecipe);
               setPreviewRecipe(null);
               setSelectedThread(null);
             }}
-            style={styles.importButton}
+            style={styles.copyCookbookButton}
           >
-            <Text style={styles.importButtonText}>Import All ({recipes.length})</Text>
+            <Text style={styles.copyCookbookIcon}>📋</Text>
+            <View style={styles.copyCookbookTextContainer}>
+              <Text style={styles.copyCookbookTitle}>Make a Copy</Text>
+              <Text style={styles.copyCookbookDescription}>
+                Copy all {recipes.length} recipes to edit as your own
+              </Text>
+            </View>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.previewActions}>
           <TouchableOpacity
             onPress={() => {
               onDeclineSharedItem(previewRecipe.id);
@@ -1450,6 +1491,72 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   cookbookRecipeMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  cookbookOptionsContainer: {
+    backgroundColor: colors.background,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  cookbookOptionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  followCookbookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  followCookbookIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  followCookbookTextContainer: {
+    flex: 1,
+  },
+  followCookbookTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  followCookbookDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  copyCookbookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  copyCookbookIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  copyCookbookTextContainer: {
+    flex: 1,
+  },
+  copyCookbookTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  copyCookbookDescription: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,

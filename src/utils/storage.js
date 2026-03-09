@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   FOLDERS: 'folders',
   GROCERY_LIST: 'groceryList',
   APP_SETTINGS: 'appSettings',
+  FOLLOWED_COOKBOOKS: 'followedCookbooks',
 };
 
 /**
@@ -133,6 +134,40 @@ export const loadGroceryList = async (userId = null) => {
     return [];
   } catch (error) {
     console.error('Failed to load grocery list:', error);
+    return [];
+  }
+};
+
+/**
+ * Save followed cookbooks to storage
+ * @param {Array} cookbooks - The followed cookbooks to save
+ * @param {string|null} userId - Optional user ID for user-specific storage
+ */
+export const saveFollowedCookbooks = async (cookbooks, userId = null) => {
+  try {
+    const key = getUserKey(STORAGE_KEYS.FOLLOWED_COOKBOOKS, userId);
+    await AsyncStorage.setItem(key, JSON.stringify(cookbooks));
+    return true;
+  } catch (error) {
+    console.error('Failed to save followed cookbooks:', error);
+    return false;
+  }
+};
+
+/**
+ * Load followed cookbooks from storage
+ * @param {string|null} userId - Optional user ID for user-specific storage
+ */
+export const loadFollowedCookbooks = async (userId = null) => {
+  try {
+    const key = getUserKey(STORAGE_KEYS.FOLLOWED_COOKBOOKS, userId);
+    const stored = await AsyncStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to load followed cookbooks:', error);
     return [];
   }
 };

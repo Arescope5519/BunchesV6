@@ -1082,18 +1082,28 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes 
         </View>
       ))}
 
-      <View style={styles.sourceContainer}>
-        <Text style={styles.sourceLabel}>Source:</Text>
-        <TouchableOpacity onPress={() => {
-          if (localRecipe.url) {
-            Linking.openURL(localRecipe.url).catch(err =>
-              Alert.alert('Error', 'Could not open URL')
-            );
-          }
-        }}>
-          <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Source/Creator Info */}
+      {(localRecipe.url || localRecipe.createdBy) && (
+        <View style={styles.sourceContainer}>
+          {localRecipe.url ? (
+            <>
+              <Text style={styles.sourceLabel}>Source:</Text>
+              <TouchableOpacity onPress={() => {
+                Linking.openURL(localRecipe.url).catch(err =>
+                  Alert.alert('Error', 'Could not open URL')
+                );
+              }}>
+                <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
+              </TouchableOpacity>
+            </>
+          ) : localRecipe.source === 'manual' && localRecipe.createdBy?.username ? (
+            <>
+              <Text style={styles.sourceLabel}>Created by:</Text>
+              <Text style={styles.creatorName}>{localRecipe.createdBy.username}</Text>
+            </>
+          ) : null}
+        </View>
+      )}
 
       {/* Tag Editor Modal */}
       <Modal
@@ -1530,6 +1540,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     textDecorationLine: 'underline',
+  },
+  creatorName: {
+    fontSize: 13,
+    color: colors.primary,
+    fontStyle: 'italic',
   },
   disclaimer: {
     backgroundColor: '#FFF9E6',

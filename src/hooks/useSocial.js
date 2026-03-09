@@ -315,6 +315,7 @@ export const useSocial = (user) => {
     setProfile({
       ...profile,
       ...(settings.isPrivate !== undefined && { isPrivate: settings.isPrivate }),
+      ...(settings.isPublic !== undefined && { isPublic: settings.isPublic }),
       ...(settings.acceptingFriendRequests !== undefined && { acceptingFriendRequests: settings.acceptingFriendRequests }),
     });
 
