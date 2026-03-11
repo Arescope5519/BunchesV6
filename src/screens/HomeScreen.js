@@ -708,11 +708,21 @@ export const HomeScreen = ({ user }) => {
   const handleClearAllData = async () => {
     try {
       const { saveRecipes } = require('../utils/storage');
+
+      // Clear local storage
       await saveRecipes([], user?.uid || null);
+
+      // If signed in, also clear cloud data
+      if (user?.uid) {
+        const { deleteAllRecipesFromDatabase } = require('../services/supabase/database');
+        await deleteAllRecipesFromDatabase(user.uid);
+      }
+
       await refreshRecipes();
       setCurrentScreen('recipes');
       Alert.alert('✅ Success', 'All data has been cleared');
     } catch (error) {
+      console.error('Error clearing data:', error);
       Alert.alert('Error', 'Failed to clear data');
     }
   };

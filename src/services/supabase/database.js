@@ -351,11 +351,34 @@ export const loadFoldersFromDatabase = async (userId) => {
   }
 };
 
+/**
+ * Delete ALL recipes for a user (hard delete from database)
+ * Used when user clears all data
+ * @param {string} userId - User's unique ID
+ */
+export const deleteAllRecipesFromDatabase = async (userId) => {
+  try {
+    const { error } = await supabase
+      .from('recipes')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    console.log(`✅ Deleted all recipes for user ${userId} from database`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting all recipes:', error);
+    throw error;
+  }
+};
+
 export default {
   saveRecipesToDatabase,
   loadRecipesFromDatabase,
   saveRecipeToDatabase,
   deleteRecipeFromDatabase,
+  deleteAllRecipesFromDatabase,
   syncRecipes,
   saveFoldersToDatabase,
   loadFoldersFromDatabase,
