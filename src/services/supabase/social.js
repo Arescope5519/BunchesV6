@@ -164,6 +164,17 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
  */
 export const sendFriendRequest = async (fromUserId, toUserId) => {
   try {
+    // Check if the target user is accepting friend requests
+    const { data: targetProfile } = await supabase
+      .from('user_profiles')
+      .select('accepting_friend_requests')
+      .eq('user_id', toUserId)
+      .single();
+
+    if (targetProfile && targetProfile.accepting_friend_requests === false) {
+      throw new Error('This person is not accepting requests at this time');
+    }
+
     // Check if already exists
     const { data: existing } = await supabase
       .from('friend_requests')
