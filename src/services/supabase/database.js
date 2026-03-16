@@ -44,6 +44,7 @@ export const saveRecipesToDatabase = async (userId, recipes) => {
         cook_time: recipe.cook_time || recipe.cookTime || null,
         servings: recipe.servings || null,
         tags: recipe.tags || [],
+        is_private: recipe.isPrivate || false,
         deleted_at: recipe.deletedAt ? new Date(recipe.deletedAt).toISOString() : null,
         created_at: createdAtISO,
         updated_at: new Date().toISOString(),
@@ -102,6 +103,7 @@ export const loadRecipesFromDatabase = async (userId) => {
       cook_time: row.cook_time,
       servings: row.servings,
       tags: row.tags || [],
+      isPrivate: row.is_private || false,
       createdAt: new Date(row.created_at).getTime(),
       updatedAt: new Date(row.updated_at).getTime(),
     }));
@@ -137,6 +139,7 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
         image_url: imageUrl,
         notes: recipe.notes,
         tags: recipe.tags || [],
+        is_private: recipe.isPrivate || false,
         created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });

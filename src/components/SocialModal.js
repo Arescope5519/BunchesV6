@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
+import { UserAvatar } from './UserAvatar';
 
 export const SocialModal = ({
   visible,
@@ -166,14 +167,20 @@ export const SocialModal = ({
               <Text style={styles.searchResultsTitle}>Results</Text>
               {searchResults.map(user => (
                 <View key={user.id} style={styles.listItem}>
+                  <UserAvatar username={user.username} size={36} style={styles.avatar} />
                   <View style={styles.userInfo}>
-                    <Text style={styles.usernameText}>@{user.username}</Text>
+                    <View style={styles.usernameRow}>
+                      <Text style={styles.usernameText}>@{user.username}</Text>
+                      {user.isPrivate && !user.isFriend && (
+                        <Text style={styles.privateIndicator}>Private</Text>
+                      )}
+                    </View>
                     {user.userCode && (
                       <Text style={styles.userCodeText}>{user.userCode}</Text>
                     )}
                   </View>
                   {user.isFriend ? (
-                    <Text style={styles.alreadyFriendsText}>✓ Friends</Text>
+                    <Text style={styles.alreadyFriendsText}>Friends</Text>
                   ) : user.requestSent ? (
                     <Text style={styles.requestSentText}>Pending</Text>
                   ) : (
@@ -208,6 +215,7 @@ export const SocialModal = ({
           <Text style={styles.friendsListTitle}>Your Friends ({friends.length})</Text>
           {friends.map(friend => (
             <View key={friend.id} style={styles.listItem}>
+              <UserAvatar username={friend.username} size={36} style={styles.avatar} />
               <View style={styles.userInfo}>
                 <Text style={styles.usernameText}>@{friend.username}</Text>
               </View>
@@ -246,6 +254,7 @@ export const SocialModal = ({
       ) : (
         friendRequests.map(request => (
           <View key={request.id} style={styles.listItem}>
+            <UserAvatar username={request.senderUsername} size={36} style={styles.avatar} />
             <View style={styles.userInfo}>
               <Text style={styles.usernameText}>@{request.senderUsername}</Text>
             </View>
@@ -779,6 +788,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
+  avatar: {
+    marginRight: 12,
+  },
   userInfo: {
     flex: 1,
   },
@@ -1021,6 +1033,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  privateIndicator: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    backgroundColor: colors.lightGray,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   // Username edit styles
   usernameInputRow: {

@@ -67,13 +67,17 @@ export const loadRecipes = async (userId = null) => {
 
 /**
  * Save folders to storage
- * @param {Array} folders - The folders to save
+ * @param {Array} folders - The folders to save (can be strings or objects with { name, isPrivate })
  * @param {string|null} userId - Optional user ID for user-specific storage
  */
 export const saveFolders = async (folders, userId = null) => {
   try {
     const key = getUserKey(STORAGE_KEYS.FOLDERS, userId);
-    await AsyncStorage.setItem(key, JSON.stringify(folders));
+    // Normalize folders to objects
+    const normalizedFolders = folders.map(f =>
+      typeof f === 'string' ? { name: f, isPrivate: false } : f
+    );
+    await AsyncStorage.setItem(key, JSON.stringify(normalizedFolders));
     return true;
   } catch (error) {
     console.error('Failed to save folders:', error);
@@ -91,16 +95,30 @@ export const loadFolders = async (userId = null) => {
     const stored = await AsyncStorage.getItem(key);
     if (stored) {
       const folders = JSON.parse(stored);
+      // Convert old string format to new object format
+      const normalizedFolders = folders.map(f =>
+        typeof f === 'string' ? { name: f, isPrivate: false } : f
+      );
       // Ensure "Recently Deleted" is always included
-      if (!folders.includes('Recently Deleted')) {
-        folders.push('Recently Deleted');
+      const hasRecentlyDeleted = normalizedFolders.some(f => f.name === 'Recently Deleted');
+      if (!hasRecentlyDeleted) {
+        normalizedFolders.push({ name: 'Recently Deleted', isPrivate: false });
       }
-      return folders;
+      return normalizedFolders;
     }
-    return ['All Recipes', 'Favorites', 'Recently Deleted']; // Default folders
+    // Default folders (all public by default)
+    return [
+      { name: 'All Recipes', isPrivate: false },
+      { name: 'Favorites', isPrivate: false },
+      { name: 'Recently Deleted', isPrivate: false }
+    ];
   } catch (error) {
     console.error('Failed to load folders:', error);
-    return ['All Recipes', 'Favorites', 'Recently Deleted'];
+    return [
+      { name: 'All Recipes', isPrivate: false },
+      { name: 'Favorites', isPrivate: false },
+      { name: 'Recently Deleted', isPrivate: false }
+    ];
   }
 };
 

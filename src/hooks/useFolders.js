@@ -4,15 +4,40 @@
  * Extracted from your App.js
  *
  * Now supports user-specific folders to prevent data mixing between accounts
+ * Folders are now objects: { name: string, isPrivate: boolean }
  */
 
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
 
+const DEFAULT_FOLDERS = [
+  { name: 'All Recipes', isPrivate: false },
+  { name: 'Favorites', isPrivate: false },
+  { name: 'Recently Deleted', isPrivate: false }
+];
+
 export const useFolders = (user) => {
-  const [folders, setFolders] = useState(['All Recipes', 'Favorites', 'Recently Deleted']);
+  const [folders, setFolders] = useState(DEFAULT_FOLDERS);
   const [currentFolder, setCurrentFolder] = useState('All Recipes');
+
+  /**
+   * Helper to get folder names as array (for backward compatibility)
+   */
+  const getFolderNames = () => folders.map(f => f.name);
+
+  /**
+   * Helper to get folder by name
+   */
+  const getFolderByName = (name) => folders.find(f => f.name === name);
+
+  /**
+   * Check if folder is private
+   */
+  const isFolderPrivate = (folderName) => {
+    const folder = getFolderByName(folderName);
+    return folder?.isPrivate || false;
+  };
 
   /**
    * Load folders from storage (user-specific)
@@ -31,12 +56,15 @@ export const useFolders = (user) => {
       return false;
     }
 
-    if (folders.includes(folderName.trim())) {
+    const folderNames = getFolderNames();
+    if (folderNames.includes(folderName.trim())) {
       Alert.alert('Error', 'A folder with this name already exists');
       return false;
     }
 
-    const newFolders = [...folders, folderName.trim()];
+    // New folders default to public
+    const newFolder = { name: folderName.trim(), isPrivate: false };
+    const newFolders = [...folders, newFolder];
     const success = await saveFoldersToStorage(newFolders, user?.uid || null);
 
     if (success) {
@@ -56,13 +84,16 @@ export const useFolders = (user) => {
       return { success: false };
     }
 
-    if (folders.includes(newName.trim()) && newName.trim() !== oldName) {
+    const folderNames = getFolderNames();
+    if (folderNames.includes(newName.trim()) && newName.trim() !== oldName) {
       Alert.alert('Error', 'A folder with this name already exists');
       return { success: false };
     }
 
-    // Update folders list
-    const updatedFolders = folders.map(f => f === oldName ? newName.trim() : f);
+    // Update folders list, preserving isPrivate setting
+    const updatedFolders = folders.map(f =>
+      f.name === oldName ? { ...f, name: newName.trim() } : f
+    );
     const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
 
     if (success) {
@@ -71,6 +102,22 @@ export const useFolders = (user) => {
       return { success: true, oldName, newName: newName.trim() };
     }
     return { success: false };
+  };
+
+  /**
+   * Update folder privacy setting
+   */
+  const updateFolderPrivacy = async (folderName, isPrivate) => {
+    const updatedFolders = folders.map(f =>
+      f.name === folderName ? { ...f, isPrivate } : f
+    );
+    const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
+
+    if (success) {
+      setFolders(updatedFolders);
+      return true;
+    }
+    return false;
   };
 
   /**
@@ -88,7 +135,7 @@ export const useFolders = (user) => {
             style: 'destructive',
             onPress: async () => {
               // Remove folder
-              const updatedFolders = folders.filter(f => f !== folderName);
+              const updatedFolders = folders.filter(f => f.name !== folderName);
               const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
 
               if (success) {
@@ -109,13 +156,15 @@ export const useFolders = (user) => {
    * Get custom folders (excluding default ones)
    */
   const getCustomFolders = () => {
-    return folders.filter(f => f !== 'All Recipes' && f !== 'Favorites' && f !== 'Recently Deleted');
+    return folders.filter(f =>
+      f.name !== 'All Recipes' && f.name !== 'Favorites' && f.name !== 'Recently Deleted'
+    ).map(f => f.name);
   };
 
   // Load folders on mount and when user changes
   useEffect(() => {
     // Clear folders immediately when user changes
-    setFolders(['All Recipes', 'Favorites', 'Recently Deleted']);
+    setFolders(DEFAULT_FOLDERS);
     setCurrentFolder('All Recipes');
     loadFolders();
   }, [user?.uid]);
@@ -128,6 +177,10 @@ export const useFolders = (user) => {
     renameFolder,
     deleteFolder,
     getCustomFolders,
+    getFolderNames,
+    getFolderByName,
+    isFolderPrivate,
+    updateFolderPrivacy,
   };
 };
 

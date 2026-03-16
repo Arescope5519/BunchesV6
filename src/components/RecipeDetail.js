@@ -101,7 +101,7 @@ const normalizeRecipe = (recipe) => {
   return normalized;
 };
 
-export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes = [] }) => {
+export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes = [], isFolderPrivate = false }) => {
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
 
@@ -1105,6 +1105,47 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes 
         </View>
       )}
 
+      {/* Privacy Toggle */}
+      {onUpdate && (
+        <View style={styles.privacyContainer}>
+          <View style={styles.privacyRow}>
+            <Text style={styles.privacyLabel}>
+              {isFolderPrivate ? '🔒 Private (folder is private)' : localRecipe.isPrivate ? '🔒 Private Recipe' : '🌐 Public Recipe'}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.privacyToggle,
+                (localRecipe.isPrivate || isFolderPrivate) && styles.privacyToggleActive
+              ]}
+              onPress={() => {
+                if (isFolderPrivate) {
+                  Alert.alert(
+                    'Folder is Private',
+                    'This recipe is in a private folder, so it must remain private. Move it to a public folder to make it public.'
+                  );
+                  return;
+                }
+                const newPrivacy = !localRecipe.isPrivate;
+                setLocalRecipe(prev => ({ ...prev, isPrivate: newPrivacy }));
+                onUpdate({ ...localRecipe, isPrivate: newPrivacy });
+              }}
+              disabled={isFolderPrivate}
+            >
+              <Text style={styles.privacyToggleText}>
+                {(localRecipe.isPrivate || isFolderPrivate) ? 'Private' : 'Public'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.privacyHint}>
+            {isFolderPrivate
+              ? 'Recipes in private folders are always private'
+              : localRecipe.isPrivate
+                ? 'Only you can see this recipe'
+                : 'Friends can view this recipe if your account is public'}
+          </Text>
+        </View>
+      )}
+
       {/* Tag Editor Modal */}
       <Modal
         visible={showTagEditor}
@@ -1544,6 +1585,42 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 13,
     color: colors.primary,
+    fontStyle: 'italic',
+  },
+  privacyContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  privacyLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  privacyToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 15,
+  },
+  privacyToggleActive: {
+    backgroundColor: colors.textSecondary,
+  },
+  privacyToggleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  privacyHint: {
+    marginTop: 8,
+    fontSize: 11,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   disclaimer: {

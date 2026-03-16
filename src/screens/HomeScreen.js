@@ -161,6 +161,8 @@ export const HomeScreen = ({ user }) => {
     renameFolder: renameFolderBase,
     deleteFolder: deleteFolderBase,
     getCustomFolders,
+    isFolderPrivate,
+    updateFolderPrivacy,
   } = useFolders(user);
 
   const {
@@ -840,11 +842,14 @@ export const HomeScreen = ({ user }) => {
 
       // Also restore any new folders that don't exist
       if (backupData.folders && Array.isArray(backupData.folders)) {
-        const existingFolderNames = folders.map(f => f.toLowerCase());
-        const newFolders = backupData.folders.filter(
-          f => f !== 'All Recipes' && !existingFolderNames.includes(f.toLowerCase())
-        );
-        for (const folderName of newFolders) {
+        const existingFolderNames = folders.map(f => f.name.toLowerCase());
+        const newFolders = backupData.folders.filter(f => {
+          // Handle both old string format and new object format
+          const folderName = typeof f === 'string' ? f : f.name;
+          return folderName !== 'All Recipes' && !existingFolderNames.includes(folderName.toLowerCase());
+        });
+        for (const folder of newFolders) {
+          const folderName = typeof folder === 'string' ? folder : folder.name;
           await addFolder(folderName);
         }
       }
@@ -1633,7 +1638,7 @@ export const HomeScreen = ({ user }) => {
         <CreateRecipeScreen
           onSave={handleCreateRecipe}
           onClose={() => setCurrentScreen('recipes')}
-          folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
+          folders={folders.filter(f => f.name !== 'Favorites' && f.name !== 'Recently Deleted').map(f => f.name)}
         />
 
         {/* Bottom Navigation Bar */}
@@ -1647,7 +1652,7 @@ export const HomeScreen = ({ user }) => {
       <SafeAreaView style={styles.container}>
         <SaveRecipeScreen
           recipe={extractedRecipe}
-          folders={folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted')}
+          folders={folders.filter(f => f.name !== 'Favorites' && f.name !== 'Recently Deleted').map(f => f.name)}
           onSave={handleSaveExtractedRecipe}
           onCancel={handleCancelSave}
         />
@@ -2118,7 +2123,8 @@ export const HomeScreen = ({ user }) => {
           >
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
-              {folders.filter(f => f === 'All Recipes' || f === 'Favorites' || f === 'Recently Deleted').map((folder) => {
+              {folders.filter(f => f.name === 'All Recipes' || f.name === 'Favorites' || f.name === 'Recently Deleted').map((folderObj) => {
+                const folder = folderObj.name;
                 let icon = '📚';
                 let count = recipes.length;
 
@@ -2189,11 +2195,7 @@ export const HomeScreen = ({ user }) => {
                   const recipeCount = recipes.filter(r =>
                     r.folder === folder && !r.deletedAt
                   ).length;
-
-                  // Debug: log what we're finding
-                  console.log(`Folder: ${folder}`);
-                  console.log(`Total recipes in folder: ${recipes.filter(r => r.folder === folder).length}`);
-                  console.log(`Non-deleted recipes: ${recipeCount}`);
+                  const isPrivate = isFolderPrivate(folder);
 
                   return (
                     <TouchableOpacity
@@ -2218,6 +2220,16 @@ export const HomeScreen = ({ user }) => {
                               onPress: () => shareCookbook(folder)
                             },
                             {
+                              text: isPrivate ? 'Make Public' : 'Make Private',
+                              onPress: () => {
+                                updateFolderPrivacy(folder, !isPrivate);
+                                Alert.alert(
+                                  'Updated',
+                                  `"${folder}" is now ${!isPrivate ? 'private' : 'public'}`
+                                );
+                              }
+                            },
+                            {
                               text: 'Rename',
                               onPress: () => {
                                 setEditingFolder(folder);
@@ -2234,7 +2246,9 @@ export const HomeScreen = ({ user }) => {
                       }}
                     >
                       <View style={styles.folderManagerItemLeft}>
-                        <Text style={styles.folderManagerIcon}>📖</Text>
+                        <Text style={styles.folderManagerIcon}>
+                          {isPrivate ? '🔒' : '📖'}
+                        </Text>
                         <Text style={[
                           styles.folderManagerItemText,
                           currentFolder === folder && styles.folderManagerItemTextActive
@@ -2395,6 +2409,7 @@ export const HomeScreen = ({ user }) => {
                 onUpdate={selectedRecipe.deletedAt ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}
+                isFolderPrivate={isFolderPrivate(selectedRecipe.folder)}
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>
@@ -2661,20 +2676,20 @@ export const HomeScreen = ({ user }) => {
             <View style={styles.importSection}>
               <Text style={styles.importSectionLabel}>Import to:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.folderChips}>
-                {folders.filter(f => f !== 'Favorites' && f !== 'Recently Deleted').map((folder) => (
+                {folders.filter(f => f.name !== 'Favorites' && f.name !== 'Recently Deleted').map((folderObj) => (
                   <TouchableOpacity
-                    key={folder}
+                    key={folderObj.name}
                     style={[
                       styles.folderChip,
-                      importTargetFolder === folder && styles.folderChipSelected
+                      importTargetFolder === folderObj.name && styles.folderChipSelected
                     ]}
-                    onPress={() => setImportTargetFolder(folder)}
+                    onPress={() => setImportTargetFolder(folderObj.name)}
                   >
                     <Text style={[
                       styles.folderChipText,
-                      importTargetFolder === folder && styles.folderChipTextSelected
+                      importTargetFolder === folderObj.name && styles.folderChipTextSelected
                     ]}>
-                      {folder}
+                      {folderObj.name}
                     </Text>
                   </TouchableOpacity>
                 ))}

@@ -60,7 +60,7 @@ export const setupUserProfile = async (userId, username) => {
         user_id: userId,
         username: normalized,
         user_code: userCode,
-        is_private: false,
+        is_private: true,  // Default: accounts are private (non-friends see limited info)
         is_public: false,  // Default: not publicly visible/searchable
         accepting_friend_requests: true,
         friends: [],
@@ -122,7 +122,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     if (normalized.length === 6 && /^[A-Z0-9]+$/i.test(normalized)) {
       const { data } = await supabase
         .from('user_profiles')
-        .select('user_id, username, user_code, accepting_friend_requests')
+        .select('user_id, username, user_code, accepting_friend_requests, is_private')
         .eq('user_code', normalized.toUpperCase())
         .neq('user_id', currentUserId)
         .limit(1);
@@ -133,6 +133,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
           username: u.username,
           userCode: u.user_code,
           acceptingFriendRequests: u.accepting_friend_requests,
+          isPrivate: u.is_private || false,
         }));
       }
     }
@@ -140,7 +141,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     // Search by username
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id, username, user_code, accepting_friend_requests')
+      .select('user_id, username, user_code, accepting_friend_requests, is_private')
       .ilike('username', `${normalized.toLowerCase()}%`)
       .neq('user_id', currentUserId)
       .limit(20);
@@ -152,6 +153,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
       username: u.username,
       userCode: u.user_code,
       acceptingFriendRequests: u.accepting_friend_requests,
+      isPrivate: u.is_private || false,
     }));
   } catch (error) {
     console.error('Error searching users:', error);
