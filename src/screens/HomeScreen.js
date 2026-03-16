@@ -104,6 +104,10 @@ export const HomeScreen = ({ user }) => {
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [expandedTagsRecipeId, setExpandedTagsRecipeId] = useState(null); // Track which recipe has expanded tags
 
+  // Folder filter state
+  const [folderSortAZ, setFolderSortAZ] = useState(false); // Sort folders A-Z
+  const [folderPrivacyFilter, setFolderPrivacyFilter] = useState('all'); // 'all', 'private', 'public'
+
   // Multiselect state
   const [multiselectMode, setMultiselectMode] = useState(false);
   const [selectedRecipes, setSelectedRecipes] = useState(new Set());
@@ -2183,14 +2187,45 @@ export const HomeScreen = ({ user }) => {
             </View>
 
             <View style={styles.folderSection}>
-              <Text style={styles.folderSectionTitle}>My Cookbooks</Text>
+              <View style={styles.folderSectionHeader}>
+                <Text style={styles.folderSectionTitle}>My Cookbooks</Text>
+                {getCustomFolders().length > 0 && (
+                  <View style={styles.folderFilters}>
+                    <TouchableOpacity
+                      style={[styles.folderFilterBtn, folderSortAZ && styles.folderFilterBtnActive]}
+                      onPress={() => setFolderSortAZ(!folderSortAZ)}
+                    >
+                      <Text style={[styles.folderFilterText, folderSortAZ && styles.folderFilterTextActive]}>A-Z</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.folderFilterBtn, folderPrivacyFilter === 'private' && styles.folderFilterBtnActive]}
+                      onPress={() => setFolderPrivacyFilter(folderPrivacyFilter === 'private' ? 'all' : 'private')}
+                    >
+                      <Text style={[styles.folderFilterText, folderPrivacyFilter === 'private' && styles.folderFilterTextActive]}>Private</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.folderFilterBtn, folderPrivacyFilter === 'public' && styles.folderFilterBtnActive]}
+                      onPress={() => setFolderPrivacyFilter(folderPrivacyFilter === 'public' ? 'all' : 'public')}
+                    >
+                      <Text style={[styles.folderFilterText, folderPrivacyFilter === 'public' && styles.folderFilterTextActive]}>Public</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
               {getCustomFolders().length === 0 ? (
                 <View style={styles.emptyFolders}>
                   <Text style={styles.emptyFoldersText}>No custom cookbooks yet</Text>
                   <Text style={styles.emptyFoldersSubtext}>Tap "+ New" to create one</Text>
                 </View>
               ) : (
-                getCustomFolders().map((folder) => {
+                getCustomFolders()
+                  .filter(folder => {
+                    if (folderPrivacyFilter === 'all') return true;
+                    const isPrivate = isFolderPrivate(folder);
+                    return folderPrivacyFilter === 'private' ? isPrivate : !isPrivate;
+                  })
+                  .sort((a, b) => folderSortAZ ? a.localeCompare(b) : 0)
+                  .map((folder) => {
                   // Count only non-deleted recipes in this folder
                   const recipeCount = recipes.filter(r =>
                     r.folder === folder && !r.deletedAt
@@ -3090,9 +3125,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  folderSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  folderFilters: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  folderFilterBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: colors.lightGray,
+  },
+  folderFilterBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  folderFilterText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  folderFilterTextActive: {
+    color: '#fff',
   },
   folderManagerItem: {
     flexDirection: 'row',
