@@ -669,7 +669,7 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes 
     <>
       {/* Folder badge - shown if recipe is in a cookbook */}
       {localRecipe.folder && localRecipe.folder !== 'All Recipes' && (
-        <Text style={styles.folderBadge}>{localRecipe.folder}</Text>
+        <Text style={styles.folderBadge}>{typeof localRecipe.folder === 'string' ? localRecipe.folder : localRecipe.folder?.name || ''}</Text>
       )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 

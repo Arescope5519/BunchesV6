@@ -24,6 +24,11 @@ export const ShareToFriendsModal = ({
 }) => {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
 
+  // Ensure itemName is a string (safety check)
+  const displayItemName = typeof itemName === 'object'
+    ? (itemName?.name || itemName?.title || 'Untitled')
+    : (itemName || '');
+
   const toggleFriend = (friendId) => {
     setSelectedFriends(prev => {
       const newSet = new Set(prev);
@@ -63,7 +68,7 @@ export const ShareToFriendsModal = ({
             </TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>Share {itemType === 'recipe' ? 'Recipe' : 'Cookbook'}</Text>
-              <Text style={styles.itemName} numberOfLines={1}>{itemName}</Text>
+              <Text style={styles.itemName} numberOfLines={1}>{displayItemName}</Text>
             </View>
             <TouchableOpacity
               onPress={handleShare}
@@ -108,7 +113,7 @@ export const ShareToFriendsModal = ({
                         )}
                       </View>
                       <View style={styles.friendInfo}>
-                        <Text style={styles.displayName}>{friend.displayName}</Text>
+                        <Text style={styles.displayName}>{friend.displayName || friend.username}</Text>
                         <Text style={styles.username}>@{friend.username}</Text>
                       </View>
                     </TouchableOpacity>
