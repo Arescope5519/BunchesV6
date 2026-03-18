@@ -185,9 +185,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
             showsHorizontalScrollIndicator={false}
             style={styles.folderScroll}
           >
-            {folders
-              .filter(f => f !== 'Favorites' && f !== 'Recently Deleted')
-              .map((folder) => (
+            {folders.map((folder) => (
                 <TouchableOpacity
                   key={folder}
                   style={[

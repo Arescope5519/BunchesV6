@@ -1629,7 +1629,7 @@ export const HomeScreen = ({ user }) => {
     return (
       <SaveRecipeScreen
         recipe={extractedRecipe}
-        folders={folders}
+        folders={folders.filter(f => f.name !== 'Favorites' && f.name !== 'Recently Deleted').map(f => f.name)}
         onSave={handleSaveExtractedRecipe}
         onCancel={handleCancelSave}
       />
