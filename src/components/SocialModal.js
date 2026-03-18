@@ -98,31 +98,46 @@ export const SocialModal = ({
   };
 
   const handleImport = async (item) => {
-    // Import the recipe(s) to local storage
-    if (item.type === 'recipe') {
-      const recipe = {
-        ...item.data,
-        id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        importedFrom: item.fromUsername,
-        importedAt: Date.now(),
-      };
-      await onImportRecipe(recipe);
-    } else if (item.type === 'cookbook') {
-      // Import all recipes in cookbook
-      for (const recipeData of item.data) {
+    try {
+      // Import the recipe(s) to local storage
+      if (item.type === 'recipe') {
+        if (!item.data) {
+          Alert.alert('Error', 'Recipe data is missing');
+          return;
+        }
         const recipe = {
-          ...recipeData,
+          ...item.data,
           id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           importedFrom: item.fromUsername,
           importedAt: Date.now(),
         };
         await onImportRecipe(recipe);
+      } else if (item.type === 'cookbook') {
+        // Import all recipes in cookbook
+        const recipesData = Array.isArray(item.data) ? item.data : [];
+        if (recipesData.length === 0) {
+          Alert.alert('Error', 'No recipes found in cookbook');
+          return;
+        }
+        for (const recipeData of recipesData) {
+          if (!recipeData) continue;
+          const recipe = {
+            ...recipeData,
+            id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            importedFrom: item.fromUsername,
+            importedAt: Date.now(),
+          };
+          await onImportRecipe(recipe);
+        }
       }
-    }
 
-    // Mark as imported
-    await onImportSharedItem(item.id);
-    Alert.alert('Imported!', `${item.type === 'recipe' ? 'Recipe' : 'Cookbook'} has been added to your recipes`);
+      // Mark as imported
+      await onImportSharedItem(item.id);
+      Alert.alert('Imported!', `${item.type === 'recipe' ? 'Recipe' : 'Cookbook'} has been added to your recipes`);
+    } catch (error) {
+      console.error('Import error:', error);
+      Alert.alert('Import Failed', error.message || 'Could not import. Please try again.');
+    }
   };
 
   const renderFriendsTab = () => (

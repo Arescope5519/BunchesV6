@@ -124,20 +124,29 @@ export const loadRecipesFromDatabase = async (userId) => {
 export const saveRecipeToDatabase = async (userId, recipe) => {
   try {
     const imageUrl = recipe.imageUrl || recipe.image_url;
-    console.log('📸 Saving recipe with image_url:', imageUrl);
+
+    // Ensure ingredients and instructions are strings (database expects text type)
+    const ingredients = Array.isArray(recipe.ingredients)
+      ? recipe.ingredients.join('\n')
+      : (recipe.ingredients || '');
+    const instructions = Array.isArray(recipe.instructions)
+      ? recipe.instructions.join('\n')
+      : (recipe.instructions || '');
+
+    console.log('📸 Saving recipe:', recipe.title, 'image_url:', imageUrl);
 
     const { error } = await supabase
       .from('recipes')
       .upsert({
         id: recipe.id,
         user_id: userId,
-        title: recipe.title,
-        ingredients: recipe.ingredients,
-        instructions: recipe.instructions,
-        folder: recipe.folder,
-        source_url: recipe.sourceUrl || recipe.source_url,
-        image_url: imageUrl,
-        notes: recipe.notes,
+        title: recipe.title || 'Untitled Recipe',
+        ingredients: ingredients,
+        instructions: instructions,
+        folder: recipe.folder || 'All Recipes',
+        source_url: recipe.sourceUrl || recipe.source_url || null,
+        image_url: imageUrl || null,
+        notes: recipe.notes || null,
         tags: recipe.tags || [],
         is_private: recipe.isPrivate || false,
         created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
