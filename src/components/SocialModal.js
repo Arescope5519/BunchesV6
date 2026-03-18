@@ -45,6 +45,14 @@ export const SocialModal = ({
   const [selectedThread, setSelectedThread] = useState(null); // For threaded inbox
   const [previewRecipe, setPreviewRecipe] = useState(null); // For recipe preview
 
+  // Helper to safely get name as string (handles object with {name, isPrivate} structure)
+  const getDisplayName = (name) => {
+    if (typeof name === 'object' && name !== null) {
+      return name.name || name.title || 'Untitled';
+    }
+    return name || 'Untitled';
+  };
+
   // Group shared items by sender for threaded view
   const threadedInbox = React.useMemo(() => {
     const threads = {};
@@ -313,7 +321,7 @@ export const SocialModal = ({
           {/* Cookbook header */}
           <View style={styles.cookbookHeader}>
             <Text style={styles.cookbookIcon}>📁</Text>
-            <Text style={styles.cookbookName}>{previewRecipe.name}</Text>
+            <Text style={styles.cookbookName}>{getDisplayName(previewRecipe.name)}</Text>
             <Text style={styles.previewFrom}>Shared by @{previewRecipe.fromUsername}</Text>
             <Text style={styles.cookbookCount}>{recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</Text>
           </View>
@@ -346,7 +354,7 @@ export const SocialModal = ({
               if (onFollowCookbook) {
                 onFollowCookbook({
                   id: previewRecipe.id,
-                  name: previewRecipe.name,
+                  name: getDisplayName(previewRecipe.name),
                   ownerId: previewRecipe.from,
                   ownerUsername: previewRecipe.fromUsername,
                   recipeCount: recipes.length,
@@ -355,7 +363,7 @@ export const SocialModal = ({
                 onImportSharedItem(previewRecipe.id);
                 setPreviewRecipe(null);
                 setSelectedThread(null);
-                Alert.alert('Following!', `You're now following "${previewRecipe.name}". You'll see updates when recipes are added or changed.`);
+                Alert.alert('Following!', `You're now following "${getDisplayName(previewRecipe.name)}". You'll see updates when recipes are added or changed.`);
               }
             }}
             style={styles.followCookbookButton}
@@ -426,7 +434,7 @@ export const SocialModal = ({
         <ScrollView style={styles.previewContent}>
           {recipe ? (
             <>
-              <Text style={styles.previewRecipeTitle}>{recipe.title || previewRecipe.name}</Text>
+              <Text style={styles.previewRecipeTitle}>{recipe.title || getDisplayName(previewRecipe.name)}</Text>
               <Text style={styles.previewFrom}>Shared by @{previewRecipe.fromUsername}</Text>
 
               {recipe.image_url && (
@@ -544,7 +552,7 @@ export const SocialModal = ({
                 <Text style={styles.threadRecipeType}>
                   {item.type === 'recipe' ? '📄' : '📚'} {item.type === 'recipe' ? 'Recipe' : 'Cookbook'}
                 </Text>
-                <Text style={styles.threadRecipeName}>{item.name}</Text>
+                <Text style={styles.threadRecipeName}>{getDisplayName(item.name)}</Text>
                 {item.type === 'cookbook' && (
                   <Text style={styles.threadRecipeCount}>
                     {item.data?.length || 0} recipes
