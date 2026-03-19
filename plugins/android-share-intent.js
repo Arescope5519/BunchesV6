@@ -23,6 +23,10 @@ const withAndroidShareIntent = (config) => {
     mainApplication.$['android:fullBackupContent'] = 'false';
     console.log('✅ Disabled Android Auto Backup to prevent deleted data from returning');
 
+    // Enable cleartext traffic for HTTP image URLs (some recipe sites serve images over HTTP)
+    mainApplication.$['android:usesCleartextTraffic'] = 'true';
+    console.log('✅ Enabled cleartext traffic for HTTP image loading');
+
     // Configure MainActivity for proper share intent handling
     // singleTask: Only one instance exists - new shares go to existing instance via onNewIntent
     mainActivity.$['android:launchMode'] = 'singleTask';
