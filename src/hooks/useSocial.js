@@ -4,9 +4,10 @@
  * Using Supabase
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import * as socialModule from '../services/supabase/social';
+import { supabase } from '../services/supabase/config';
 
 export const useSocial = (user) => {
   const [profile, setProfile] = useState(null);
@@ -361,7 +362,80 @@ export const useSocial = (user) => {
     }
   }, [profile, refreshSocialData]);
 
-  // Poll for notifications every 30 seconds
+  // Real-time subscriptions for friend requests and profile changes
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    // Subscribe to new incoming friend requests
+    const friendRequestsChannel = supabase
+      .channel('friend-requests-incoming')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'friend_requests',
+          filter: `to_user_id=eq.${user.uid}`,
+        },
+        (payload) => {
+          console.log('📬 New friend request received:', payload);
+          loadFriendRequests();
+          loadNotificationCounts();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to friend request status changes (when our sent requests are accepted/declined)
+    const friendRequestStatusChannel = supabase
+      .channel('friend-requests-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'friend_requests',
+          filter: `from_user_id=eq.${user.uid}`,
+        },
+        (payload) => {
+          console.log('📬 Friend request status changed:', payload);
+          if (payload.new?.status === 'accepted') {
+            // Our request was accepted, reload friends list
+            loadFriends();
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to profile changes (for friends list updates)
+    const profileChannel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_profiles',
+          filter: `user_id=eq.${user.uid}`,
+        },
+        (payload) => {
+          console.log('👤 Profile updated:', payload);
+          // Reload friends if friends array changed
+          if (payload.new?.friends) {
+            loadFriends();
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      supabase.removeChannel(friendRequestsChannel);
+      supabase.removeChannel(friendRequestStatusChannel);
+      supabase.removeChannel(profileChannel);
+    };
+  }, [user, profile, loadFriendRequests, loadNotificationCounts, loadFriends]);
+
+  // Poll for notifications every 30 seconds (fallback for real-time)
   useEffect(() => {
     if (!user || !profile) return;
 
