@@ -433,6 +433,9 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Track if we're currently importing to prevent duplicate imports
+  const isImportingRef = useRef(false);
+
   // Check for pending recipes from iOS Share Extension
   useEffect(() => {
     const extractor = new RecipeExtractor();
@@ -445,6 +448,12 @@ export const HomeScreen = ({ user }) => {
         return;
       }
 
+      // Prevent concurrent imports
+      if (isImportingRef.current) {
+        console.log('[HomeScreen] Already importing, skipping...');
+        return;
+      }
+
       try {
         console.log('[HomeScreen] Fetching pending recipes...');
         const pending = await getPendingRecipes();
@@ -452,6 +461,9 @@ export const HomeScreen = ({ user }) => {
 
         if (pending && pending.length > 0) {
           console.log(`[HomeScreen] Found ${pending.length} pending recipe(s) from Share Extension - auto-importing...`);
+
+          // Set flag to prevent concurrent imports
+          isImportingRef.current = true;
 
           // Auto-import without prompt (user already confirmed in Share Extension)
           let imported = 0;
@@ -537,6 +549,9 @@ export const HomeScreen = ({ user }) => {
 
           await clearPendingRecipes();
 
+          // Reset importing flag
+          isImportingRef.current = false;
+
           // Show brief success notification
           if (imported > 0) {
             const titles = pending
@@ -556,6 +571,7 @@ export const HomeScreen = ({ user }) => {
         }
       } catch (error) {
         console.error('[HomeScreen] Error checking pending recipes:', error);
+        isImportingRef.current = false;
       }
     };
 
