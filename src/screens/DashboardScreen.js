@@ -18,7 +18,6 @@ import colors from '../constants/colors';
 export const DashboardScreen = ({
   onNavigate,
   recipeCount,
-  groceryCount,
 }) => {
   const tiles = [
     {
@@ -51,12 +50,12 @@ export const DashboardScreen = ({
       color: '#f59e0b',
     },
     {
-      id: 'grocery',
-      title: 'Grocery List',
-      icon: '🛒',
-      description: 'Your shopping list',
-      color: '#ef4444',
-      badge: groceryCount,
+      id: 'explore',
+      title: 'Explore',
+      icon: '🌍',
+      description: 'Coming soon...',
+      color: '#06b6d4',
+      comingSoon: true,
     },
     {
       id: 'settings',
@@ -85,9 +84,19 @@ export const DashboardScreen = ({
         {tiles.map((tile) => (
           <TouchableOpacity
             key={tile.id}
-            style={[styles.tile, { backgroundColor: tile.color }]}
-            onPress={() => onNavigate(tile.id)}
-            activeOpacity={0.8}
+            style={[
+              styles.tile,
+              { backgroundColor: tile.color },
+              tile.comingSoon && styles.tileComingSoon
+            ]}
+            onPress={() => {
+              if (tile.comingSoon) {
+                // Show coming soon message instead of navigating
+                return;
+              }
+              onNavigate(tile.id);
+            }}
+            activeOpacity={tile.comingSoon ? 1 : 0.8}
           >
             <View style={styles.tileContent}>
               <View style={styles.tileTop}>
@@ -95,6 +104,11 @@ export const DashboardScreen = ({
                 {tile.badge > 0 && (
                   <View style={styles.tileBadge}>
                     <Text style={styles.tileBadgeText}>{tile.badge}</Text>
+                  </View>
+                )}
+                {tile.comingSoon && (
+                  <View style={styles.comingSoonBadge}>
+                    <Text style={styles.comingSoonText}>Soon</Text>
                   </View>
                 )}
               </View>
@@ -176,6 +190,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  tileComingSoon: {
+    opacity: 0.85,
+  },
+  comingSoonBadge: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  comingSoonText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
   tileTitle: {
     fontSize: 18,

@@ -155,6 +155,10 @@ export const HomeScreen = ({ user }) => {
     getFilteredRecipes,
     refreshRecipes,
     reloadFromStorage,
+    // Stats and version management
+    updateRecipeStats,
+    toggleRecipeVersion,
+    markRecipeAsEdited,
   } = useRecipes(user);
 
   const {
@@ -571,11 +575,21 @@ export const HomeScreen = ({ user }) => {
     };
   }, [saveRecipe]);
 
-  const { loading, extractRecipe } = useRecipeExtraction((recipe) => {
-    // Navigate to save recipe screen with extracted recipe
-    setExtractedRecipe(recipe);
-    setCurrentScreen('saveRecipe');
-  });
+  const { loading, extractRecipe, findExistingRecipeByUrl } = useRecipeExtraction(
+    (recipe, options = {}) => {
+      // Handle extracted or existing recipe
+      if (options.isExisting) {
+        // User chose to view existing recipe
+        setSelectedRecipe(recipe);
+        setCurrentScreen('recipes');
+      } else {
+        // Navigate to save recipe screen with extracted recipe
+        setExtractedRecipe(recipe);
+        setCurrentScreen('saveRecipe');
+      }
+    },
+    recipes // Pass recipes for deduplication check
+  );
 
   // Handle save from SaveRecipeScreen
   const handleSaveExtractedRecipe = async (selectedFolder, modifiedRecipe) => {
@@ -629,6 +643,9 @@ export const HomeScreen = ({ user }) => {
       setShowImport(true);
     } else if (screen === 'search') {
       setShowIngredientSearch(true);
+    } else if (screen === 'explore') {
+      // Coming soon - no navigation
+      Alert.alert('Coming Soon', 'The Explore feature is coming soon! Stay tuned for recipe discovery and community features.');
     }
   };
 
@@ -1298,14 +1315,42 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Share recipe handler
-  const shareRecipe = async (recipe) => {
-    // If user is logged in, open friends picker directly
+  // Share recipe handler - supports social sharing and edit options
+  const shareRecipe = async (recipe, options = {}) => {
+    const { includeEdits = true } = options;
+
+    // Prepare recipe to share, handling edit options
+    let recipeToShare = { ...recipe };
+
+    // If recipe has edits and user wants to share original only
+    if (recipe.hasEdits && recipe.originalRecipe && !includeEdits) {
+      recipeToShare = {
+        ...recipe,
+        title: recipe.originalRecipe.title,
+        ingredients: recipe.originalRecipe.ingredients,
+        instructions: recipe.originalRecipe.instructions,
+        prep_time: recipe.originalRecipe.prep_time,
+        cook_time: recipe.originalRecipe.cook_time,
+        total_time: recipe.originalRecipe.total_time,
+        servings: recipe.originalRecipe.servings,
+        nutrition: recipe.originalRecipe.nutrition,
+        image: recipe.originalRecipe.image,
+        hasEdits: false,
+        editHistory: [],
+        editedVersion: undefined,
+        viewingOriginal: undefined,
+      };
+    }
+
+    // If user is logged in, open friends picker
     if (user && profile) {
-      const { deletedAt, id, ...cleanRecipe } = recipe;
+      const { deletedAt, id, ...cleanRecipe } = recipeToShare;
       setShareItem({
         type: 'recipe',
-        data: cleanRecipe,
+        data: {
+          ...cleanRecipe,
+          sharedWithEdits: includeEdits && recipe.hasEdits,
+        },
         name: recipe.title,
       });
       setShowShareToFriends(true);
@@ -1316,6 +1361,34 @@ export const HomeScreen = ({ user }) => {
         'Sign in to share recipes with friends in the app.',
         [{ text: 'OK' }]
       );
+    }
+  };
+
+  // Share recipe with prompt for edit options
+  const handleShareRecipe = (recipe) => {
+    // Check if recipe has edits - if so, offer options
+    if (recipe.hasEdits && recipe.originalRecipe) {
+      Alert.alert(
+        'Share Recipe',
+        'This recipe has been edited. How would you like to share it?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Share Original',
+            onPress: () => shareRecipe(recipe, { includeEdits: false }),
+          },
+          {
+            text: 'Share with My Edits',
+            onPress: () => shareRecipe(recipe, { includeEdits: true }),
+          },
+        ]
+      );
+    } else {
+      // No edits, share directly
+      shareRecipe(recipe);
     }
   };
 
@@ -2375,7 +2448,7 @@ export const HomeScreen = ({ user }) => {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => shareRecipe(selectedRecipe)}
+                    onPress={() => handleShareRecipe(selectedRecipe)}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
@@ -2445,6 +2518,7 @@ export const HomeScreen = ({ user }) => {
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}
                 isFolderPrivate={isFolderPrivate(selectedRecipe.folder)}
+                onToggleVersion={selectedRecipe.deletedAt ? null : toggleRecipeVersion}
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>

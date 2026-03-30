@@ -101,7 +101,15 @@ const normalizeRecipe = (recipe) => {
   return normalized;
 };
 
-export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes = [], isFolderPrivate = false }) => {
+export const RecipeDetail = ({
+  recipe,
+  onUpdate,
+  onAddToGroceryList,
+  allRecipes = [],
+  isFolderPrivate = false,
+  onToggleVersion, // For switching between original and edited versions
+  onShare, // For sharing with edit options
+}) => {
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
 
@@ -665,6 +673,10 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes 
 
   if (!localRecipe) return null;
 
+  // Check if this recipe has original version (imported from URL and potentially edited)
+  const hasOriginalVersion = localRecipe.originalRecipe && localRecipe.hasEdits;
+  const isViewingOriginal = localRecipe.viewingOriginal === true;
+
   return (
     <>
       {/* Folder badge - shown if recipe is in a cookbook */}
@@ -708,6 +720,46 @@ export const RecipeDetail = ({ recipe, onUpdate, onAddToGroceryList, allRecipes 
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Version Toggle - shows when recipe has edits */}
+      {hasOriginalVersion && onToggleVersion && (
+        <View style={styles.versionToggleContainer}>
+          <Text style={styles.versionLabel}>Version:</Text>
+          <View style={styles.versionToggleButtons}>
+            <TouchableOpacity
+              style={[
+                styles.versionButton,
+                !isViewingOriginal && styles.versionButtonActive
+              ]}
+              onPress={() => onToggleVersion(localRecipe.id, false)}
+            >
+              <Text style={[
+                styles.versionButtonText,
+                !isViewingOriginal && styles.versionButtonTextActive
+              ]}>My Edits</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.versionButton,
+                isViewingOriginal && styles.versionButtonActive
+              ]}
+              onPress={() => onToggleVersion(localRecipe.id, true)}
+            >
+              <Text style={[
+                styles.versionButtonText,
+                isViewingOriginal && styles.versionButtonTextActive
+              ]}>Original</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Edit indicator badge */}
+      {localRecipe.hasEdits && !isViewingOriginal && (
+        <View style={styles.editBadge}>
+          <Text style={styles.editBadgeText}>Edited</Text>
+        </View>
+      )}
 
       {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.servings) && (
         <View style={styles.metaContainer}>
@@ -1359,6 +1411,62 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  // Version toggle styles
+  versionToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+  },
+  versionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginRight: 10,
+  },
+  versionToggleButtons: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  versionButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  versionButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  versionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  versionButtonTextActive: {
+    color: colors.white,
+  },
+  editBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  editBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0284c7',
   },
   sectionHeader: {
     flexDirection: 'row',

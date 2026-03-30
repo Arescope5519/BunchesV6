@@ -149,12 +149,33 @@ export const useRecipes = (user) => {
 
   /**
    * Update existing recipe
+   * Automatically tracks edits for imported recipes
    */
-  const updateRecipe = async (updatedRecipe) => {
-    const recipeWithTimestamp = {
+  const updateRecipe = async (updatedRecipe, editDescription = '') => {
+    // Find the original recipe to check if it was imported from URL
+    const originalRecipe = recipes.find(r => r.id === updatedRecipe.id);
+
+    let recipeWithTimestamp = {
       ...updatedRecipe,
       updatedAt: Date.now(),
     };
+
+    // If this is an imported recipe (has originalRecipe), track the edit
+    if (originalRecipe && originalRecipe.originalRecipe) {
+      const editHistory = originalRecipe.editHistory || [];
+      recipeWithTimestamp = {
+        ...recipeWithTimestamp,
+        hasEdits: true,
+        viewingOriginal: false, // Always show edited version after edit
+        editHistory: [
+          ...editHistory,
+          {
+            timestamp: Date.now(),
+            description: editDescription || 'Recipe modified',
+          }
+        ],
+      };
+    }
 
     const updatedRecipes = recipes.map(r =>
       r.id === recipeWithTimestamp.id ? recipeWithTimestamp : r
@@ -339,6 +360,189 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * Update recipe stats (likes, saves, views)
+   */
+  const updateRecipeStats = async (recipeId, statType, increment = 1) => {
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        const currentStats = r.stats || { likes: 0, saves: 0, views: 0 };
+        return {
+          ...r,
+          stats: {
+            ...currentStats,
+            [statType]: (currentStats[statType] || 0) + increment,
+          },
+          updatedAt: Date.now(),
+        };
+      }
+      return r;
+    });
+
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        const updated = updatedRecipes.find(r => r.id === recipeId);
+        setSelectedRecipe(updated);
+      }
+
+      // Sync to Supabase
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeToDatabase(user.uid, updatedRecipe).catch(err =>
+            console.error('Failed to sync stats to Supabase:', err)
+          );
+        }
+      }
+    }
+  };
+
+  /**
+   * Toggle between original and edited version of a recipe
+   * For recipes imported from URLs that have been modified
+   */
+  const toggleRecipeVersion = async (recipeId, showOriginal) => {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe || !recipe.originalRecipe) {
+      return false;
+    }
+
+    if (showOriginal) {
+      // Store current edited version before switching to original
+      const editedVersion = {
+        title: recipe.title,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        total_time: recipe.total_time,
+        servings: recipe.servings,
+        nutrition: recipe.nutrition,
+        image: recipe.image,
+      };
+
+      const updatedRecipes = recipes.map(r => {
+        if (r.id === recipeId) {
+          return {
+            ...r,
+            // Save edited version
+            editedVersion: editedVersion,
+            // Apply original version
+            title: r.originalRecipe.title,
+            ingredients: r.originalRecipe.ingredients,
+            instructions: r.originalRecipe.instructions,
+            prep_time: r.originalRecipe.prep_time,
+            cook_time: r.originalRecipe.cook_time,
+            total_time: r.originalRecipe.total_time,
+            servings: r.originalRecipe.servings,
+            nutrition: r.originalRecipe.nutrition,
+            image: r.originalRecipe.image,
+            viewingOriginal: true,
+            updatedAt: Date.now(),
+          };
+        }
+        return r;
+      });
+
+      const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+      if (success) {
+        setRecipes(updatedRecipes);
+        if (selectedRecipe && selectedRecipe.id === recipeId) {
+          const updated = updatedRecipes.find(r => r.id === recipeId);
+          setSelectedRecipe(updated);
+        }
+        return true;
+      }
+    } else {
+      // Switch back to edited version
+      if (!recipe.editedVersion && !recipe.hasEdits) {
+        // No edits exist, nothing to toggle to
+        return false;
+      }
+
+      const editedData = recipe.editedVersion || {};
+      const updatedRecipes = recipes.map(r => {
+        if (r.id === recipeId) {
+          return {
+            ...r,
+            // Apply edited version (or keep current if no saved edited version)
+            title: editedData.title || r.title,
+            ingredients: editedData.ingredients || r.ingredients,
+            instructions: editedData.instructions || r.instructions,
+            prep_time: editedData.prep_time || r.prep_time,
+            cook_time: editedData.cook_time || r.cook_time,
+            total_time: editedData.total_time || r.total_time,
+            servings: editedData.servings || r.servings,
+            nutrition: editedData.nutrition || r.nutrition,
+            image: editedData.image || r.image,
+            viewingOriginal: false,
+            updatedAt: Date.now(),
+          };
+        }
+        return r;
+      });
+
+      const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+      if (success) {
+        setRecipes(updatedRecipes);
+        if (selectedRecipe && selectedRecipe.id === recipeId) {
+          const updated = updatedRecipes.find(r => r.id === recipeId);
+          setSelectedRecipe(updated);
+        }
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  /**
+   * Mark a recipe as having edits (called when user modifies an imported recipe)
+   */
+  const markRecipeAsEdited = async (recipeId, editDescription = '') => {
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        const editHistory = r.editHistory || [];
+        return {
+          ...r,
+          hasEdits: true,
+          editHistory: [
+            ...editHistory,
+            {
+              timestamp: Date.now(),
+              description: editDescription,
+            }
+          ],
+          updatedAt: Date.now(),
+        };
+      }
+      return r;
+    });
+
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        const updated = updatedRecipes.find(r => r.id === recipeId);
+        setSelectedRecipe(updated);
+      }
+
+      // Sync to Supabase
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeToDatabase(user.uid, updatedRecipe).catch(err =>
+            console.error('Failed to sync edit status to Supabase:', err)
+          );
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
+  /**
    * Move recipe to folder
    */
   const moveToFolder = async (recipeId, newFolder) => {
@@ -439,6 +643,11 @@ export const useRecipes = (user) => {
     getFilteredRecipes,
     refreshRecipes: loadRecipes,
     reloadFromStorage,
+    // Stats tracking
+    updateRecipeStats,
+    // Version management
+    toggleRecipeVersion,
+    markRecipeAsEdited,
   };
 };
 
