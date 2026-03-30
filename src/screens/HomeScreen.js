@@ -506,7 +506,8 @@ export const HomeScreen = ({ user }) => {
                     instructionsStr = extracted.instructions;
                   }
 
-                  recipeData = {
+                  // Store original data for version comparison
+                  const originalData = {
                     title: extracted.title || item.preview_title || 'Untitled Recipe',
                     ingredients: ingredientsStr,
                     instructions: instructionsStr,
@@ -514,9 +515,17 @@ export const HomeScreen = ({ user }) => {
                     cook_time: extracted.cook_time || '',
                     servings: extracted.servings || '',
                     image_url: extracted.image || item.preview_image || null,
+                  };
+
+                  recipeData = {
+                    ...originalData,
                     url: item.url,
                     source: result.source || 'web',
                     folder: 'All Recipes',
+                    // Versioning fields
+                    originalRecipe: originalData,
+                    hasEdits: false,
+                    editHistory: [],
                   };
                 } else {
                   console.warn(`Failed to extract recipe from ${item.url}: ${result.error}`);
@@ -525,7 +534,7 @@ export const HomeScreen = ({ user }) => {
                 }
               } else {
                 // Legacy format - recipe data already parsed by share extension
-                recipeData = {
+                const originalData = {
                   title: item.title || 'Untitled Recipe',
                   ingredients: item.ingredients || '',
                   instructions: item.instructions || '',
@@ -533,9 +542,17 @@ export const HomeScreen = ({ user }) => {
                   cook_time: item.cook_time || '',
                   servings: item.servings || '',
                   image_url: item.image_url || null,
+                };
+
+                recipeData = {
+                  ...originalData,
                   url: item.source_url || item.url || '',
                   source: 'web',
                   folder: 'All Recipes',
+                  // Versioning fields
+                  originalRecipe: originalData,
+                  hasEdits: false,
+                  editHistory: [],
                 };
               }
 
