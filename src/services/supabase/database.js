@@ -48,6 +48,13 @@ export const saveRecipesToDatabase = async (userId, recipes) => {
         deleted_at: recipe.deletedAt ? new Date(recipe.deletedAt).toISOString() : null,
         created_at: createdAtISO,
         updated_at: new Date().toISOString(),
+        // New fields for stats and versioning
+        stats: recipe.stats || { likes: 0, saves: 0, views: 0 },
+        original_recipe: recipe.originalRecipe || null,
+        has_edits: recipe.hasEdits || false,
+        edit_history: recipe.editHistory || [],
+        viewing_original: recipe.viewingOriginal || false,
+        edited_version: recipe.editedVersion || null,
       };
     });
 
@@ -106,6 +113,13 @@ export const loadRecipesFromDatabase = async (userId) => {
       isPrivate: row.is_private || false,
       createdAt: new Date(row.created_at).getTime(),
       updatedAt: new Date(row.updated_at).getTime(),
+      // New fields for stats and versioning
+      stats: row.stats || { likes: 0, saves: 0, views: 0 },
+      originalRecipe: row.original_recipe || null,
+      hasEdits: row.has_edits || false,
+      editHistory: row.edit_history || [],
+      viewingOriginal: row.viewing_original || false,
+      editedVersion: row.edited_version || null,
     }));
 
     console.log(`📚 Loaded ${recipes.length} recipes from Supabase`);
@@ -151,6 +165,13 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
         is_private: recipe.isPrivate || false,
         created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        // New fields for stats and versioning
+        stats: recipe.stats || { likes: 0, saves: 0, views: 0 },
+        original_recipe: recipe.originalRecipe || null,
+        has_edits: recipe.hasEdits || false,
+        edit_history: recipe.editHistory || [],
+        viewing_original: recipe.viewingOriginal || false,
+        edited_version: recipe.editedVersion || null,
       }, { onConflict: 'id' });
 
     if (error) throw error;
