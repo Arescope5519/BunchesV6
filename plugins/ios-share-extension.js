@@ -667,7 +667,16 @@ const withShareExtensionFiles = (config) => {
         getPendingRecipesObjC()
       );
 
-      console.log('Native module files created successfully');
+      // Write main app entitlements file with App Groups
+      // This is CRITICAL - without this, the main app cannot read from shared UserDefaults
+      const mainAppEntitlementsPath = path.join(mainAppPath, `${projectName}.entitlements`);
+      console.log('Creating main app entitlements at:', mainAppEntitlementsPath);
+      fs.writeFileSync(
+        mainAppEntitlementsPath,
+        getExtensionEntitlements(APP_GROUP_ID)
+      );
+
+      console.log('Native module files and entitlements created successfully');
 
       return config;
     },
