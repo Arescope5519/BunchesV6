@@ -664,8 +664,10 @@ export const HomeScreen = ({ user }) => {
 
   // Navigation handler - all tabs now render inline
   const handleNavigation = (screen) => {
+    console.log('[NAV] handleNavigation called with:', screen);
 
     if (screen === 'recipes' || screen === 'social' || screen === 'settings' || screen === 'grocery' || screen === 'discover') {
+      console.log('[NAV] Setting currentScreen to:', screen);
       setCurrentScreen(screen);
       // Close modals when switching to main tabs
       setShowSocialModal(false);
@@ -2051,6 +2053,7 @@ export const HomeScreen = ({ user }) => {
           <Text style={styles.discoverDescription}>
             Find new recipes, explore trending dishes, and discover content from the community.
           </Text>
+          {console.log('[RENDER] Discover screen is being rendered')}
         </View>
       )}
 
