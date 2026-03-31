@@ -5,6 +5,9 @@
 ```cmd
 cd C:\Users\Daniel\BunchesV6
 git pull origin claude/copy-broken-branch-qQg4U
+git add -A
+git commit -m "Save changes before prebuild"
+npx expo prebuild --clean
 cd android
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
 ```
@@ -150,18 +153,35 @@ Android Gradle plugin requires Java 17 to run. You are currently using Java 13.
 **Solution:**
 See "Installing Java 17" section above.
 
-### Issue: Out of memory during build
+### Issue: Out of memory / Gradle daemon crash
 
 **Symptoms:**
 ```
 Daemon will expire after the build after running out of JVM Metaspace.
 ```
+or
+```
+Gradle build daemon disappeared unexpectedly (it may have been killed or may have crashed)
+```
 
 **Solution:**
-Increase Gradle memory in `android/gradle.properties`:
+Stop the daemon and rebuild with more memory:
+
+```cmd
+cd android
+gradlew.bat --stop
+gradlew.bat clean
+rmdir /s /q .gradle
+rmdir /s /q app\.cxx
+rmdir /s /q app\build
+set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g"
+```
+
+**Permanent fix:** Add to `android/gradle.properties`:
 
 ```properties
-org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.daemon=false
 ```
 
 ## Firebase Configuration
