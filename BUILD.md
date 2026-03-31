@@ -9,7 +9,7 @@ cd android
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
 ```
 
-APK output: `android\app\build\outputs\apk\release\app-release.apk`
+APK output: `C:\Users\Daniel\BunchesV6\android\app\build\outputs\apk\release\app-release.apk`
 
 ---
 
