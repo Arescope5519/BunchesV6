@@ -1022,16 +1022,19 @@ export const HomeScreen = ({ user }) => {
       const result = await extractor.extract(recipeUrl);
 
       if (result.success) {
+        // Convert image to image_url for consistency
+        const imageUrl = result.data.image || result.data.image_url || null;
         const recipe = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           url: recipeUrl,
           ...result.data,
+          image_url: imageUrl, // Use image_url consistently
           extractedAt: new Date().toISOString(),
           source: result.source,
           folder: 'All Recipes',
           isFavorite: false,
         };
-        console.log('🍎 [iOS] Extracted recipe:', recipe.name);
+        console.log('🍎 [iOS] Extracted recipe:', recipe.title);
         return { success: true, recipe };
       }
       console.log('🍎 [iOS] Extraction failed for:', recipeUrl);

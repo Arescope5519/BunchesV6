@@ -97,10 +97,13 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
       const result = await extractor.extract(recipeUrl);
 
       if (result.success) {
+        // Convert image to image_url for consistency
+        const imageUrl = result.data.image || result.data.image_url || null;
         const recipe = {
           id: Date.now().toString(),
           url: recipeUrl,
           ...result.data,
+          image_url: imageUrl, // Use image_url consistently
           extractedAt: new Date().toISOString(),
           source: result.source,
           folder: 'All Recipes',
@@ -121,7 +124,7 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
             total_time: result.data.total_time,
             servings: result.data.servings,
             nutrition: result.data.nutrition,
-            image: result.data.image,
+            image_url: imageUrl,
           },
           hasEdits: false,
           editHistory: [], // Track edit history for sharing

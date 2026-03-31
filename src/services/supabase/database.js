@@ -137,7 +137,7 @@ export const loadRecipesFromDatabase = async (userId) => {
  */
 export const saveRecipeToDatabase = async (userId, recipe) => {
   try {
-    const imageUrl = recipe.imageUrl || recipe.image_url;
+    const imageUrl = recipe.imageUrl || recipe.image_url || recipe.image;
 
     // Ensure ingredients and instructions are strings (database expects text type)
     const ingredients = Array.isArray(recipe.ingredients)
