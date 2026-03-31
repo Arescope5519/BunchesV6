@@ -419,7 +419,7 @@ export const useRecipes = (user) => {
         total_time: recipe.total_time,
         servings: recipe.servings,
         nutrition: recipe.nutrition,
-        image: recipe.image,
+        image_url: recipe.image_url,
       };
 
       const updatedRecipes = recipes.map(r => {
@@ -437,7 +437,7 @@ export const useRecipes = (user) => {
             total_time: r.originalRecipe.total_time,
             servings: r.originalRecipe.servings,
             nutrition: r.originalRecipe.nutrition,
-            image: r.originalRecipe.image,
+            image_url: r.originalRecipe.image_url || r.originalRecipe.image,
             viewingOriginal: true,
             updatedAt: Date.now(),
           };
@@ -475,7 +475,7 @@ export const useRecipes = (user) => {
             total_time: editedData.total_time || r.total_time,
             servings: editedData.servings || r.servings,
             nutrition: editedData.nutrition || r.nutrition,
-            image: editedData.image || r.image,
+            image_url: editedData.image_url || editedData.image || r.image_url,
             viewingOriginal: false,
             updatedAt: Date.now(),
           };

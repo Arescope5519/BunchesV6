@@ -1367,7 +1367,7 @@ export const HomeScreen = ({ user }) => {
         total_time: recipe.originalRecipe.total_time,
         servings: recipe.originalRecipe.servings,
         nutrition: recipe.originalRecipe.nutrition,
-        image: recipe.originalRecipe.image,
+        image_url: recipe.originalRecipe.image_url || recipe.originalRecipe.image,
         hasEdits: false,
         editHistory: [],
         editedVersion: undefined,
