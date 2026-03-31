@@ -712,17 +712,12 @@ export const HomeScreen = ({ user }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navButton, currentScreen === 'grocery' && styles.navButtonActive]}
-          onPress={() => handleNavigation('grocery')}
+          style={[styles.navButton, currentScreen === 'discover' && styles.navButtonActive]}
+          onPress={() => handleNavigation('discover')}
         >
-          <Text style={styles.navButtonIcon}>🛒</Text>
-          {getUncheckedCount() > 0 && (
-            <View style={styles.navBadge}>
-              <Text style={styles.navBadgeText}>{getUncheckedCount()}</Text>
-            </View>
-          )}
-          <Text style={[styles.navButtonText, currentScreen === 'grocery' && styles.navButtonTextActive]}>
-            Shopping
+          <Text style={styles.navButtonIcon}>🧭</Text>
+          <Text style={[styles.navButtonText, currentScreen === 'discover' && styles.navButtonTextActive]}>
+            Discover
           </Text>
         </TouchableOpacity>
 
@@ -1812,6 +1807,17 @@ export const HomeScreen = ({ user }) => {
               >
                 <Text style={styles.iconHeaderButtonText}>📂</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setCurrentScreen('grocery')}
+                style={styles.iconHeaderButton}
+              >
+                <Text style={styles.iconHeaderButtonText}>🛒</Text>
+                {getUncheckedCount() > 0 && (
+                  <View style={styles.headerBadge}>
+                    <Text style={styles.headerBadgeText}>{getUncheckedCount()}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -2035,6 +2041,17 @@ export const HomeScreen = ({ user }) => {
           onClearAll={handleClearAllItems}
           onAddCustomItem={addCustomGroceryItem}
         />
+      )}
+
+      {currentScreen === 'discover' && (
+        <View style={styles.discoverContainer}>
+          <Text style={styles.discoverIcon}>🧭</Text>
+          <Text style={styles.discoverTitle}>Discover</Text>
+          <Text style={styles.discoverSubtitle}>Coming Soon</Text>
+          <Text style={styles.discoverDescription}>
+            Find new recipes, explore trending dishes, and discover content from the community.
+          </Text>
+        </View>
       )}
 
       {/* Recipe List - shown when currentScreen === 'recipes' */}
@@ -3831,6 +3848,54 @@ const styles = StyleSheet.create({
   },
   quickLinkButtonDisabled: {
     opacity: 0.6,
+  },
+  // Header badge for shopping cart button
+  headerBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  headerBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  // Discover screen styles
+  discoverContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: colors.background,
+  },
+  discoverIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  discoverTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 10,
+  },
+  discoverSubtitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 20,
+  },
+  discoverDescription: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
 
