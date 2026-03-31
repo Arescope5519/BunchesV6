@@ -665,7 +665,7 @@ export const HomeScreen = ({ user }) => {
   // Navigation handler - all tabs now render inline
   const handleNavigation = (screen) => {
 
-    if (screen === 'recipes' || screen === 'social' || screen === 'settings' || screen === 'grocery') {
+    if (screen === 'recipes' || screen === 'social' || screen === 'settings' || screen === 'grocery' || screen === 'discover') {
       setCurrentScreen(screen);
       // Close modals when switching to main tabs
       setShowSocialModal(false);
