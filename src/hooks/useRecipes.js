@@ -30,6 +30,12 @@ export const useRecipes = (user) => {
       const localRecipes = await loadRecipesFromStorage(userId);
       const deletedCount = localRecipes.filter(r => r.deletedAt).length;
       console.log(`📦 Local storage: ${localRecipes.length} recipes (${deletedCount} deleted)`);
+      // Debug image_url presence
+      const recipesWithImages = localRecipes.filter(r => r.image_url && !r.deletedAt);
+      console.log(`📷 Recipes with image_url: ${recipesWithImages.length}`);
+      if (recipesWithImages.length > 0) {
+        console.log(`📷 Sample image_url:`, recipesWithImages[0].image_url?.substring(0, 80));
+      }
 
       if (user && !synced) {
         // User is signed in - sync with Supabase

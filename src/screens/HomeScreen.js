@@ -2112,6 +2112,10 @@ export const HomeScreen = ({ user }) => {
             <>
               {sortedRecipes.map((recipe) => {
                 const isSelected = selectedRecipes.has(recipe.id);
+                // Debug image_url
+                if (viewMode === 'photo') {
+                  console.log(`📷 Recipe "${recipe.title}" image_url:`, recipe.image_url ? recipe.image_url.substring(0, 50) + '...' : 'NONE');
+                }
                 return (
                   <TouchableOpacity
                     key={recipe.id}
@@ -2142,12 +2146,20 @@ export const HomeScreen = ({ user }) => {
                         )}
                       </View>
                     )}
-                    {viewMode === 'photo' && recipe.image_url && (
-                      <Image
-                        source={{ uri: recipe.image_url }}
-                        style={styles.recipeImage}
-                        resizeMode="cover"
-                      />
+                    {viewMode === 'photo' && (
+                      recipe.image_url ? (
+                        <Image
+                          source={{ uri: recipe.image_url }}
+                          style={styles.recipeImage}
+                          resizeMode="cover"
+                          onError={(e) => console.log(`❌ Image failed to load for "${recipe.title}":`, e.nativeEvent.error)}
+                          onLoad={() => console.log(`✅ Image loaded for "${recipe.title}"`)}
+                        />
+                      ) : (
+                        <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
+                          <Text style={styles.recipeImagePlaceholderText}>No Image</Text>
+                        </View>
+                      )
                     )}
                     <View style={styles.recipeCardContent}>
                       {/* Folder badge - shown if recipe is in a cookbook */}
@@ -3073,6 +3085,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
     backgroundColor: colors.lightGray,
+  },
+  recipeImagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.lightGray,
+    borderStyle: 'dashed',
+  },
+  recipeImagePlaceholderText: {
+    fontSize: 10,
+    color: colors.gray,
+    textAlign: 'center',
   },
   recipeCardHeader: {
     flexDirection: 'row',

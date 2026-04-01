@@ -560,11 +560,15 @@ export class RecipeExtractor {
    * Helper: Extract image URL from various formats
    */
   extractImageURL(imageData) {
+    console.log('[RecipeExtractor] extractImageURL input:', typeof imageData, Array.isArray(imageData) ? 'array' : '', imageData ? JSON.stringify(imageData).substring(0, 100) : 'null');
+
     if (!imageData) return null;
 
     // String URL
     if (typeof imageData === 'string') {
-      return imageData.startsWith('http') ? imageData : null;
+      const result = imageData.startsWith('http') ? imageData : null;
+      console.log('[RecipeExtractor] extractImageURL result (string):', result?.substring(0, 80));
+      return result;
     }
 
     // Array of images - take the first one
@@ -580,6 +584,7 @@ export class RecipeExtractor {
       if (imageData['@url']) return imageData['@url'];
     }
 
+    console.log('[RecipeExtractor] extractImageURL: no match, returning null');
     return null;
   }
 
