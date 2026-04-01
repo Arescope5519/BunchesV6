@@ -42,42 +42,55 @@ export class RecipeExtractor {
 
       if (!html) {
         this.stats.failed++;
+        console.log('[RecipeExtractor] No HTML received');
         return { success: false, error: 'Failed to fetch HTML', data: null };
       }
 
       // Tier 1: JSON-LD (60% of sites)
+      console.log('[RecipeExtractor] Trying JSON-LD extraction...');
       let result = this.extractJSONLD(html, url);
+      console.log('[RecipeExtractor] JSON-LD result:', result ? 'found' : 'null', result?.title || 'no title');
       if (result && result.title) {
         this.stats.json_ld++;
+        console.log('[RecipeExtractor] SUCCESS via JSON-LD:', result.title);
         return { success: true, data: result, source: 'JSON-LD' };
       }
 
       // Tier 2: Microdata (15% of sites)
+      console.log('[RecipeExtractor] Trying Microdata extraction...');
       result = this.extractMicrodata(html, url);
+      console.log('[RecipeExtractor] Microdata result:', result ? 'found' : 'null');
       if (result && result.title) {
         this.stats.microdata++;
+        console.log('[RecipeExtractor] SUCCESS via Microdata:', result.title);
         return { success: true, data: result, source: 'Microdata' };
       }
 
       // Tier 3: WordPress Plugins (15% of sites)
+      console.log('[RecipeExtractor] Trying WordPress extraction...');
       result = this.extractWordPress(html, url);
+      console.log('[RecipeExtractor] WordPress result:', result ? 'found' : 'null');
       if (result && result.title) {
         this.stats.wp_plugin++;
+        console.log('[RecipeExtractor] SUCCESS via WordPress:', result.title);
         return { success: true, data: result, source: 'WordPress' };
       }
 
       // Tier 4: Site-Specific (10% of sites)
       const domain = new URL(url).hostname.replace('www.', '');
+      console.log('[RecipeExtractor] Checking site-specific for:', domain);
       if (this.siteExtractors[domain]) {
         result = this.siteExtractors[domain](html, url);
         if (result && result.title) {
           this.stats.site_specific++;
+          console.log('[RecipeExtractor] SUCCESS via Site-Specific:', result.title);
           return { success: true, data: result, source: 'Site-Specific' };
         }
       }
 
       // No extraction worked
       this.stats.failed++;
+      console.log('[RecipeExtractor] FAILED - no extraction method worked');
       return {
         success: false,
         error: 'Unable to extract recipe from this URL',
@@ -86,6 +99,7 @@ export class RecipeExtractor {
 
     } catch (error) {
       this.stats.failed++;
+      console.error('[RecipeExtractor] Extract error:', error.message);
       return { success: false, error: error.message, data: null };
     }
   }
