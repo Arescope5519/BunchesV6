@@ -479,10 +479,8 @@ export const HomeScreen = ({ user }) => {
                 const result = await extractor.extract(item.url);
 
                 if (result.success && result.data) {
-                  console.log('[HomeScreen] Extraction successful, converting data...');
                   // Convert RecipeExtractor format to app format
                   const extracted = result.data;
-                  console.log('[HomeScreen] Extracted data:', JSON.stringify(extracted, null, 2).substring(0, 500));
 
                   // Handle ingredients - can be object with sections or string
                   let ingredientsStr = '';
@@ -499,7 +497,6 @@ export const HomeScreen = ({ user }) => {
                   } else if (typeof extracted.ingredients === 'string') {
                     ingredientsStr = extracted.ingredients;
                   }
-                  console.log('[HomeScreen] Ingredients converted, length:', ingredientsStr.length);
 
                   // Handle instructions - convert array to numbered string
                   let instructionsStr = '';
@@ -510,7 +507,6 @@ export const HomeScreen = ({ user }) => {
                   } else if (typeof extracted.instructions === 'string') {
                     instructionsStr = extracted.instructions;
                   }
-                  console.log('[HomeScreen] Instructions converted, length:', instructionsStr.length);
 
                   // Store original data for version comparison
                   const originalData = {
@@ -533,7 +529,6 @@ export const HomeScreen = ({ user }) => {
                     hasEdits: false,
                     editHistory: [],
                   };
-                  console.log('[HomeScreen] Recipe data prepared:', recipeData.title);
                 } else {
                   console.warn(`Failed to extract recipe from ${item.url}: ${result.error}`);
                   failed++;
@@ -563,19 +558,15 @@ export const HomeScreen = ({ user }) => {
                 };
               }
 
-              console.log('[HomeScreen] Saving recipe:', recipeData.title);
               await saveRecipe(recipeData);
-              console.log('[HomeScreen] Recipe saved successfully!');
               imported++;
             } catch (err) {
-              console.error('[HomeScreen] Failed to import recipe:', err.message, err.stack);
+              console.error('Failed to import recipe:', err);
               failed++;
             }
           }
 
-          console.log('[HomeScreen] Import loop complete. Imported:', imported, 'Failed:', failed);
           await clearPendingRecipes();
-          console.log('[HomeScreen] Pending recipes cleared');
 
           // Reset importing flag
           isImportingRef.current = false;
