@@ -22,7 +22,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
-  Clipboard,
   Animated,
   PanResponder,
   Image,
@@ -31,6 +30,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as Clipboard from 'expo-clipboard';
 
 // Hooks
 import { useRecipes } from '../hooks/useRecipes';
@@ -1329,7 +1329,7 @@ export const HomeScreen = ({ user }) => {
   // Copy to clipboard and show share dialog
   const copyToClipboard = async (text, title) => {
     try {
-      await Clipboard.setString(text);
+      await Clipboard.setStringAsync(text);
       Alert.alert(
         '✅ Copied!',
         `${title}\n\nThe code has been copied to your clipboard. You can now:\n\n1. Share it via any app\n2. Or paste it directly in Import (📥) to test`,
