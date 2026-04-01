@@ -95,19 +95,32 @@ export class RecipeExtractor {
    */
   async fetchHTML(url) {
     try {
+      console.log('[RecipeExtractor] Fetching URL:', url);
+
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
       const response = await fetch(url, {
         headers: {
           'User-Agent': this.userAgent,
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      console.log('[RecipeExtractor] Fetch response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.text();
+      const html = await response.text();
+      console.log('[RecipeExtractor] Got HTML, length:', html.length);
+      return html;
     } catch (error) {
+      console.error('[RecipeExtractor] Fetch error:', error.message);
       return null;
     }
   }
