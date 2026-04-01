@@ -479,22 +479,27 @@ export const HomeScreen = ({ user }) => {
                 const result = await extractor.extract(item.url);
 
                 if (result.success && result.data) {
+                  console.log('[HomeScreen] Extraction successful, converting data...');
                   // Convert RecipeExtractor format to app format
                   const extracted = result.data;
+                  console.log('[HomeScreen] Extracted data:', JSON.stringify(extracted, null, 2).substring(0, 500));
 
                   // Handle ingredients - can be object with sections or string
                   let ingredientsStr = '';
-                  if (typeof extracted.ingredients === 'object') {
+                  if (typeof extracted.ingredients === 'object' && !Array.isArray(extracted.ingredients)) {
                     // Convert sectioned ingredients to string
                     ingredientsStr = Object.entries(extracted.ingredients)
                       .map(([section, items]) => {
-                        if (section === 'main') return items.join('\n');
-                        return `${section}:\n${items.join('\n')}`;
+                        if (section === 'main') return Array.isArray(items) ? items.join('\n') : String(items);
+                        return `${section}:\n${Array.isArray(items) ? items.join('\n') : String(items)}`;
                       })
                       .join('\n\n');
+                  } else if (Array.isArray(extracted.ingredients)) {
+                    ingredientsStr = extracted.ingredients.join('\n');
                   } else if (typeof extracted.ingredients === 'string') {
                     ingredientsStr = extracted.ingredients;
                   }
+                  console.log('[HomeScreen] Ingredients converted, length:', ingredientsStr.length);
 
                   // Handle instructions - convert array to numbered string
                   let instructionsStr = '';
@@ -505,6 +510,7 @@ export const HomeScreen = ({ user }) => {
                   } else if (typeof extracted.instructions === 'string') {
                     instructionsStr = extracted.instructions;
                   }
+                  console.log('[HomeScreen] Instructions converted, length:', instructionsStr.length);
 
                   // Store original data for version comparison
                   const originalData = {
@@ -527,6 +533,7 @@ export const HomeScreen = ({ user }) => {
                     hasEdits: false,
                     editHistory: [],
                   };
+                  console.log('[HomeScreen] Recipe data prepared:', recipeData.title);
                 } else {
                   console.warn(`Failed to extract recipe from ${item.url}: ${result.error}`);
                   failed++;
@@ -556,15 +563,19 @@ export const HomeScreen = ({ user }) => {
                 };
               }
 
+              console.log('[HomeScreen] Saving recipe:', recipeData.title);
               await saveRecipe(recipeData);
+              console.log('[HomeScreen] Recipe saved successfully!');
               imported++;
             } catch (err) {
-              console.error('Failed to import recipe:', err);
+              console.error('[HomeScreen] Failed to import recipe:', err.message, err.stack);
               failed++;
             }
           }
 
+          console.log('[HomeScreen] Import loop complete. Imported:', imported, 'Failed:', failed);
           await clearPendingRecipes();
+          console.log('[HomeScreen] Pending recipes cleared');
 
           // Reset importing flag
           isImportingRef.current = false;
