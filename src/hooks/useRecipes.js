@@ -76,8 +76,16 @@ export const useRecipes = (user) => {
    * Save recipe
    */
   const saveRecipe = async (recipe) => {
-    while (loadingRecipes) {
+    // Wait for recipes to finish loading, but with a timeout
+    let waitCount = 0;
+    const maxWait = 50; // 5 seconds max (50 * 100ms)
+    while (loadingRecipes && waitCount < maxWait) {
+      console.log('[useRecipes] Waiting for recipes to load...', waitCount);
       await new Promise(resolve => setTimeout(resolve, 100));
+      waitCount++;
+    }
+    if (waitCount >= maxWait) {
+      console.warn('[useRecipes] Timeout waiting for recipes to load, proceeding anyway');
     }
 
     const recipeWithTimestamp = {
