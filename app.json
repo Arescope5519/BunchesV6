@@ -25,7 +25,8 @@
         }
       ],
       "expo-file-system",
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-clipboard"
     ],
     "ios": {
       "supportsTablet": true,
