@@ -5,14 +5,18 @@
 ```cmd
 cd C:\Users\Daniel\BunchesV6
 git pull origin claude/copy-broken-branch-qQg4U
-git add -A
-git commit -m "Save changes before prebuild"
-npx expo prebuild --clean
+rmdir /s /q android
+rmdir /s /q node_modules
+npm install
+npx expo prebuild --clean --platform android
+copy C:\Users\Daniel\BunchesV6\google-services.json android\app\google-services.json
 cd android
-set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
+set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat clean && gradlew.bat assembleRelease
 ```
 
 APK output: `C:\Users\Daniel\BunchesV6\android\app\build\outputs\apk\release\app-release.apk`
+
+**IMPORTANT:** The `google-services.json` must be copied after prebuild (see setup below).
 
 ---
 
@@ -184,19 +188,76 @@ org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryErro
 org.gradle.daemon=false
 ```
 
-## Firebase Configuration
+## Google Sign-In Configuration (REQUIRED for Android)
 
-The project includes a placeholder `google-services.json` file to allow builds to succeed.
+The app uses Google Sign-In with Supabase authentication. Android requires `google-services.json`.
 
-**For production builds**, replace it with your actual Firebase configuration:
+### Step 1: Get SHA-1 Fingerprint
 
+For **debug builds**:
+```cmd
+keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android -keypass android
+```
+
+Copy the SHA-1 fingerprint (looks like: `XX:XX:XX:XX:...`).
+
+For **release builds**: Use your release keystore's SHA-1.
+
+### Step 2: Create Android OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Select the same project used for iOS Sign-In
+3. Go to **APIs & Services > Credentials**
+4. Click **Create Credentials > OAuth client ID**
+5. Choose **Android**
+6. Enter:
+   - Package name: `com.bunchesai.v6`
+   - SHA-1 certificate fingerprint: (paste from Step 1)
+7. Click **Create**
+
+### Step 3: Download google-services.json
+
+Option A (Firebase - if you have Firebase project):
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project
-3. Go to Project Settings → Your apps → Android app
-4. Download `google-services.json`
-5. Replace the file at project root: `google-services.json`
+2. Add an Android app with package name `com.bunchesai.v6`
+3. Download `google-services.json`
 
-The placeholder will allow the build to complete, but Firebase features (authentication, Firestore) won't work until you use the real configuration.
+Option B (Create manually):
+Create `google-services.json` with this structure:
+```json
+{
+  "project_info": {
+    "project_number": "307694075211",
+    "project_id": "your-project-id"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307694075211:android:xxxx",
+        "android_client_info": {
+          "package_name": "com.bunchesai.v6"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [{"current_key": "your-api-key"}],
+      "services": {}
+    }
+  ]
+}
+```
+
+### Step 4: Save the file
+
+Save `google-services.json` to `C:\Users\Daniel\BunchesV6\google-services.json` (root of project).
+
+The build script will copy it to `android/app/` after each prebuild.
+
+**Without this file, the Android app will crash on launch.**
 
 ## Notes
 
