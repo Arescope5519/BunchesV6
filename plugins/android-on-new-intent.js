@@ -31,15 +31,6 @@ const withAndroidOnNewIntent = (config) => {
       console.log('✅ Added Intent import to MainActivity');
     }
 
-    // Add DeviceEventManagerModule import for emitting events to JS
-    if (isKotlin && !mainActivity.contents.includes('DeviceEventManagerModule')) {
-      mainActivity.contents = mainActivity.contents.replace(
-        'import android.content.Intent',
-        'import android.content.Intent\nimport com.facebook.react.modules.core.DeviceEventManagerModule'
-      );
-      console.log('✅ Added DeviceEventManagerModule import to MainActivity');
-    }
-
     // Check if onNewIntent is already implemented
     if (!mainActivity.contents.includes('onNewIntent')) {
       // Find the closing brace of the class to insert before it
@@ -47,22 +38,11 @@ const withAndroidOnNewIntent = (config) => {
 
       let onNewIntentMethod;
       if (isKotlin) {
-        // Kotlin syntax - update intent and emit event to JS
+        // Kotlin syntax - just update intent, JS side detects via AppState
         onNewIntentMethod = `
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
-
-    // Emit event to JS when new share intent received
-    if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) {
-      try {
-        val reactContext = reactInstanceManager?.currentReactContext
-        reactContext?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-          ?.emit("newShareIntent", intent.getStringExtra(Intent.EXTRA_TEXT) ?: "")
-      } catch (e: Exception) {
-        // Ignore if React context not ready
-      }
-    }
   }
 `;
       } else {
@@ -72,19 +52,6 @@ const withAndroidOnNewIntent = (config) => {
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
-
-    // Emit event to JS when new share intent received
-    if (Intent.ACTION_SEND.equals(intent.getAction()) || Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
-      try {
-        ReactContext reactContext = getReactInstanceManager().getCurrentReactContext();
-        if (reactContext != null) {
-          reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-            .emit("newShareIntent", intent.getStringExtra(Intent.EXTRA_TEXT));
-        }
-      } catch (Exception e) {
-        // Ignore if React context not ready
-      }
-    }
   }
 `;
       }

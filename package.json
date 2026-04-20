@@ -21,8 +21,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "html-entities": "^2.6.0",
     "react": "19.1.0",
-    "react-native": "0.81.4",
-    "react-native-receive-sharing-intent": "^2.0.0"
+    "react-native": "0.81.4"
   },
   "private": true
 }

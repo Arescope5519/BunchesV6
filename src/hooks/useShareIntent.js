@@ -13,15 +13,7 @@ import { useEffect, useRef } from 'react';
 import { Platform, AppState, DeviceEventEmitter, NativeModules, Linking } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
-// Try to import share library, handle gracefully if it fails
-let ReceiveSharingIntent = null;
-try {
-  ReceiveSharingIntent = require('react-native-receive-sharing-intent').default;
-} catch (error) {
-  console.log('⚠️ Share intent not available (will work after rebuild):', error.message);
-}
-
-// iOS App Groups storage module (fallback)
+// iOS App Groups storage module
 const { AppGroupStorage } = NativeModules;
 
 export const useShareIntent = (onUrlReceived) => {
@@ -186,30 +178,20 @@ export const useShareIntent = (onUrlReceived) => {
   };
 
   /**
-   * Check for pending share intents (Android)
+   * Check for pending share intents
+   * iOS: Uses App Groups / URL scheme
+   * Android: Uses native Intent via getIntent() - handled by DeviceEventEmitter listener
    */
   const checkForSharedContent = () => {
-    // Check iOS Share Extension first
     if (Platform.OS === 'ios') {
       checkIOSShareExtension();
       return;
     }
 
-    // Android: use ReceiveSharingIntent
-    if (!ReceiveSharingIntent) return;
-
-    console.log(`🔍 [${Platform.OS}] Checking for shared content`);
-    ReceiveSharingIntent.getReceivedFiles(
-      (files) => {
-        console.log(`📥 [${Platform.OS}] Received files:`, files);
-        if (files && files.length > 0) {
-          handleSharedUrl(files[0]);
-        }
-      },
-      (error) => {
-        console.error(`❌ [${Platform.OS}] Error getting received files:`, error);
-      }
-    );
+    // Android: Share intents are handled by DeviceEventEmitter listener for 'newShareIntent'
+    // The native onNewIntent handler in MainActivity updates the intent
+    // AppState listener triggers re-check when app becomes active
+    console.log(`🔍 [Android] Share content handled via native onNewIntent`);
   };
 
   /**
@@ -294,7 +276,7 @@ export const useShareIntent = (onUrlReceived) => {
   }, []);
 
   return {
-    isAvailable: Platform.OS === 'ios' ? true : !!ReceiveSharingIntent,
+    isAvailable: true,
     platform: Platform.OS,
   };
 };
