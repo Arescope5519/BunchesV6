@@ -4,8 +4,16 @@
  */
 
 import { supabase } from './config';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Alert, Platform } from 'react-native';
+
+// Lazy load GoogleSignin to prevent crash on startup if not configured
+let GoogleSignin = null;
+const getGoogleSignin = () => {
+  if (!GoogleSignin) {
+    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+  }
+  return GoogleSignin;
+};
 
 // Client IDs for Google Sign-In
 const WEB_CLIENT_ID = '307694075211-2s6oa4lor3ek7v204uc2tjci4hto48n0.apps.googleusercontent.com';
@@ -37,7 +45,7 @@ const configureGoogleSignIn = () => {
       config.iosClientId = IOS_CLIENT_ID;
     }
 
-    GoogleSignin.configure(config);
+    getGoogleSignin().configure(config);
     googleSignInConfigured = true;
     console.log('✅ [AUTH] Google Sign-In configured with:', JSON.stringify(config));
   } catch (error) {
@@ -65,12 +73,12 @@ export const signInWithGoogle = async () => {
 
     // Check Play Services (Android) or just proceed (iOS)
     if (Platform.OS === 'android') {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await getGoogleSignin().hasPlayServices({ showPlayServicesUpdateDialog: true });
     }
 
     // Clear any cached state
     try {
-      await GoogleSignin.signOut();
+      await getGoogleSignin().signOut();
       console.log('🔐 [AUTH] Cleared previous sign-in state');
     } catch (e) {
       console.log('🔐 [AUTH] No previous state to clear');
@@ -78,7 +86,7 @@ export const signInWithGoogle = async () => {
 
     // Sign in with Google
     console.log('🔐 [AUTH] Calling GoogleSignin.signIn()...');
-    const signInResult = await GoogleSignin.signIn();
+    const signInResult = await getGoogleSignin().signIn();
     console.log('✅ [AUTH] Google Sign-In successful, result:', JSON.stringify(signInResult));
 
     // Get ID token
@@ -130,7 +138,7 @@ export const signOut = async () => {
     configureGoogleSignIn();
 
     console.log('🔐 [AUTH] Signing out...');
-    await GoogleSignin.signOut();
+    await getGoogleSignin().signOut();
     await supabase.auth.signOut();
     console.log('✅ [AUTH] Signed out successfully');
   } catch (error) {
