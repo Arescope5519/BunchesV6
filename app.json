@@ -18,12 +18,6 @@
       "./plugins/ios-share-extension.js",
       "./plugins/android-share-intent.js",
       "./plugins/android-on-new-intent.js",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1"
-        }
-      ],
       "expo-file-system",
       "expo-document-picker"
     ],

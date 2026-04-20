@@ -6,11 +6,19 @@
 import { supabase } from './config';
 import { Alert, Platform } from 'react-native';
 
-// Lazy load GoogleSignin to prevent crash on startup if not configured
+// Lazy load GoogleSignin - only available on iOS for now
 let GoogleSignin = null;
 const getGoogleSignin = () => {
+  if (Platform.OS === 'android') {
+    return null;
+  }
   if (!GoogleSignin) {
-    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+    try {
+      GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+    } catch (e) {
+      console.log('Google Sign-In not available');
+      return null;
+    }
   }
   return GoogleSignin;
 };
@@ -23,9 +31,13 @@ const IOS_CLIENT_ID = '307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1.apps.google
 let googleSignInConfigured = false;
 
 /**
- * Configure Google Sign-In
+ * Configure Google Sign-In (iOS only for now)
  */
 const configureGoogleSignIn = () => {
+  if (Platform.OS === 'android') {
+    return;
+  }
+
   if (googleSignInConfigured) {
     return;
   }
@@ -33,21 +45,18 @@ const configureGoogleSignIn = () => {
   try {
     console.log('🔐 [AUTH] Configuring Google Sign-In...');
 
-    // On iOS, the GIDClientID from Info.plist is used automatically
-    // We only need webClientId for getting the ID token for Supabase
     const config = {
       webClientId: WEB_CLIENT_ID,
       scopes: ['profile', 'email'],
+      iosClientId: IOS_CLIENT_ID,
     };
 
-    // On iOS, also specify the iosClientId to ensure proper configuration
-    if (Platform.OS === 'ios') {
-      config.iosClientId = IOS_CLIENT_ID;
+    const gs = getGoogleSignin();
+    if (gs) {
+      gs.configure(config);
+      googleSignInConfigured = true;
+      console.log('✅ [AUTH] Google Sign-In configured');
     }
-
-    getGoogleSignin().configure(config);
-    googleSignInConfigured = true;
-    console.log('✅ [AUTH] Google Sign-In configured with:', JSON.stringify(config));
   } catch (error) {
     console.error('❌ [AUTH] Failed to configure Google Sign-In:', error);
     throw error;
@@ -59,6 +68,16 @@ const configureGoogleSignIn = () => {
  * @returns {Promise<Object>} User object
  */
 export const signInWithGoogle = async () => {
+  // Android: Show message that sign-in is not available yet
+  if (Platform.OS === 'android') {
+    Alert.alert(
+      'Coming Soon',
+      'Google Sign-In on Android is coming soon. For now, please use the iOS version to sign in and sync your recipes.',
+      [{ text: 'OK' }]
+    );
+    throw new Error('Google Sign-In not available on Android yet');
+  }
+
   try {
     configureGoogleSignIn();
   } catch (configError) {
@@ -69,37 +88,31 @@ export const signInWithGoogle = async () => {
 
   try {
     console.log('🔐 [AUTH] Starting Google Sign-In...');
-    console.log('🔐 [AUTH] Platform:', Platform.OS);
+    const gs = getGoogleSignin();
 
-    // Check Play Services (Android) or just proceed (iOS)
-    if (Platform.OS === 'android') {
-      await getGoogleSignin().hasPlayServices({ showPlayServicesUpdateDialog: true });
+    if (!gs) {
+      throw new Error('Google Sign-In not available');
     }
 
     // Clear any cached state
     try {
-      await getGoogleSignin().signOut();
-      console.log('🔐 [AUTH] Cleared previous sign-in state');
+      await gs.signOut();
     } catch (e) {
       console.log('🔐 [AUTH] No previous state to clear');
     }
 
     // Sign in with Google
-    console.log('🔐 [AUTH] Calling GoogleSignin.signIn()...');
-    const signInResult = await getGoogleSignin().signIn();
-    console.log('✅ [AUTH] Google Sign-In successful, result:', JSON.stringify(signInResult));
+    const signInResult = await gs.signIn();
+    console.log('✅ [AUTH] Google Sign-In successful');
 
     // Get ID token
     let idToken = signInResult?.idToken || signInResult?.data?.idToken;
-    console.log('🔐 [AUTH] ID Token present:', !!idToken);
 
     if (!idToken) {
       throw new Error('No ID token received from Google Sign-In');
     }
 
     // Sign in to Supabase with the Google ID token
-    console.log('🔐 [AUTH] Signing in to Supabase...');
-
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
@@ -135,10 +148,15 @@ export const signInWithGoogle = async () => {
  */
 export const signOut = async () => {
   try {
-    configureGoogleSignIn();
-
     console.log('🔐 [AUTH] Signing out...');
-    await getGoogleSignin().signOut();
+
+    if (Platform.OS !== 'android') {
+      const gs = getGoogleSignin();
+      if (gs) {
+        await gs.signOut();
+      }
+    }
+
     await supabase.auth.signOut();
     console.log('✅ [AUTH] Signed out successfully');
   } catch (error) {
