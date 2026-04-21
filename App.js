@@ -2,100 +2,51 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [status, setStatus] = useState('Starting...');
-  const [errors, setErrors] = useState([]);
+  const [log, setLog] = useState([]);
+
+  const addLog = (msg) => {
+    console.log(msg);
+    setLog(prev => [...prev, msg]);
+  };
 
   useEffect(() => {
-    const tests = async () => {
-      const results = [];
+    const run = async () => {
+      addLog('Step 1: Component mounted');
 
       try {
-        setStatus('Testing AsyncStorage...');
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        await AsyncStorage.setItem('test', 'value');
-        results.push('✓ AsyncStorage works');
-      } catch (e) {
-        results.push('✗ AsyncStorage: ' + e.message);
-      }
+        addLog('Step 2: About to require AsyncStorage');
+        const asModule = require('@react-native-async-storage/async-storage');
+        addLog('Step 3: AsyncStorage module required');
 
-      try {
-        setStatus('Testing Supabase...');
-        const { createClient } = require('@supabase/supabase-js');
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        const client = createClient('https://azdhiunzwslogbaiwtgi.supabase.co', 'sb_publishable_9bZ28FxZyT0G5T6_nM8GCg_qyyFVsEc', {
-          auth: { storage: AsyncStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
-        });
-        results.push('✓ Supabase client created');
-      } catch (e) {
-        results.push('✗ Supabase: ' + e.message);
-      }
+        addLog('Step 4: Getting default export');
+        const AsyncStorage = asModule.default;
+        addLog('Step 5: Got default: ' + (AsyncStorage ? 'yes' : 'null'));
 
-      try {
-        setStatus('Testing expo-clipboard...');
-        require('expo-clipboard');
-        results.push('✓ expo-clipboard loaded');
-      } catch (e) {
-        results.push('✗ expo-clipboard: ' + e.message);
-      }
+        addLog('Step 6: About to call getItem');
+        const val = await AsyncStorage.getItem('test');
+        addLog('Step 7: getItem returned: ' + val);
 
-      try {
-        setStatus('Testing expo-file-system...');
-        require('expo-file-system');
-        results.push('✓ expo-file-system loaded');
-      } catch (e) {
-        results.push('✗ expo-file-system: ' + e.message);
-      }
+        addLog('Step 8: About to call setItem');
+        await AsyncStorage.setItem('test', 'hello');
+        addLog('Step 9: setItem worked!');
 
-      try {
-        setStatus('Testing expo-document-picker...');
-        require('expo-document-picker');
-        results.push('✓ expo-document-picker loaded');
+        addLog('ALL TESTS PASSED');
       } catch (e) {
-        results.push('✗ expo-document-picker: ' + e.message);
+        addLog('ERROR: ' + e.message);
+        addLog('STACK: ' + (e.stack || 'no stack'));
       }
-
-      try {
-        setStatus('Testing expo-sharing...');
-        require('expo-sharing');
-        results.push('✓ expo-sharing loaded');
-      } catch (e) {
-        results.push('✗ expo-sharing: ' + e.message);
-      }
-
-      try {
-        setStatus('Testing expo-navigation-bar...');
-        require('expo-navigation-bar');
-        results.push('✓ expo-navigation-bar loaded');
-      } catch (e) {
-        results.push('✗ expo-navigation-bar: ' + e.message);
-      }
-
-      try {
-        setStatus('Testing html-entities...');
-        require('html-entities');
-        results.push('✓ html-entities loaded');
-      } catch (e) {
-        results.push('✗ html-entities: ' + e.message);
-      }
-
-      setErrors(results);
-      setStatus('Tests complete');
     };
 
-    tests().catch(e => {
-      setErrors(['FATAL: ' + e.message]);
-      setStatus('Failed');
-    });
+    run().catch(e => addLog('UNCAUGHT: ' + e.message));
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Module Test</Text>
-      <Text style={styles.status}>{status}</Text>
+      <Text style={styles.title}>AsyncStorage Debug</Text>
       <ScrollView style={styles.scroll}>
-        {errors.map((err, i) => (
-          <Text key={i} style={err.startsWith('✓') ? styles.success : styles.error}>
-            {err}
+        {log.map((msg, i) => (
+          <Text key={i} style={styles.log}>
+            {msg}
           </Text>
         ))}
       </ScrollView>
@@ -106,8 +57,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1a1a2e', padding: 20, paddingTop: 60 },
   title: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-  status: { color: '#ffd93d', fontSize: 16, marginBottom: 20 },
   scroll: { flex: 1 },
-  success: { color: '#4ade80', fontSize: 14, marginBottom: 5, fontFamily: 'monospace' },
-  error: { color: '#ff6b6b', fontSize: 14, marginBottom: 5, fontFamily: 'monospace' },
+  log: { color: '#fff', fontSize: 12, marginBottom: 3, fontFamily: 'monospace' },
 });
