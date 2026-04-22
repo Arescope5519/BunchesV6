@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [log, setLog] = useState(['=== v4 START ===']);
+  const [log, setLog] = useState(['=== v5 MINIMAL ===']);
 
   const addLog = (msg) => {
     console.log(msg);
@@ -12,60 +12,33 @@ export default function App() {
   useEffect(() => {
     const run = async () => {
       try {
-        addLog('1a. Requiring AsyncStorage...');
+        addLog('1. Requiring AsyncStorage...');
         const AS = require('@react-native-async-storage/async-storage').default;
-        addLog('1b. AsyncStorage required');
+        addLog('2. Got AsyncStorage');
+
+        addLog('3. Calling setItem...');
         await AS.setItem('test', 'ok');
-        addLog('1c. AsyncStorage DONE');
+        addLog('4. setItem DONE');
 
-        addLog('2. Supabase DONE');
+        addLog('5. Supabase...');
         require('@supabase/supabase-js');
+        addLog('6. Supabase DONE');
 
-        addLog('3. colors DONE');
+        addLog('7. colors...');
         require('./src/constants/colors');
+        addLog('8. colors DONE');
 
-        addLog('4. config DONE');
+        addLog('9. config...');
         require('./src/services/supabase/config');
+        addLog('10. config DONE');
 
-        addLog('5. auth DONE');
+        addLog('11. auth...');
         require('./src/services/supabase/auth');
+        addLog('12. auth DONE');
 
-        addLog('6. clipboard DONE');
-        require('expo-clipboard');
-
-        addLog('7. file-system DONE');
-        require('expo-file-system');
-
-        addLog('8. sharing DONE');
-        require('expo-sharing');
-
-        addLog('9. nav-bar DONE');
-        require('expo-navigation-bar');
-
-        addLog('10. doc-picker DONE');
-        require('expo-document-picker');
-
-        addLog('11. html-entities DONE');
-        require('html-entities');
-
-        addLog('12. RecipeExtractor DONE');
-        require('./RecipeExtractor');
-
-        addLog('13. useShareIntent DONE');
-        require('./src/hooks/useShareIntent');
-
-        addLog('14. useRecipes DONE');
-        require('./src/hooks/useRecipes');
-
-        addLog('15. AuthScreen DONE');
-        require('./src/screens/AuthScreen');
-
-        addLog('16. HomeScreen DONE');
-        require('./src/screens/HomeScreen');
-
-        addLog('=== ALL 16 PASSED ===');
+        addLog('=== ALL PASSED ===');
       } catch (e) {
-        addLog('!!! ERROR: ' + e.message);
+        addLog('ERROR: ' + e.message);
       }
     };
 
@@ -74,7 +47,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>v4 Import Test</Text>
+      <Text style={styles.title}>v5 Minimal</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
           <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
