@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [log, setLog] = useState(['=== v6 EXPO MODULES ===']);
+  const [log, setLog] = useState(['=== v7 TEST CLIPBOARD ===']);
 
   const addLog = (msg) => {
     console.log(msg);
@@ -17,47 +17,11 @@ export default function App() {
         await AS.setItem('test', 'ok');
         addLog('   DONE');
 
-        addLog('2. Supabase...');
-        require('@supabase/supabase-js');
-        addLog('   DONE');
-
-        addLog('3. colors...');
-        require('./src/constants/colors');
-        addLog('   DONE');
-
-        addLog('4. config...');
-        require('./src/services/supabase/config');
-        addLog('   DONE');
-
-        addLog('5. auth...');
-        require('./src/services/supabase/auth');
-        addLog('   DONE');
-
-        addLog('6. expo-clipboard...');
+        addLog('2. expo-clipboard...');
         require('expo-clipboard');
         addLog('   DONE');
 
-        addLog('7. expo-file-system...');
-        require('expo-file-system');
-        addLog('   DONE');
-
-        addLog('8. expo-sharing...');
-        require('expo-sharing');
-        addLog('   DONE');
-
-        addLog('9. expo-navigation-bar...');
-        require('expo-navigation-bar');
-        addLog('   DONE');
-
-        addLog('10. expo-document-picker...');
-        require('expo-document-picker');
-        addLog('   DONE');
-
-        addLog('11. html-entities...');
-        require('html-entities');
-        addLog('   DONE');
-
-        addLog('=== ALL PASSED ===');
+        addLog('=== CLIPBOARD OK ===');
       } catch (e) {
         addLog('ERROR: ' + e.message);
       }
@@ -68,10 +32,10 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>v6 Expo Modules</Text>
+      <Text style={styles.title}>v7 Clipboard</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
-          <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
+          <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('OK') ? styles.ok : styles.log}>{msg}</Text>
         ))}
       </ScrollView>
     </View>
