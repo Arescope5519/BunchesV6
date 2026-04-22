@@ -12,45 +12,75 @@ export default function App() {
   useEffect(() => {
     const run = async () => {
       try {
-        addLog('Step 1: About to require async-storage module');
-        const asModule = require('@react-native-async-storage/async-storage');
-        addLog('Step 2: Module required successfully');
-        addLog('Step 3: Module keys: ' + Object.keys(asModule).join(', '));
+        addLog('1. AsyncStorage...');
+        const AS = require('@react-native-async-storage/async-storage').default;
+        await AS.setItem('test', 'ok');
+        addLog('   OK');
 
-        const AsyncStorage = asModule.default;
-        addLog('Step 4: Got default export: ' + (AsyncStorage ? 'yes' : 'null'));
-        addLog('Step 5: AsyncStorage methods: ' + (AsyncStorage ? Object.keys(AsyncStorage).slice(0,5).join(', ') : 'N/A'));
-
-        addLog('Step 6: About to call getItem...');
-        const val = await AsyncStorage.getItem('_test_key_');
-        addLog('Step 7: getItem returned: ' + (val === null ? 'null' : val));
-
-        addLog('Step 8: About to call setItem...');
-        await AsyncStorage.setItem('_test_key_', 'hello');
-        addLog('Step 9: setItem completed!');
-
-        addLog('=== ASYNCSTORAGE OK ===');
-
-        addLog('Step 10: Testing Supabase...');
+        addLog('2. Supabase...');
         require('@supabase/supabase-js');
-        addLog('Step 11: Supabase OK');
+        addLog('   OK');
 
-        addLog('Step 12: Testing colors...');
+        addLog('3. colors...');
         require('./src/constants/colors');
-        addLog('Step 13: Colors OK');
+        addLog('   OK');
 
-        addLog('Step 14: Testing supabase config...');
+        addLog('4. supabase/config...');
         require('./src/services/supabase/config');
-        addLog('Step 15: Config OK');
+        addLog('   OK');
 
-        addLog('Step 16: Testing auth...');
+        addLog('5. supabase/auth...');
         require('./src/services/supabase/auth');
-        addLog('Step 17: Auth OK');
+        addLog('   OK');
 
-        addLog('=== ALL TESTS PASSED ===');
+        addLog('6. expo-clipboard...');
+        require('expo-clipboard');
+        addLog('   OK');
+
+        addLog('7. expo-file-system...');
+        require('expo-file-system');
+        addLog('   OK');
+
+        addLog('8. expo-sharing...');
+        require('expo-sharing');
+        addLog('   OK');
+
+        addLog('9. expo-navigation-bar...');
+        require('expo-navigation-bar');
+        addLog('   OK');
+
+        addLog('10. expo-document-picker...');
+        require('expo-document-picker');
+        addLog('   OK');
+
+        addLog('11. html-entities...');
+        require('html-entities');
+        addLog('   OK');
+
+        addLog('12. RecipeExtractor...');
+        require('./RecipeExtractor');
+        addLog('   OK');
+
+        addLog('13. useShareIntent...');
+        require('./src/hooks/useShareIntent');
+        addLog('   OK');
+
+        addLog('14. useRecipes...');
+        require('./src/hooks/useRecipes');
+        addLog('   OK');
+
+        addLog('15. AuthScreen...');
+        require('./src/screens/AuthScreen');
+        addLog('   OK');
+
+        addLog('16. HomeScreen...');
+        require('./src/screens/HomeScreen');
+        addLog('   OK');
+
+        addLog('=== ALL IMPORTS PASSED ===');
       } catch (e) {
         addLog('ERROR: ' + e.message);
-        addLog('Stack: ' + (e.stack || '').substring(0, 300));
+        addLog('Stack: ' + (e.stack || '').substring(0, 500));
       }
     };
 
@@ -59,7 +89,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Debug v2</Text>
+      <Text style={styles.title}>Import Test v3</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
           <Text key={i} style={msg.includes('ERROR') ? styles.error : msg.includes('OK') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
@@ -73,7 +103,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1a1a2e', padding: 20, paddingTop: 60 },
   title: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
   scroll: { flex: 1 },
-  log: { color: '#fff', fontSize: 11, marginBottom: 2, fontFamily: 'monospace' },
-  ok: { color: '#4ade80', fontSize: 11, marginBottom: 2, fontFamily: 'monospace' },
-  error: { color: '#ff6b6b', fontSize: 11, marginBottom: 2, fontFamily: 'monospace' },
+  log: { color: '#fff', fontSize: 12, marginBottom: 2, fontFamily: 'monospace' },
+  ok: { color: '#4ade80', fontSize: 12, marginBottom: 2, fontFamily: 'monospace' },
+  error: { color: '#ff6b6b', fontSize: 12, marginBottom: 2, fontFamily: 'monospace' },
 });
