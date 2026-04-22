@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [log, setLog] = useState(['=== v5 MINIMAL ===']);
+  const [log, setLog] = useState(['=== v6 EXPO MODULES ===']);
 
   const addLog = (msg) => {
     console.log(msg);
@@ -12,29 +12,50 @@ export default function App() {
   useEffect(() => {
     const run = async () => {
       try {
-        addLog('1. Requiring AsyncStorage...');
+        addLog('1. AsyncStorage...');
         const AS = require('@react-native-async-storage/async-storage').default;
-        addLog('2. Got AsyncStorage');
-
-        addLog('3. Calling setItem...');
         await AS.setItem('test', 'ok');
-        addLog('4. setItem DONE');
+        addLog('   DONE');
 
-        addLog('5. Supabase...');
+        addLog('2. Supabase...');
         require('@supabase/supabase-js');
-        addLog('6. Supabase DONE');
+        addLog('   DONE');
 
-        addLog('7. colors...');
+        addLog('3. colors...');
         require('./src/constants/colors');
-        addLog('8. colors DONE');
+        addLog('   DONE');
 
-        addLog('9. config...');
+        addLog('4. config...');
         require('./src/services/supabase/config');
-        addLog('10. config DONE');
+        addLog('   DONE');
 
-        addLog('11. auth...');
+        addLog('5. auth...');
         require('./src/services/supabase/auth');
-        addLog('12. auth DONE');
+        addLog('   DONE');
+
+        addLog('6. expo-clipboard...');
+        require('expo-clipboard');
+        addLog('   DONE');
+
+        addLog('7. expo-file-system...');
+        require('expo-file-system');
+        addLog('   DONE');
+
+        addLog('8. expo-sharing...');
+        require('expo-sharing');
+        addLog('   DONE');
+
+        addLog('9. expo-navigation-bar...');
+        require('expo-navigation-bar');
+        addLog('   DONE');
+
+        addLog('10. expo-document-picker...');
+        require('expo-document-picker');
+        addLog('   DONE');
+
+        addLog('11. html-entities...');
+        require('html-entities');
+        addLog('   DONE');
 
         addLog('=== ALL PASSED ===');
       } catch (e) {
@@ -47,7 +68,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>v5 Minimal</Text>
+      <Text style={styles.title}>v6 Expo Modules</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
           <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
