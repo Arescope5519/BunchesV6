@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [log, setLog] = useState(['App mounted']);
+  const [log, setLog] = useState(['=== v4 START ===']);
 
   const addLog = (msg) => {
     console.log(msg);
@@ -12,87 +12,72 @@ export default function App() {
   useEffect(() => {
     const run = async () => {
       try {
-        addLog('1. AsyncStorage...');
+        addLog('1a. Requiring AsyncStorage...');
         const AS = require('@react-native-async-storage/async-storage').default;
+        addLog('1b. AsyncStorage required');
         await AS.setItem('test', 'ok');
-        addLog('   OK');
+        addLog('1c. AsyncStorage DONE');
 
-        addLog('2. Supabase...');
+        addLog('2. Supabase DONE');
         require('@supabase/supabase-js');
-        addLog('   OK');
 
-        addLog('3. colors...');
+        addLog('3. colors DONE');
         require('./src/constants/colors');
-        addLog('   OK');
 
-        addLog('4. supabase/config...');
+        addLog('4. config DONE');
         require('./src/services/supabase/config');
-        addLog('   OK');
 
-        addLog('5. supabase/auth...');
+        addLog('5. auth DONE');
         require('./src/services/supabase/auth');
-        addLog('   OK');
 
-        addLog('6. expo-clipboard...');
+        addLog('6. clipboard DONE');
         require('expo-clipboard');
-        addLog('   OK');
 
-        addLog('7. expo-file-system...');
+        addLog('7. file-system DONE');
         require('expo-file-system');
-        addLog('   OK');
 
-        addLog('8. expo-sharing...');
+        addLog('8. sharing DONE');
         require('expo-sharing');
-        addLog('   OK');
 
-        addLog('9. expo-navigation-bar...');
+        addLog('9. nav-bar DONE');
         require('expo-navigation-bar');
-        addLog('   OK');
 
-        addLog('10. expo-document-picker...');
+        addLog('10. doc-picker DONE');
         require('expo-document-picker');
-        addLog('   OK');
 
-        addLog('11. html-entities...');
+        addLog('11. html-entities DONE');
         require('html-entities');
-        addLog('   OK');
 
-        addLog('12. RecipeExtractor...');
+        addLog('12. RecipeExtractor DONE');
         require('./RecipeExtractor');
-        addLog('   OK');
 
-        addLog('13. useShareIntent...');
+        addLog('13. useShareIntent DONE');
         require('./src/hooks/useShareIntent');
-        addLog('   OK');
 
-        addLog('14. useRecipes...');
+        addLog('14. useRecipes DONE');
         require('./src/hooks/useRecipes');
-        addLog('   OK');
 
-        addLog('15. AuthScreen...');
+        addLog('15. AuthScreen DONE');
         require('./src/screens/AuthScreen');
-        addLog('   OK');
 
-        addLog('16. HomeScreen...');
+        addLog('16. HomeScreen DONE');
         require('./src/screens/HomeScreen');
-        addLog('   OK');
 
-        addLog('=== ALL IMPORTS PASSED ===');
+        addLog('=== ALL 16 PASSED ===');
       } catch (e) {
-        addLog('ERROR: ' + e.message);
-        addLog('Stack: ' + (e.stack || '').substring(0, 500));
+        addLog('!!! ERROR: ' + e.message);
       }
     };
 
-    setTimeout(() => run(), 100);
+    setTimeout(() => run(), 200);
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Import Test v3</Text>
+      <Text style={styles.title}>v4 Import Test</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
-          <Text key={i} style={msg.includes('ERROR') ? styles.error : msg.includes('OK') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
+          <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
         ))}
       </ScrollView>
     </View>
@@ -100,10 +85,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e', padding: 20, paddingTop: 60 },
-  title: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  container: { flex: 1, backgroundColor: '#111', padding: 20, paddingTop: 60 },
+  title: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 15 },
   scroll: { flex: 1 },
-  log: { color: '#fff', fontSize: 12, marginBottom: 2, fontFamily: 'monospace' },
-  ok: { color: '#4ade80', fontSize: 12, marginBottom: 2, fontFamily: 'monospace' },
-  error: { color: '#ff6b6b', fontSize: 12, marginBottom: 2, fontFamily: 'monospace' },
+  log: { color: '#ccc', fontSize: 14, marginBottom: 4 },
+  ok: { color: '#4f4', fontSize: 14, marginBottom: 4 },
+  err: { color: '#f44', fontSize: 14, marginBottom: 4 },
 });
