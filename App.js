@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [log, setLog] = useState(['Starting tests...']);
+  const [log, setLog] = useState(['App mounted']);
 
   const addLog = (msg) => {
     console.log(msg);
@@ -11,48 +11,58 @@ export default function App() {
 
   useEffect(() => {
     const run = async () => {
-      const tests = [
-        ['1. AsyncStorage', async () => {
-          const AS = require('@react-native-async-storage/async-storage').default;
-          await AS.setItem('test', 'ok');
-        }],
-        ['2. Supabase', () => require('@supabase/supabase-js')],
-        ['3. expo-clipboard', () => require('expo-clipboard')],
-        ['4. expo-file-system', () => require('expo-file-system')],
-        ['5. expo-sharing', () => require('expo-sharing')],
-        ['6. expo-navigation-bar', () => require('expo-navigation-bar')],
-        ['7. html-entities', () => require('html-entities')],
-        ['8. colors constant', () => require('./src/constants/colors')],
-        ['9. supabase config', () => require('./src/services/supabase/config')],
-        ['10. supabase auth', () => require('./src/services/supabase/auth')],
-        ['11. RecipeExtractor', () => require('./RecipeExtractor')],
-        ['12. useShareIntent', () => require('./src/hooks/useShareIntent')],
-        ['13. useRecipes', () => require('./src/hooks/useRecipes')],
-        ['14. AuthScreen', () => require('./src/screens/AuthScreen')],
-        ['15. HomeScreen', () => require('./src/screens/HomeScreen')],
-      ];
+      try {
+        addLog('Step 1: About to require async-storage module');
+        const asModule = require('@react-native-async-storage/async-storage');
+        addLog('Step 2: Module required successfully');
+        addLog('Step 3: Module keys: ' + Object.keys(asModule).join(', '));
 
-      for (const [name, test] of tests) {
-        addLog(`Testing ${name}...`);
-        try {
-          await test();
-          addLog(`  ✓ OK`);
-        } catch (e) {
-          addLog(`  ✗ FAIL: ${e.message}`);
-          break;
-        }
+        const AsyncStorage = asModule.default;
+        addLog('Step 4: Got default export: ' + (AsyncStorage ? 'yes' : 'null'));
+        addLog('Step 5: AsyncStorage methods: ' + (AsyncStorage ? Object.keys(AsyncStorage).slice(0,5).join(', ') : 'N/A'));
+
+        addLog('Step 6: About to call getItem...');
+        const val = await AsyncStorage.getItem('_test_key_');
+        addLog('Step 7: getItem returned: ' + (val === null ? 'null' : val));
+
+        addLog('Step 8: About to call setItem...');
+        await AsyncStorage.setItem('_test_key_', 'hello');
+        addLog('Step 9: setItem completed!');
+
+        addLog('=== ASYNCSTORAGE OK ===');
+
+        addLog('Step 10: Testing Supabase...');
+        require('@supabase/supabase-js');
+        addLog('Step 11: Supabase OK');
+
+        addLog('Step 12: Testing colors...');
+        require('./src/constants/colors');
+        addLog('Step 13: Colors OK');
+
+        addLog('Step 14: Testing supabase config...');
+        require('./src/services/supabase/config');
+        addLog('Step 15: Config OK');
+
+        addLog('Step 16: Testing auth...');
+        require('./src/services/supabase/auth');
+        addLog('Step 17: Auth OK');
+
+        addLog('=== ALL TESTS PASSED ===');
+      } catch (e) {
+        addLog('ERROR: ' + e.message);
+        addLog('Stack: ' + (e.stack || '').substring(0, 300));
       }
-      addLog('=== DONE ===');
     };
-    run();
+
+    setTimeout(() => run(), 100);
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Import Tester</Text>
+      <Text style={styles.title}>Debug v2</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
-          <Text key={i} style={msg.includes('FAIL') ? styles.error : msg.includes('OK') ? styles.ok : styles.log}>{msg}</Text>
+          <Text key={i} style={msg.includes('ERROR') ? styles.error : msg.includes('OK') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
         ))}
       </ScrollView>
     </View>
@@ -63,7 +73,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1a1a2e', padding: 20, paddingTop: 60 },
   title: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
   scroll: { flex: 1 },
-  log: { color: '#fff', fontSize: 12, marginBottom: 2 },
-  ok: { color: '#4ade80', fontSize: 12, marginBottom: 2 },
-  error: { color: '#ff6b6b', fontSize: 12, marginBottom: 2 },
+  log: { color: '#fff', fontSize: 11, marginBottom: 2, fontFamily: 'monospace' },
+  ok: { color: '#4ade80', fontSize: 11, marginBottom: 2, fontFamily: 'monospace' },
+  error: { color: '#ff6b6b', fontSize: 11, marginBottom: 2, fontFamily: 'monospace' },
 });
