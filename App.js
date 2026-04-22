@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 export default function App() {
-  const [log, setLog] = useState(['=== v7 TEST CLIPBOARD ===']);
+  const [log, setLog] = useState(['=== v8 NO CLIPBOARD ===']);
 
   const addLog = (msg) => {
     console.log(msg);
@@ -17,11 +17,23 @@ export default function App() {
         await AS.setItem('test', 'ok');
         addLog('   DONE');
 
-        addLog('2. expo-clipboard...');
-        require('expo-clipboard');
+        addLog('2. expo-file-system...');
+        require('expo-file-system');
         addLog('   DONE');
 
-        addLog('=== CLIPBOARD OK ===');
+        addLog('3. expo-sharing...');
+        require('expo-sharing');
+        addLog('   DONE');
+
+        addLog('4. expo-navigation-bar...');
+        require('expo-navigation-bar');
+        addLog('   DONE');
+
+        addLog('5. expo-document-picker...');
+        require('expo-document-picker');
+        addLog('   DONE');
+
+        addLog('=== ALL PASSED ===');
       } catch (e) {
         addLog('ERROR: ' + e.message);
       }
@@ -32,10 +44,10 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>v7 Clipboard</Text>
+      <Text style={styles.title}>v8 No Clipboard</Text>
       <ScrollView style={styles.scroll}>
         {log.map((msg, i) => (
-          <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('OK') ? styles.ok : styles.log}>{msg}</Text>
+          <Text key={i} style={msg.includes('ERROR') ? styles.err : msg.includes('DONE') || msg.includes('PASSED') ? styles.ok : styles.log}>{msg}</Text>
         ))}
       </ScrollView>
     </View>
