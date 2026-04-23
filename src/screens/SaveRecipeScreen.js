@@ -19,11 +19,46 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 
+// Helper to normalize ingredients to consistent format { section: [items] }
+const normalizeIngredients = (ingredients) => {
+  if (!ingredients) return { main: [] };
+
+  // Already a string - split into array
+  if (typeof ingredients === 'string') {
+    return { main: ingredients.split('\n').filter(line => line.trim()) };
+  }
+
+  // Array of ingredients
+  if (Array.isArray(ingredients)) {
+    return { main: ingredients.filter(i => typeof i === 'string' && i.trim()) };
+  }
+
+  // Object with sections - normalize each section value
+  if (typeof ingredients === 'object') {
+    const normalized = {};
+    for (const [section, value] of Object.entries(ingredients)) {
+      if (Array.isArray(value)) {
+        normalized[section] = value.filter(i => typeof i === 'string' && i.trim());
+      } else if (typeof value === 'string') {
+        normalized[section] = value.split('\n').filter(line => line.trim());
+      } else {
+        normalized[section] = [];
+      }
+    }
+    return Object.keys(normalized).length > 0 ? normalized : { main: [] };
+  }
+
+  return { main: [] };
+};
+
 export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   const [selectedFolder, setSelectedFolder] = useState('All Recipes');
 
-  // Local editable copy of recipe data
-  const [localRecipe, setLocalRecipe] = useState(recipe);
+  // Local editable copy of recipe data with normalized ingredients
+  const [localRecipe, setLocalRecipe] = useState(() => ({
+    ...recipe,
+    ingredients: normalizeIngredients(recipe?.ingredients)
+  }));
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -82,10 +117,11 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
     );
   }
 
+  // Count all ingredients across all sections
   const ingredientCount = localRecipe.ingredients
-    ? (typeof localRecipe.ingredients === 'string'
-        ? localRecipe.ingredients.split('\n').filter(l => l.trim()).length
-        : Object.values(localRecipe.ingredients).flat().length)
+    ? Object.values(localRecipe.ingredients).reduce((count, items) => {
+        return count + (Array.isArray(items) ? items.length : 0);
+      }, 0)
     : 0;
 
   const instructionCount = localRecipe.instructions?.length || 0;
@@ -214,7 +250,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
                 {section !== 'main' && (
                   <Text style={styles.subsectionTitle}>{section}</Text>
                 )}
-                {items.map((item, idx) => (
+                {Array.isArray(items) && items.map((item, idx) => (
                   <Text key={idx} style={styles.ingredientItem}>• {item}</Text>
                 ))}
               </View>
