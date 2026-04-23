@@ -23,3 +23,9 @@ Base version: 0.0.2 (stable Android build)
 - **Change**: Removed all Android-specific blocks that disabled Google Sign-In
 - **Requires**: `google-services.json` in `android/app/` (already in build process)
 - **Status**: Re-enabled - test pending
+
+### Fix: Google Sign-In package missing
+- **Issue**: "Google Sign-In not available" - package wasn't in package.json
+- **Files**: `package.json`, `app.json`
+- **Fix**: Added `@react-native-google-signin/google-signin` to dependencies and plugins
+- **Status**: Complete

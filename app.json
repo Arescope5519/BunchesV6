@@ -21,7 +21,8 @@
       "./plugins/android-share-intent.js",
       "./plugins/android-on-new-intent.js",
       "expo-file-system",
-      "expo-document-picker"
+      "expo-document-picker",
+      "@react-native-google-signin/google-signin"
     ],
     "ios": {
       "supportsTablet": true,
