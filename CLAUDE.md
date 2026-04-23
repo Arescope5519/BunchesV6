@@ -5,7 +5,12 @@
 ```cmd
 cd C:\Users\Daniel\BunchesV6
 git pull origin claude/copy-broken-branch-qQg4U
-npx expo prebuild --clean
+git add -A && git commit -m "local" --allow-empty
+taskkill /F /IM java.exe
+rmdir /s /q android
+rmdir /s /q node_modules
+npm install
+npx expo prebuild --clean --platform android
 cd android
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
 ```
