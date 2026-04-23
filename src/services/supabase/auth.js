@@ -6,12 +6,9 @@
 import { supabase } from './config';
 import { Alert, Platform } from 'react-native';
 
-// Lazy load GoogleSignin - only available on iOS for now
+// Lazy load GoogleSignin
 let GoogleSignin = null;
 const getGoogleSignin = () => {
-  if (Platform.OS === 'android') {
-    return null;
-  }
   if (!GoogleSignin) {
     try {
       GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
@@ -31,13 +28,9 @@ const IOS_CLIENT_ID = '307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1.apps.google
 let googleSignInConfigured = false;
 
 /**
- * Configure Google Sign-In (iOS only for now)
+ * Configure Google Sign-In
  */
 const configureGoogleSignIn = () => {
-  if (Platform.OS === 'android') {
-    return;
-  }
-
   if (googleSignInConfigured) {
     return;
   }
@@ -68,16 +61,6 @@ const configureGoogleSignIn = () => {
  * @returns {Promise<Object>} User object
  */
 export const signInWithGoogle = async () => {
-  // Android: Show message that sign-in is not available yet
-  if (Platform.OS === 'android') {
-    Alert.alert(
-      'Coming Soon',
-      'Google Sign-In on Android is coming soon. For now, please use the iOS version to sign in and sync your recipes.',
-      [{ text: 'OK' }]
-    );
-    throw new Error('Google Sign-In not available on Android yet');
-  }
-
   try {
     configureGoogleSignIn();
   } catch (configError) {
@@ -150,10 +133,12 @@ export const signOut = async () => {
   try {
     console.log('🔐 [AUTH] Signing out...');
 
-    if (Platform.OS !== 'android') {
-      const gs = getGoogleSignin();
-      if (gs) {
+    const gs = getGoogleSignin();
+    if (gs) {
+      try {
         await gs.signOut();
+      } catch (e) {
+        console.log('🔐 [AUTH] Google sign out failed (may not be signed in):', e.message);
       }
     }
 

@@ -17,3 +17,9 @@ Base version: 0.0.2 (stable Android build)
 - **File**: `App.js`
 - **Fix**: Added `onSkipToLocalMode` prop to AuthScreen so users can use app without cloud sync
 - **Status**: Complete
+
+### Re-enable Google Sign-In on Android
+- **File**: `src/services/supabase/auth.js`
+- **Change**: Removed all Android-specific blocks that disabled Google Sign-In
+- **Requires**: `google-services.json` in `android/app/` (already in build process)
+- **Status**: Re-enabled - test pending
