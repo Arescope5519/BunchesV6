@@ -30,6 +30,13 @@
 - Kill Java before rebuilding: `taskkill /F /IM java.exe`
 - Google Sign-In shows "Coming Soon" on Android (needs proper setup)
 
+### Android Testing Workflow
+- **NO USB debugging** - APK is transferred via Google Drive to phone
+- APK location: `android\app\build\outputs\apk\release\app-release.apk`
+- Upload to Google Drive → Download on phone → Install
+- **Debug logging**: `console.log()` won't be visible - must use ON-SCREEN debug UI
+- For debugging, add visible `<View>` elements with debug info that render in the app
+
 ### iOS (Mac)
 - Share Extension requires manual Xcode setup after prebuild
 - Google Sign-In works via Supabase + native SDK
