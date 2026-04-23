@@ -114,7 +114,20 @@ function MainApp() {
   }
 
   if (!user) {
-    return <AuthScreen onSignIn={handleSignIn} />;
+    return (
+      <AuthScreen
+        onSignIn={handleSignIn}
+        onSkipToLocalMode={() => {
+          // Create a local-only user object
+          const localUser = {
+            id: 'local_user',
+            email: 'local@device',
+            isLocalMode: true,
+          };
+          setUser(localUser);
+        }}
+      />
+    );
   }
 
   return <HomeScreen user={user} />;
