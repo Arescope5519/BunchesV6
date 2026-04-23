@@ -4,9 +4,16 @@ Base version: 0.0.2 (stable Android build)
 
 ## Changes
 
-### Fix: Ingredient count showing "1" on preview screen
+### Fix: Ingredient count showing "1" on preview screen (ANDROID ONLY)
 - **Issue**: Ingredient count in preview stats always showed "1" regardless of actual count
-- **Root cause**: `SaveRecipeScreen` didn't normalize ingredients format - if sections contained strings instead of arrays, `Object.values().flat().length` counted sections not items
+- **Platform**: Android only - iOS works correctly
+- **Root cause**: TBD - added debug box to diagnose
 - **File**: `src/screens/SaveRecipeScreen.js`
-- **Fix**: Added `normalizeIngredients()` helper that converts all ingredient formats to `{ section: [items] }` structure; updated count calculation to properly sum across sections
+- **Debug**: Pink debug box added to preview screen showing raw ingredient data
+- **Status**: Investigating
+
+### Fix: Enable Local Mode for Android users
+- **Issue**: After reinstall, Android users stuck on sign-in screen (Google Sign-In not available)
+- **File**: `App.js`
+- **Fix**: Added `onSkipToLocalMode` prop to AuthScreen so users can use app without cloud sync
 - **Status**: Complete
