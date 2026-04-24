@@ -1840,6 +1840,14 @@ export const HomeScreen = ({ user }) => {
               </Text>
             </TouchableOpacity>
             <View style={styles.sortBarRight}>
+              {currentFolder !== 'Recently Deleted' && recipes.filter(r => r.deletedAt).length > 0 && (
+                <TouchableOpacity
+                  style={styles.viewModeButton}
+                  onPress={() => setCurrentFolder('Recently Deleted')}
+                >
+                  <Text style={styles.viewModeIcon}>🗑️</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.viewModeButton}
                 onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
