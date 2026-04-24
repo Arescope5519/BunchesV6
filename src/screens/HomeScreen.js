@@ -2011,6 +2011,7 @@ export const HomeScreen = ({ user }) => {
           profile={profile}
           onChangeUsername={changeUsername}
           checkUsernameAvailable={checkUsernameAvailable}
+          onRefresh={refreshSocialData}
         />
       )}
 

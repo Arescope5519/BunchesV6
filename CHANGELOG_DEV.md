@@ -24,6 +24,16 @@ Base version: 0.0.2 (stable Android build)
 - **Requires**: `google-services.json` in `android/app/` (already in build process)
 - **Status**: Re-enabled - test pending
 
+### Fix: Friend not showing for request sender after acceptance
+- **Issue**: When user A sends friend request to user B, and B accepts, A doesn't see B in their friends list
+- **Root cause**: SocialModal wasn't calling refreshSocialData when opened - relied on 10-second polling
+- **Files**: `src/screens/HomeScreen.js`, `src/components/SocialModal.js`
+- **Fix**: 
+  - Pass `onRefresh` prop to SocialModal
+  - Auto-refresh when modal opens (`useEffect` with visible dependency)
+  - Added manual refresh button (↻) next to "Your Friends" header
+- **Status**: Complete
+
 ### Fix: Google Sign-In package missing
 - **Issue**: "Google Sign-In not available" - package wasn't in package.json
 - **Files**: `package.json`, `app.json`

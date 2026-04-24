@@ -36,8 +36,26 @@ export const SocialModal = ({
   profile,
   onChangeUsername,
   checkUsernameAvailable,
+  onRefresh,
 }) => {
   const [activeTab, setActiveTab] = useState('friends');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Refresh data when modal opens
+  useEffect(() => {
+    if (visible && onRefresh) {
+      onRefresh();
+    }
+  }, [visible]);
+
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setRefreshing(true);
+      await onRefresh();
+      setRefreshing(false);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -235,7 +253,12 @@ export const SocialModal = ({
         </View>
       ) : (
         <View style={styles.friendsList}>
-          <Text style={styles.friendsListTitle}>Your Friends ({friends.length})</Text>
+          <View style={styles.friendsListHeader}>
+            <Text style={styles.friendsListTitle}>Your Friends ({friends.length})</Text>
+            <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+              <Text style={styles.refreshButtonText}>{refreshing ? '...' : '↻'}</Text>
+            </TouchableOpacity>
+          </View>
           {friends.map(friend => (
             <View key={friend.id} style={styles.listItem}>
               <UserAvatar username={friend.username} size={36} style={styles.avatar} />
@@ -1199,9 +1222,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginBottom: 8,
-    paddingHorizontal: 16,
     textTransform: 'uppercase',
+  },
+  friendsListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  refreshButtonText: {
+    fontSize: 18,
+    color: colors.primary,
   },
   noResultsText: {
     textAlign: 'center',
