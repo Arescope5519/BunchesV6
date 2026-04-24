@@ -26,11 +26,14 @@ Base version: 0.0.2 (stable Android build)
 
 ### Fix: Friend not showing for request sender after acceptance
 - **Issue**: When user A sends friend request to user B, and B accepts, A doesn't see B in their friends list
-- **Root cause**: SocialModal wasn't calling refreshSocialData when opened - relied on 10-second polling
-- **Files**: `src/screens/HomeScreen.js`, `src/components/SocialModal.js`
+- **Root cause**: Supabase RLS prevents User B from updating User A's profile
+- **Files**: `src/services/supabase/social.js`, `src/hooks/useSocial.js`, `src/screens/HomeScreen.js`, `src/components/SocialModal.js`
 - **Fix**: 
-  - Pass `onRefresh` prop to SocialModal
-  - Auto-refresh when modal opens (`useEffect` with visible dependency)
+  - `acceptFriendRequest` now only updates accepter's own profile (respects RLS)
+  - Added `syncAcceptedFriendRequests()` - sender syncs their own profile when loading friends
+  - Each user updates their own profile only
+  - Accepted requests marked as 'synced' after processing
+  - Added auto-refresh when Social modal opens
   - Added manual refresh button (↻) next to "Your Friends" header
 - **Status**: Complete
 

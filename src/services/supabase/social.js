@@ -228,45 +228,111 @@ export const acceptFriendRequest = async (requestId, currentUserId) => {
       throw new Error('Not authorized');
     }
 
-    // Update request
-    await supabase
+    // Update request status
+    const { error: updateError } = await supabase
       .from('friend_requests')
       .update({ status: 'accepted', updated_at: new Date().toISOString() })
       .eq('id', requestId);
 
-    // Add to both users' friends lists
-    const { data: user1Profile } = await supabase
+    if (updateError) {
+      console.error('Error updating request status:', updateError);
+      throw updateError;
+    }
+
+    // Only update OUR OWN profile (we can't update sender's due to RLS)
+    // The sender will sync their profile when they check for accepted requests
+    const { data: myProfile } = await supabase
       .from('user_profiles')
       .select('friends, friend_count')
-      .eq('user_id', request.from_user_id)
+      .eq('user_id', currentUserId)
       .single();
 
-    const { data: user2Profile } = await supabase
-      .from('user_profiles')
-      .select('friends, friend_count')
-      .eq('user_id', request.to_user_id)
-      .single();
-
-    await supabase
+    const { error: profileError } = await supabase
       .from('user_profiles')
       .update({
-        friends: [...(user1Profile?.friends || []), request.to_user_id],
-        friend_count: (user1Profile?.friend_count || 0) + 1,
+        friends: [...(myProfile?.friends || []), request.from_user_id],
+        friend_count: (myProfile?.friend_count || 0) + 1,
       })
-      .eq('user_id', request.from_user_id);
+      .eq('user_id', currentUserId);
 
-    await supabase
-      .from('user_profiles')
-      .update({
-        friends: [...(user2Profile?.friends || []), request.from_user_id],
-        friend_count: (user2Profile?.friend_count || 0) + 1,
-      })
-      .eq('user_id', request.to_user_id);
+    if (profileError) {
+      console.error('Error updating my profile:', profileError);
+      throw profileError;
+    }
 
-    console.log('✅ Friend request accepted');
+    console.log('✅ Friend request accepted - sender will sync on their next refresh');
   } catch (error) {
     console.error('Error accepting friend request:', error);
     throw error;
+  }
+};
+
+/**
+ * Sync accepted friend requests (for the sender's side)
+ * Call this when loading friends to ensure sender sees accepted friends
+ */
+export const syncAcceptedFriendRequests = async (userId) => {
+  try {
+    // Find requests I SENT that were accepted
+    const { data: acceptedRequests, error: fetchError } = await supabase
+      .from('friend_requests')
+      .select('id, to_user_id')
+      .eq('from_user_id', userId)
+      .eq('status', 'accepted');
+
+    if (fetchError) {
+      console.error('Error fetching accepted requests:', fetchError);
+      return;
+    }
+
+    if (!acceptedRequests || acceptedRequests.length === 0) {
+      return; // No accepted requests to sync
+    }
+
+    // Get my current friends list
+    const { data: myProfile } = await supabase
+      .from('user_profiles')
+      .select('friends, friend_count')
+      .eq('user_id', userId)
+      .single();
+
+    const currentFriends = myProfile?.friends || [];
+    const newFriends = [];
+
+    // Find friends that aren't in my list yet
+    for (const request of acceptedRequests) {
+      if (!currentFriends.includes(request.to_user_id)) {
+        newFriends.push(request.to_user_id);
+      }
+    }
+
+    if (newFriends.length > 0) {
+      // Update my profile with the new friends
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({
+          friends: [...currentFriends, ...newFriends],
+          friend_count: currentFriends.length + newFriends.length,
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Error syncing friends:', updateError);
+      } else {
+        console.log(`✅ Synced ${newFriends.length} new friend(s) from accepted requests`);
+      }
+    }
+
+    // Clean up: mark these requests as 'synced' so we don't process them again
+    // (Or we could delete them, but marking as synced is safer)
+    const requestIds = acceptedRequests.map(r => r.id);
+    await supabase
+      .from('friend_requests')
+      .update({ status: 'synced', updated_at: new Date().toISOString() })
+      .in('id', requestIds);
+
+  } catch (error) {
+    console.error('Error syncing accepted friend requests:', error);
   }
 };
 
@@ -581,6 +647,7 @@ export default {
   searchUsersByUsername,
   sendFriendRequest,
   acceptFriendRequest,
+  syncAcceptedFriendRequests,
   declineFriendRequest,
   removeFriend,
   getPendingFriendRequests,

@@ -90,7 +90,10 @@ export const useSocial = (user) => {
     }
 
     try {
-      // For now, friends are stored in the profile
+      // First, sync any accepted friend requests (for senders who haven't synced yet)
+      await socialModule.syncAcceptedFriendRequests(user.uid);
+
+      // Now load friends from profile
       const userProfile = await socialModule.getUserProfile(user.uid);
       if (userProfile?.friends) {
         // Load friend profiles
