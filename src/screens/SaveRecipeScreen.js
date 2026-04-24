@@ -54,17 +54,10 @@ const normalizeIngredients = (ingredients) => {
 export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   const [selectedFolder, setSelectedFolder] = useState('All Recipes');
 
-  // DEBUG: Log what we're receiving
-  console.log('📋 [SaveRecipeScreen] Raw recipe.ingredients:', JSON.stringify(recipe?.ingredients, null, 2));
-  console.log('📋 [SaveRecipeScreen] Type:', typeof recipe?.ingredients);
-
   // Local editable copy of recipe data with normalized ingredients
-  const normalizedIngredients = normalizeIngredients(recipe?.ingredients);
-  console.log('📋 [SaveRecipeScreen] Normalized:', JSON.stringify(normalizedIngredients, null, 2));
-
   const [localRecipe, setLocalRecipe] = useState(() => ({
     ...recipe,
-    ingredients: normalizedIngredients
+    ingredients: normalizeIngredients(recipe?.ingredients)
   }));
 
   // Edit modal state
@@ -131,9 +124,6 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
       }, 0)
     : 0;
 
-  console.log('📋 [SaveRecipeScreen] ingredientCount:', ingredientCount);
-  console.log('📋 [SaveRecipeScreen] localRecipe.ingredients:', JSON.stringify(localRecipe.ingredients, null, 2));
-
   const instructionCount = localRecipe.instructions?.length || 0;
 
   return (
@@ -163,18 +153,6 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
             {localRecipe.source && (
               <Text style={styles.metaText}>📍 {localRecipe.source}</Text>
             )}
-          </View>
-
-          {/* DEBUG BOX - REMOVE AFTER TESTING */}
-          <View style={{ backgroundColor: '#ffe0e0', padding: 10, marginBottom: 10, borderRadius: 8 }}>
-            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#c00' }}>DEBUG INFO:</Text>
-            <Text style={{ fontSize: 10, color: '#333' }}>Raw type: {typeof recipe?.ingredients}</Text>
-            <Text style={{ fontSize: 10, color: '#333' }}>Is Array: {String(Array.isArray(recipe?.ingredients))}</Text>
-            <Text style={{ fontSize: 10, color: '#333' }}>Keys: {recipe?.ingredients ? Object.keys(recipe.ingredients).join(', ') : 'none'}</Text>
-            <Text style={{ fontSize: 10, color: '#333' }}>Count calc: {ingredientCount}</Text>
-            <Text style={{ fontSize: 10, color: '#333' }} numberOfLines={3}>
-              Raw data: {JSON.stringify(recipe?.ingredients)?.substring(0, 200)}
-            </Text>
           </View>
 
           <View style={styles.statsRow}>
