@@ -784,9 +784,14 @@ export const RecipeDetail = ({
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Ingredients</Text>
         {!selectionMode && (
-          <TouchableOpacity onPress={addNewSection} style={styles.addSectionButton}>
-            <Text style={styles.addSectionText}>+ Section</Text>
-          </TouchableOpacity>
+          <View style={styles.sectionHeaderButtons}>
+            <TouchableOpacity onPress={() => setShowTagEditor(true)} style={styles.addSectionButton}>
+              <Text style={styles.addSectionText}>+ Tags</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={addNewSection} style={styles.addSectionButton}>
+              <Text style={styles.addSectionText}>+ Section</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -1474,6 +1479,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 10,
+  },
+  sectionHeaderButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 20,

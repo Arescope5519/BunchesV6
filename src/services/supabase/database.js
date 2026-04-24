@@ -97,30 +97,73 @@ export const loadRecipesFromDatabase = async (userId) => {
 
     if (error) throw error;
 
-    const recipes = data.map(row => ({
-      id: row.id,
-      title: row.title,
-      ingredients: row.ingredients,
-      instructions: row.instructions,
-      folder: row.folder,
-      source_url: row.source_url,
-      image_url: row.image_url,
-      notes: row.notes,
-      prep_time: row.prep_time,
-      cook_time: row.cook_time,
-      servings: row.servings,
-      tags: row.tags || [],
-      isPrivate: row.is_private || false,
-      createdAt: new Date(row.created_at).getTime(),
-      updatedAt: new Date(row.updated_at).getTime(),
-      // New fields for stats and versioning
-      stats: row.stats || { likes: 0, saves: 0, views: 0 },
-      originalRecipe: row.original_recipe || null,
-      hasEdits: row.has_edits || false,
-      editHistory: row.edit_history || [],
-      viewingOriginal: row.viewing_original || false,
-      editedVersion: row.edited_version || null,
-    }));
+    const recipes = data.map(row => {
+      // Parse ingredients - could be string, JSON string, or already an object
+      let ingredients = row.ingredients;
+      if (typeof ingredients === 'string') {
+        // Try parsing as JSON first (for structured ingredients)
+        try {
+          const parsed = JSON.parse(ingredients);
+          if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+            ingredients = parsed;
+          } else if (Array.isArray(parsed)) {
+            ingredients = { main: parsed };
+          } else {
+            ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
+          }
+        } catch {
+          // Not JSON, treat as newline-separated string
+          ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
+        }
+      } else if (Array.isArray(ingredients)) {
+        ingredients = { main: ingredients };
+      } else if (!ingredients || typeof ingredients !== 'object') {
+        ingredients = { main: [] };
+      }
+
+      // Parse instructions - could be string, JSON string, or already an array
+      let instructions = row.instructions;
+      if (typeof instructions === 'string') {
+        try {
+          const parsed = JSON.parse(instructions);
+          if (Array.isArray(parsed)) {
+            instructions = parsed;
+          } else {
+            instructions = instructions.split('\n').filter(l => l.trim());
+          }
+        } catch {
+          instructions = instructions.split('\n').filter(l => l.trim());
+        }
+      } else if (!Array.isArray(instructions)) {
+        instructions = [];
+      }
+
+      return {
+        id: row.id,
+        title: row.title,
+        ingredients: ingredients,
+        instructions: instructions,
+        folder: row.folder,
+        url: row.source_url,  // Map to 'url' for consistency
+        source_url: row.source_url,
+        image_url: row.image_url,
+        notes: row.notes,
+        prep_time: row.prep_time,
+        cook_time: row.cook_time,
+        servings: row.servings,
+        tags: row.tags || [],
+        isPrivate: row.is_private || false,
+        createdAt: new Date(row.created_at).getTime(),
+        updatedAt: new Date(row.updated_at).getTime(),
+        // New fields for stats and versioning
+        stats: row.stats || { likes: 0, saves: 0, views: 0 },
+        originalRecipe: row.original_recipe || null,
+        hasEdits: row.has_edits || false,
+        editHistory: row.edit_history || [],
+        viewingOriginal: row.viewing_original || false,
+        editedVersion: row.edited_version || null,
+      };
+    });
 
     console.log(`📚 Loaded ${recipes.length} recipes from Supabase`);
     return recipes;
@@ -139,13 +182,23 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
   try {
     const imageUrl = recipe.imageUrl || recipe.image_url || recipe.image;
 
-    // Ensure ingredients and instructions are strings (database expects text type)
-    const ingredients = Array.isArray(recipe.ingredients)
-      ? recipe.ingredients.join('\n')
-      : (recipe.ingredients || '');
-    const instructions = Array.isArray(recipe.instructions)
-      ? recipe.instructions.join('\n')
-      : (recipe.instructions || '');
+    // Serialize ingredients as JSON string to preserve structure
+    let ingredients;
+    if (typeof recipe.ingredients === 'object' && recipe.ingredients !== null) {
+      ingredients = JSON.stringify(recipe.ingredients);
+    } else if (Array.isArray(recipe.ingredients)) {
+      ingredients = JSON.stringify({ main: recipe.ingredients });
+    } else {
+      ingredients = recipe.ingredients || '';
+    }
+
+    // Serialize instructions as JSON string to preserve array
+    let instructions;
+    if (Array.isArray(recipe.instructions)) {
+      instructions = JSON.stringify(recipe.instructions);
+    } else {
+      instructions = recipe.instructions || '';
+    }
 
     console.log('📸 Saving recipe:', recipe.title, 'image_url:', imageUrl);
 
