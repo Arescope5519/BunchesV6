@@ -365,7 +365,7 @@ export const useSocial = (user) => {
     }
   }, [profile, refreshSocialData]);
 
-  // Real-time subscriptions for friend requests and profile changes
+  // Real-time subscriptions for friend requests, shared items, and profile changes
   useEffect(() => {
     if (!user || !profile) return;
 
@@ -417,6 +417,45 @@ export const useSocial = (user) => {
         console.log('📡 Friend requests subscription status:', status);
       });
 
+    // Subscribe to shared_items table changes (for receiving shared recipes)
+    const sharedItemsChannel = supabase
+      .channel(`shared-items-${user.uid}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'shared_items',
+        },
+        (payload) => {
+          // Check if this shared item is for us
+          if (payload.new?.to_user_id === user.uid) {
+            console.log('📦 New shared item received:', payload);
+            loadSharedItems();
+            loadNotificationCounts();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'shared_items',
+        },
+        (payload) => {
+          // Check if this is our shared item being updated (imported/declined)
+          if (payload.new?.to_user_id === user.uid) {
+            console.log('📦 Shared item status changed:', payload);
+            loadSharedItems();
+            loadNotificationCounts();
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Shared items subscription status:', status);
+      });
+
     // Subscribe to profile changes (for friends list updates when someone accepts our request)
     const profileChannel = supabase
       .channel(`profile-changes-${user.uid}`)
@@ -445,9 +484,10 @@ export const useSocial = (user) => {
     // Cleanup subscriptions on unmount
     return () => {
       supabase.removeChannel(friendRequestsChannel);
+      supabase.removeChannel(sharedItemsChannel);
       supabase.removeChannel(profileChannel);
     };
-  }, [user, profile, loadFriendRequests, loadNotificationCounts, loadFriends]);
+  }, [user, profile, loadFriendRequests, loadSharedItems, loadNotificationCounts, loadFriends]);
 
   // Poll for notifications and friend requests every 10 seconds (fallback for real-time)
   useEffect(() => {
