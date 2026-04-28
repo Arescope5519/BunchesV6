@@ -1379,7 +1379,8 @@ export const HomeScreen = ({ user }) => {
 
     // If user is logged in, open friends picker
     if (user && profile) {
-      const { deletedAt, id, ...cleanRecipe } = recipeToShare;
+      // Strip user-specific fields (folder, deletedAt, id) before sharing
+      const { deletedAt, id, folder, ...cleanRecipe } = recipeToShare;
       setShareItem({
         type: 'recipe',
         data: {
@@ -1439,7 +1440,8 @@ export const HomeScreen = ({ user }) => {
     // If user is logged in, open friends picker directly
     if (user && profile) {
       const cleanedRecipes = recipesInCookbook.map(r => {
-        const { deletedAt, id, ...cleanRecipe } = r;
+        // Strip user-specific fields (folder, deletedAt, id) before sharing
+        const { deletedAt, id, folder, ...cleanRecipe } = r;
         return cleanRecipe;
       });
       setShareItem({

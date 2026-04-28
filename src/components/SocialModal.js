@@ -126,6 +126,7 @@ export const SocialModal = ({
         const recipe = {
           ...item.data,
           id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          folder: 'All Recipes', // Reset folder - don't inherit sender's folder
           importedFrom: item.fromUsername,
           importedAt: Date.now(),
         };
@@ -142,6 +143,7 @@ export const SocialModal = ({
           const recipe = {
             ...recipeData,
             id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            folder: 'All Recipes', // Reset folder - don't inherit sender's folder
             importedFrom: item.fromUsername,
             importedAt: Date.now(),
           };
