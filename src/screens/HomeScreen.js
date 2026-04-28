@@ -1389,7 +1389,13 @@ export const HomeScreen = ({ user }) => {
         },
         name: recipe.title,
       });
-      setShowShareToFriends(true);
+      // Close recipe detail modal first (iOS modal stacking issue)
+      if (selectedRecipe) {
+        setSelectedRecipe(null);
+        setTimeout(() => setShowShareToFriends(true), 300);
+      } else {
+        setShowShareToFriends(true);
+      }
     } else {
       // Not logged in - show message
       Alert.alert(
@@ -1449,9 +1455,9 @@ export const HomeScreen = ({ user }) => {
         data: cleanedRecipes,
         name: cookbookName,
       });
-      // Close the folder manager first, then show friends picker
+      // Close the folder manager first, then show friends picker (iOS modal stacking)
       setShowFolderManager(false);
-      setShowShareToFriends(true);
+      setTimeout(() => setShowShareToFriends(true), 300);
     } else {
       // Not logged in - show message
       Alert.alert(
