@@ -63,7 +63,6 @@ export const setupUserProfile = async (userId, username) => {
         is_private: true,  // Default: accounts are private (non-friends see limited info)
         is_public: false,  // Default: not publicly visible/searchable
         accepting_friend_requests: true,
-        friends: [],
         friend_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
