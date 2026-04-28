@@ -685,9 +685,9 @@ export const RecipeDetail = ({
       )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 
-      {/* Tags - right below title */}
-      <View style={styles.tagsRow}>
-        {localRecipe.tags && localRecipe.tags.length > 0 ? (
+      {/* Tags - right below title (only shows if tags exist) */}
+      {localRecipe.tags && localRecipe.tags.length > 0 && (
+        <View style={styles.tagsRow}>
           <View style={styles.tagsInlineContainer}>
             {(tagsExpanded ? localRecipe.tags : localRecipe.tags.slice(0, 3)).map(tag => (
               <View key={tag} style={styles.tagChipSimple}>
@@ -711,15 +711,8 @@ export const RecipeDetail = ({
               <Text style={styles.tagEditButtonText}>Edit</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <TouchableOpacity
-            onPress={() => setShowTagEditor(true)}
-            style={styles.addTagsLink}
-          >
-            <Text style={styles.addTagsLinkText}>+ Add tags</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Version Toggle - shows when recipe has edits */}
       {hasOriginalVersion && onToggleVersion && (
