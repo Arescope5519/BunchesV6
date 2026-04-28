@@ -3393,6 +3393,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     marginBottom: 15,
+    color: colors.text,
   },
   addFolderButtons: {
     flexDirection: 'row',
@@ -3480,6 +3481,7 @@ const styles = StyleSheet.create({
     minHeight: 150,
     textAlignVertical: 'top',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: colors.text,
   },
   importSection: {
     marginBottom: 16,
