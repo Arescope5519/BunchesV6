@@ -390,6 +390,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     fontSize: 15,
+    color: colors.text,
   },
   suggestionsContainer: {
     marginTop: 8,

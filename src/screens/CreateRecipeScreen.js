@@ -405,6 +405,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     width: 80,
     marginRight: 8,
+    color: colors.text,
   },
   ingredientTextInput: {
     flex: 1,
@@ -414,6 +415,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 15,
+    color: colors.text,
   },
   removeButton: {
     marginLeft: 8,

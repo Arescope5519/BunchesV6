@@ -519,6 +519,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
     maxHeight: 120,
+    color: colors.text,
   },
   editModalButtons: {
     flexDirection: 'row',

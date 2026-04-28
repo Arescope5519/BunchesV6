@@ -1652,6 +1652,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     fontSize: 14,
     backgroundColor: colors.background,
+    color: colors.text,
   },
   saveButton: {
     backgroundColor: colors.primary,
@@ -1780,6 +1781,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     marginBottom: 20,
+    color: colors.text,
   },
   addSectionModalButtons: {
     flexDirection: 'row',
@@ -2063,6 +2065,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
+    color: colors.text,
   },
   addCustomTagButton: {
     backgroundColor: colors.primary,
