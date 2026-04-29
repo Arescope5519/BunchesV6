@@ -71,21 +71,29 @@ Notes:
 MIGRATION PHASES
 ================================================================================
 
-[>] PHASE 1: SHADOW TABLES (No user impact)
+[X] PHASE 1: SHADOW TABLES (No user impact)
     ----------------------------------------
     - Create global_recipes table in Supabase
     - Create user_recipes_v2 table in Supabase
     - Set up RLS policies for new tables
     - Existing app continues using recipes table
-    - Status: IN PROGRESS - SQL ready, awaiting execution
+    - Status: COMPLETE
 
-[ ] PHASE 2: DUAL WRITE
+[>] PHASE 2: DUAL WRITE
     ----------------------------------------
     - Modify save functions to write to BOTH old and new tables
     - Old recipes table remains source of truth for reads
     - New tables build up data in parallel
     - Test that dual write works correctly
-    - Status: NOT STARTED
+    - Status: COMPLETE - Code deployed
+
+    Implementation:
+    - Added saveRecipeWithDualWrite() to database.js
+    - Added findGlobalRecipeByUrl() to check for existing global recipes
+    - Added createGlobalRecipe() to create new global entries
+    - Added saveToUserRecipesV2() to save user's copy
+    - Updated useRecipes.js to use dual-write function
+    - Old table writes still succeed even if V2 write fails
 
 [ ] PHASE 3: VERIFICATION
     ----------------------------------------
@@ -312,6 +320,13 @@ NOTES / DECISIONS LOG
 - SQL scripts created for global_recipes and user_recipes_v2 tables
 - RLS policies defined
 - Awaiting user to run SQL in Supabase dashboard
+
+2026-04-29: Phase 1 Complete, Phase 2 Complete
+- User ran SQL in Supabase - tables created successfully
+- Implemented dual-write in database.js
+- Updated useRecipes.js to use saveRecipeWithDualWrite()
+- Every save now writes to old recipes table AND new V2 tables
+- V2 failures don't break the app (old table is still primary)
 
 
 ================================================================================

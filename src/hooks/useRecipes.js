@@ -10,6 +10,7 @@ import {
   syncRecipes as syncRecipesWithSupabase,
   saveRecipeToDatabase,
   deleteRecipeFromDatabase,
+  saveRecipeWithDualWrite,
 } from '../services/supabase/database';
 
 export const useRecipes = (user) => {
@@ -98,7 +99,7 @@ export const useRecipes = (user) => {
       // Sync to Supabase in background
       if (user) {
         console.log('🔄 Syncing recipe to Supabase:', recipeWithTimestamp.title);
-        saveRecipeToDatabase(user.uid, recipeWithTimestamp)
+        saveRecipeWithDualWrite(user.uid, recipeWithTimestamp)
           .then(() => console.log('✅ Recipe synced to Supabase'))
           .catch(err => console.error('❌ Supabase sync failed:', err));
       }
@@ -141,7 +142,7 @@ export const useRecipes = (user) => {
       if (user) {
         console.log('🔄 Syncing batch to Supabase...');
         recipesWithTimestamps.forEach(recipe => {
-          saveRecipeToDatabase(user.uid, recipe)
+          saveRecipeWithDualWrite(user.uid, recipe)
             .then(() => console.log(`✅ Synced: ${recipe.title}`))
             .catch(err => console.error(`❌ Failed to sync ${recipe.title}:`, err));
         });
@@ -194,7 +195,7 @@ export const useRecipes = (user) => {
       }
 
       if (user) {
-        saveRecipeToDatabase(user.uid, recipeWithTimestamp).catch(console.error);
+        saveRecipeWithDualWrite(user.uid, recipeWithTimestamp).catch(console.error);
       }
 
       return true;
@@ -258,7 +259,7 @@ export const useRecipes = (user) => {
       if (user) {
         const restoredRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (restoredRecipe) {
-          saveRecipeToDatabase(user.uid, restoredRecipe).catch(console.error);
+          saveRecipeWithDualWrite(user.uid, restoredRecipe).catch(console.error);
         }
       }
 
@@ -358,7 +359,7 @@ export const useRecipes = (user) => {
       if (user) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
-          saveRecipeToDatabase(user.uid, updatedRecipe).catch(console.error);
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(console.error);
         }
       }
     }
@@ -395,7 +396,7 @@ export const useRecipes = (user) => {
       if (user) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
-          saveRecipeToDatabase(user.uid, updatedRecipe).catch(err =>
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(err =>
             console.error('Failed to sync stats to Supabase:', err)
           );
         }
@@ -537,7 +538,7 @@ export const useRecipes = (user) => {
       if (user) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
-          saveRecipeToDatabase(user.uid, updatedRecipe).catch(err =>
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(err =>
             console.error('Failed to sync edit status to Supabase:', err)
           );
         }
@@ -566,7 +567,7 @@ export const useRecipes = (user) => {
       if (user) {
         const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
         if (updatedRecipe) {
-          saveRecipeToDatabase(user.uid, updatedRecipe).catch(console.error);
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(console.error);
         }
       }
 
@@ -596,7 +597,7 @@ export const useRecipes = (user) => {
       if (user) {
         const movedRecipes = updatedRecipes.filter(r => recipeIdSet.has(r.id));
         movedRecipes.forEach(recipe => {
-          saveRecipeToDatabase(user.uid, recipe).catch(console.error);
+          saveRecipeWithDualWrite(user.uid, recipe).catch(console.error);
         });
       }
 

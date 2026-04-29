@@ -459,6 +459,228 @@ export const deleteAllRecipesFromDatabase = async (userId) => {
   }
 };
 
+// ============================================================================
+// MIGRATION V2: Dual-write functions for global_recipes + user_recipes_v2
+// These run in parallel with the existing recipes table during migration
+// ============================================================================
+
+/**
+ * Check if a recipe URL already exists in global_recipes
+ * @param {string} sourceUrl - The recipe URL to check
+ * @returns {Promise<Object|null>} The global recipe if found, null otherwise
+ */
+export const findGlobalRecipeByUrl = async (sourceUrl) => {
+  if (!sourceUrl) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('global_recipes')
+      .select('*')
+      .eq('source_url', sourceUrl)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // Not found
+      return null;
+    }
+    if (error) throw error;
+
+    return data;
+  } catch (error) {
+    console.error('❌ Error finding global recipe:', error);
+    return null;
+  }
+};
+
+/**
+ * Create a new global recipe entry
+ * @param {Object} recipe - Recipe data
+ * @returns {Promise<Object|null>} The created global recipe
+ */
+export const createGlobalRecipe = async (recipe) => {
+  const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+  if (!sourceUrl) return null;
+
+  try {
+    // Serialize ingredients/instructions as JSON
+    let ingredients = recipe.ingredients;
+    if (typeof ingredients === 'object' && ingredients !== null) {
+      ingredients = ingredients;
+    } else if (typeof ingredients === 'string') {
+      try {
+        ingredients = JSON.parse(ingredients);
+      } catch {
+        ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
+      }
+    }
+
+    let instructions = recipe.instructions;
+    if (typeof instructions === 'string') {
+      try {
+        instructions = JSON.parse(instructions);
+      } catch {
+        instructions = instructions.split('\n').filter(l => l.trim());
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('global_recipes')
+      .insert({
+        source_url: sourceUrl,
+        title: recipe.title || 'Untitled Recipe',
+        ingredients: ingredients,
+        instructions: instructions,
+        image_url: recipe.imageUrl || recipe.image_url || recipe.image || null,
+        prep_time: recipe.prep_time || recipe.prepTime || null,
+        cook_time: recipe.cook_time || recipe.cookTime || null,
+        total_time: recipe.total_time || recipe.totalTime || null,
+        servings: recipe.servings || null,
+        nutrition: recipe.nutrition || null,
+        author: recipe.author || null,
+        description: recipe.description || null,
+        cuisine: recipe.cuisine || null,
+        category: recipe.category || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // If duplicate key error, recipe already exists - fetch it
+      if (error.code === '23505') {
+        console.log('🔄 Global recipe already exists, fetching...');
+        return await findGlobalRecipeByUrl(sourceUrl);
+      }
+      throw error;
+    }
+
+    console.log(`✅ Created global recipe: ${recipe.title}`);
+    return data;
+  } catch (error) {
+    console.error('❌ Error creating global recipe:', error);
+    return null;
+  }
+};
+
+/**
+ * Save to user_recipes_v2 table (dual-write)
+ * @param {string} userId - User's unique ID
+ * @param {Object} recipe - Recipe data
+ * @param {string|null} globalRecipeId - ID of global recipe (null for manual recipes)
+ */
+export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null) => {
+  try {
+    // For manual recipes (no URL), store full data in local_recipe_data
+    let localRecipeData = null;
+    if (!globalRecipeId) {
+      // Serialize ingredients/instructions
+      let ingredients = recipe.ingredients;
+      if (typeof ingredients === 'object' && ingredients !== null) {
+        ingredients = ingredients;
+      } else if (typeof ingredients === 'string') {
+        try {
+          ingredients = JSON.parse(ingredients);
+        } catch {
+          ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
+        }
+      }
+
+      let instructions = recipe.instructions;
+      if (typeof instructions === 'string') {
+        try {
+          instructions = JSON.parse(instructions);
+        } catch {
+          instructions = instructions.split('\n').filter(l => l.trim());
+        }
+      }
+
+      localRecipeData = {
+        title: recipe.title,
+        ingredients: ingredients,
+        instructions: instructions,
+        image_url: recipe.imageUrl || recipe.image_url || recipe.image || null,
+        prep_time: recipe.prep_time || recipe.prepTime || null,
+        cook_time: recipe.cook_time || recipe.cookTime || null,
+        total_time: recipe.total_time || recipe.totalTime || null,
+        servings: recipe.servings || null,
+        nutrition: recipe.nutrition || null,
+      };
+    }
+
+    // Build local_edits from any user modifications
+    const localEdits = recipe.hasEdits ? {
+      title: recipe.editedVersion?.title,
+      ingredients: recipe.editedVersion?.ingredients,
+      instructions: recipe.editedVersion?.instructions,
+      // Store edit history
+      editHistory: recipe.editHistory || [],
+    } : null;
+
+    const { error } = await supabase
+      .from('user_recipes_v2')
+      .upsert({
+        id: recipe.id,
+        user_id: userId,
+        global_recipe_id: globalRecipeId,
+        local_recipe_data: localRecipeData,
+        local_edits: localEdits,
+        folder: recipe.folder || 'All Recipes',
+        tags: recipe.tags || [],
+        is_favorite: recipe.isFavorite || false,
+        notes: recipe.notes || null,
+        imported_from: recipe.importedFrom || null,
+        imported_at: recipe.importedAt ? new Date(recipe.importedAt).toISOString() : null,
+        deleted_at: recipe.deletedAt ? new Date(recipe.deletedAt).toISOString() : null,
+        created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+
+    if (error) throw error;
+
+    console.log(`✅ [V2] Saved to user_recipes_v2: ${recipe.title}`);
+    return true;
+  } catch (error) {
+    console.error('❌ [V2] Error saving to user_recipes_v2:', error);
+    // Don't throw - this is dual-write, old table is still primary
+    return false;
+  }
+};
+
+/**
+ * Dual-write: Save recipe to both old and new tables
+ * @param {string} userId - User's unique ID
+ * @param {Object} recipe - Recipe data
+ */
+export const saveRecipeWithDualWrite = async (userId, recipe) => {
+  // 1. Save to OLD table (primary - existing behavior)
+  await saveRecipeToDatabase(userId, recipe);
+
+  // 2. Save to NEW tables (secondary - migration)
+  try {
+    const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+    let globalRecipeId = null;
+
+    if (sourceUrl) {
+      // Check if global recipe exists
+      let globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
+
+      if (!globalRecipe) {
+        // Create new global recipe
+        globalRecipe = await createGlobalRecipe(recipe);
+      }
+
+      globalRecipeId = globalRecipe?.id || null;
+    }
+
+    // Save to user_recipes_v2
+    await saveToUserRecipesV2(userId, recipe, globalRecipeId);
+
+    console.log(`✅ [DUAL] Recipe saved to both tables: ${recipe.title}`);
+  } catch (error) {
+    // Log but don't fail - old table write succeeded
+    console.error('⚠️ [DUAL] V2 write failed (old table succeeded):', error);
+  }
+};
+
 export default {
   saveRecipesToDatabase,
   loadRecipesFromDatabase,
@@ -468,4 +690,9 @@ export default {
   syncRecipes,
   saveFoldersToDatabase,
   loadFoldersFromDatabase,
+  // V2 Migration exports
+  findGlobalRecipeByUrl,
+  createGlobalRecipe,
+  saveToUserRecipesV2,
+  saveRecipeWithDualWrite,
 };
