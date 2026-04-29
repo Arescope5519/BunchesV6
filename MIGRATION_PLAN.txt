@@ -1,0 +1,233 @@
+================================================================================
+BUNCHES V6 - RECIPE DATABASE MIGRATION PLAN
+================================================================================
+Last Updated: 2026-04-29
+Status: PLANNING (not started)
+
+================================================================================
+GOAL
+================================================================================
+Prevent duplicate recipes by implementing a global recipe repository.
+- Recipes imported from URLs are stored once globally
+- Users reference the global version and have their own local edits/tags
+- Maintains data integrity while allowing personalization
+
+================================================================================
+CURRENT ARCHITECTURE
+================================================================================
+Table: recipes
+- Each user has full copies of every recipe they save
+- Duplicate data when multiple users save the same URL
+- All fields stored per-user (title, ingredients, instructions, etc.)
+
+================================================================================
+TARGET ARCHITECTURE
+================================================================================
+
+Table: global_recipes (NEW)
+----------------------------------------
+- id (uuid, primary key)
+- source_url (text, UNIQUE) - the canonical URL
+- title (text)
+- ingredients (jsonb)
+- instructions (jsonb)
+- image_url (text)
+- prep_time (text)
+- cook_time (text)
+- total_time (text)
+- servings (text)
+- nutrition (jsonb)
+- created_at (timestamp)
+- updated_at (timestamp)
+
+Notes:
+- Immutable once created (represents the "original" recipe)
+- Keyed by source_url to prevent duplicates
+- Any user importing same URL references this record
+
+
+Table: user_recipes_v2 (NEW)
+----------------------------------------
+- id (uuid, primary key)
+- user_id (uuid, references auth.users)
+- global_recipe_id (uuid, references global_recipes) - NULL for manual recipes
+- local_recipe_data (jsonb) - for manual recipes without URL, stores full recipe
+- local_edits (jsonb) - user's modifications to global recipe
+- folder (text)
+- tags (text[])
+- is_favorite (boolean)
+- notes (text)
+- deleted_at (timestamp)
+- created_at (timestamp)
+- updated_at (timestamp)
+
+Notes:
+- If global_recipe_id is set, recipe came from URL (reference global)
+- If global_recipe_id is NULL, local_recipe_data contains full manual recipe
+- local_edits contains user's customizations (merged with global on read)
+
+
+================================================================================
+MIGRATION PHASES
+================================================================================
+
+[ ] PHASE 1: SHADOW TABLES (No user impact)
+    ----------------------------------------
+    - Create global_recipes table in Supabase
+    - Create user_recipes_v2 table in Supabase
+    - Set up RLS policies for new tables
+    - Existing app continues using recipes table
+    - Status: NOT STARTED
+
+[ ] PHASE 2: DUAL WRITE
+    ----------------------------------------
+    - Modify save functions to write to BOTH old and new tables
+    - Old recipes table remains source of truth for reads
+    - New tables build up data in parallel
+    - Test that dual write works correctly
+    - Status: NOT STARTED
+
+[ ] PHASE 3: VERIFICATION
+    ----------------------------------------
+    - Build comparison tools to verify data consistency
+    - Compare recipe counts, data integrity
+    - Test new read logic in isolation
+    - Fix any discrepancies found
+    - Status: NOT STARTED
+
+[ ] PHASE 4: SWITCH READS
+    ----------------------------------------
+    - Update app to read from new tables
+    - Continue dual-writing as safety net
+    - Old table becomes backup
+    - Monitor for issues
+    - Status: NOT STARTED
+
+[ ] PHASE 5: CLEANUP
+    ----------------------------------------
+    - Stop writing to old recipes table
+    - Keep old table archived (do not delete)
+    - Remove dual-write code
+    - Update documentation
+    - Status: NOT STARTED
+
+
+================================================================================
+IMPORT FLOW (After Migration)
+================================================================================
+
+1. User shares URL to app
+2. App extracts/parses recipe data
+3. Check: Does global_recipes have this source_url?
+
+   YES ->
+     - Get existing global_recipe_id
+     - Create user_recipes_v2 entry pointing to it
+     - User sees the recipe in their cookbook
+
+   NO ->
+     - Insert new record into global_recipes
+     - Create user_recipes_v2 entry pointing to new global record
+     - User sees the recipe in their cookbook
+
+4. User makes edits:
+   - Edits stored in user_recipes_v2.local_edits
+   - Global recipe remains unchanged
+   - User can toggle between "original" and "my edits"
+
+
+================================================================================
+MANUAL RECIPE FLOW (No URL)
+================================================================================
+
+1. User creates recipe manually (no source URL)
+2. Insert into user_recipes_v2 with:
+   - global_recipe_id = NULL
+   - local_recipe_data = full recipe JSON
+3. No global_recipes entry created
+4. Recipe is user-specific only
+
+
+================================================================================
+SHARING FLOW (After Migration)
+================================================================================
+
+1. User A shares recipe with User B
+2. If recipe has global_recipe_id:
+   - Share the global_recipe_id reference
+   - User B gets their own user_recipes_v2 entry pointing to same global
+3. If recipe is manual (no global_recipe_id):
+   - Share the local_recipe_data
+   - User B gets copy in their local_recipe_data
+
+
+================================================================================
+DATA TO MIGRATE
+================================================================================
+
+Existing recipes table records need to be:
+1. Grouped by source_url (for URL-based recipes)
+2. First occurrence of each URL -> global_recipes
+3. Each user's version -> user_recipes_v2 with edits extracted
+4. Manual recipes (no URL) -> user_recipes_v2 with local_recipe_data
+
+
+================================================================================
+ROLLBACK PLAN
+================================================================================
+
+If issues arise at any phase:
+1. Revert code to read from old recipes table
+2. Old table has all data intact
+3. Investigate and fix issues with new tables
+4. Re-attempt migration
+
+Old recipes table will NOT be deleted until:
+- Full migration verified working
+- At least 2 weeks of stable operation
+- Manual backup created
+
+
+================================================================================
+SQL SCRIPTS (To be added)
+================================================================================
+
+Phase 1 SQL: [Not yet created]
+- CREATE TABLE global_recipes ...
+- CREATE TABLE user_recipes_v2 ...
+- RLS policies ...
+
+Migration SQL: [Not yet created]
+- Extract unique URLs to global_recipes
+- Create user_recipes_v2 entries
+- Map existing data
+
+
+================================================================================
+FILES TO MODIFY (When ready)
+================================================================================
+
+- src/services/supabase/database.js
+  - saveRecipeToDatabase() - dual write logic
+  - loadRecipesFromDatabase() - read from new tables
+  - New: checkGlobalRecipe(url)
+  - New: createGlobalRecipe(data)
+
+- src/screens/SaveRecipeScreen.js
+  - Check for existing global recipe before save
+
+- src/screens/HomeScreen.js
+  - Handle merged view (global + local edits)
+
+
+================================================================================
+NOTES / DECISIONS LOG
+================================================================================
+
+2026-04-29: Initial planning document created
+- User requested parallel database approach during migration
+- Both old and new tables will coexist until migration complete
+- No changes to be made until user gives go-ahead
+
+
+================================================================================
