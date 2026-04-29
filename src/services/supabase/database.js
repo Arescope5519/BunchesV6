@@ -83,25 +83,65 @@ export const saveRecipesToDatabase = async (userId, recipes) => {
 };
 
 /**
- * Load recipes from Supabase for a user
+ * Load recipes from Supabase for a user (V2 - reads from new tables)
  * @param {string} userId - User's unique ID
  * @returns {Promise<Array>} Array of recipes
  */
 export const loadRecipesFromDatabase = async (userId) => {
   try {
+    // Query user_recipes_v2 joined with global_recipes
     const { data, error } = await supabase
-      .from('recipes')
-      .select('*')
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        user_id,
+        global_recipe_id,
+        local_recipe_data,
+        local_edits,
+        folder,
+        tags,
+        is_favorite,
+        notes,
+        imported_from,
+        imported_at,
+        deleted_at,
+        created_at,
+        updated_at,
+        global_recipes (
+          id,
+          source_url,
+          title,
+          ingredients,
+          instructions,
+          image_url,
+          prep_time,
+          cook_time,
+          total_time,
+          servings,
+          nutrition,
+          author
+        )
+      `)
       .eq('user_id', userId)
       .is('deleted_at', null);
 
     if (error) throw error;
 
     const recipes = data.map(row => {
-      // Parse ingredients - could be string, JSON string, or already an object
-      let ingredients = row.ingredients;
+      // Get base recipe data from global_recipes or local_recipe_data
+      const globalRecipe = row.global_recipes;
+      const localData = row.local_recipe_data;
+
+      // Base recipe comes from global or local
+      const baseTitle = globalRecipe?.title || localData?.title || 'Untitled';
+      const baseIngredients = globalRecipe?.ingredients || localData?.ingredients;
+      const baseInstructions = globalRecipe?.instructions || localData?.instructions;
+      const baseImageUrl = globalRecipe?.image_url || localData?.image_url;
+      const sourceUrl = globalRecipe?.source_url || null;
+
+      // Parse ingredients
+      let ingredients = baseIngredients;
       if (typeof ingredients === 'string') {
-        // Try parsing as JSON first (for structured ingredients)
         try {
           const parsed = JSON.parse(ingredients);
           if (typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -112,7 +152,6 @@ export const loadRecipesFromDatabase = async (userId) => {
             ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
           }
         } catch {
-          // Not JSON, treat as newline-separated string
           ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
         }
       } else if (Array.isArray(ingredients)) {
@@ -121,7 +160,112 @@ export const loadRecipesFromDatabase = async (userId) => {
         ingredients = { main: [] };
       }
 
-      // Parse instructions - could be string, JSON string, or already an array
+      // Parse instructions
+      let instructions = baseInstructions;
+      if (typeof instructions === 'string') {
+        try {
+          const parsed = JSON.parse(instructions);
+          if (Array.isArray(parsed)) {
+            instructions = parsed;
+          } else {
+            instructions = instructions.split('\n').filter(l => l.trim());
+          }
+        } catch {
+          instructions = instructions.split('\n').filter(l => l.trim());
+        }
+      } else if (!Array.isArray(instructions)) {
+        instructions = [];
+      }
+
+      // Extract variants from local_edits
+      const localEdits = row.local_edits || {};
+      const variants = localEdits.variants || [];
+      const selectedVariantId = localEdits.selectedVariantId || null;
+      const hasEdits = variants.length > 0;
+
+      // Build originalRecipe for compatibility (base version)
+      const originalRecipe = hasEdits ? {
+        title: baseTitle,
+        ingredients: ingredients,
+        instructions: instructions,
+      } : null;
+
+      return {
+        id: row.id,
+        title: baseTitle,
+        ingredients: ingredients,
+        instructions: instructions,
+        folder: row.folder || 'All Recipes',
+        url: sourceUrl,
+        source_url: sourceUrl,
+        image_url: baseImageUrl,
+        notes: row.notes,
+        prep_time: globalRecipe?.prep_time || localData?.prep_time || null,
+        cook_time: globalRecipe?.cook_time || localData?.cook_time || null,
+        servings: globalRecipe?.servings || localData?.servings || null,
+        tags: row.tags || [],
+        isFavorite: row.is_favorite || false,
+        createdAt: new Date(row.created_at).getTime(),
+        updatedAt: new Date(row.updated_at).getTime(),
+        importedFrom: row.imported_from,
+        importedAt: row.imported_at ? new Date(row.imported_at).getTime() : null,
+        // Versioning
+        originalRecipe: originalRecipe,
+        hasEdits: hasEdits,
+        viewingOriginal: selectedVariantId === null,
+        variants: variants,
+        selectedVariantId: selectedVariantId,
+        // Global reference
+        globalRecipeId: row.global_recipe_id,
+      };
+    });
+
+    console.log(`📚 [V2] Loaded ${recipes.length} recipes from new tables`);
+    return recipes;
+  } catch (error) {
+    console.error('❌ [V2] Error loading recipes:', error);
+    // Fallback to old table if V2 fails
+    console.log('⚠️ Falling back to old recipes table...');
+    return await loadRecipesFromDatabaseLegacy(userId);
+  }
+};
+
+/**
+ * Load recipes from old table (legacy fallback)
+ * @param {string} userId - User's unique ID
+ * @returns {Promise<Array>} Array of recipes
+ */
+export const loadRecipesFromDatabaseLegacy = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('user_id', userId)
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    const recipes = data.map(row => {
+      let ingredients = row.ingredients;
+      if (typeof ingredients === 'string') {
+        try {
+          const parsed = JSON.parse(ingredients);
+          if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+            ingredients = parsed;
+          } else if (Array.isArray(parsed)) {
+            ingredients = { main: parsed };
+          } else {
+            ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
+          }
+        } catch {
+          ingredients = { main: ingredients.split('\n').filter(l => l.trim()) };
+        }
+      } else if (Array.isArray(ingredients)) {
+        ingredients = { main: ingredients };
+      } else if (!ingredients || typeof ingredients !== 'object') {
+        ingredients = { main: [] };
+      }
+
       let instructions = row.instructions;
       if (typeof instructions === 'string') {
         try {
@@ -144,34 +288,29 @@ export const loadRecipesFromDatabase = async (userId) => {
         ingredients: ingredients,
         instructions: instructions,
         folder: row.folder,
-        url: row.source_url,  // Map to 'url' for consistency
+        url: row.source_url,
         source_url: row.source_url,
         image_url: row.image_url,
         notes: row.notes,
-        prep_time: row.prep_time,
-        cook_time: row.cook_time,
-        servings: row.servings,
         tags: row.tags || [],
         isPrivate: row.is_private || false,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
-        // New fields for stats and versioning
         stats: row.stats || { likes: 0, saves: 0, views: 0 },
         originalRecipe: row.original_recipe || null,
         hasEdits: row.has_edits || (row.variants?.length > 0) || false,
         editHistory: row.edit_history || [],
         viewingOriginal: row.viewing_original || false,
         editedVersion: row.edited_version || null,
-        // Variants support
         variants: row.variants || [],
         selectedVariantId: row.selected_variant_id || null,
       };
     });
 
-    console.log(`📚 Loaded ${recipes.length} recipes from Supabase`);
+    console.log(`📚 [Legacy] Loaded ${recipes.length} recipes from old table`);
     return recipes;
   } catch (error) {
-    console.error('❌ Error loading recipes:', error);
+    console.error('❌ [Legacy] Error loading recipes:', error);
     throw error;
   }
 };

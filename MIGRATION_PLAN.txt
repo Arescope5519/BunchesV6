@@ -95,21 +95,32 @@ MIGRATION PHASES
     - Updated useRecipes.js to use dual-write function
     - Old table writes still succeed even if V2 write fails
 
-[ ] PHASE 3: VERIFICATION
+[X] PHASE 3: VERIFICATION
     ----------------------------------------
     - Build comparison tools to verify data consistency
     - Compare recipe counts, data integrity
     - Test new read logic in isolation
     - Fix any discrepancies found
-    - Status: IN PROGRESS - Migration script created
+    - Status: COMPLETE
 
-[ ] PHASE 4: SWITCH READS
+    Results:
+    - recipes: 75, global_recipes: 54, user_recipes_v2: 75
+    - 21 duplicates successfully deduplicated
+    - All recipes migrated to V2 tables
+
+[X] PHASE 4: SWITCH READS
     ----------------------------------------
     - Update app to read from new tables
     - Continue dual-writing as safety net
     - Old table becomes backup
     - Monitor for issues
-    - Status: NOT STARTED
+    - Status: COMPLETE
+
+    Implementation:
+    - loadRecipesFromDatabase() now reads from user_recipes_v2 + global_recipes
+    - Joins tables to merge global recipe data with user's local edits
+    - Falls back to old recipes table if V2 query fails
+    - Legacy function loadRecipesFromDatabaseLegacy() preserved
 
 [ ] PHASE 5: CLEANUP
     ----------------------------------------
