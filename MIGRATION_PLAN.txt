@@ -101,7 +101,7 @@ MIGRATION PHASES
     - Compare recipe counts, data integrity
     - Test new read logic in isolation
     - Fix any discrepancies found
-    - Status: NOT STARTED
+    - Status: IN PROGRESS - Migration script created
 
 [ ] PHASE 4: SWITCH READS
     ----------------------------------------
@@ -284,10 +284,201 @@ ALTER PUBLICATION supabase_realtime ADD TABLE user_recipes_v2;
 END OF PHASE 1 SQL
 ----------------------------------------
 
-Migration SQL: [Not yet created]
-- Extract unique URLs to global_recipes
-- Create user_recipes_v2 entries
-- Map existing data
+Migration SQL: READY TO RUN
+----------------------------------------
+
+-- STEP 1: Migrate URL-based recipes to global_recipes
+-- Takes the first occurrence of each unique URL
+INSERT INTO global_recipes (
+  source_url,
+  title,
+  ingredients,
+  instructions,
+  image_url,
+  prep_time,
+  cook_time,
+  servings,
+  author,
+  created_at,
+  updated_at
+)
+SELECT DISTINCT ON (source_url)
+  source_url,
+  title,
+  CASE
+    WHEN ingredients IS NULL THEN NULL
+    WHEN ingredients::text LIKE '{%' OR ingredients::text LIKE '[%' THEN ingredients::jsonb
+    ELSE to_jsonb(ingredients)
+  END as ingredients,
+  CASE
+    WHEN instructions IS NULL THEN NULL
+    WHEN instructions::text LIKE '[%' THEN instructions::jsonb
+    ELSE to_jsonb(instructions)
+  END as instructions,
+  image_url,
+  prep_time,
+  cook_time,
+  servings,
+  NULL as author,
+  created_at,
+  NOW() as updated_at
+FROM recipes
+WHERE source_url IS NOT NULL
+  AND source_url != ''
+  AND NOT EXISTS (
+    SELECT 1 FROM global_recipes g WHERE g.source_url = recipes.source_url
+  )
+ORDER BY source_url, created_at ASC;
+
+-- STEP 2: Migrate manual recipes (no URL) to global_recipes
+-- Uses bunches://user/{user_id}/recipes/{recipe_id} as source
+INSERT INTO global_recipes (
+  source_url,
+  title,
+  ingredients,
+  instructions,
+  image_url,
+  prep_time,
+  cook_time,
+  servings,
+  author,
+  created_at,
+  updated_at
+)
+SELECT
+  'bunches://user/' || user_id || '/recipes/' || id as source_url,
+  title,
+  CASE
+    WHEN ingredients IS NULL THEN NULL
+    WHEN ingredients::text LIKE '{%' OR ingredients::text LIKE '[%' THEN ingredients::jsonb
+    ELSE to_jsonb(ingredients)
+  END as ingredients,
+  CASE
+    WHEN instructions IS NULL THEN NULL
+    WHEN instructions::text LIKE '[%' THEN instructions::jsonb
+    ELSE to_jsonb(instructions)
+  END as instructions,
+  image_url,
+  prep_time,
+  cook_time,
+  servings,
+  'Bunches User' as author,
+  created_at,
+  NOW() as updated_at
+FROM recipes
+WHERE (source_url IS NULL OR source_url = '')
+  AND NOT EXISTS (
+    SELECT 1 FROM global_recipes g
+    WHERE g.source_url = 'bunches://user/' || recipes.user_id || '/recipes/' || recipes.id
+  );
+
+-- STEP 3: Create user_recipes_v2 entries for URL-based recipes
+INSERT INTO user_recipes_v2 (
+  id,
+  user_id,
+  global_recipe_id,
+  local_recipe_data,
+  local_edits,
+  folder,
+  tags,
+  is_favorite,
+  notes,
+  deleted_at,
+  created_at,
+  updated_at
+)
+SELECT
+  r.id,
+  r.user_id,
+  g.id as global_recipe_id,
+  NULL as local_recipe_data,
+  CASE
+    WHEN r.has_edits = true AND r.edited_version IS NOT NULL THEN
+      jsonb_build_object(
+        'variants', jsonb_build_array(
+          jsonb_build_object(
+            'id', 'migrated-edit',
+            'name', 'My Edits',
+            'edits', r.edited_version,
+            'createdAt', extract(epoch from r.updated_at) * 1000
+          )
+        ),
+        'selectedVariantId', CASE WHEN r.viewing_original = true THEN NULL ELSE 'migrated-edit' END
+      )
+    WHEN r.variants IS NOT NULL AND jsonb_array_length(r.variants) > 0 THEN
+      jsonb_build_object('variants', r.variants, 'selectedVariantId', r.selected_variant_id)
+    ELSE NULL
+  END as local_edits,
+  COALESCE(r.folder, 'All Recipes') as folder,
+  COALESCE(r.tags, ARRAY[]::text[]) as tags,
+  COALESCE((r.folder = 'Favorites'), false) as is_favorite,
+  r.notes,
+  r.deleted_at,
+  r.created_at,
+  NOW() as updated_at
+FROM recipes r
+JOIN global_recipes g ON g.source_url = r.source_url
+WHERE r.source_url IS NOT NULL
+  AND r.source_url != ''
+  AND NOT EXISTS (
+    SELECT 1 FROM user_recipes_v2 u WHERE u.id = r.id
+  );
+
+-- STEP 4: Create user_recipes_v2 entries for manual recipes
+INSERT INTO user_recipes_v2 (
+  id,
+  user_id,
+  global_recipe_id,
+  local_recipe_data,
+  local_edits,
+  folder,
+  tags,
+  is_favorite,
+  notes,
+  deleted_at,
+  created_at,
+  updated_at
+)
+SELECT
+  r.id,
+  r.user_id,
+  g.id as global_recipe_id,
+  NULL as local_recipe_data,
+  CASE
+    WHEN r.variants IS NOT NULL AND jsonb_array_length(r.variants) > 0 THEN
+      jsonb_build_object('variants', r.variants, 'selectedVariantId', r.selected_variant_id)
+    ELSE NULL
+  END as local_edits,
+  COALESCE(r.folder, 'All Recipes') as folder,
+  COALESCE(r.tags, ARRAY[]::text[]) as tags,
+  COALESCE((r.folder = 'Favorites'), false) as is_favorite,
+  r.notes,
+  r.deleted_at,
+  r.created_at,
+  NOW() as updated_at
+FROM recipes r
+JOIN global_recipes g ON g.source_url = 'bunches://user/' || r.user_id || '/recipes/' || r.id
+WHERE (r.source_url IS NULL OR r.source_url = '')
+  AND NOT EXISTS (
+    SELECT 1 FROM user_recipes_v2 u WHERE u.id = r.id
+  );
+
+----------------------------------------
+END OF MIGRATION SQL
+----------------------------------------
+
+-- VERIFICATION QUERIES (run after migration)
+-- Check counts match
+SELECT 'recipes' as table_name, COUNT(*) as count FROM recipes
+UNION ALL
+SELECT 'global_recipes', COUNT(*) FROM global_recipes
+UNION ALL
+SELECT 'user_recipes_v2', COUNT(*) FROM user_recipes_v2;
+
+-- Check all recipes have been migrated
+SELECT COUNT(*) as unmigrated_recipes
+FROM recipes r
+WHERE NOT EXISTS (SELECT 1 FROM user_recipes_v2 u WHERE u.id = r.id);
 
 
 ================================================================================
