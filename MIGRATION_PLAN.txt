@@ -71,13 +71,13 @@ Notes:
 MIGRATION PHASES
 ================================================================================
 
-[ ] PHASE 1: SHADOW TABLES (No user impact)
+[>] PHASE 1: SHADOW TABLES (No user impact)
     ----------------------------------------
     - Create global_recipes table in Supabase
     - Create user_recipes_v2 table in Supabase
     - Set up RLS policies for new tables
     - Existing app continues using recipes table
-    - Status: NOT STARTED
+    - Status: IN PROGRESS - SQL ready, awaiting execution
 
 [ ] PHASE 2: DUAL WRITE
     ----------------------------------------
@@ -192,10 +192,89 @@ Old recipes table will NOT be deleted until:
 SQL SCRIPTS (To be added)
 ================================================================================
 
-Phase 1 SQL: [Not yet created]
-- CREATE TABLE global_recipes ...
-- CREATE TABLE user_recipes_v2 ...
-- RLS policies ...
+Phase 1 SQL: READY TO RUN
+----------------------------------------
+
+-- 1. Create global_recipes table
+CREATE TABLE IF NOT EXISTS global_recipes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_url text UNIQUE NOT NULL,
+  title text,
+  ingredients jsonb,
+  instructions jsonb,
+  image_url text,
+  prep_time text,
+  cook_time text,
+  total_time text,
+  servings text,
+  nutrition jsonb,
+  author text,
+  description text,
+  cuisine text,
+  category text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- 2. Create user_recipes_v2 table
+CREATE TABLE IF NOT EXISTS user_recipes_v2 (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  global_recipe_id uuid REFERENCES global_recipes(id) ON DELETE SET NULL,
+  local_recipe_data jsonb,
+  local_edits jsonb,
+  folder text DEFAULT 'All Recipes',
+  tags text[] DEFAULT '{}',
+  is_favorite boolean DEFAULT false,
+  notes text,
+  imported_from text,
+  imported_at timestamp with time zone,
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+
+  -- Ensure either global_recipe_id OR local_recipe_data is set
+  CONSTRAINT recipe_source_check CHECK (
+    global_recipe_id IS NOT NULL OR local_recipe_data IS NOT NULL
+  )
+);
+
+-- 3. Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_global_recipes_source_url ON global_recipes(source_url);
+CREATE INDEX IF NOT EXISTS idx_user_recipes_v2_user_id ON user_recipes_v2(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_recipes_v2_global_recipe_id ON user_recipes_v2(global_recipe_id);
+
+-- 4. Enable RLS
+ALTER TABLE global_recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_recipes_v2 ENABLE ROW LEVEL SECURITY;
+
+-- 5. RLS Policies for global_recipes
+-- Anyone can read global recipes
+CREATE POLICY "Anyone can read global recipes"
+  ON global_recipes FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Authenticated users can insert global recipes
+CREATE POLICY "Authenticated users can insert global recipes"
+  ON global_recipes FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+-- 6. RLS Policies for user_recipes_v2
+-- Users can only access their own recipes
+CREATE POLICY "Users can access own recipes v2"
+  ON user_recipes_v2 FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- 7. Enable realtime for new tables
+ALTER PUBLICATION supabase_realtime ADD TABLE user_recipes_v2;
+
+----------------------------------------
+END OF PHASE 1 SQL
+----------------------------------------
 
 Migration SQL: [Not yet created]
 - Extract unique URLs to global_recipes
@@ -228,6 +307,11 @@ NOTES / DECISIONS LOG
 - User requested parallel database approach during migration
 - Both old and new tables will coexist until migration complete
 - No changes to be made until user gives go-ahead
+
+2026-04-29: Phase 1 Started
+- SQL scripts created for global_recipes and user_recipes_v2 tables
+- RLS policies defined
+- Awaiting user to run SQL in Supabase dashboard
 
 
 ================================================================================
