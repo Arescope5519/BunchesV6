@@ -656,11 +656,31 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
 
   // 2. Save to NEW tables (secondary - migration)
   try {
-    const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+    let sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
     let globalRecipeId = null;
 
-    if (sourceUrl) {
-      // Check if global recipe exists
+    // For manual recipes (no external URL), use Bunches user as source
+    if (!sourceUrl) {
+      // Generate a Bunches source URL: bunches://user/{userId}/recipes/{recipeId}
+      sourceUrl = `bunches://user/${userId}/recipes/${recipe.id}`;
+
+      // Add creator info to recipe for global entry
+      const recipeWithSource = {
+        ...recipe,
+        source_url: sourceUrl,
+        author: recipe.createdBy?.username || 'Bunches User',
+      };
+
+      // Check if this manual recipe already exists globally
+      let globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
+
+      if (!globalRecipe) {
+        globalRecipe = await createGlobalRecipe(recipeWithSource);
+      }
+
+      globalRecipeId = globalRecipe?.id || null;
+    } else {
+      // External URL - check if global recipe exists
       let globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
 
       if (!globalRecipe) {

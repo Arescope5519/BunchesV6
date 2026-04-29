@@ -328,5 +328,11 @@ NOTES / DECISIONS LOG
 - Every save now writes to old recipes table AND new V2 tables
 - V2 failures don't break the app (old table is still primary)
 
+2026-04-29: Manual recipes now attributed to Bunches user
+- Manual recipes (no URL) now get source_url: bunches://user/{userId}/recipes/{recipeId}
+- This allows manual recipes to also be de-duplicated when shared
+- Author field set to creator's Bunches username
+- All recipes now have a global_recipes entry
+
 
 ================================================================================
