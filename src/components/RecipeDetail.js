@@ -1538,6 +1538,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: colors.text,
   },
   metaContainer: {
     flexDirection: 'column',
@@ -1693,6 +1694,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: colors.text,
   },
   addSectionButton: {
     padding: 5,
