@@ -159,6 +159,10 @@ export const HomeScreen = ({ user }) => {
     updateRecipeStats,
     toggleRecipeVersion,
     markRecipeAsEdited,
+    // Variant management
+    selectVariant,
+    createVariant,
+    deleteVariant,
   } = useRecipes(user);
 
   const {
@@ -2606,6 +2610,9 @@ export const HomeScreen = ({ user }) => {
                 allRecipes={recipes}
                 isFolderPrivate={isFolderPrivate(selectedRecipe.folder)}
                 onToggleVersion={selectedRecipe.deletedAt ? null : toggleRecipeVersion}
+                onSelectVariant={selectedRecipe.deletedAt ? null : selectVariant}
+                onCreateVariant={selectedRecipe.deletedAt ? null : createVariant}
+                onDeleteVariant={selectedRecipe.deletedAt ? null : deleteVariant}
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>

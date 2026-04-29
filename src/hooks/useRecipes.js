@@ -549,6 +549,140 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * Select a variant for a recipe
+   */
+  const selectVariant = async (recipeId, variantId) => {
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        return {
+          ...r,
+          selectedVariantId: variantId,
+          viewingOriginal: variantId === null,
+          updatedAt: Date.now(),
+        };
+      }
+      return r;
+    });
+
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        const updated = updatedRecipes.find(r => r.id === recipeId);
+        setSelectedRecipe(updated);
+      }
+
+      // Sync to Supabase
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(err =>
+            console.error('Failed to sync variant selection to Supabase:', err)
+          );
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
+  /**
+   * Create a new variant for a recipe (copies current state as starting point)
+   */
+  const createVariant = async (recipeId, variantName) => {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return false;
+
+    const newVariantId = `variant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newVariant = {
+      id: newVariantId,
+      name: variantName,
+      edits: {
+        title: recipe.title,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+      },
+      createdAt: Date.now(),
+    };
+
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        const existingVariants = r.variants || [];
+        return {
+          ...r,
+          variants: [...existingVariants, newVariant],
+          selectedVariantId: newVariantId,
+          hasEdits: true,
+          updatedAt: Date.now(),
+        };
+      }
+      return r;
+    });
+
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        const updated = updatedRecipes.find(r => r.id === recipeId);
+        setSelectedRecipe(updated);
+      }
+
+      // Sync to Supabase
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(err =>
+            console.error('Failed to sync new variant to Supabase:', err)
+          );
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
+  /**
+   * Delete a variant from a recipe
+   */
+  const deleteVariant = async (recipeId, variantId) => {
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        const existingVariants = r.variants || [];
+        const filteredVariants = existingVariants.filter(v => v.id !== variantId);
+        return {
+          ...r,
+          variants: filteredVariants,
+          selectedVariantId: r.selectedVariantId === variantId ? null : r.selectedVariantId,
+          hasEdits: filteredVariants.length > 0 || r.editedVersion != null,
+          updatedAt: Date.now(),
+        };
+      }
+      return r;
+    });
+
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        const updated = updatedRecipes.find(r => r.id === recipeId);
+        setSelectedRecipe(updated);
+      }
+
+      // Sync to Supabase
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(err =>
+            console.error('Failed to sync variant deletion to Supabase:', err)
+          );
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
+  /**
    * Move recipe to folder
    */
   const moveToFolder = async (recipeId, newFolder) => {
@@ -654,6 +788,10 @@ export const useRecipes = (user) => {
     // Version management
     toggleRecipeVersion,
     markRecipeAsEdited,
+    // Variant management
+    selectVariant,
+    createVariant,
+    deleteVariant,
   };
 };
 

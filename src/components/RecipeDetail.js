@@ -108,6 +108,9 @@ export const RecipeDetail = ({
   allRecipes = [],
   isFolderPrivate = false,
   onToggleVersion, // For switching between original and edited versions
+  onSelectVariant, // For selecting a variant
+  onCreateVariant, // For creating a new variant
+  onDeleteVariant, // For deleting a variant
   onShare, // For sharing with edit options
 }) => {
   // Local editable copy of recipe - initialize with normalized data
@@ -154,6 +157,11 @@ export const RecipeDetail = ({
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [customTagInput, setCustomTagInput] = useState('');
   const [tagsExpanded, setTagsExpanded] = useState(false);
+
+  // Variant selector state
+  const [showVariantPicker, setShowVariantPicker] = useState(false);
+  const [showCreateVariant, setShowCreateVariant] = useState(false);
+  const [newVariantName, setNewVariantName] = useState('');
 
   // Update local recipe when prop changes
   useEffect(() => {
@@ -677,6 +685,15 @@ export const RecipeDetail = ({
   const hasOriginalVersion = localRecipe.originalRecipe && localRecipe.hasEdits;
   const isViewingOriginal = localRecipe.viewingOriginal === true;
 
+  // Variants support
+  const variants = localRecipe.variants || [];
+  const hasVariants = variants.length > 0 || hasOriginalVersion;
+  const selectedVariantId = localRecipe.selectedVariantId;
+  const currentVariant = selectedVariantId
+    ? variants.find(v => v.id === selectedVariantId)
+    : null;
+  const currentVersionName = currentVariant?.name || (isViewingOriginal ? 'Original' : (hasOriginalVersion ? 'My Edits' : 'Original'));
+
   return (
     <>
       {/* Folder badge - shown if recipe is in a cookbook */}
@@ -714,36 +731,17 @@ export const RecipeDetail = ({
         </View>
       )}
 
-      {/* Version Toggle - shows when recipe has edits */}
-      {hasOriginalVersion && onToggleVersion && (
+      {/* Version/Variant Selector - shows when recipe has variants or edits */}
+      {hasVariants && (
         <View style={styles.versionToggleContainer}>
           <Text style={styles.versionLabel}>Version:</Text>
-          <View style={styles.versionToggleButtons}>
-            <TouchableOpacity
-              style={[
-                styles.versionButton,
-                !isViewingOriginal && styles.versionButtonActive
-              ]}
-              onPress={() => onToggleVersion(localRecipe.id, false)}
-            >
-              <Text style={[
-                styles.versionButtonText,
-                !isViewingOriginal && styles.versionButtonTextActive
-              ]}>My Edits</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.versionButton,
-                isViewingOriginal && styles.versionButtonActive
-              ]}
-              onPress={() => onToggleVersion(localRecipe.id, true)}
-            >
-              <Text style={[
-                styles.versionButtonText,
-                isViewingOriginal && styles.versionButtonTextActive
-              ]}>Original</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.variantSelector}
+            onPress={() => setShowVariantPicker(true)}
+          >
+            <Text style={styles.variantSelectorText}>{currentVersionName}</Text>
+            <Text style={styles.variantSelectorArrow}>▼</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1383,6 +1381,146 @@ export const RecipeDetail = ({
           </View>
         </View>
       </Modal>
+
+      {/* Variant Picker Modal */}
+      <Modal
+        visible={showVariantPicker}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowVariantPicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowVariantPicker(false)}
+        >
+          <View style={styles.variantPickerContainer}>
+            <Text style={styles.variantPickerTitle}>Select Version</Text>
+
+            {/* Original/Base Version */}
+            <TouchableOpacity
+              style={[
+                styles.variantOption,
+                !selectedVariantId && !currentVariant && styles.variantOptionActive
+              ]}
+              onPress={() => {
+                if (onToggleVersion) {
+                  onToggleVersion(localRecipe.id, true);
+                }
+                if (onSelectVariant) {
+                  onSelectVariant(localRecipe.id, null);
+                }
+                setShowVariantPicker(false);
+              }}
+            >
+              <Text style={styles.variantOptionText}>📄 Original</Text>
+              {!selectedVariantId && !currentVariant && isViewingOriginal && (
+                <Text style={styles.variantOptionCheck}>✓</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Legacy "My Edits" if exists but no variants */}
+            {hasOriginalVersion && variants.length === 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.variantOption,
+                  !isViewingOriginal && styles.variantOptionActive
+                ]}
+                onPress={() => {
+                  if (onToggleVersion) {
+                    onToggleVersion(localRecipe.id, false);
+                  }
+                  setShowVariantPicker(false);
+                }}
+              >
+                <Text style={styles.variantOptionText}>✏️ My Edits</Text>
+                {!isViewingOriginal && (
+                  <Text style={styles.variantOptionCheck}>✓</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* User's Variants */}
+            {variants.map(variant => (
+              <TouchableOpacity
+                key={variant.id}
+                style={[
+                  styles.variantOption,
+                  selectedVariantId === variant.id && styles.variantOptionActive
+                ]}
+                onPress={() => {
+                  if (onSelectVariant) {
+                    onSelectVariant(localRecipe.id, variant.id);
+                  }
+                  setShowVariantPicker(false);
+                }}
+              >
+                <Text style={styles.variantOptionText}>📝 {variant.name}</Text>
+                {selectedVariantId === variant.id && (
+                  <Text style={styles.variantOptionCheck}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {/* Create New Variant */}
+            <TouchableOpacity
+              style={styles.createVariantButton}
+              onPress={() => {
+                setShowVariantPicker(false);
+                setShowCreateVariant(true);
+              }}
+            >
+              <Text style={styles.createVariantButtonText}>+ Create New Variant</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Create Variant Modal */}
+      <Modal
+        visible={showCreateVariant}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowCreateVariant(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addSectionModalContainer}>
+            <Text style={styles.addSectionModalTitle}>Create Variant</Text>
+            <Text style={styles.addSectionModalLabel}>Variant name:</Text>
+            <TextInput
+              style={styles.addSectionInput}
+              placeholder="e.g., Spicy Version, Low Carb..."
+              value={newVariantName}
+              onChangeText={setNewVariantName}
+              autoFocus
+              returnKeyType="done"
+            />
+            <View style={styles.addSectionModalButtons}>
+              <TouchableOpacity
+                style={[styles.addSectionModalButton, styles.cancelSectionButton]}
+                onPress={() => {
+                  setShowCreateVariant(false);
+                  setNewVariantName('');
+                }}
+              >
+                <Text style={styles.cancelSectionButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addSectionModalButton, styles.confirmSectionButton]}
+                onPress={() => {
+                  if (newVariantName.trim() && onCreateVariant) {
+                    onCreateVariant(localRecipe.id, newVariantName.trim());
+                    setShowCreateVariant(false);
+                    setNewVariantName('');
+                  }
+                }}
+              >
+                <Text style={styles.confirmSectionButtonText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -1452,6 +1590,81 @@ const styles = StyleSheet.create({
   },
   versionButtonTextActive: {
     color: colors.white,
+  },
+  // Variant selector styles
+  variantSelector: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  variantSelectorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  variantSelectorArrow: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  variantPickerContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    width: '85%',
+    maxHeight: '70%',
+  },
+  variantPickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  variantOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: colors.background,
+  },
+  variantOptionActive: {
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  variantOptionText: {
+    fontSize: 15,
+    color: colors.text,
+  },
+  variantOptionCheck: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  createVariantButton: {
+    marginTop: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  createVariantButtonText: {
+    fontSize: 15,
+    color: colors.primary,
+    fontWeight: '600',
   },
   editBadge: {
     alignSelf: 'flex-start',

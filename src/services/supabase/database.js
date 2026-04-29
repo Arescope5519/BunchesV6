@@ -158,10 +158,13 @@ export const loadRecipesFromDatabase = async (userId) => {
         // New fields for stats and versioning
         stats: row.stats || { likes: 0, saves: 0, views: 0 },
         originalRecipe: row.original_recipe || null,
-        hasEdits: row.has_edits || false,
+        hasEdits: row.has_edits || (row.variants?.length > 0) || false,
         editHistory: row.edit_history || [],
         viewingOriginal: row.viewing_original || false,
         editedVersion: row.edited_version || null,
+        // Variants support
+        variants: row.variants || [],
+        selectedVariantId: row.selected_variant_id || null,
       };
     });
 
@@ -221,10 +224,13 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
         // New fields for stats and versioning
         stats: recipe.stats || { likes: 0, saves: 0, views: 0 },
         original_recipe: recipe.originalRecipe || null,
-        has_edits: recipe.hasEdits || false,
+        has_edits: recipe.hasEdits || (recipe.variants?.length > 0) || false,
         edit_history: recipe.editHistory || [],
         viewing_original: recipe.viewingOriginal || false,
         edited_version: recipe.editedVersion || null,
+        // Variants support
+        variants: recipe.variants || [],
+        selected_variant_id: recipe.selectedVariantId || null,
       }, { onConflict: 'id' });
 
     if (error) throw error;
@@ -606,14 +612,33 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
       };
     }
 
-    // Build local_edits from any user modifications
-    const localEdits = recipe.hasEdits ? {
-      title: recipe.editedVersion?.title,
-      ingredients: recipe.editedVersion?.ingredients,
-      instructions: recipe.editedVersion?.instructions,
-      // Store edit history
-      editHistory: recipe.editHistory || [],
-    } : null;
+    // Build local_edits with variants support
+    let localEdits = null;
+
+    if (recipe.variants && recipe.variants.length > 0) {
+      // New variants format
+      localEdits = {
+        variants: recipe.variants,
+        selectedVariantId: recipe.selectedVariantId || null,
+      };
+    } else if (recipe.hasEdits && recipe.editedVersion) {
+      // Legacy single-edit format - convert to variant
+      localEdits = {
+        variants: [{
+          id: 'default-edit',
+          name: 'My Edits',
+          edits: {
+            title: recipe.editedVersion?.title,
+            ingredients: recipe.editedVersion?.ingredients,
+            instructions: recipe.editedVersion?.instructions,
+          },
+          createdAt: Date.now(),
+        }],
+        selectedVariantId: recipe.viewingOriginal ? null : 'default-edit',
+        // Preserve edit history for migration
+        editHistory: recipe.editHistory || [],
+      };
+    }
 
     const { error } = await supabase
       .from('user_recipes_v2')

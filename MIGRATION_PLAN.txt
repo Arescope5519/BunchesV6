@@ -334,5 +334,12 @@ NOTES / DECISIONS LOG
 - Author field set to creator's Bunches username
 - All recipes now have a global_recipes entry
 
+2026-04-29: Multiple recipe variants feature
+- Users can create multiple named "variants" of a recipe (Spicy, Low Carb, etc.)
+- Dropdown selector to switch between base version and variants
+- Defaults to base version from global_recipes
+- Structure: local_edits.variants[] array with id, name, edits
+- local_edits.selected_variant_id tracks active variant (null = base)
+
 
 ================================================================================
