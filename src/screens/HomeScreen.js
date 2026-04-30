@@ -2644,7 +2644,7 @@ export const HomeScreen = ({ user }) => {
                 <View style={styles.modalOverlay}>
                   <View style={styles.addFolderModal}>
                     <Text style={styles.addFolderTitle}>Add to Cookbooks</Text>
-                    <Text style={[styles.addFolderSubtitle, { color: COLORS.text + '99', marginBottom: 12, fontSize: 13 }]}>
+                    <Text style={{ color: colors.text + '99', marginBottom: 12, fontSize: 13 }}>
                       Recipe can be in multiple cookbooks
                     </Text>
                     {getCustomFolders().map(folder => {
