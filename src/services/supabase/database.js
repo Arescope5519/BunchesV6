@@ -229,8 +229,21 @@ export const loadRecipesFromDatabase = async (userId) => {
       };
     });
 
-    console.log(`📚 [V2] Loaded ${recipes.length} recipes from new tables`);
-    return recipes;
+    // Deduplicate by ID (in case of database duplicates)
+    const deduped = [];
+    const seenIds = new Set();
+    for (const recipe of recipes) {
+      if (!seenIds.has(recipe.id)) {
+        seenIds.add(recipe.id);
+        deduped.push(recipe);
+      }
+    }
+    if (deduped.length !== recipes.length) {
+      console.log(`⚠️ [V2] Removed ${recipes.length - deduped.length} duplicate entries`);
+    }
+
+    console.log(`📚 [V2] Loaded ${deduped.length} recipes from new tables`);
+    return deduped;
   } catch (error) {
     console.error('❌ [V2] Error loading recipes:', error);
     // Fallback to old table if V2 fails
@@ -536,7 +549,30 @@ export const syncRecipes = async (userId, localRecipes) => {
     const activeInMerged = mergedRecipes.filter(r => !r.deletedAt);
     console.log(`✅ Sync complete. ${mergedRecipes.length} total recipes`);
     console.log(`   - Active: ${activeInMerged.length}, Deleted: ${deletedInMerged.length}`);
-    return mergedRecipes;
+
+    // Deduplicate by ID (keep the one with latest updatedAt)
+    const deduped = [];
+    const seenIds = new Map();
+    for (const recipe of mergedRecipes) {
+      const existing = seenIds.get(recipe.id);
+      if (!existing) {
+        seenIds.set(recipe.id, deduped.length);
+        deduped.push(recipe);
+      } else {
+        const existingRecipe = deduped[existing];
+        const existingTime = existingRecipe.updatedAt || existingRecipe.createdAt || 0;
+        const newTime = recipe.updatedAt || recipe.createdAt || 0;
+        if (newTime > existingTime) {
+          deduped[existing] = recipe;
+        }
+      }
+    }
+
+    if (deduped.length !== mergedRecipes.length) {
+      console.log(`⚠️ Removed ${mergedRecipes.length - deduped.length} duplicate recipes`);
+    }
+
+    return deduped;
   } catch (error) {
     console.error('❌ Error syncing recipes:', error);
     throw error;
