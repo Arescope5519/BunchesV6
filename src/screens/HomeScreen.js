@@ -80,6 +80,7 @@ export const HomeScreen = ({ user }) => {
   const [showFolderManager, setShowFolderManager] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
+  const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
   const [editingFolderName, setEditingFolderName] = useState('');
@@ -1617,18 +1618,61 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Handle toggle folder membership (multi-folder support)
-  const handleToggleFolder = async (folder) => {
-    if (!selectedRecipe) return;
-
-    const recipeFolders = selectedRecipe.folders || [selectedRecipe.folder || 'All Recipes'];
-    const isInFolder = recipeFolders.includes(folder);
-
-    if (isInFolder) {
-      await removeFromFolder(selectedRecipe.id, folder);
+  // Handle toggle folder membership (multi-folder support) - local state only
+  const handleToggleFolder = (folder) => {
+    if (pendingFolders.includes(folder)) {
+      setPendingFolders(pendingFolders.filter(f => f !== folder));
     } else {
-      await addToFolder(selectedRecipe.id, folder);
+      setPendingFolders([...pendingFolders, folder]);
     }
+  };
+
+  // Save folder changes when Done is pressed
+  const handleSaveFolders = async () => {
+    if (!selectedRecipe) {
+      setShowMoveToFolder(false);
+      return;
+    }
+
+    const currentFolders = selectedRecipe.folders || [selectedRecipe.folder || 'All Recipes'];
+    const customFolders = getCustomFolders();
+
+    // Find folders to add and remove (only consider custom folders)
+    const currentCustomFolders = currentFolders.filter(f => customFolders.includes(f));
+    const foldersToAdd = pendingFolders.filter(f => !currentCustomFolders.includes(f));
+    const foldersToRemove = currentCustomFolders.filter(f => !pendingFolders.includes(f));
+
+    // Apply changes silently (no individual alerts)
+    for (const folder of foldersToAdd) {
+      await addToFolder(selectedRecipe.id, folder, true);
+    }
+    for (const folder of foldersToRemove) {
+      await removeFromFolder(selectedRecipe.id, folder, true);
+    }
+
+    // Show single summary alert if changes were made
+    if (foldersToAdd.length > 0 || foldersToRemove.length > 0) {
+      const changes = [];
+      if (foldersToAdd.length > 0) {
+        changes.push(`Added to: ${foldersToAdd.join(', ')}`);
+      }
+      if (foldersToRemove.length > 0) {
+        changes.push(`Removed from: ${foldersToRemove.join(', ')}`);
+      }
+      Alert.alert('Cookbooks Updated', changes.join('\n'));
+    }
+
+    setShowMoveToFolder(false);
+  };
+
+  // Initialize pending folders when modal opens
+  const openFolderModal = () => {
+    if (selectedRecipe) {
+      const currentFolders = selectedRecipe.folders || [selectedRecipe.folder || 'All Recipes'];
+      const customFolders = getCustomFolders();
+      setPendingFolders(currentFolders.filter(f => customFolders.includes(f)));
+    }
+    setShowMoveToFolder(true);
   };
 
   // Android back button handler - handles all modals and screens
@@ -2577,7 +2621,7 @@ export const HomeScreen = ({ user }) => {
                           }
                         ]);
                       } else {
-                        setShowMoveToFolder(true);
+                        openFolderModal();
                       }
                     }}
                     style={styles.iconButton}
@@ -2648,8 +2692,7 @@ export const HomeScreen = ({ user }) => {
                       Recipe can be in multiple cookbooks
                     </Text>
                     {getCustomFolders().map(folder => {
-                      const recipeFolders = selectedRecipe.folders || [selectedRecipe.folder || 'All Recipes'];
-                      const isInFolder = recipeFolders.includes(folder);
+                      const isInFolder = pendingFolders.includes(folder);
                       return (
                         <TouchableOpacity
                           key={folder}
@@ -2666,7 +2709,7 @@ export const HomeScreen = ({ user }) => {
                     <View style={styles.addFolderButtons}>
                       <TouchableOpacity
                         style={[styles.addFolderButton, styles.cancelButton]}
-                        onPress={() => setShowMoveToFolder(false)}
+                        onPress={handleSaveFolders}
                       >
                         <Text style={styles.cancelButtonText}>Done</Text>
                       </TouchableOpacity>

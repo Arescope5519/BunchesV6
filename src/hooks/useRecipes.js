@@ -767,14 +767,14 @@ export const useRecipes = (user) => {
   /**
    * Add recipe to a folder (multi-folder support)
    * Keeps recipe in existing folders and adds to new folder
+   * @param {boolean} silent - If true, don't show alerts (for batch operations)
    */
-  const addToFolder = async (recipeId, folderToAdd) => {
+  const addToFolder = async (recipeId, folderToAdd, silent = false) => {
     const recipe = recipes.find(r => r.id === recipeId);
     if (!recipe) return false;
 
     const currentFolders = recipe.folders || [recipe.folder || 'All Recipes'];
     if (currentFolders.includes(folderToAdd)) {
-      Alert.alert('Info', `Recipe is already in "${folderToAdd}"`);
       return true;
     }
 
@@ -797,7 +797,9 @@ export const useRecipes = (user) => {
           saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(console.error);
         }
       }
-      Alert.alert('Success', `Added to "${folderToAdd}"`);
+      if (!silent) {
+        Alert.alert('Success', `Added to "${folderToAdd}"`);
+      }
       return true;
     }
     return false;
@@ -806,8 +808,9 @@ export const useRecipes = (user) => {
   /**
    * Remove recipe from a folder (multi-folder support)
    * Keeps recipe in other folders
+   * @param {boolean} silent - If true, don't show alerts (for batch operations)
    */
-  const removeFromFolder = async (recipeId, folderToRemove) => {
+  const removeFromFolder = async (recipeId, folderToRemove, silent = false) => {
     const recipe = recipes.find(r => r.id === recipeId);
     if (!recipe) return false;
 
@@ -838,7 +841,9 @@ export const useRecipes = (user) => {
           saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(console.error);
         }
       }
-      Alert.alert('Success', `Removed from "${folderToRemove}"`);
+      if (!silent) {
+        Alert.alert('Success', `Removed from "${folderToRemove}"`);
+      }
       return true;
     }
     return false;
