@@ -683,11 +683,12 @@ export const useRecipes = (user) => {
   };
 
   /**
-   * Move recipe to folder
+   * Move recipe to folder (replaces all folders with the new one)
    */
   const moveToFolder = async (recipeId, newFolder) => {
+    const newFolders = [newFolder];
     const updatedRecipes = recipes.map(r =>
-      r.id === recipeId ? { ...r, folder: newFolder, updatedAt: Date.now() } : r
+      r.id === recipeId ? { ...r, folder: newFolder, folders: newFolders, updatedAt: Date.now() } : r
     );
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
@@ -695,7 +696,7 @@ export const useRecipes = (user) => {
       setRecipes(updatedRecipes);
 
       if (selectedRecipe && selectedRecipe.id === recipeId) {
-        setSelectedRecipe({ ...selectedRecipe, folder: newFolder });
+        setSelectedRecipe({ ...selectedRecipe, folder: newFolder, folders: newFolders });
       }
 
       if (user) {
@@ -742,6 +743,7 @@ export const useRecipes = (user) => {
 
   /**
    * Get filtered recipes by folder
+   * Supports multi-folder: checks both `folders` array and legacy `folder` field
    */
   const getFilteredRecipes = (currentFolder) => {
     if (currentFolder === 'Recently Deleted') {
@@ -755,8 +757,91 @@ export const useRecipes = (user) => {
     } else if (currentFolder === 'Favorites') {
       return activeRecipes.filter(r => r.isFavorite);
     } else {
-      return activeRecipes.filter(r => r.folder === currentFolder);
+      return activeRecipes.filter(r => {
+        const recipeFolders = r.folders || [r.folder || 'All Recipes'];
+        return recipeFolders.includes(currentFolder);
+      });
     }
+  };
+
+  /**
+   * Add recipe to a folder (multi-folder support)
+   * Keeps recipe in existing folders and adds to new folder
+   */
+  const addToFolder = async (recipeId, folderToAdd) => {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return false;
+
+    const currentFolders = recipe.folders || [recipe.folder || 'All Recipes'];
+    if (currentFolders.includes(folderToAdd)) {
+      Alert.alert('Info', `Recipe is already in "${folderToAdd}"`);
+      return true;
+    }
+
+    const newFolders = [...currentFolders, folderToAdd];
+    const primaryFolder = newFolders.find(f => f !== 'All Recipes') || newFolders[0];
+
+    const updatedRecipes = recipes.map(r =>
+      r.id === recipeId ? { ...r, folders: newFolders, folder: primaryFolder, updatedAt: Date.now() } : r
+    );
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        setSelectedRecipe({ ...selectedRecipe, folders: newFolders, folder: primaryFolder });
+      }
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(console.error);
+        }
+      }
+      Alert.alert('Success', `Added to "${folderToAdd}"`);
+      return true;
+    }
+    return false;
+  };
+
+  /**
+   * Remove recipe from a folder (multi-folder support)
+   * Keeps recipe in other folders
+   */
+  const removeFromFolder = async (recipeId, folderToRemove) => {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return false;
+
+    const currentFolders = recipe.folders || [recipe.folder || 'All Recipes'];
+    if (!currentFolders.includes(folderToRemove)) {
+      return true;
+    }
+
+    let newFolders = currentFolders.filter(f => f !== folderToRemove);
+    if (newFolders.length === 0) {
+      newFolders = ['All Recipes'];
+    }
+    const primaryFolder = newFolders.find(f => f !== 'All Recipes') || newFolders[0];
+
+    const updatedRecipes = recipes.map(r =>
+      r.id === recipeId ? { ...r, folders: newFolders, folder: primaryFolder, updatedAt: Date.now() } : r
+    );
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        setSelectedRecipe({ ...selectedRecipe, folders: newFolders, folder: primaryFolder });
+      }
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(console.error);
+        }
+      }
+      Alert.alert('Success', `Removed from "${folderToRemove}"`);
+      return true;
+    }
+    return false;
   };
 
   useEffect(() => {
@@ -780,6 +865,8 @@ export const useRecipes = (user) => {
     toggleFavorite,
     moveToFolder,
     moveManyToFolder,
+    addToFolder,
+    removeFromFolder,
     getFilteredRecipes,
     refreshRecipes: loadRecipes,
     reloadFromStorage,

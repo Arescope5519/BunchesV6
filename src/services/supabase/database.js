@@ -99,6 +99,7 @@ export const loadRecipesFromDatabase = async (userId) => {
         local_recipe_data,
         local_edits,
         folder,
+        folders,
         tags,
         is_favorite,
         notes,
@@ -190,12 +191,20 @@ export const loadRecipesFromDatabase = async (userId) => {
         instructions: instructions,
       } : null;
 
+      // Handle folders array - use folders if available, fallback to single folder
+      const folders = row.folders && row.folders.length > 0
+        ? row.folders
+        : [row.folder || 'All Recipes'];
+      // Primary folder for backward compatibility (first custom folder, or first folder)
+      const primaryFolder = folders.find(f => f !== 'All Recipes') || folders[0] || 'All Recipes';
+
       return {
         id: row.id,
         title: baseTitle,
         ingredients: ingredients,
         instructions: instructions,
-        folder: row.folder || 'All Recipes',
+        folder: primaryFolder,  // For backward compatibility
+        folders: folders,       // New: array of all folders
         url: sourceUrl,
         source_url: sourceUrl,
         image_url: baseImageUrl,
@@ -352,7 +361,7 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
         title: recipe.title || 'Untitled Recipe',
         ingredients: ingredients,
         instructions: instructions,
-        folder: recipe.folder || 'All Recipes',
+        folder: recipe.folder || recipe.folders?.[0] || 'All Recipes',
         source_url: recipe.url || recipe.sourceUrl || recipe.source_url || null,
         image_url: imageUrl || null,
         notes: recipe.notes || null,
@@ -787,7 +796,8 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
         global_recipe_id: globalRecipeId,
         local_recipe_data: localRecipeData,
         local_edits: localEdits,
-        folder: recipe.folder || 'All Recipes',
+        folders: recipe.folders || [recipe.folder || 'All Recipes'],
+        folder: recipe.folder || recipe.folders?.[0] || 'All Recipes',
         tags: recipe.tags || [],
         is_favorite: recipe.isFavorite || false,
         notes: recipe.notes || null,

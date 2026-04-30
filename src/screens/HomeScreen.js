@@ -152,6 +152,8 @@ export const HomeScreen = ({ user }) => {
     toggleFavorite,
     moveToFolder: moveRecipeToFolder,
     moveManyToFolder,
+    addToFolder,
+    removeFromFolder,
     getFilteredRecipes,
     refreshRecipes,
     reloadFromStorage,
@@ -1604,7 +1606,7 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Handle move to folder
+  // Handle move to folder (legacy - replaces all folders)
   const handleMoveToFolder = (newFolder) => {
     // Check if we're in multiselect mode
     if (multiselectMode && selectedRecipes.size > 0) {
@@ -1612,6 +1614,20 @@ export const HomeScreen = ({ user }) => {
     } else if (selectedRecipe) {
       moveRecipeToFolder(selectedRecipe.id, newFolder);
       setShowMoveToFolder(false);
+    }
+  };
+
+  // Handle toggle folder membership (multi-folder support)
+  const handleToggleFolder = async (folder) => {
+    if (!selectedRecipe) return;
+
+    const recipeFolders = selectedRecipe.folders || [selectedRecipe.folder || 'All Recipes'];
+    const isInFolder = recipeFolders.includes(folder);
+
+    if (isInFolder) {
+      await removeFromFolder(selectedRecipe.id, folder);
+    } else {
+      await addToFolder(selectedRecipe.id, folder);
     }
   };
 
@@ -2627,31 +2643,32 @@ export const HomeScreen = ({ user }) => {
               >
                 <View style={styles.modalOverlay}>
                   <View style={styles.addFolderModal}>
-                    <Text style={styles.addFolderTitle}>Move to Cookbook</Text>
-                    {/* Option to remove from cookbook - only show if recipe is in a folder */}
-                    {selectedRecipe.folder && selectedRecipe.folder !== 'All Recipes' && (
-                      <TouchableOpacity
-                        style={[styles.folderItem, styles.removeFromFolderItem]}
-                        onPress={() => handleMoveToFolder('All Recipes')}
-                      >
-                        <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
-                      </TouchableOpacity>
-                    )}
-                    {getCustomFolders().map(folder => (
-                      <TouchableOpacity
-                        key={folder}
-                        style={styles.folderItem}
-                        onPress={() => handleMoveToFolder(folder)}
-                      >
-                        <Text style={styles.folderItemText}>{folder}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    <Text style={styles.addFolderTitle}>Add to Cookbooks</Text>
+                    <Text style={[styles.addFolderSubtitle, { color: COLORS.text + '99', marginBottom: 12, fontSize: 13 }]}>
+                      Recipe can be in multiple cookbooks
+                    </Text>
+                    {getCustomFolders().map(folder => {
+                      const recipeFolders = selectedRecipe.folders || [selectedRecipe.folder || 'All Recipes'];
+                      const isInFolder = recipeFolders.includes(folder);
+                      return (
+                        <TouchableOpacity
+                          key={folder}
+                          style={[styles.folderItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                          onPress={() => handleToggleFolder(folder)}
+                        >
+                          <Text style={styles.folderItemText}>{folder}</Text>
+                          <View style={[styles.folderCheckbox, isInFolder && styles.folderCheckboxChecked]}>
+                            {isInFolder && <Text style={styles.folderCheckmark}>✓</Text>}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                     <View style={styles.addFolderButtons}>
                       <TouchableOpacity
                         style={[styles.addFolderButton, styles.cancelButton]}
                         onPress={() => setShowMoveToFolder(false)}
                       >
-                        <Text style={styles.cancelButtonText}>Close</Text>
+                        <Text style={styles.cancelButtonText}>Done</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -3452,6 +3469,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.error,
     fontWeight: '500',
+  },
+  folderCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  folderCheckboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  folderCheckmark: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   deletedBanner: {
     backgroundColor: colors.error,
