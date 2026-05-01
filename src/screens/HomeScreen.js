@@ -578,19 +578,12 @@ export const HomeScreen = ({ user }) => {
           // Reset importing flag
           isImportingRef.current = false;
 
-          // Show brief success notification
+          // Silent import - no alerts (user already saw Share Extension confirmation)
           if (imported > 0) {
-            const titles = pending
-              .slice(0, 3)
-              .map(p => p.preview_title || p.title || 'Recipe')
-              .join(', ');
-            const moreText = pending.length > 3 ? ` +${pending.length - 3} more` : '';
-            Alert.alert(
-              '✅ Imported',
-              `${titles}${moreText}${failed > 0 ? `\n(${failed} failed)` : ''}`
-            );
-          } else if (failed > 0) {
-            Alert.alert('Import Failed', `Could not import ${failed} recipe${failed !== 1 ? 's' : ''}`);
+            console.log(`✅ [iOS] Silently imported ${imported} recipe(s)`);
+          }
+          if (failed > 0) {
+            console.log(`⚠️ [iOS] Failed to import ${failed} recipe(s)`);
           }
         } else {
           console.log('[HomeScreen] No pending recipes found');
@@ -1090,22 +1083,12 @@ export const HomeScreen = ({ user }) => {
     const succeeded = extractedRecipes.length;
     const failed = failedUrls.length;
 
-    // Step 3: Show one summary alert
-    if (succeeded > 0 && failed === 0) {
-      Alert.alert(
-        `✅ ${succeeded} Recipe${succeeded > 1 ? 's' : ''} Saved`,
-        savedNames.length > 0 ? savedNames.join('\n') : 'All recipes saved successfully!'
-      );
-    } else if (succeeded > 0 && failed > 0) {
-      Alert.alert(
-        `⚠️ Partially Saved`,
-        `${succeeded} saved, ${failed} failed\n\n${savedNames.length > 0 ? 'Saved: ' + savedNames.join(', ') : ''}`
-      );
-    } else if (failed > 0) {
-      Alert.alert(
-        `❌ Import Failed`,
-        `Could not extract ${failed} recipe${failed > 1 ? 's' : ''}`
-      );
+    // Silent import - no alerts for iOS (Share Extension already handled user feedback)
+    if (succeeded > 0) {
+      console.log(`✅ [iOS] Auto-saved ${succeeded} recipe(s): ${savedNames.join(', ')}`);
+    }
+    if (failed > 0) {
+      console.log(`⚠️ [iOS] Failed to extract ${failed} recipe(s)`);
     }
   };
 

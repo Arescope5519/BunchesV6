@@ -76,9 +76,23 @@ export const useRecipes = (user) => {
   /**
    * Save recipe
    */
-  const saveRecipe = async (recipe) => {
+  const saveRecipe = async (recipe, options = {}) => {
+    const { silent = false } = options;
     // Note: Removed wait-for-loading loop as it caused delays
     // The save can proceed even during initial load
+
+    // Check for duplicate by URL first (more reliable than ID for imported recipes)
+    const recipeUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+    if (recipeUrl) {
+      const existingByUrl = recipes.find(r => {
+        const rUrl = r.url || r.sourceUrl || r.source_url;
+        return rUrl && rUrl === recipeUrl && !r.deletedAt;
+      });
+      if (existingByUrl) {
+        console.log(`⚠️ Recipe already exists with URL: ${recipeUrl}`);
+        return true; // Already exists, consider it a success
+      }
+    }
 
     const recipeWithTimestamp = {
       ...recipe,
@@ -121,7 +135,30 @@ export const useRecipes = (user) => {
 
     const currentRecipes = await loadRecipesFromStorage(user?.uid || null);
 
-    const recipesWithTimestamps = newRecipes.map((recipe, index) => ({
+    // Build set of existing URLs for duplicate detection
+    const existingUrls = new Set(
+      currentRecipes
+        .filter(r => !r.deletedAt)
+        .map(r => r.url || r.sourceUrl || r.source_url)
+        .filter(Boolean)
+    );
+
+    // Filter out recipes that already exist by URL
+    const uniqueNewRecipes = newRecipes.filter(recipe => {
+      const recipeUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+      if (recipeUrl && existingUrls.has(recipeUrl)) {
+        console.log(`⚠️ Skipping duplicate recipe (URL exists): ${recipe.title || recipeUrl}`);
+        return false;
+      }
+      return true;
+    });
+
+    if (uniqueNewRecipes.length === 0) {
+      console.log('⚠️ All recipes already exist, nothing to save');
+      return true; // Consider it success
+    }
+
+    const recipesWithTimestamps = uniqueNewRecipes.map((recipe, index) => ({
       ...recipe,
       id: recipe.id || `recipe-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: recipe.createdAt || Date.now(),
@@ -136,7 +173,7 @@ export const useRecipes = (user) => {
 
     if (success) {
       setRecipes(updatedRecipes);
-      console.log(`✅ Batch saved ${newRecipes.length} recipes!`);
+      console.log(`✅ Batch saved ${uniqueNewRecipes.length} recipes!`);
 
       // Sync to Supabase in background
       if (user) {
