@@ -229,17 +229,40 @@ export const loadRecipesFromDatabase = async (userId) => {
       };
     });
 
-    // Deduplicate by ID (in case of database duplicates)
+    // Deduplicate by global_recipe_id (merge folders for same recipe)
+    // This handles cases where the same recipe exists multiple times with different folders
     const deduped = [];
-    const seenIds = new Set();
+    const seenGlobalIds = new Map(); // global_recipe_id -> index in deduped
+    const seenIds = new Set(); // for recipes without global_recipe_id
+
     for (const recipe of recipes) {
-      if (!seenIds.has(recipe.id)) {
-        seenIds.add(recipe.id);
-        deduped.push(recipe);
+      if (recipe.globalRecipeId) {
+        // Recipe has a global reference - dedupe by globalRecipeId
+        const existingIndex = seenGlobalIds.get(recipe.globalRecipeId);
+        if (existingIndex !== undefined) {
+          // Merge folders from duplicate entry
+          const existing = deduped[existingIndex];
+          const existingFolders = existing.folders || [existing.folder || 'All Recipes'];
+          const newFolders = recipe.folders || [recipe.folder || 'All Recipes'];
+          const mergedFolders = [...new Set([...existingFolders, ...newFolders])];
+          existing.folders = mergedFolders;
+          existing.folder = mergedFolders.find(f => f !== 'All Recipes') || mergedFolders[0];
+          console.log(`🔄 Merged duplicate recipe "${recipe.title}" - folders: ${mergedFolders.join(', ')}`);
+        } else {
+          seenGlobalIds.set(recipe.globalRecipeId, deduped.length);
+          deduped.push(recipe);
+        }
+      } else {
+        // No global reference - dedupe by ID
+        if (!seenIds.has(recipe.id)) {
+          seenIds.add(recipe.id);
+          deduped.push(recipe);
+        }
       }
     }
+
     if (deduped.length !== recipes.length) {
-      console.log(`⚠️ [V2] Removed ${recipes.length - deduped.length} duplicate entries`);
+      console.log(`⚠️ [V2] Merged ${recipes.length - deduped.length} duplicate entries`);
     }
 
     console.log(`📚 [V2] Loaded ${deduped.length} recipes from new tables`);
@@ -550,26 +573,40 @@ export const syncRecipes = async (userId, localRecipes) => {
     console.log(`✅ Sync complete. ${mergedRecipes.length} total recipes`);
     console.log(`   - Active: ${activeInMerged.length}, Deleted: ${deletedInMerged.length}`);
 
-    // Deduplicate by ID (keep the one with latest updatedAt)
+    // Deduplicate by globalRecipeId and ID (merge folders, keep newest)
     const deduped = [];
+    const seenGlobalIds = new Map();
     const seenIds = new Map();
+
     for (const recipe of mergedRecipes) {
-      const existing = seenIds.get(recipe.id);
-      if (!existing) {
-        seenIds.set(recipe.id, deduped.length);
+      const key = recipe.globalRecipeId || recipe.id;
+      const map = recipe.globalRecipeId ? seenGlobalIds : seenIds;
+      const existingIndex = map.get(key);
+
+      if (existingIndex === undefined) {
+        map.set(key, deduped.length);
         deduped.push(recipe);
       } else {
-        const existingRecipe = deduped[existing];
-        const existingTime = existingRecipe.updatedAt || existingRecipe.createdAt || 0;
+        const existing = deduped[existingIndex];
+        // Merge folders
+        const existingFolders = existing.folders || [existing.folder || 'All Recipes'];
+        const newFolders = recipe.folders || [recipe.folder || 'All Recipes'];
+        const mergedFolders = [...new Set([...existingFolders, ...newFolders])];
+
+        // Keep the newer recipe but with merged folders
+        const existingTime = existing.updatedAt || existing.createdAt || 0;
         const newTime = recipe.updatedAt || recipe.createdAt || 0;
         if (newTime > existingTime) {
-          deduped[existing] = recipe;
+          deduped[existingIndex] = { ...recipe, folders: mergedFolders, folder: mergedFolders.find(f => f !== 'All Recipes') || mergedFolders[0] };
+        } else {
+          existing.folders = mergedFolders;
+          existing.folder = mergedFolders.find(f => f !== 'All Recipes') || mergedFolders[0];
         }
       }
     }
 
     if (deduped.length !== mergedRecipes.length) {
-      console.log(`⚠️ Removed ${mergedRecipes.length - deduped.length} duplicate recipes`);
+      console.log(`⚠️ Merged ${mergedRecipes.length - deduped.length} duplicate recipes`);
     }
 
     return deduped;
