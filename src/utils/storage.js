@@ -56,7 +56,25 @@ export const loadRecipes = async (userId = null) => {
     const stored = await AsyncStorage.getItem(key);
     console.log(`📦 Loading recipes from key: ${key}`);
     if (stored) {
-      return JSON.parse(stored);
+      const recipes = JSON.parse(stored);
+
+      // Deduplicate by ID (local storage can have duplicates from bugs)
+      const seen = new Set();
+      const deduped = [];
+      for (const recipe of recipes) {
+        if (!seen.has(recipe.id)) {
+          seen.add(recipe.id);
+          deduped.push(recipe);
+        }
+      }
+
+      if (deduped.length !== recipes.length) {
+        console.log(`⚠️ Removed ${recipes.length - deduped.length} duplicate recipes from local storage`);
+        // Save the deduplicated list back
+        await AsyncStorage.setItem(key, JSON.stringify(deduped));
+      }
+
+      return deduped;
     }
     return [];
   } catch (error) {
