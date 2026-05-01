@@ -128,6 +128,13 @@ export const loadRecipesFromDatabase = async (userId) => {
 
     if (error) throw error;
 
+    // DEBUG: Log raw data from database
+    console.log(`🔍 DEBUG: Raw user_recipes_v2 entries: ${data.length}`);
+    data.forEach((row, i) => {
+      const title = row.global_recipes?.title || row.local_recipe_data?.title || 'Unknown';
+      console.log(`  ${i + 1}. ID: ${row.id.substring(0, 20)}..., GlobalID: ${row.global_recipe_id || 'none'}, Folder: ${row.folder}, Title: "${title.substring(0, 30)}"`);
+    });
+
     const recipes = data.map(row => {
       // Get base recipe data from global_recipes or local_recipe_data
       const globalRecipe = row.global_recipes;
@@ -265,7 +272,13 @@ export const loadRecipesFromDatabase = async (userId) => {
       console.log(`⚠️ [V2] Merged ${recipes.length - deduped.length} duplicate entries`);
     }
 
+    // DEBUG: Log final deduped recipes
     console.log(`📚 [V2] Loaded ${deduped.length} recipes from new tables`);
+    console.log(`🔍 DEBUG: Final recipes after dedupe:`);
+    deduped.forEach((r, i) => {
+      console.log(`  ${i + 1}. "${r.title?.substring(0, 30)}" - GlobalID: ${r.globalRecipeId || 'none'}, Folders: ${JSON.stringify(r.folders)}`);
+    });
+
     return deduped;
   } catch (error) {
     console.error('❌ [V2] Error loading recipes:', error);
