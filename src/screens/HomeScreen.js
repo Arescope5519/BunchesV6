@@ -2228,10 +2228,6 @@ export const HomeScreen = ({ user }) => {
                       )
                     )}
                     <View style={styles.recipeCardContent}>
-                      {/* Folder badge - shown if recipe is in a cookbook */}
-                      {recipe.folder && recipe.folder !== 'All Recipes' && (
-                        <Text style={styles.recipeCardFolder}>{typeof recipe.folder === 'string' ? recipe.folder : recipe.folder?.name || ''}</Text>
-                      )}
                       <View style={styles.recipeCardHeader}>
                         <Text style={styles.recipeTitle}>{recipe.title}</Text>
                         {!multiselectMode && (
