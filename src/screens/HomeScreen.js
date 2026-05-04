@@ -1643,10 +1643,16 @@ export const HomeScreen = ({ user }) => {
     const result = await renameFolderBase(editingFolder, editingFolderName);
 
     if (result.success) {
-      // Update all recipes in that folder
-      const recipesInFolder = recipes.filter(r => r.folder === result.oldName);
+      // Update all recipes that have this folder in their folders array
+      const recipesInFolder = recipes.filter(r => {
+        const recipeFolders = r.folders || [r.folder || 'All Recipes'];
+        return recipeFolders.includes(result.oldName);
+      });
+
       for (const recipe of recipesInFolder) {
-        await moveRecipeToFolder(recipe.id, result.newName);
+        // Remove old folder name, add new folder name
+        await removeFromFolder(recipe.id, result.oldName, true);
+        await addToFolder(recipe.id, result.newName, true);
       }
 
       setEditingFolder(null);
@@ -1655,13 +1661,16 @@ export const HomeScreen = ({ user }) => {
   };
 
   const deleteFolder = async (folderName) => {
-    const recipesInFolder = recipes.filter(r => r.folder === folderName);
+    const recipesInFolder = recipes.filter(r => {
+      const recipeFolders = r.folders || [r.folder || 'All Recipes'];
+      return recipeFolders.includes(folderName);
+    });
     const success = await deleteFolderBase(folderName, recipesInFolder.length);
 
     if (success) {
-      // Move recipes to "All Recipes"
+      // Remove folder from all recipes (they stay in other folders or go to All Recipes)
       for (const recipe of recipesInFolder) {
-        await moveRecipeToFolder(recipe.id, 'All Recipes');
+        await removeFromFolder(recipe.id, folderName, true);
       }
     }
   };
@@ -2505,10 +2514,12 @@ export const HomeScreen = ({ user }) => {
                   })
                   .sort((a, b) => folderSortAZ ? a.localeCompare(b) : 0)
                   .map((folder) => {
-                  // Count only non-deleted recipes in this folder
-                  const recipeCount = recipes.filter(r =>
-                    r.folder === folder && !r.deletedAt
-                  ).length;
+                  // Count only non-deleted recipes in this folder (check folders array)
+                  const recipeCount = recipes.filter(r => {
+                    if (r.deletedAt) return false;
+                    const recipeFolders = r.folders || [r.folder || 'All Recipes'];
+                    return recipeFolders.includes(folder);
+                  }).length;
                   const isPrivate = isFolderPrivate(folder);
 
                   return (
