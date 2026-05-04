@@ -1268,36 +1268,60 @@ export const HomeScreen = ({ user }) => {
 
     const recipeIds = Array.from(selectedRecipes);
     const customFolders = getCustomFolders();
-    let totalAdded = 0;
-    let totalRemoved = 0;
+    let changesCount = 0;
 
+    // Update each recipe with its final folders array
     for (const recipeId of recipeIds) {
       const recipe = recipes.find(r => r.id === recipeId);
       if (!recipe) continue;
 
-      const currentFolders = (recipe.folders || [recipe.folder || 'All Recipes'])
-        .filter(f => customFolders.includes(f));
+      const currentFolders = recipe.folders || [recipe.folder || 'All Recipes'];
+      const currentCustomFolders = currentFolders.filter(f => customFolders.includes(f));
 
       // Find folders to add and remove
-      const foldersToAdd = pendingFolders.filter(f => !currentFolders.includes(f));
-      const foldersToRemove = currentFolders.filter(f => !pendingFolders.includes(f));
+      const foldersToAdd = pendingFolders.filter(f => !currentCustomFolders.includes(f));
+      const foldersToRemove = currentCustomFolders.filter(f => !pendingFolders.includes(f));
 
+      if (foldersToAdd.length === 0 && foldersToRemove.length === 0) continue;
+
+      // Build final folders array directly
+      let finalFolders = [...currentFolders];
+
+      // Add new folders
       for (const folder of foldersToAdd) {
-        await addToFolder(recipeId, folder, true);
-        totalAdded++;
+        if (!finalFolders.includes(folder)) {
+          finalFolders.push(folder);
+        }
       }
-      for (const folder of foldersToRemove) {
-        await removeFromFolder(recipeId, folder, true);
-        totalRemoved++;
+
+      // Remove folders
+      finalFolders = finalFolders.filter(f => !foldersToRemove.includes(f));
+
+      // Ensure at least 'All Recipes' if empty
+      if (finalFolders.length === 0) {
+        finalFolders = ['All Recipes'];
       }
+
+      const primaryFolder = finalFolders.find(f => f !== 'All Recipes') || finalFolders[0];
+
+      // Update recipe with final folders
+      const updatedRecipe = {
+        ...recipe,
+        folders: finalFolders,
+        folder: primaryFolder,
+        updatedAt: Date.now(),
+      };
+
+      await updateRecipe(updatedRecipe);
+      changesCount++;
     }
 
     setShowMoveToFolder(false);
     exitMultiselectMode();
 
-    if (totalAdded > 0 || totalRemoved > 0) {
+    if (changesCount > 0) {
       Alert.alert('Cookbooks Updated',
-        `${selectedRecipes.size} recipe${selectedRecipes.size > 1 ? 's' : ''} updated`);
+        `${changesCount} recipe${changesCount > 1 ? 's' : ''} updated`);
     }
   };
 
@@ -1710,16 +1734,37 @@ export const HomeScreen = ({ user }) => {
     const foldersToAdd = pendingFolders.filter(f => !currentCustomFolders.includes(f));
     const foldersToRemove = currentCustomFolders.filter(f => !pendingFolders.includes(f));
 
-    // Apply changes silently (no individual alerts)
+    // Build final folders array directly (instead of sequential updates)
+    let finalFolders = [...currentFolders];
+
+    // Add new folders
     for (const folder of foldersToAdd) {
-      await addToFolder(selectedRecipe.id, folder, true);
-    }
-    for (const folder of foldersToRemove) {
-      await removeFromFolder(selectedRecipe.id, folder, true);
+      if (!finalFolders.includes(folder)) {
+        finalFolders.push(folder);
+      }
     }
 
-    // Show single summary alert if changes were made
+    // Remove folders
+    finalFolders = finalFolders.filter(f => !foldersToRemove.includes(f));
+
+    // Ensure at least 'All Recipes' if empty
+    if (finalFolders.length === 0) {
+      finalFolders = ['All Recipes'];
+    }
+
+    const primaryFolder = finalFolders.find(f => f !== 'All Recipes') || finalFolders[0];
+
+    // Update recipe with final folders in one operation
     if (foldersToAdd.length > 0 || foldersToRemove.length > 0) {
+      const updatedRecipe = {
+        ...selectedRecipe,
+        folders: finalFolders,
+        folder: primaryFolder,
+        updatedAt: Date.now(),
+      };
+
+      await updateRecipe(updatedRecipe);
+
       const changes = [];
       if (foldersToAdd.length > 0) {
         changes.push(`Added to: ${foldersToAdd.join(', ')}`);
