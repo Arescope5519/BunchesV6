@@ -1228,7 +1228,7 @@ export const HomeScreen = ({ user }) => {
 
   const moveSelectedRecipesToFolder = () => {
     if (selectedRecipes.size === 0) return;
-    setShowMoveToFolder(true);
+    openFolderModalMultiselect();
   };
 
   const handleMoveSelectedToFolder = async (targetFolder) => {
@@ -1248,6 +1248,82 @@ export const HomeScreen = ({ user }) => {
     } else {
       Alert.alert('Error', 'Failed to move recipes');
     }
+  };
+
+  // Handle toggle folder for multiselect mode
+  const handleToggleFolderMultiselect = (folder) => {
+    if (pendingFolders.includes(folder)) {
+      setPendingFolders(pendingFolders.filter(f => f !== folder));
+    } else {
+      setPendingFolders([...pendingFolders, folder]);
+    }
+  };
+
+  // Save folder changes for multiselect mode
+  const handleSaveFoldersMultiselect = async () => {
+    if (selectedRecipes.size === 0) {
+      setShowMoveToFolder(false);
+      return;
+    }
+
+    const recipeIds = Array.from(selectedRecipes);
+    const customFolders = getCustomFolders();
+    let totalAdded = 0;
+    let totalRemoved = 0;
+
+    for (const recipeId of recipeIds) {
+      const recipe = recipes.find(r => r.id === recipeId);
+      if (!recipe) continue;
+
+      const currentFolders = (recipe.folders || [recipe.folder || 'All Recipes'])
+        .filter(f => customFolders.includes(f));
+
+      // Find folders to add and remove
+      const foldersToAdd = pendingFolders.filter(f => !currentFolders.includes(f));
+      const foldersToRemove = currentFolders.filter(f => !pendingFolders.includes(f));
+
+      for (const folder of foldersToAdd) {
+        await addToFolder(recipeId, folder, true);
+        totalAdded++;
+      }
+      for (const folder of foldersToRemove) {
+        await removeFromFolder(recipeId, folder, true);
+        totalRemoved++;
+      }
+    }
+
+    setShowMoveToFolder(false);
+    exitMultiselectMode();
+
+    if (totalAdded > 0 || totalRemoved > 0) {
+      Alert.alert('Cookbooks Updated',
+        `${selectedRecipes.size} recipe${selectedRecipes.size > 1 ? 's' : ''} updated`);
+    }
+  };
+
+  // Open folder modal for multiselect
+  const openFolderModalMultiselect = () => {
+    // For multiselect, start with folders that ALL selected recipes have in common
+    const customFolders = getCustomFolders();
+    const selectedRecipesList = recipes.filter(r => selectedRecipes.has(r.id));
+
+    if (selectedRecipesList.length === 0) {
+      setPendingFolders([]);
+    } else {
+      // Find common folders across all selected recipes
+      const firstRecipeFolders = (selectedRecipesList[0].folders || [selectedRecipesList[0].folder || 'All Recipes'])
+        .filter(f => customFolders.includes(f));
+
+      const commonFolders = firstRecipeFolders.filter(folder =>
+        selectedRecipesList.every(recipe => {
+          const recipeFolders = recipe.folders || [recipe.folder || 'All Recipes'];
+          return recipeFolders.includes(folder);
+        })
+      );
+
+      setPendingFolders(commonFolders);
+    }
+    setShowMoveToFolder(true);
   };
 
   // Base64 encode helper (handles Unicode properly)
@@ -2825,32 +2901,32 @@ export const HomeScreen = ({ user }) => {
           <View style={styles.modalOverlay}>
             <View style={styles.addFolderModal}>
               <Text style={styles.addFolderTitle}>
-                {`Move ${selectedRecipes.size} Recipe${selectedRecipes.size > 1 ? 's' : ''} to Cookbook`}
+                {`Add ${selectedRecipes.size} Recipe${selectedRecipes.size > 1 ? 's' : ''} to Cookbooks`}
               </Text>
-              {/* Option to remove from cookbook - only show if any selected recipe is in a folder */}
-              {recipes.some(r => selectedRecipes.has(r.id) && r.folder && r.folder !== 'All Recipes') && (
-                <TouchableOpacity
-                  style={[styles.folderItem, styles.removeFromFolderItem]}
-                  onPress={() => handleMoveToFolder('All Recipes')}
-                >
-                  <Text style={styles.removeFromFolderText}>Remove from Cookbook</Text>
-                </TouchableOpacity>
-              )}
-              {getCustomFolders().map(folder => (
-                <TouchableOpacity
-                  key={folder}
-                  style={styles.folderItem}
-                  onPress={() => handleMoveToFolder(folder)}
-                >
-                  <Text style={styles.folderItemText}>{folder}</Text>
-                </TouchableOpacity>
-              ))}
+              <Text style={{ color: colors.text + '99', marginBottom: 12, fontSize: 13 }}>
+                Recipes can be in multiple cookbooks
+              </Text>
+              {getCustomFolders().map(folder => {
+                const isInFolder = pendingFolders.includes(folder);
+                return (
+                  <TouchableOpacity
+                    key={folder}
+                    style={[styles.folderItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                    onPress={() => handleToggleFolderMultiselect(folder)}
+                  >
+                    <Text style={styles.folderItemText}>{folder}</Text>
+                    <View style={[styles.folderCheckbox, isInFolder && styles.folderCheckboxChecked]}>
+                      {isInFolder && <Text style={styles.folderCheckmark}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
               <View style={styles.addFolderButtons}>
                 <TouchableOpacity
                   style={[styles.addFolderButton, styles.cancelButton]}
-                  onPress={() => setShowMoveToFolder(false)}
+                  onPress={handleSaveFoldersMultiselect}
                 >
-                  <Text style={styles.cancelButtonText}>Close</Text>
+                  <Text style={styles.cancelButtonText}>Done</Text>
                 </TouchableOpacity>
               </View>
             </View>
