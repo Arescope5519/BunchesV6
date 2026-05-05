@@ -2205,6 +2205,12 @@ export const HomeScreen = ({ user }) => {
           onChangeUsername={changeUsername}
           checkUsernameAvailable={checkUsernameAvailable}
           onRefresh={refreshSocialData}
+          currentUserId={user?.uid}
+          onRecipePress={(recipe) => {
+            setCurrentScreen('recipes');
+            // TODO: Open recipe detail for shared recipes
+            console.log('View recipe:', recipe.title);
+          }}
         />
       )}
 

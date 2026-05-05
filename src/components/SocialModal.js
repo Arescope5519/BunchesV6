@@ -17,6 +17,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 import { UserAvatar } from './UserAvatar';
+import UserProfile from './UserProfile';
 
 export const SocialModal = ({
   visible,
@@ -37,9 +38,12 @@ export const SocialModal = ({
   onChangeUsername,
   checkUsernameAvailable,
   onRefresh,
+  currentUserId,
+  onRecipePress,
 }) => {
   const [activeTab, setActiveTab] = useState('friends');
   const [refreshing, setRefreshing] = useState(false);
+  const [viewingProfileId, setViewingProfileId] = useState(null);
 
   // Refresh data when modal opens
   useEffect(() => {
@@ -262,31 +266,32 @@ export const SocialModal = ({
             </TouchableOpacity>
           </View>
           {friends.map(friend => (
-            <View key={friend.id} style={styles.listItem}>
+            <TouchableOpacity
+              key={friend.id}
+              style={styles.listItem}
+              onPress={() => setViewingProfileId(friend.id)}
+              onLongPress={() => {
+                Alert.alert(
+                  'Remove Friend',
+                  `Remove @${friend.username} from friends?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Remove',
+                      style: 'destructive',
+                      onPress: () => onRemoveFriend(friend.id),
+                    },
+                  ]
+                );
+              }}
+            >
               <UserAvatar username={friend.username} size={36} style={styles.avatar} />
               <View style={styles.userInfo}>
                 <Text style={styles.usernameText}>@{friend.username}</Text>
+                <Text style={styles.tapToViewText}>Tap to view profile</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    'Remove Friend',
-                    `Remove @${friend.username} from friends?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Remove',
-                        style: 'destructive',
-                        onPress: () => onRemoveFriend(friend.id),
-                      },
-                    ]
-                  );
-                }}
-                style={styles.removeButton}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
+              <Text style={styles.viewProfileArrow}>{'>'}</Text>
+            </TouchableOpacity>
           ))}
         </View>
       )}
@@ -756,6 +761,18 @@ export const SocialModal = ({
         {activeTab === 'friends' && renderFriendsTab()}
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'inbox' && renderInboxTab()}
+
+        {/* User Profile Modal */}
+        <UserProfile
+          visible={!!viewingProfileId}
+          onClose={() => setViewingProfileId(null)}
+          targetUserId={viewingProfileId}
+          currentUserId={currentUserId}
+          onRecipePress={(recipe) => {
+            setViewingProfileId(null);
+            onRecipePress?.(recipe);
+          }}
+        />
     </View>
   );
 };
@@ -887,6 +904,16 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: colors.error || '#f44336',
     fontSize: 13,
+  },
+  tapToViewText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  viewProfileArrow: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    marginLeft: 8,
   },
   addButton: {
     backgroundColor: colors.primary,

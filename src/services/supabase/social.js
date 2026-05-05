@@ -639,6 +639,210 @@ export const getNotificationCounts = async (userId) => {
   }
 };
 
+/**
+ * Check if current user can view another user's profile
+ * Returns true if: profile is public OR users are friends
+ */
+export const canViewProfile = async (viewerId, targetUserId) => {
+  try {
+    // Get target user's profile
+    const { data: targetProfile, error } = await supabase
+      .from('user_profiles')
+      .select('is_public, friends')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (error) return false;
+
+    // Public profile - anyone can view
+    if (targetProfile.is_public) return true;
+
+    // Check if viewer is a friend
+    const friends = targetProfile.friends || [];
+    return friends.includes(viewerId);
+  } catch (error) {
+    console.error('Error checking profile access:', error);
+    return false;
+  }
+};
+
+/**
+ * Get another user's public profile data
+ */
+export const getPublicProfile = async (targetUserId, viewerId) => {
+  try {
+    // First check if viewer can access this profile
+    const canView = await canViewProfile(viewerId, targetUserId);
+
+    // Get basic profile info
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select('user_id, username, user_code, is_public, friends, friend_count')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (error) throw error;
+
+    const isFriend = (profile.friends || []).includes(viewerId);
+
+    return {
+      id: profile.user_id,
+      username: profile.username,
+      userCode: profile.user_code,
+      isPublic: profile.is_public || false,
+      friendCount: profile.friend_count || 0,
+      isFriend,
+      canView,
+    };
+  } catch (error) {
+    console.error('Error getting public profile:', error);
+    return null;
+  }
+};
+
+/**
+ * Get another user's public folders
+ */
+export const getUserPublicFolders = async (targetUserId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('folders')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    const folders = data?.folders || [];
+    // Filter to only public folders
+    return folders.filter(f => {
+      if (typeof f === 'string') return false; // Old format - assume private
+      return f.isPrivate === false;
+    }).map(f => typeof f === 'string' ? { name: f, isPrivate: false } : f);
+  } catch (error) {
+    console.error('Error getting user public folders:', error);
+    return [];
+  }
+};
+
+/**
+ * Get another user's favorite recipes (public ones only)
+ */
+export const getUserFavorites = async (targetUserId) => {
+  try {
+    // Try V2 tables first
+    const { data: v2Data, error: v2Error } = await supabase
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        is_favorite,
+        folder,
+        folders,
+        global_recipes (
+          id,
+          title,
+          image_url,
+          source_url
+        )
+      `)
+      .eq('user_id', targetUserId)
+      .eq('is_favorite', true)
+      .is('deleted_at', null)
+      .limit(20);
+
+    if (!v2Error && v2Data && v2Data.length > 0) {
+      return v2Data.map(row => ({
+        id: row.id,
+        title: row.global_recipes?.title || 'Untitled',
+        imageUrl: row.global_recipes?.image_url || null,
+        sourceUrl: row.global_recipes?.source_url || null,
+      }));
+    }
+
+    // Fallback to old table
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id, title, image_url, source_url')
+      .eq('user_id', targetUserId)
+      .eq('is_favorite', true)
+      .is('deleted_at', null)
+      .limit(20);
+
+    if (error) throw error;
+
+    return (data || []).map(row => ({
+      id: row.id,
+      title: row.title || 'Untitled',
+      imageUrl: row.image_url || null,
+      sourceUrl: row.source_url || null,
+    }));
+  } catch (error) {
+    console.error('Error getting user favorites:', error);
+    return [];
+  }
+};
+
+/**
+ * Get recipes from a user's public folder
+ */
+export const getUserFolderRecipes = async (targetUserId, folderName) => {
+  try {
+    // Try V2 tables first
+    const { data: v2Data, error: v2Error } = await supabase
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        folder,
+        folders,
+        global_recipes (
+          id,
+          title,
+          image_url,
+          source_url,
+          ingredients,
+          instructions
+        )
+      `)
+      .eq('user_id', targetUserId)
+      .is('deleted_at', null);
+
+    if (!v2Error && v2Data) {
+      // Filter by folder (check folders array)
+      const filtered = v2Data.filter(row => {
+        const recipeFolders = row.folders || [row.folder || 'All Recipes'];
+        return recipeFolders.includes(folderName);
+      });
+
+      return filtered.map(row => ({
+        id: row.id,
+        title: row.global_recipes?.title || 'Untitled',
+        imageUrl: row.global_recipes?.image_url || null,
+        sourceUrl: row.global_recipes?.source_url || null,
+      }));
+    }
+
+    // Fallback to old table
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id, title, image_url, source_url')
+      .eq('user_id', targetUserId)
+      .eq('folder', folderName)
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    return (data || []).map(row => ({
+      id: row.id,
+      title: row.title || 'Untitled',
+      imageUrl: row.image_url || null,
+      sourceUrl: row.source_url || null,
+    }));
+  } catch (error) {
+    console.error('Error getting folder recipes:', error);
+    return [];
+  }
+};
+
 export default {
   isUsernameAvailable,
   setupUserProfile,
@@ -657,4 +861,9 @@ export default {
   updatePrivacySettings,
   changeUsername,
   getNotificationCounts,
+  canViewProfile,
+  getPublicProfile,
+  getUserPublicFolders,
+  getUserFavorites,
+  getUserFolderRecipes,
 };
