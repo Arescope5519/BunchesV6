@@ -1,6 +1,10 @@
 /**
  * UserProfile Component
- * Displays another user's profile with favorites and public folders
+ * Displays another user's profile with new layout:
+ * - Top: Avatar (left) + Username (right) + Stats
+ * - Featured recipes section
+ * - Public recipes button
+ * - Public folders button
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,20 +25,28 @@ import {
   getUserPublicFolders,
   getUserFavorites,
   getUserFolderRecipes,
+  getUserFeaturedRecipes,
+  getUserPublicRecipes,
+  isFollowing as checkIsFollowing,
+  followUser,
+  unfollowUser,
 } from '../services/supabase/social';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const RECIPE_CARD_WIDTH = 140;
-const RECIPE_CARD_HEIGHT = 180;
 
 const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePress }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
-  const [favorites, setFavorites] = useState([]);
+  const [featuredRecipes, setFeaturedRecipes] = useState([]);
   const [publicFolders, setPublicFolders] = useState([]);
+  const [currentView, setCurrentView] = useState('main'); // 'main', 'recipes', 'folders', 'folder-detail'
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [folderRecipes, setFolderRecipes] = useState([]);
-  const [loadingFolderRecipes, setLoadingFolderRecipes] = useState(false);
+  const [publicRecipes, setPublicRecipes] = useState([]);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
     if (visible && targetUserId && currentUserId) {
@@ -42,18 +54,31 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
     }
   }, [visible, targetUserId, currentUserId]);
 
+  useEffect(() => {
+    if (!visible) {
+      // Reset state when modal closes
+      setCurrentView('main');
+      setSelectedFolder(null);
+      setProfile(null);
+    }
+  }, [visible]);
+
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const profileData = await getPublicProfile(targetUserId, currentUserId);
+      const [profileData, following] = await Promise.all([
+        getPublicProfile(targetUserId, currentUserId),
+        checkIsFollowing(currentUserId, targetUserId),
+      ]);
       setProfile(profileData);
+      setIsFollowing(following);
 
       if (profileData?.canView) {
-        const [favs, folders] = await Promise.all([
-          getUserFavorites(targetUserId),
+        const [featured, folders] = await Promise.all([
+          getUserFeaturedRecipes(targetUserId),
           getUserPublicFolders(targetUserId),
         ]);
-        setFavorites(favs);
+        setFeaturedRecipes(featured);
         setPublicFolders(folders);
       }
     } catch (error) {
@@ -63,9 +88,49 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
     }
   };
 
+  const handleFollowToggle = async () => {
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await unfollowUser(currentUserId, targetUserId);
+        setIsFollowing(false);
+        setProfile(prev => ({
+          ...prev,
+          followerCount: Math.max((prev.followerCount || 1) - 1, 0),
+        }));
+      } else {
+        await followUser(currentUserId, targetUserId);
+        setIsFollowing(true);
+        setProfile(prev => ({
+          ...prev,
+          followerCount: (prev.followerCount || 0) + 1,
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const loadPublicRecipes = async () => {
+    setCurrentView('recipes');
+    setLoadingContent(true);
+    try {
+      const recipes = await getUserPublicRecipes(targetUserId);
+      setPublicRecipes(recipes);
+    } catch (error) {
+      console.error('Error loading public recipes:', error);
+      setPublicRecipes([]);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
+
   const loadFolderRecipes = async (folderName) => {
     setSelectedFolder(folderName);
-    setLoadingFolderRecipes(true);
+    setCurrentView('folder-detail');
+    setLoadingContent(true);
     try {
       const recipes = await getUserFolderRecipes(targetUserId, folderName);
       setFolderRecipes(recipes);
@@ -73,81 +138,140 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
       console.error('Error loading folder recipes:', error);
       setFolderRecipes([]);
     } finally {
-      setLoadingFolderRecipes(false);
+      setLoadingContent(false);
     }
   };
 
   const handleClose = () => {
-    setProfile(null);
-    setFavorites([]);
-    setPublicFolders([]);
+    setCurrentView('main');
     setSelectedFolder(null);
-    setFolderRecipes([]);
     onClose();
   };
 
-  const renderRecipeCard = (recipe) => (
+  const handleBack = () => {
+    if (currentView === 'folder-detail') {
+      setCurrentView('folders');
+      setSelectedFolder(null);
+    } else {
+      setCurrentView('main');
+    }
+  };
+
+  const renderRecipeCard = (recipe, isSmall = false) => (
     <TouchableOpacity
       key={recipe.id}
-      style={styles.recipeCard}
+      style={[styles.recipeCard, isSmall && styles.recipeCardSmall]}
       onPress={() => onRecipePress?.(recipe)}
     >
       {recipe.imageUrl ? (
-        <Image source={{ uri: recipe.imageUrl }} style={styles.recipeImage} />
+        <Image
+          source={{ uri: recipe.imageUrl }}
+          style={[styles.recipeImage, isSmall && styles.recipeImageSmall]}
+        />
       ) : (
-        <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
+        <View style={[styles.recipeImage, styles.recipeImagePlaceholder, isSmall && styles.recipeImageSmall]}>
           <Text style={styles.placeholderText}>No Image</Text>
         </View>
       )}
-      <Text style={styles.recipeTitle} numberOfLines={2}>
+      <Text style={[styles.recipeCardTitle, isSmall && styles.recipeCardTitleSmall]} numberOfLines={2}>
         {recipe.title}
       </Text>
     </TouchableOpacity>
   );
 
-  const renderFolderContent = () => {
-    if (!selectedFolder) return null;
+  const renderRecipeList = (recipes, emptyMessage) => {
+    if (loadingContent) {
+      return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
+    }
+
+    if (recipes.length === 0) {
+      return <Text style={styles.emptyText}>{emptyMessage}</Text>;
+    }
 
     return (
-      <View style={styles.folderContent}>
-        <View style={styles.folderContentHeader}>
-          <TouchableOpacity onPress={() => setSelectedFolder(null)} style={styles.backButton}>
-            <Text style={styles.backButtonText}>{'<'} Back</Text>
+      <ScrollView style={styles.recipeList}>
+        {recipes.map(recipe => (
+          <TouchableOpacity
+            key={recipe.id}
+            style={styles.recipeListItem}
+            onPress={() => onRecipePress?.(recipe)}
+          >
+            {recipe.imageUrl ? (
+              <Image source={{ uri: recipe.imageUrl }} style={styles.recipeListImage} />
+            ) : (
+              <View style={[styles.recipeListImage, styles.recipeImagePlaceholder]}>
+                <Text style={styles.placeholderTextSmall}>No Image</Text>
+              </View>
+            )}
+            <View style={styles.recipeListInfo}>
+              <Text style={styles.recipeListTitle} numberOfLines={2}>{recipe.title}</Text>
+              {recipe.isCustom && (
+                <Text style={styles.customBadge}>Original Recipe</Text>
+              )}
+            </View>
           </TouchableOpacity>
-          <Text style={styles.folderContentTitle}>{selectedFolder}</Text>
-        </View>
-
-        {loadingFolderRecipes ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-        ) : folderRecipes.length === 0 ? (
-          <Text style={styles.emptyText}>No recipes in this cookbook</Text>
-        ) : (
-          <ScrollView style={styles.folderRecipesList}>
-            {folderRecipes.map(recipe => (
-              <TouchableOpacity
-                key={recipe.id}
-                style={styles.folderRecipeItem}
-                onPress={() => onRecipePress?.(recipe)}
-              >
-                {recipe.imageUrl ? (
-                  <Image source={{ uri: recipe.imageUrl }} style={styles.folderRecipeImage} />
-                ) : (
-                  <View style={[styles.folderRecipeImage, styles.recipeImagePlaceholder]}>
-                    <Text style={styles.placeholderTextSmall}>No Image</Text>
-                  </View>
-                )}
-                <Text style={styles.folderRecipeTitle} numberOfLines={2}>
-                  {recipe.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-      </View>
+        ))}
+      </ScrollView>
     );
   };
 
-  const renderMainContent = () => {
+  const renderPublicRecipesView = () => (
+    <View style={styles.subView}>
+      <View style={styles.subViewHeader}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>{'<'} Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.subViewTitle}>Public Recipes</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      {renderRecipeList(publicRecipes, 'No public recipes yet')}
+    </View>
+  );
+
+  const renderFoldersView = () => (
+    <View style={styles.subView}>
+      <View style={styles.subViewHeader}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>{'<'} Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.subViewTitle}>Public Cookbooks</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {publicFolders.length === 0 ? (
+        <Text style={styles.emptyText}>No public cookbooks</Text>
+      ) : (
+        <ScrollView style={styles.foldersList}>
+          {publicFolders.map(folder => (
+            <TouchableOpacity
+              key={folder.name}
+              style={styles.folderListItem}
+              onPress={() => loadFolderRecipes(folder.name)}
+            >
+              <Text style={styles.folderIcon}>📖</Text>
+              <Text style={styles.folderListName}>{folder.name}</Text>
+              <Text style={styles.folderArrow}>{'>'}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+
+  const renderFolderDetailView = () => (
+    <View style={styles.subView}>
+      <View style={styles.subViewHeader}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>{'<'} Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.subViewTitle}>{selectedFolder}</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      {renderRecipeList(folderRecipes, 'No recipes in this cookbook')}
+    </View>
+  );
+
+  const renderMainView = () => {
     if (!profile?.canView) {
       return (
         <View style={styles.privateProfileContainer}>
@@ -162,11 +286,11 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
 
     return (
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Favorites Section */}
+        {/* Featured Recipes Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Favorites</Text>
-          {favorites.length === 0 ? (
-            <Text style={styles.emptyText}>No favorite recipes</Text>
+          <Text style={styles.sectionTitle}>Featured Recipes</Text>
+          {featuredRecipes.length === 0 ? (
+            <Text style={styles.emptyText}>No featured recipes</Text>
           ) : (
             <ScrollView
               horizontal
@@ -174,35 +298,52 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
               style={styles.horizontalScroll}
               contentContainerStyle={styles.horizontalScrollContent}
             >
-              {favorites.map(recipe => renderRecipeCard(recipe))}
+              {featuredRecipes.map(recipe => renderRecipeCard(recipe))}
             </ScrollView>
           )}
         </View>
 
-        {/* Public Cookbooks Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Public Cookbooks</Text>
-          {publicFolders.length === 0 ? (
-            <Text style={styles.emptyText}>No public cookbooks</Text>
-          ) : (
-            <View style={styles.foldersGrid}>
-              {publicFolders.map(folder => (
-                <TouchableOpacity
-                  key={folder.name}
-                  style={styles.folderCard}
-                  onPress={() => loadFolderRecipes(folder.name)}
-                >
-                  <Text style={styles.folderIcon}>📖</Text>
-                  <Text style={styles.folderName} numberOfLines={1}>
-                    {folder.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={loadPublicRecipes}
+          >
+            <Text style={styles.actionButtonIcon}>📝</Text>
+            <View style={styles.actionButtonTextContainer}>
+              <Text style={styles.actionButtonTitle}>Public Recipes</Text>
+              <Text style={styles.actionButtonSubtitle}>View all shared recipes</Text>
             </View>
-          )}
+            <Text style={styles.actionButtonArrow}>{'>'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setCurrentView('folders')}
+          >
+            <Text style={styles.actionButtonIcon}>📚</Text>
+            <View style={styles.actionButtonTextContainer}>
+              <Text style={styles.actionButtonTitle}>Public Cookbooks</Text>
+              <Text style={styles.actionButtonSubtitle}>Browse organized collections</Text>
+            </View>
+            <Text style={styles.actionButtonArrow}>{'>'}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     );
+  };
+
+  const renderContent = () => {
+    switch (currentView) {
+      case 'recipes':
+        return renderPublicRecipesView();
+      case 'folders':
+        return renderFoldersView();
+      case 'folder-detail':
+        return renderFolderDetailView();
+      default:
+        return renderMainView();
+    }
   };
 
   return (
@@ -219,7 +360,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
-          <View style={styles.headerRight} />
+          <View style={styles.headerSpacer} />
         </View>
 
         {loading ? (
@@ -230,31 +371,68 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
           </View>
         ) : (
           <>
-            {/* Profile Info */}
-            <View style={styles.profileInfo}>
+            {/* Profile Header - Avatar Left, Info Right */}
+            <View style={styles.profileHeader}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
                   {profile.username?.charAt(0).toUpperCase() || '?'}
                 </Text>
               </View>
-              <Text style={styles.username}>@{profile.username}</Text>
-              <View style={styles.badges}>
-                {profile.isPublic && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Public</Text>
-                  </View>
-                )}
-                {profile.isFriend && (
-                  <View style={[styles.badge, styles.friendBadge]}>
-                    <Text style={styles.badgeText}>Friend</Text>
-                  </View>
-                )}
+              <View style={styles.profileHeaderInfo}>
+                <Text style={styles.username}>@{profile.username}</Text>
+                <View style={styles.badges}>
+                  {profile.isPublic && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>Public</Text>
+                    </View>
+                  )}
+                  {profile.isFriend && (
+                    <View style={[styles.badge, styles.friendBadge]}>
+                      <Text style={styles.badgeText}>Friend</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-              <Text style={styles.friendCount}>{profile.friendCount} friends</Text>
+              {/* Follow Button */}
+              {currentUserId !== targetUserId && (
+                <TouchableOpacity
+                  style={[
+                    styles.followButton,
+                    isFollowing && styles.followingButton,
+                  ]}
+                  onPress={handleFollowToggle}
+                  disabled={followLoading}
+                >
+                  <Text style={[
+                    styles.followButtonText,
+                    isFollowing && styles.followingButtonText,
+                  ]}>
+                    {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Main Content or Folder Content */}
-            {selectedFolder ? renderFolderContent() : renderMainContent()}
+            {/* Stats Row */}
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{profile.followerCount || 0}</Text>
+                <Text style={styles.statLabel}>Followers</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{profile.followingCount || 0}</Text>
+                <Text style={styles.statLabel}>Following</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{profile.recipeCount || 0}</Text>
+                <Text style={styles.statLabel}>Recipes</Text>
+              </View>
+            </View>
+
+            {/* Main Content */}
+            {renderContent()}
           </>
         )}
       </View>
@@ -284,12 +462,13 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
+    minWidth: 60,
   },
   closeButtonText: {
     fontSize: 16,
     color: colors.primary,
   },
-  headerRight: {
+  headerSpacer: {
     width: 60,
   },
   loader: {
@@ -304,56 +483,109 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
-  profileInfo: {
+
+  // Profile Header - Horizontal layout
+  profileHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: colors.white,
   },
+  profileHeaderInfo: {
+    marginLeft: 16,
+    flex: 1,
+  },
   username: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   badges: {
     flexDirection: 'row',
-    marginBottom: 8,
   },
   badge: {
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginHorizontal: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 6,
   },
   friendBadge: {
     backgroundColor: colors.success + '20',
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.primary,
     fontWeight: '500',
   },
-  friendCount: {
-    fontSize: 14,
-    color: colors.textSecondary,
+
+  // Follow Button
+  followButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
+  followingButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  followButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  followingButtonText: {
+    color: colors.text,
+  },
+
+  // Stats Row
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 16,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.border,
+  },
+
+  // Content
   content: {
     flex: 1,
   },
@@ -372,6 +604,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingVertical: 20,
+    paddingHorizontal: 16,
   },
   horizontalScroll: {
     paddingLeft: 16,
@@ -379,15 +612,24 @@ const styles = StyleSheet.create({
   horizontalScrollContent: {
     paddingRight: 16,
   },
+
+  // Recipe Cards
   recipeCard: {
     width: RECIPE_CARD_WIDTH,
     marginRight: 12,
+  },
+  recipeCardSmall: {
+    width: 100,
   },
   recipeImage: {
     width: RECIPE_CARD_WIDTH,
     height: RECIPE_CARD_WIDTH,
     borderRadius: 12,
     backgroundColor: colors.border,
+  },
+  recipeImageSmall: {
+    width: 100,
+    height: 100,
   },
   recipeImagePlaceholder: {
     justifyContent: 'center',
@@ -401,37 +643,54 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
   },
-  recipeTitle: {
+  recipeCardTitle: {
     fontSize: 14,
     fontWeight: '500',
     color: colors.text,
     marginTop: 8,
   },
-  foldersGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 12,
+  recipeCardTitleSmall: {
+    fontSize: 12,
   },
-  folderCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
-    margin: 4,
-    padding: 16,
+
+  // Action Buttons
+  actionButtons: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.white,
     borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center',
   },
-  folderIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+  actionButtonIcon: {
+    fontSize: 28,
+    marginRight: 14,
   },
-  folderName: {
-    fontSize: 14,
-    fontWeight: '500',
+  actionButtonTextContainer: {
+    flex: 1,
+  },
+  actionButtonTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.text,
-    textAlign: 'center',
   },
+  actionButtonSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  actionButtonArrow: {
+    fontSize: 20,
+    color: colors.textSecondary,
+  },
+
+  // Private Profile
   privateProfileContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -454,10 +713,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  folderContent: {
+
+  // Sub Views
+  subView: {
     flex: 1,
   },
-  folderContentHeader: {
+  subViewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -468,43 +729,84 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 4,
-    marginRight: 12,
+    minWidth: 60,
   },
   backButtonText: {
     fontSize: 16,
     color: colors.primary,
   },
-  folderContentTitle: {
+  subViewTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
+    textAlign: 'center',
   },
-  folderRecipesList: {
+
+  // Recipe List (vertical)
+  recipeList: {
     flex: 1,
     padding: 16,
   },
-  folderRecipeItem: {
+  recipeListItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
     borderRadius: 12,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  folderRecipeImage: {
+  recipeListImage: {
     width: 60,
     height: 60,
     borderRadius: 8,
     backgroundColor: colors.border,
   },
-  folderRecipeTitle: {
+  recipeListInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  recipeListTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  customBadge: {
+    fontSize: 11,
+    color: colors.primary,
+    marginTop: 4,
+  },
+
+  // Folders List
+  foldersList: {
+    flex: 1,
+    padding: 16,
+  },
+  folderListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  folderIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  folderListName: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
-    marginLeft: 12,
+  },
+  folderArrow: {
+    fontSize: 18,
+    color: colors.textSecondary,
   },
 });
 

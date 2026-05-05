@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import colors from '../constants/colors';
 import { UserAvatar } from './UserAvatar';
 import UserProfile from './UserProfile';
+import MyProfile from './MyProfile';
 
 export const SocialModal = ({
   visible,
@@ -40,10 +41,13 @@ export const SocialModal = ({
   onRefresh,
   currentUserId,
   onRecipePress,
+  recipes,
+  onProfileUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState('friends');
   const [refreshing, setRefreshing] = useState(false);
   const [viewingProfileId, setViewingProfileId] = useState(null);
+  const [showMyProfile, setShowMyProfile] = useState(false);
 
   // Refresh data when modal opens
   useEffect(() => {
@@ -725,7 +729,14 @@ export const SocialModal = ({
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Social</Text>
         {profile && (
-          <Text style={styles.myUsername}>@{profile.username}</Text>
+          <TouchableOpacity
+            style={styles.myProfileButton}
+            onPress={() => setShowMyProfile(true)}
+          >
+            <UserAvatar username={profile.username} size={28} />
+            <Text style={styles.myUsername}>@{profile.username}</Text>
+            <Text style={styles.editProfileHint}>Edit</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -773,6 +784,19 @@ export const SocialModal = ({
             onRecipePress?.(recipe);
           }}
         />
+
+        {/* My Profile Modal */}
+        <MyProfile
+          visible={showMyProfile}
+          onClose={() => setShowMyProfile(false)}
+          userId={currentUserId}
+          recipes={recipes || []}
+          profile={profile}
+          onProfileUpdated={() => {
+            onProfileUpdated?.();
+            onRefresh?.();
+          }}
+        />
     </View>
   );
 };
@@ -797,10 +821,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  myProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    gap: 8,
+  },
   myUsername: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  editProfileHint: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
   },
   tabs: {
     flexDirection: 'row',

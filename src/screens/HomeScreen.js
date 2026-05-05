@@ -2211,6 +2211,8 @@ export const HomeScreen = ({ user }) => {
             // TODO: Open recipe detail for shared recipes
             console.log('View recipe:', recipe.title);
           }}
+          recipes={recipes}
+          onProfileUpdated={refreshSocialData}
         />
       )}
 

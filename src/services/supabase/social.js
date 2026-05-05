@@ -677,7 +677,7 @@ export const getPublicProfile = async (targetUserId, viewerId) => {
     // Get basic profile info
     const { data: profile, error } = await supabase
       .from('user_profiles')
-      .select('user_id, username, user_code, is_public, friends, friend_count')
+      .select('user_id, username, user_code, is_public, friends, friend_count, follower_count, following_count, featured_recipes, bio, avatar_url')
       .eq('user_id', targetUserId)
       .single();
 
@@ -685,18 +685,174 @@ export const getPublicProfile = async (targetUserId, viewerId) => {
 
     const isFriend = (profile.friends || []).includes(viewerId);
 
+    // Get recipe count
+    let recipeCount = 0;
+    try {
+      const { count } = await supabase
+        .from('user_recipes_v2')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', targetUserId)
+        .is('deleted_at', null);
+      recipeCount = count || 0;
+    } catch (e) {
+      // Fallback to old table
+      const { count } = await supabase
+        .from('recipes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', targetUserId)
+        .is('deleted_at', null);
+      recipeCount = count || 0;
+    }
+
     return {
       id: profile.user_id,
       username: profile.username,
       userCode: profile.user_code,
       isPublic: profile.is_public || false,
       friendCount: profile.friend_count || 0,
+      followerCount: profile.follower_count || 0,
+      followingCount: profile.following_count || 0,
+      recipeCount,
+      featuredRecipeIds: profile.featured_recipes || [],
+      bio: profile.bio || '',
+      avatarUrl: profile.avatar_url || null,
       isFriend,
       canView,
     };
   } catch (error) {
     console.error('Error getting public profile:', error);
     return null;
+  }
+};
+
+/**
+ * Get another user's featured recipes
+ */
+export const getUserFeaturedRecipes = async (targetUserId) => {
+  try {
+    // Get featured recipe IDs from profile
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('featured_recipes')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (profileError || !profile?.featured_recipes?.length) {
+      return [];
+    }
+
+    const featuredIds = profile.featured_recipes;
+
+    // Try V2 tables first
+    const { data: v2Data, error: v2Error } = await supabase
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        local_recipe_data,
+        global_recipes (
+          id,
+          title,
+          image_url,
+          source_url
+        )
+      `)
+      .eq('user_id', targetUserId)
+      .in('id', featuredIds)
+      .is('deleted_at', null);
+
+    if (!v2Error && v2Data) {
+      return v2Data.map(row => ({
+        id: row.id,
+        title: row.global_recipes?.title || row.local_recipe_data?.title || 'Untitled',
+        imageUrl: row.global_recipes?.image_url || row.local_recipe_data?.image_url || null,
+        sourceUrl: row.global_recipes?.source_url || null,
+        isCustom: !row.global_recipes?.source_url,
+      }));
+    }
+
+    // Fallback to old table
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id, title, image_url, source_url')
+      .eq('user_id', targetUserId)
+      .in('id', featuredIds)
+      .is('deleted_at', null);
+
+    if (error) throw error;
+
+    return (data || []).map(row => ({
+      id: row.id,
+      title: row.title || 'Untitled',
+      imageUrl: row.image_url || null,
+      sourceUrl: row.source_url || null,
+      isCustom: !row.source_url,
+    }));
+  } catch (error) {
+    console.error('Error getting featured recipes:', error);
+    return [];
+  }
+};
+
+/**
+ * Get another user's public/custom recipes (not from external sources)
+ */
+export const getUserPublicRecipes = async (targetUserId) => {
+  try {
+    // Try V2 tables first - get recipes without external source (custom recipes)
+    const { data: v2Data, error: v2Error } = await supabase
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        local_recipe_data,
+        global_recipe_id,
+        global_recipes (
+          id,
+          title,
+          image_url,
+          source_url
+        )
+      `)
+      .eq('user_id', targetUserId)
+      .is('deleted_at', null)
+      .limit(50);
+
+    if (!v2Error && v2Data) {
+      // Filter to custom recipes (those with bunches:// URLs or no source URL)
+      return v2Data
+        .filter(row => {
+          const sourceUrl = row.global_recipes?.source_url;
+          return !sourceUrl || sourceUrl.startsWith('bunches://');
+        })
+        .map(row => ({
+          id: row.id,
+          title: row.global_recipes?.title || row.local_recipe_data?.title || 'Untitled',
+          imageUrl: row.global_recipes?.image_url || row.local_recipe_data?.image_url || null,
+          sourceUrl: row.global_recipes?.source_url || null,
+          isCustom: true,
+        }));
+    }
+
+    // Fallback to old table
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id, title, image_url, source_url')
+      .eq('user_id', targetUserId)
+      .is('deleted_at', null)
+      .or('source_url.is.null,source_url.like.bunches://*')
+      .limit(50);
+
+    if (error) throw error;
+
+    return (data || []).map(row => ({
+      id: row.id,
+      title: row.title || 'Untitled',
+      imageUrl: row.image_url || null,
+      sourceUrl: row.source_url || null,
+      isCustom: true,
+    }));
+  } catch (error) {
+    console.error('Error getting public recipes:', error);
+    return [];
   }
 };
 
@@ -843,6 +999,159 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
   }
 };
 
+/**
+ * Check if current user is following a target user
+ */
+export const isFollowing = async (currentUserId, targetUserId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_followers')
+      .select('id')
+      .eq('follower_id', currentUserId)
+      .eq('following_id', targetUserId)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      return false;
+    }
+    if (error) throw error;
+    return !!data;
+  } catch (error) {
+    console.error('Error checking follow status:', error);
+    return false;
+  }
+};
+
+/**
+ * Follow a user
+ */
+export const followUser = async (currentUserId, targetUserId) => {
+  try {
+    const { error } = await supabase
+      .from('user_followers')
+      .insert({
+        follower_id: currentUserId,
+        following_id: targetUserId,
+      });
+
+    if (error) {
+      if (error.code === '23505') {
+        return true; // Already following
+      }
+      throw error;
+    }
+
+    console.log(`✅ Now following user ${targetUserId}`);
+    return true;
+  } catch (error) {
+    console.error('Error following user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Unfollow a user
+ */
+export const unfollowUser = async (currentUserId, targetUserId) => {
+  try {
+    const { error } = await supabase
+      .from('user_followers')
+      .delete()
+      .eq('follower_id', currentUserId)
+      .eq('following_id', targetUserId);
+
+    if (error) throw error;
+
+    console.log(`✅ Unfollowed user ${targetUserId}`);
+    return true;
+  } catch (error) {
+    console.error('Error unfollowing user:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get followers list for a user
+ */
+export const getUserFollowers = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_followers')
+      .select(`
+        follower_id,
+        created_at
+      `)
+      .eq('following_id', userId);
+
+    if (error) throw error;
+
+    // Get usernames for followers
+    const followerIds = data.map(f => f.follower_id);
+    if (followerIds.length === 0) return [];
+
+    const { data: profiles, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('user_id, username, avatar_url')
+      .in('user_id', followerIds);
+
+    if (profileError) throw profileError;
+
+    const profileMap = {};
+    profiles.forEach(p => { profileMap[p.user_id] = p; });
+
+    return data.map(f => ({
+      id: f.follower_id,
+      username: profileMap[f.follower_id]?.username || 'Unknown',
+      avatarUrl: profileMap[f.follower_id]?.avatar_url,
+      followedAt: f.created_at,
+    }));
+  } catch (error) {
+    console.error('Error getting followers:', error);
+    return [];
+  }
+};
+
+/**
+ * Get following list for a user
+ */
+export const getUserFollowing = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_followers')
+      .select(`
+        following_id,
+        created_at
+      `)
+      .eq('follower_id', userId);
+
+    if (error) throw error;
+
+    // Get usernames for following
+    const followingIds = data.map(f => f.following_id);
+    if (followingIds.length === 0) return [];
+
+    const { data: profiles, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('user_id, username, avatar_url')
+      .in('user_id', followingIds);
+
+    if (profileError) throw profileError;
+
+    const profileMap = {};
+    profiles.forEach(p => { profileMap[p.user_id] = p; });
+
+    return data.map(f => ({
+      id: f.following_id,
+      username: profileMap[f.following_id]?.username || 'Unknown',
+      avatarUrl: profileMap[f.following_id]?.avatar_url,
+      followedAt: f.created_at,
+    }));
+  } catch (error) {
+    console.error('Error getting following:', error);
+    return [];
+  }
+};
+
 export default {
   isUsernameAvailable,
   setupUserProfile,
@@ -863,7 +1172,14 @@ export default {
   getNotificationCounts,
   canViewProfile,
   getPublicProfile,
+  getUserFeaturedRecipes,
+  getUserPublicRecipes,
   getUserPublicFolders,
   getUserFavorites,
   getUserFolderRecipes,
+  isFollowing,
+  followUser,
+  unfollowUser,
+  getUserFollowers,
+  getUserFollowing,
 };
