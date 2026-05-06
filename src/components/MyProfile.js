@@ -180,6 +180,44 @@ const MyProfile = ({
     </View>
   );
 
+  const renderMyRecipesView = () => (
+    <View style={styles.subView}>
+      <View style={styles.subViewHeader}>
+        <TouchableOpacity onPress={() => setCurrentView('main')} style={styles.backButton}>
+          <Text style={styles.backButtonText}>{'<'} Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.subViewTitle}>My Recipes</Text>
+        <View style={{ width: 50 }} />
+      </View>
+
+      <ScrollView style={styles.recipeSelectList}>
+        {customRecipes.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No custom recipes yet. Create your own recipes to share them!
+          </Text>
+        ) : (
+          customRecipes.map(recipe => (
+            <View key={recipe.id} style={styles.recipeListItem}>
+              {recipe.image_url || recipe.imageUrl ? (
+                <Image
+                  source={{ uri: recipe.image_url || recipe.imageUrl }}
+                  style={styles.recipeSelectImage}
+                />
+              ) : (
+                <View style={[styles.recipeSelectImage, styles.imagePlaceholder]}>
+                  <Text style={styles.placeholderText}>No Image</Text>
+                </View>
+              )}
+              <Text style={styles.recipeSelectTitle} numberOfLines={2}>
+                {recipe.title}
+              </Text>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+
   const renderMainView = () => (
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       {/* Profile Header */}
@@ -246,7 +284,10 @@ const MyProfile = ({
           <Text style={styles.actionArrow}>{'>'}</Text>
         </TouchableOpacity>
 
-        <View style={styles.actionItem}>
+        <TouchableOpacity
+          style={styles.actionItem}
+          onPress={() => setCurrentView('my-recipes')}
+        >
           <Text style={styles.actionIcon}>📝</Text>
           <View style={styles.actionInfo}>
             <Text style={styles.actionTitle}>My Recipes</Text>
@@ -255,7 +296,7 @@ const MyProfile = ({
             </Text>
           </View>
           <Text style={styles.actionArrow}>{'>'}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Preview Section */}
@@ -291,6 +332,8 @@ const MyProfile = ({
           <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
         ) : currentView === 'featured' ? (
           renderFeaturedEditor()
+        ) : currentView === 'my-recipes' ? (
+          renderMyRecipesView()
         ) : (
           renderMainView()
         )}
@@ -607,6 +650,16 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  recipeListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   emptyText: {
     fontSize: 14,

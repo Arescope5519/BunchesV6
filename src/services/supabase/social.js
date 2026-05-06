@@ -743,7 +743,7 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
 
     const featuredIds = profile.featured_recipes;
 
-    // Try V2 tables first
+    // Try V2 tables first - get all user recipes and filter by featured IDs
     const { data: v2Data, error: v2Error } = await supabase
       .from('user_recipes_v2')
       .select(`
@@ -757,14 +757,19 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
         )
       `)
       .eq('user_id', targetUserId)
-      .in('id', featuredIds)
       .is('deleted_at', null);
 
     if (!v2Error && v2Data) {
-      return v2Data.map(row => ({
-        id: row.id,
-        title: row.global_recipes?.title || row.local_recipe_data?.title || 'Untitled',
-        imageUrl: row.global_recipes?.image_url || row.local_recipe_data?.image_url || null,
+      // Match by either cloud ID or local_recipe_data.id
+      const matched = v2Data.filter(row => {
+        const localId = row.local_recipe_data?.id;
+        return featuredIds.includes(row.id) || featuredIds.includes(localId);
+      });
+
+      return matched.map(row => ({
+        id: row.local_recipe_data?.id || row.id,
+        title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
+        imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
         sourceUrl: row.global_recipes?.source_url || null,
         isCustom: !row.global_recipes?.source_url,
       }));
@@ -773,15 +778,20 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
     // Fallback to old table
     const { data, error } = await supabase
       .from('recipes')
-      .select('id, title, image_url, source_url')
+      .select('id, title, image_url, source_url, recipe_data')
       .eq('user_id', targetUserId)
-      .in('id', featuredIds)
       .is('deleted_at', null);
 
     if (error) throw error;
 
-    return (data || []).map(row => ({
-      id: row.id,
+    // Match by either cloud ID or recipe_data.id
+    const matched = (data || []).filter(row => {
+      const localId = row.recipe_data?.id;
+      return featuredIds.includes(row.id) || featuredIds.includes(localId);
+    });
+
+    return matched.map(row => ({
+      id: row.recipe_data?.id || row.id,
       title: row.title || 'Untitled',
       imageUrl: row.image_url || null,
       sourceUrl: row.source_url || null,
@@ -820,13 +830,13 @@ export const getUserPublicRecipes = async (targetUserId) => {
       // Filter to custom recipes (those with bunches:// URLs or no source URL)
       return v2Data
         .filter(row => {
-          const sourceUrl = row.global_recipes?.source_url;
+          const sourceUrl = row.global_recipes?.source_url || row.local_recipe_data?.source_url;
           return !sourceUrl || sourceUrl.startsWith('bunches://');
         })
         .map(row => ({
-          id: row.id,
-          title: row.global_recipes?.title || row.local_recipe_data?.title || 'Untitled',
-          imageUrl: row.global_recipes?.image_url || row.local_recipe_data?.image_url || null,
+          id: row.local_recipe_data?.id || row.id,
+          title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
+          imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
           sourceUrl: row.global_recipes?.source_url || null,
           isCustom: true,
         }));
