@@ -12,6 +12,15 @@ import {
   deleteRecipeFromDatabase,
   saveRecipeWithDualWrite,
 } from '../services/supabase/database';
+import { MY_CREATIONS_FOLDER } from './useFolders';
+
+/**
+ * Check if a recipe is custom (created by user, not imported from URL)
+ */
+const isCustomRecipe = (recipe) => {
+  const url = recipe.url || recipe.sourceUrl || recipe.source_url;
+  return !url || url.startsWith('bunches://');
+};
 
 export const useRecipes = (user) => {
   const [recipes, setRecipes] = useState([]);
@@ -94,9 +103,19 @@ export const useRecipes = (user) => {
       }
     }
 
+    // Build folders array - auto-add custom recipes to "My Creations"
+    let recipeFolders = Array.isArray(recipe.folders) ? [...recipe.folders] :
+                        (recipe.folder ? [recipe.folder] : ['All Recipes']);
+
+    // If this is a custom recipe (no external URL), ensure it's in My Creations
+    if (isCustomRecipe(recipe) && !recipeFolders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'))) {
+      recipeFolders.push(MY_CREATIONS_FOLDER);
+    }
+
     const recipeWithTimestamp = {
       ...recipe,
       id: recipe.id || `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      folders: recipeFolders,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
     };

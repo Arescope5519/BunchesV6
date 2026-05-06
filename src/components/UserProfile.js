@@ -221,10 +221,10 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>{'<'} Back</Text>
         </TouchableOpacity>
-        <Text style={styles.subViewTitle}>Public Recipes</Text>
+        <Text style={styles.subViewTitle}>My Creations</Text>
         <View style={styles.headerSpacer} />
       </View>
-      {renderRecipeList(publicRecipes, 'No public recipes yet')}
+      {renderRecipeList(publicRecipes, 'No recipes created yet')}
     </View>
   );
 
@@ -234,22 +234,22 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>{'<'} Back</Text>
         </TouchableOpacity>
-        <Text style={styles.subViewTitle}>Public Cookbooks</Text>
+        <Text style={styles.subViewTitle}>My Creations</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       {publicFolders.length === 0 ? (
-        <Text style={styles.emptyText}>No public cookbooks</Text>
+        <Text style={styles.emptyText}>No cookbooks created yet</Text>
       ) : (
         <ScrollView style={styles.foldersList}>
           {publicFolders.map(folder => (
             <TouchableOpacity
-              key={folder.name}
+              key={folder.fullPath || folder.name}
               style={styles.folderListItem}
-              onPress={() => loadFolderRecipes(folder.name)}
+              onPress={() => loadFolderRecipes(folder.fullPath || folder.name)}
             >
               <Text style={styles.folderIcon}>📖</Text>
-              <Text style={styles.folderListName}>{folder.name}</Text>
+              <Text style={styles.folderListName}>{folder.displayName || folder.name}</Text>
               <Text style={styles.folderArrow}>{'>'}</Text>
             </TouchableOpacity>
           ))}
@@ -258,18 +258,25 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
     </View>
   );
 
-  const renderFolderDetailView = () => (
-    <View style={styles.subView}>
-      <View style={styles.subViewHeader}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>{'<'} Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.subViewTitle}>{selectedFolder}</Text>
-        <View style={styles.headerSpacer} />
+  const renderFolderDetailView = () => {
+    // Extract display name from full path
+    const displayName = selectedFolder?.includes('/')
+      ? selectedFolder.substring(selectedFolder.lastIndexOf('/') + 1)
+      : selectedFolder;
+
+    return (
+      <View style={styles.subView}>
+        <View style={styles.subViewHeader}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>{'<'} Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.subViewTitle}>{displayName}</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        {renderRecipeList(folderRecipes, 'No recipes in this cookbook')}
       </View>
-      {renderRecipeList(folderRecipes, 'No recipes in this cookbook')}
-    </View>
-  );
+    );
+  };
 
   const renderMainView = () => {
     if (!profile?.canView) {
@@ -309,10 +316,10 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
             style={styles.actionButton}
             onPress={loadPublicRecipes}
           >
-            <Text style={styles.actionButtonIcon}>📝</Text>
+            <Text style={styles.actionButtonIcon}>👨‍🍳</Text>
             <View style={styles.actionButtonTextContainer}>
-              <Text style={styles.actionButtonTitle}>Public Recipes</Text>
-              <Text style={styles.actionButtonSubtitle}>View all shared recipes</Text>
+              <Text style={styles.actionButtonTitle}>My Creations</Text>
+              <Text style={styles.actionButtonSubtitle}>All original recipes</Text>
             </View>
             <Text style={styles.actionButtonArrow}>{'>'}</Text>
           </TouchableOpacity>
@@ -323,7 +330,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
           >
             <Text style={styles.actionButtonIcon}>📚</Text>
             <View style={styles.actionButtonTextContainer}>
-              <Text style={styles.actionButtonTitle}>Public Cookbooks</Text>
+              <Text style={styles.actionButtonTitle}>Cookbooks</Text>
               <Text style={styles.actionButtonSubtitle}>Browse organized collections</Text>
             </View>
             <Text style={styles.actionButtonArrow}>{'>'}</Text>

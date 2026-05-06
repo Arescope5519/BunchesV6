@@ -11,9 +11,16 @@ import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
 
+// System folders that cannot be deleted or renamed
+export const SYSTEM_FOLDERS = ['All Recipes', 'Favorites', 'Recently Deleted', 'My Creations'];
+
+// My Creations is the parent folder for all custom/original recipes
+export const MY_CREATIONS_FOLDER = 'My Creations';
+
 const DEFAULT_FOLDERS = [
   { name: 'All Recipes', isPrivate: false },
   { name: 'Favorites', isPrivate: false },
+  { name: 'My Creations', isPrivate: false },
   { name: 'Recently Deleted', isPrivate: false }
 ];
 
@@ -76,11 +83,48 @@ export const useFolders = (user) => {
   };
 
   /**
+   * Check if folder is a system folder (can't delete/rename)
+   */
+  const isSystemFolder = (folderName) => {
+    // Check exact match or if it's a subfolder of My Creations root
+    return SYSTEM_FOLDERS.includes(folderName);
+  };
+
+  /**
+   * Check if folder is inside My Creations (path-based)
+   */
+  const isMyCreationsSubfolder = (folderName) => {
+    return folderName.startsWith(MY_CREATIONS_FOLDER + '/');
+  };
+
+  /**
+   * Get parent folder from path
+   */
+  const getParentFolder = (folderPath) => {
+    const lastSlash = folderPath.lastIndexOf('/');
+    return lastSlash > 0 ? folderPath.substring(0, lastSlash) : null;
+  };
+
+  /**
+   * Get folder display name (last segment of path)
+   */
+  const getFolderDisplayName = (folderPath) => {
+    const lastSlash = folderPath.lastIndexOf('/');
+    return lastSlash >= 0 ? folderPath.substring(lastSlash + 1) : folderPath;
+  };
+
+  /**
    * Rename folder
    */
   const renameFolder = async (oldName, newName) => {
     if (!newName.trim()) {
       Alert.alert('Error', 'Please enter a folder name');
+      return { success: false };
+    }
+
+    // Prevent renaming system folders
+    if (isSystemFolder(oldName)) {
+      Alert.alert('Error', 'This folder cannot be renamed');
       return { success: false };
     }
 
@@ -124,6 +168,12 @@ export const useFolders = (user) => {
    * Delete folder
    */
   const deleteFolder = async (folderName, recipeCount) => {
+    // Prevent deleting system folders
+    if (isSystemFolder(folderName)) {
+      Alert.alert('Error', 'This folder cannot be deleted');
+      return false;
+    }
+
     return new Promise((resolve) => {
       Alert.alert(
         'Delete Folder?',
@@ -153,12 +203,27 @@ export const useFolders = (user) => {
   };
 
   /**
-   * Get custom folders (excluding default ones)
+   * Get custom folders (excluding system ones)
    */
   const getCustomFolders = () => {
-    return folders.filter(f =>
-      f.name !== 'All Recipes' && f.name !== 'Favorites' && f.name !== 'Recently Deleted'
-    ).map(f => f.name);
+    return folders.filter(f => !SYSTEM_FOLDERS.includes(f.name)).map(f => f.name);
+  };
+
+  /**
+   * Get My Creations subfolders
+   */
+  const getMyCreationsSubfolders = () => {
+    return folders
+      .filter(f => f.name.startsWith(MY_CREATIONS_FOLDER + '/'))
+      .map(f => f.name);
+  };
+
+  /**
+   * Add subfolder to My Creations
+   */
+  const addMyCreationsSubfolder = async (subfolderName) => {
+    const fullPath = `${MY_CREATIONS_FOLDER}/${subfolderName.trim()}`;
+    return addFolder(fullPath);
   };
 
   // Load folders on mount and when user changes
@@ -181,6 +246,12 @@ export const useFolders = (user) => {
     getFolderByName,
     isFolderPrivate,
     updateFolderPrivacy,
+    isSystemFolder,
+    isMyCreationsSubfolder,
+    getParentFolder,
+    getFolderDisplayName,
+    getMyCreationsSubfolders,
+    addMyCreationsSubfolder,
   };
 };
 

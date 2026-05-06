@@ -803,12 +803,22 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
   }
 };
 
+const MY_CREATIONS_FOLDER = 'My Creations';
+
 /**
- * Get another user's public/custom recipes (not from external sources)
+ * Check if a recipe is in the My Creations folder or subfolder
  */
-export const getUserPublicRecipes = async (targetUserId) => {
+const isInMyCreations = (recipe) => {
+  const folders = recipe.folders || (recipe.folder ? [recipe.folder] : []);
+  return folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'));
+};
+
+/**
+ * Get another user's public/custom recipes (from My Creations folder)
+ */
+export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
   try {
-    // Try V2 tables first - get recipes without external source (custom recipes)
+    // Try V2 tables first
     const { data: v2Data, error: v2Error } = await supabase
       .from('user_recipes_v2')
       .select(`
@@ -824,20 +834,28 @@ export const getUserPublicRecipes = async (targetUserId) => {
       `)
       .eq('user_id', targetUserId)
       .is('deleted_at', null)
-      .limit(50);
+      .limit(100);
 
     if (!v2Error && v2Data) {
-      // Filter to custom recipes (those with bunches:// URLs or no source URL)
+      // Filter to recipes in My Creations or specified subfolder
       return v2Data
         .filter(row => {
-          const sourceUrl = row.global_recipes?.source_url || row.local_recipe_data?.source_url;
-          return !sourceUrl || sourceUrl.startsWith('bunches://');
+          const recipeData = row.local_recipe_data || {};
+          const folders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : []);
+
+          if (folderPath) {
+            // Looking for specific subfolder
+            return folders.includes(folderPath);
+          }
+          // Looking for all My Creations recipes
+          return folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'));
         })
         .map(row => ({
           id: row.local_recipe_data?.id || row.id,
           title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
           imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
           sourceUrl: row.global_recipes?.source_url || null,
+          folders: row.local_recipe_data?.folders || [],
           isCustom: true,
         }));
     }
@@ -845,21 +863,31 @@ export const getUserPublicRecipes = async (targetUserId) => {
     // Fallback to old table
     const { data, error } = await supabase
       .from('recipes')
-      .select('id, title, image_url, source_url')
+      .select('id, title, image_url, source_url, recipe_data')
       .eq('user_id', targetUserId)
       .is('deleted_at', null)
-      .or('source_url.is.null,source_url.like.bunches://*')
-      .limit(50);
+      .limit(100);
 
     if (error) throw error;
 
-    return (data || []).map(row => ({
-      id: row.id,
-      title: row.title || 'Untitled',
-      imageUrl: row.image_url || null,
-      sourceUrl: row.source_url || null,
-      isCustom: true,
-    }));
+    return (data || [])
+      .filter(row => {
+        const recipeData = row.recipe_data || {};
+        const folders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : []);
+
+        if (folderPath) {
+          return folders.includes(folderPath);
+        }
+        return folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'));
+      })
+      .map(row => ({
+        id: row.recipe_data?.id || row.id,
+        title: row.title || 'Untitled',
+        imageUrl: row.image_url || null,
+        sourceUrl: row.source_url || null,
+        folders: row.recipe_data?.folders || [],
+        isCustom: true,
+      }));
   } catch (error) {
     console.error('Error getting public recipes:', error);
     return [];
@@ -867,7 +895,7 @@ export const getUserPublicRecipes = async (targetUserId) => {
 };
 
 /**
- * Get another user's public folders
+ * Get another user's My Creations subfolders
  */
 export const getUserPublicFolders = async (targetUserId) => {
   try {
@@ -880,11 +908,28 @@ export const getUserPublicFolders = async (targetUserId) => {
     if (error && error.code !== 'PGRST116') throw error;
 
     const folders = data?.folders || [];
-    // Filter to only public folders
-    return folders.filter(f => {
-      if (typeof f === 'string') return false; // Old format - assume private
-      return f.isPrivate === false;
-    }).map(f => typeof f === 'string' ? { name: f, isPrivate: false } : f);
+
+    // Return My Creations subfolders (paths that start with "My Creations/")
+    return folders
+      .filter(f => {
+        const name = typeof f === 'string' ? f : f.name;
+        return name.startsWith(MY_CREATIONS_FOLDER + '/');
+      })
+      .map(f => {
+        const name = typeof f === 'string' ? f : f.name;
+        // Extract the subfolder name (first level after My Creations)
+        const subPath = name.substring(MY_CREATIONS_FOLDER.length + 1);
+        const firstSlash = subPath.indexOf('/');
+        const displayName = firstSlash >= 0 ? subPath.substring(0, firstSlash) : subPath;
+        return {
+          name: name,
+          displayName: displayName,
+          fullPath: name,
+          isPrivate: typeof f === 'object' ? f.isPrivate : false,
+        };
+      })
+      // Remove duplicates (only show first-level subfolders)
+      .filter((f, i, arr) => arr.findIndex(x => x.displayName === f.displayName) === i);
   } catch (error) {
     console.error('Error getting user public folders:', error);
     return [];
