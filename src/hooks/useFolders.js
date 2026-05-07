@@ -48,9 +48,31 @@ export const useFolders = (user) => {
 
   /**
    * Load folders from storage (user-specific)
+   * Ensures system folders exist for existing users
    */
   const loadFolders = async () => {
-    const loaded = await loadFoldersFromStorage(user?.uid || null);
+    let loaded = await loadFoldersFromStorage(user?.uid || null);
+
+    // Ensure My Creations folder exists (migration for existing users)
+    const folderNames = loaded.map(f => typeof f === 'string' ? f : f.name);
+    if (!folderNames.includes(MY_CREATIONS_FOLDER)) {
+      // Insert My Creations before Recently Deleted
+      const recentlyDeletedIndex = loaded.findIndex(f =>
+        (typeof f === 'string' ? f : f.name) === 'Recently Deleted'
+      );
+      const myCreationsFolder = { name: MY_CREATIONS_FOLDER, isPrivate: false };
+
+      if (recentlyDeletedIndex >= 0) {
+        loaded.splice(recentlyDeletedIndex, 0, myCreationsFolder);
+      } else {
+        loaded.push(myCreationsFolder);
+      }
+
+      // Save updated folders
+      await saveFoldersToStorage(loaded, user?.uid || null);
+      console.log('✅ Added My Creations folder for existing user');
+    }
+
     setFolders(loaded);
   };
 
