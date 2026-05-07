@@ -1953,6 +1953,7 @@ export const HomeScreen = ({ user }) => {
           onSave={handleCreateRecipe}
           onClose={() => setCurrentScreen('recipes')}
           folders={folders.filter(f => f.name !== 'Favorites' && f.name !== 'Recently Deleted').map(f => f.name)}
+          userId={user?.uid}
         />
 
         {/* Bottom Navigation Bar */}

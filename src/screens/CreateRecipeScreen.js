@@ -14,14 +14,23 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { supabase } from '../services/supabase/config';
 import colors from '../constants/colors';
 
-export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
+export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   const [title, setTitle] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('All Recipes');
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+
+  // Image state
+  const [imageUri, setImageUri] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Structured ingredients: [{ quantity: '', text: '' }]
   const [ingredients, setIngredients] = useState([{ quantity: '', text: '' }]);
@@ -29,6 +38,94 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
   // Instructions: ['instruction 1', 'instruction 2', ...]
   const [instructions, setInstructions] = useState(['']);
   const [selectedInstructionIndex, setSelectedInstructionIndex] = useState(0);
+
+  // Pick image from library
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  // Take photo with camera
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your camera');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  // Show image picker options
+  const showImageOptions = () => {
+    Alert.alert(
+      'Add Photo',
+      'Choose how to add a photo',
+      [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Library', onPress: pickImage },
+        imageUri ? { text: 'Remove Photo', onPress: () => setImageUri(null), style: 'destructive' } : null,
+        { text: 'Cancel', style: 'cancel' },
+      ].filter(Boolean)
+    );
+  };
+
+  // Upload image to Supabase Storage
+  const uploadImage = async (uri, recipeId) => {
+    try {
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${userId}/${recipeId}.${fileExt}`;
+
+      // Read file as base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Convert to array buffer
+      const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+      const { data, error } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, byteArray, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('recipe-images')
+        .getPublicUrl(fileName);
+
+      return urlData?.publicUrl || null;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
 
   // Add ingredient
   const addIngredient = () => {
@@ -80,7 +177,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
     setInstructions(newInstructions);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a recipe title');
       return;
@@ -107,10 +204,21 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
       return;
     }
 
+    const recipeId = `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Upload image if selected
+    let imageUrl = null;
+    if (imageUri && userId) {
+      setUploadingImage(true);
+      imageUrl = await uploadImage(imageUri, recipeId);
+      setUploadingImage(false);
+    }
+
     const recipe = {
-      id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: recipeId,
       title: title.trim(),
       folder: selectedFolder,
+      image_url: imageUrl,
       ingredients: {
         main: formattedIngredients,
       },
@@ -192,6 +300,36 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders }) => {
               </ScrollView>
             </View>
           )}
+        </View>
+
+        {/* Recipe Photo */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Recipe Photo</Text>
+          <TouchableOpacity
+            style={styles.imagePickerContainer}
+            onPress={showImageOptions}
+            disabled={uploadingImage}
+          >
+            {uploadingImage ? (
+              <View style={styles.imagePlaceholder}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.imagePlaceholderText}>Uploading...</Text>
+              </View>
+            ) : imageUri ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <View style={styles.imageOverlay}>
+                  <Text style={styles.imageOverlayText}>Tap to change</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Text style={styles.imagePlaceholderIcon}>📷</Text>
+                <Text style={styles.imagePlaceholderText}>Add a photo</Text>
+                <Text style={styles.imagePlaceholderSubtext}>Take a photo or choose from library</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Ingredients */}
@@ -469,6 +607,57 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 60,
+  },
+  imagePickerContainer: {
+    marginTop: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  imagePlaceholder: {
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.lightGray,
+  },
+  imagePlaceholderIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  imagePlaceholderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  imagePlaceholderSubtext: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  imageOverlayText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 
