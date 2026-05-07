@@ -82,8 +82,10 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
           getUserFeaturedRecipes(targetUserId),
           getUserPublicFolders(targetUserId),
         ]);
-        setFeaturedRecipes(featured);
-        setPublicFolders(folders);
+        console.log('📷 Featured recipes loaded:', featured?.length, featured);
+        console.log('📁 Public folders loaded:', folders?.length);
+        setFeaturedRecipes(featured || []);
+        setPublicFolders(folders || []);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -299,7 +301,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Featured Recipes Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Featured Recipes</Text>
+          <Text style={styles.sectionTitle}>Featured Recipes ({featuredRecipes.length})</Text>
           {featuredRecipes.length === 0 ? (
             <Text style={styles.emptyText}>No featured recipes</Text>
           ) : (
@@ -307,7 +309,6 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
               <FlatList
                 data={featuredRecipes}
                 horizontal
-                pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 snapToInterval={CARD_WIDTH + 12}
                 snapToAlignment="start"
@@ -320,7 +321,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
                 keyExtractor={(item) => item.id}
                 renderItem={({ item: recipe }) => (
                   <TouchableOpacity
-                    style={styles.featuredCard}
+                    style={[styles.featuredCard, { width: CARD_WIDTH }]}
                     onPress={() => onRecipePress?.(recipe)}
                     activeOpacity={0.9}
                   >

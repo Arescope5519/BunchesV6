@@ -85,14 +85,26 @@ const MyProfile = ({
   const saveFeaturedRecipes = async () => {
     setSaving(true);
     try {
+      // If adding featured recipes, also make profile public
+      const updateData = { featured_recipes: featuredRecipeIds };
+      if (featuredRecipeIds.length > 0 && !profile?.isPublic) {
+        updateData.is_public = true;
+      }
+
       const { error } = await supabase
         .from('user_profiles')
-        .update({ featured_recipes: featuredRecipeIds })
+        .update(updateData)
         .eq('user_id', userId);
 
       if (error) throw error;
 
-      Alert.alert('Saved', 'Your featured recipes have been updated');
+      // Update local profile state if we made it public
+      if (updateData.is_public) {
+        setProfile(prev => ({ ...prev, isPublic: true }));
+        Alert.alert('Saved', 'Your featured recipes have been updated and your profile is now public');
+      } else {
+        Alert.alert('Saved', 'Your featured recipes have been updated');
+      }
       onProfileUpdated?.();
       setCurrentView('main');
     } catch (error) {

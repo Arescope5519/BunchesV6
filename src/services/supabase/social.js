@@ -737,11 +737,15 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
       .eq('user_id', targetUserId)
       .single();
 
+    console.log('🔍 Featured IDs from profile:', profile?.featured_recipes);
+
     if (profileError || !profile?.featured_recipes?.length) {
+      console.log('❌ No featured recipes found in profile');
       return [];
     }
 
     const featuredIds = profile.featured_recipes;
+    console.log('📋 Looking for featured IDs:', featuredIds);
 
     // Try V2 tables first - get all user recipes and filter by featured IDs
     const { data: v2Data, error: v2Error } = await supabase
