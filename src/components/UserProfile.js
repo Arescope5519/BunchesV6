@@ -7,7 +7,7 @@
  * - Public folders button
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Dimensions,
+  FlatList,
 } from 'react-native';
 import colors from '../constants/colors';
 import {
@@ -47,6 +48,9 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
   const [loadingContent, setLoadingContent] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+
+  const CARD_WIDTH = SCREEN_WIDTH - 48; // Full width minus padding
 
   useEffect(() => {
     if (visible && targetUserId && currentUserId) {
@@ -299,14 +303,64 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
           {featuredRecipes.length === 0 ? (
             <Text style={styles.emptyText}>No featured recipes</Text>
           ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.horizontalScroll}
-              contentContainerStyle={styles.horizontalScrollContent}
-            >
-              {featuredRecipes.map(recipe => renderRecipeCard(recipe))}
-            </ScrollView>
+            <View>
+              <FlatList
+                data={featuredRecipes}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={CARD_WIDTH + 12}
+                snapToAlignment="start"
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingHorizontal: 16 }}
+                onMomentumScrollEnd={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + 12));
+                  setFeaturedIndex(index);
+                }}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item: recipe }) => (
+                  <TouchableOpacity
+                    style={styles.featuredCard}
+                    onPress={() => onRecipePress?.(recipe)}
+                    activeOpacity={0.9}
+                  >
+                    {recipe.imageUrl ? (
+                      <Image
+                        source={{ uri: recipe.imageUrl }}
+                        style={styles.featuredImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.featuredImage, styles.featuredImagePlaceholder]}>
+                        <Text style={styles.featuredPlaceholderText}>No Image</Text>
+                      </View>
+                    )}
+                    <View style={styles.featuredOverlay}>
+                      <Text style={styles.featuredTitle} numberOfLines={2}>
+                        {recipe.title}
+                      </Text>
+                      {recipe.isCustom && (
+                        <Text style={styles.featuredBadge}>Original Recipe</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+              {/* Page Indicator Dots */}
+              {featuredRecipes.length > 1 && (
+                <View style={styles.pageIndicator}>
+                  {featuredRecipes.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.pageDot,
+                        index === featuredIndex && styles.pageDotActive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
           )}
         </View>
 
@@ -618,6 +672,66 @@ const styles = StyleSheet.create({
   },
   horizontalScrollContent: {
     paddingRight: 16,
+  },
+
+  // Featured Recipe Carousel
+  featuredCard: {
+    width: Dimensions.get('window').width - 48,
+    height: 220,
+    marginRight: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  featuredImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.border,
+  },
+  featuredImagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  featuredPlaceholderText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  featuredOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingTop: 40,
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  featuredTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  featuredBadge: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+  },
+  pageIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  pageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.border,
+    marginHorizontal: 4,
+  },
+  pageDotActive: {
+    backgroundColor: colors.primary,
+    width: 20,
   },
 
   // Recipe Cards
