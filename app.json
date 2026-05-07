@@ -22,7 +22,14 @@
       "./plugins/android-on-new-intent.js",
       "expo-file-system",
       "expo-document-picker",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Bunches to access your photos to add images to your recipes.",
+          "cameraPermission": "Allow Bunches to use your camera to take photos of your recipes."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
