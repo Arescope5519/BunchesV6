@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
+import { saveFoldersToDatabase, loadFoldersFromDatabase } from '../services/supabase/database';
 
 // System folders that cannot be deleted or renamed
 export const SYSTEM_FOLDERS = ['All Recipes', 'Favorites', 'Recently Deleted', 'My Creations'];
@@ -47,16 +48,43 @@ export const useFolders = (user) => {
   };
 
   /**
-   * Load folders from storage (user-specific)
+   * Load folders from storage and sync with Supabase
    * Ensures system folders exist for existing users
    */
   const loadFolders = async () => {
     let loaded = await loadFoldersFromStorage(user?.uid || null);
 
-    // Ensure My Creations folder exists (migration for existing users)
+    // If user is logged in, try to sync from Supabase
+    if (user?.uid) {
+      try {
+        const cloudFolders = await loadFoldersFromDatabase(user.uid);
+        if (cloudFolders && cloudFolders.length > 0) {
+          // Merge: use cloud folders but ensure we have all system folders
+          const cloudFolderNames = cloudFolders.map(f => typeof f === 'string' ? f : f.name);
+          const localFolderNames = loaded.map(f => typeof f === 'string' ? f : f.name);
+
+          // If cloud has more folders or local only has defaults, prefer cloud
+          const localIsDefault = localFolderNames.length <= 4 &&
+            localFolderNames.every(n => SYSTEM_FOLDERS.includes(n));
+
+          if (cloudFolders.length > loaded.length || localIsDefault) {
+            loaded = cloudFolders.map(f =>
+              typeof f === 'string' ? { name: f, isPrivate: false } : f
+            );
+            console.log('📥 Loaded folders from cloud:', loaded.length);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load folders from cloud:', error);
+      }
+    }
+
+    // Ensure system folders exist (migration for existing users)
     const folderNames = loaded.map(f => typeof f === 'string' ? f : f.name);
+    let needsSave = false;
+
+    // Ensure My Creations exists
     if (!folderNames.includes(MY_CREATIONS_FOLDER)) {
-      // Insert My Creations before Recently Deleted
       const recentlyDeletedIndex = loaded.findIndex(f =>
         (typeof f === 'string' ? f : f.name) === 'Recently Deleted'
       );
@@ -67,13 +95,31 @@ export const useFolders = (user) => {
       } else {
         loaded.push(myCreationsFolder);
       }
+      needsSave = true;
+      console.log('✅ Added My Creations folder');
+    }
 
-      // Save updated folders
+    // Save if we made changes
+    if (needsSave) {
       await saveFoldersToStorage(loaded, user?.uid || null);
-      console.log('✅ Added My Creations folder for existing user');
+      if (user?.uid) {
+        saveFoldersToDatabase(user.uid, loaded).catch(console.error);
+      }
     }
 
     setFolders(loaded);
+  };
+
+  /**
+   * Save folders to both local storage and Supabase
+   */
+  const saveFolders = async (newFolders) => {
+    const success = await saveFoldersToStorage(newFolders, user?.uid || null);
+    if (success && user?.uid) {
+      // Sync to cloud in background
+      saveFoldersToDatabase(user.uid, newFolders).catch(console.error);
+    }
+    return success;
   };
 
   /**
@@ -94,7 +140,7 @@ export const useFolders = (user) => {
     // New folders default to public
     const newFolder = { name: folderName.trim(), isPrivate: false };
     const newFolders = [...folders, newFolder];
-    const success = await saveFoldersToStorage(newFolders, user?.uid || null);
+    const success = await saveFolders(newFolders);
 
     if (success) {
       setFolders(newFolders);
@@ -160,7 +206,7 @@ export const useFolders = (user) => {
     const updatedFolders = folders.map(f =>
       f.name === oldName ? { ...f, name: newName.trim() } : f
     );
-    const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
+    const success = await saveFolders(updatedFolders);
 
     if (success) {
       setFolders(updatedFolders);
@@ -177,7 +223,7 @@ export const useFolders = (user) => {
     const updatedFolders = folders.map(f =>
       f.name === folderName ? { ...f, isPrivate } : f
     );
-    const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
+    const success = await saveFolders(updatedFolders);
 
     if (success) {
       setFolders(updatedFolders);
@@ -208,7 +254,7 @@ export const useFolders = (user) => {
             onPress: async () => {
               // Remove folder
               const updatedFolders = folders.filter(f => f.name !== folderName);
-              const success = await saveFoldersToStorage(updatedFolders, user?.uid || null);
+              const success = await saveFolders(updatedFolders);
 
               if (success) {
                 setFolders(updatedFolders);
