@@ -34,7 +34,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 
 // Hooks
 import { useRecipes } from '../hooks/useRecipes';
-import { useFolders } from '../hooks/useFolders';
+import { useFolders, MY_CREATIONS_FOLDER } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 import { useGroceryList } from '../hooks/useGroceryList';
@@ -179,6 +179,23 @@ export const HomeScreen = ({ user }) => {
     isFolderPrivate,
     updateFolderPrivacy,
   } = useFolders(user);
+
+  // Helper to check if a recipe is custom (created by user, not imported)
+  const isCustomRecipe = (recipe) => {
+    if (!recipe) return false;
+    const url = recipe.url || recipe.sourceUrl || recipe.source_url;
+    return !url || url.startsWith('bunches://');
+  };
+
+  // Get folders available for a recipe (My Creations only for custom recipes)
+  const getFoldersForRecipe = (recipe) => {
+    const allFolders = getCustomFolders();
+    if (isCustomRecipe(recipe)) {
+      return allFolders; // Custom recipes can go in My Creations
+    }
+    // Imported recipes can't go in My Creations or its subfolders
+    return allFolders.filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+  };
 
   const {
     groceryList,
@@ -2810,7 +2827,7 @@ export const HomeScreen = ({ user }) => {
                     <Text style={{ color: colors.text + '99', marginBottom: 12, fontSize: 13 }}>
                       Recipe can be in multiple cookbooks
                     </Text>
-                    {getCustomFolders().map(folder => {
+                    {getFoldersForRecipe(selectedRecipe).map(folder => {
                       const isInFolder = pendingFolders.includes(folder);
                       return (
                         <TouchableOpacity
@@ -2970,21 +2987,30 @@ export const HomeScreen = ({ user }) => {
               <Text style={{ color: colors.text + '99', marginBottom: 12, fontSize: 13 }}>
                 Recipes can be in multiple cookbooks
               </Text>
-              {getCustomFolders().map(folder => {
-                const isInFolder = pendingFolders.includes(folder);
-                return (
-                  <TouchableOpacity
-                    key={folder}
-                    style={[styles.folderItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-                    onPress={() => handleToggleFolderMultiselect(folder)}
-                  >
-                    <Text style={styles.folderItemText}>{folder}</Text>
-                    <View style={[styles.folderCheckbox, isInFolder && styles.folderCheckboxChecked]}>
-                      {isInFolder && <Text style={styles.folderCheckmark}>✓</Text>}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+              {(() => {
+                // For multiselect, only show My Creations if ALL selected are custom
+                const selectedRecipesList = recipes.filter(r => selectedRecipes.has(r.id));
+                const allCustom = selectedRecipesList.every(r => isCustomRecipe(r));
+                const availableFolders = allCustom
+                  ? getCustomFolders()
+                  : getCustomFolders().filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+
+                return availableFolders.map(folder => {
+                  const isInFolder = pendingFolders.includes(folder);
+                  return (
+                    <TouchableOpacity
+                      key={folder}
+                      style={[styles.folderItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                      onPress={() => handleToggleFolderMultiselect(folder)}
+                    >
+                      <Text style={styles.folderItemText}>{folder}</Text>
+                      <View style={[styles.folderCheckbox, isInFolder && styles.folderCheckboxChecked]}>
+                        {isInFolder && <Text style={styles.folderCheckmark}>✓</Text>}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
               <View style={styles.addFolderButtons}>
                 <TouchableOpacity
                   style={[styles.addFolderButton, styles.cancelButton]}
