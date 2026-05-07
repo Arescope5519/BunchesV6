@@ -29,6 +29,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
 
   // Image state
   const [imageUri, setImageUri] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   // Structured ingredients: [{ quantity: '', text: '' }]
@@ -51,10 +52,12 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64);
     }
   };
 
@@ -70,10 +73,12 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64);
     }
   };
 
@@ -85,27 +90,33 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       [
         { text: 'Take Photo', onPress: takePhoto },
         { text: 'Choose from Library', onPress: pickImage },
-        imageUri ? { text: 'Remove Photo', onPress: () => setImageUri(null), style: 'destructive' } : null,
+        imageUri ? { text: 'Remove Photo', onPress: () => { setImageUri(null); setImageBase64(null); }, style: 'destructive' } : null,
         { text: 'Cancel', style: 'cancel' },
       ].filter(Boolean)
     );
   };
 
   // Upload image to Supabase Storage
-  const uploadImage = async (uri, recipeId) => {
+  const uploadImage = async (base64Data, recipeId) => {
     try {
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${userId}/${recipeId}.${fileExt}`;
+      if (!base64Data) {
+        throw new Error('No image data available');
+      }
 
-      // Fetch the image as blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      const fileName = `${userId}/${recipeId}.jpg`;
 
-      // Upload blob to Supabase
+      // Decode base64 to array buffer
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Upload to Supabase
       const { data, error } = await supabase.storage
         .from('recipe-images')
-        .upload(fileName, blob, {
-          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        .upload(fileName, bytes.buffer, {
+          contentType: 'image/jpeg',
           upsert: true,
         });
 
@@ -205,9 +216,9 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
 
     // Upload image if selected
     let imageUrl = null;
-    if (imageUri && userId) {
+    if (imageBase64 && userId) {
       setUploadingImage(true);
-      imageUrl = await uploadImage(imageUri, recipeId);
+      imageUrl = await uploadImage(imageBase64, recipeId);
       setUploadingImage(false);
     }
 
