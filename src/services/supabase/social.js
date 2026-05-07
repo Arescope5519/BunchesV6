@@ -763,39 +763,42 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
       .eq('user_id', targetUserId)
       .is('deleted_at', null);
 
-    if (!v2Error && v2Data) {
+    if (!v2Error && v2Data && v2Data.length > 0) {
       // Match by either cloud ID or local_recipe_data.id
       const matched = v2Data.filter(row => {
         const localId = row.local_recipe_data?.id;
         return featuredIds.includes(row.id) || featuredIds.includes(localId);
       });
 
-      return matched.map(row => ({
-        id: row.local_recipe_data?.id || row.id,
-        title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
-        imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
-        sourceUrl: row.global_recipes?.source_url || null,
-        isCustom: !row.global_recipes?.source_url,
-      }));
+      if (matched.length > 0) {
+        console.log('✅ Found featured in V2 table:', matched.length);
+        return matched.map(row => ({
+          id: row.local_recipe_data?.id || row.id,
+          title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
+          imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
+          sourceUrl: row.global_recipes?.source_url || null,
+          isCustom: !row.global_recipes?.source_url,
+        }));
+      }
     }
 
-    // Fallback to old table
+    // Fallback to old recipes table
+    console.log('📂 Checking old recipes table...');
     const { data, error } = await supabase
       .from('recipes')
-      .select('id, title, image_url, source_url, recipe_data')
+      .select('id, title, image_url, source_url')
       .eq('user_id', targetUserId)
+      .in('id', featuredIds)
       .is('deleted_at', null);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error querying recipes table:', error);
+      throw error;
+    }
 
-    // Match by either cloud ID or recipe_data.id
-    const matched = (data || []).filter(row => {
-      const localId = row.recipe_data?.id;
-      return featuredIds.includes(row.id) || featuredIds.includes(localId);
-    });
-
-    return matched.map(row => ({
-      id: row.recipe_data?.id || row.id,
+    console.log('✅ Found in old recipes table:', data?.length);
+    return (data || []).map(row => ({
+      id: row.id,
       title: row.title || 'Untitled',
       imageUrl: row.image_url || null,
       sourceUrl: row.source_url || null,
