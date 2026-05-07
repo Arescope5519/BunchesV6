@@ -278,10 +278,13 @@ export const useFolders = (user) => {
   };
 
   /**
-   * Get custom folders (excluding system ones)
+   * Get user-visible folders (custom folders + My Creations, excluding system-only ones)
    */
   const getCustomFolders = () => {
-    return folders.filter(f => !SYSTEM_FOLDERS.includes(f.name)).map(f => f.name);
+    const hiddenFolders = ['All Recipes', 'Favorites', 'Recently Deleted'];
+    return folders
+      .filter(f => !hiddenFolders.includes(f.name))
+      .map(f => f.name);
   };
 
   /**
