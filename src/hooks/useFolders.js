@@ -53,25 +53,32 @@ export const useFolders = (user) => {
    */
   const loadFolders = async () => {
     let loaded = await loadFoldersFromStorage(user?.uid || null);
+    console.log('📂 Local folders:', loaded.map(f => f.name || f));
 
     // If user is logged in, try to sync from Supabase
     if (user?.uid) {
       try {
         const cloudFolders = await loadFoldersFromDatabase(user.uid);
+        console.log('☁️ Cloud folders:', cloudFolders?.length || 0, cloudFolders);
+
         if (cloudFolders && cloudFolders.length > 0) {
-          // Merge: use cloud folders but ensure we have all system folders
-          const cloudFolderNames = cloudFolders.map(f => typeof f === 'string' ? f : f.name);
+          // Check if local only has system/default folders
           const localFolderNames = loaded.map(f => typeof f === 'string' ? f : f.name);
+          const hasCustomLocalFolders = localFolderNames.some(n => !SYSTEM_FOLDERS.includes(n));
 
-          // If cloud has more folders or local only has defaults, prefer cloud
-          const localIsDefault = localFolderNames.length <= 4 &&
-            localFolderNames.every(n => SYSTEM_FOLDERS.includes(n));
+          // Check if cloud has custom folders
+          const cloudFolderNames = cloudFolders.map(f => typeof f === 'string' ? f : f.name);
+          const hasCustomCloudFolders = cloudFolderNames.some(n => !SYSTEM_FOLDERS.includes(n));
 
-          if (cloudFolders.length > loaded.length || localIsDefault) {
+          // Use cloud if: cloud has custom folders AND local doesn't
+          // OR cloud has more folders than local
+          if ((hasCustomCloudFolders && !hasCustomLocalFolders) || cloudFolders.length > loaded.length) {
             loaded = cloudFolders.map(f =>
               typeof f === 'string' ? { name: f, isPrivate: false } : f
             );
-            console.log('📥 Loaded folders from cloud:', loaded.length);
+            // Save to local storage
+            await saveFoldersToStorage(loaded, user?.uid || null);
+            console.log('📥 Restored folders from cloud:', loaded.length);
           }
         }
       } catch (error) {
