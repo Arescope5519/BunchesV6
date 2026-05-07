@@ -123,6 +123,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       return urlData?.publicUrl || null;
     } catch (error) {
       console.error('Error uploading image:', error);
+      Alert.alert('Image Upload Failed', error.message || 'Could not upload image. Recipe will be saved without photo.');
       return null;
     }
   };
