@@ -100,7 +100,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
 
       // Read file as base64
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       // Convert to array buffer
