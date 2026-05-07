@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { supabase } from '../services/supabase/config';
 import colors from '../constants/colors';
 
@@ -98,18 +97,15 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${userId}/${recipeId}.${fileExt}`;
 
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
-      });
+      // Fetch the image as blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
 
-      // Convert to array buffer
-      const byteArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-
+      // Upload blob to Supabase
       const { data, error } = await supabase.storage
         .from('recipe-images')
-        .upload(fileName, byteArray, {
-          contentType: `image/${fileExt}`,
+        .upload(fileName, blob, {
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
           upsert: true,
         });
 
