@@ -608,6 +608,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 80,
     textAlignVertical: 'top',
+    color: colors.text,
   },
   instructionInputSelected: {
     borderColor: colors.primary,
