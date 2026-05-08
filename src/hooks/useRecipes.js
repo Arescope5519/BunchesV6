@@ -138,9 +138,10 @@ export const useRecipes = (user) => {
         } catch (err) {
           console.error('❌ Supabase sync failed:', err);
           // Still return true since local save succeeded
-          // But alert the user
+          // But alert the user with the error
           if (!silent) {
-            Alert.alert('Sync Warning', 'Recipe saved locally but cloud sync failed. It may not appear on other devices.');
+            const errorMsg = err?.message || err?.toString() || 'Unknown error';
+            Alert.alert('Sync Warning', `Recipe saved locally but cloud sync failed: ${errorMsg}`);
           }
         }
       } else {
