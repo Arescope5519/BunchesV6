@@ -824,6 +824,7 @@ const isInMyCreations = (recipe) => {
  * Get another user's public/custom recipes (from My Creations folder)
  */
 export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
+  console.log('🍳 getUserPublicRecipes called:', { targetUserId, folderPath });
   try {
     // Try V2 tables first
     const { data: v2Data, error: v2Error } = await supabase
@@ -842,6 +843,8 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       .eq('user_id', targetUserId)
       .is('deleted_at', null)
       .limit(100);
+
+    console.log('🍳 V2 query result:', { count: v2Data?.length, error: v2Error });
 
     if (!v2Error && v2Data && v2Data.length > 0) {
       let filtered = v2Data;
@@ -1003,6 +1006,7 @@ export const getUserFavorites = async (targetUserId) => {
  * Get recipes from a user's public folder
  */
 export const getUserFolderRecipes = async (targetUserId, folderName) => {
+  console.log('📂 getUserFolderRecipes called:', { targetUserId, folderName });
   try {
     // Try V2 tables first
     const { data: v2Data, error: v2Error } = await supabase
@@ -1022,14 +1026,18 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
       .eq('user_id', targetUserId)
       .is('deleted_at', null);
 
+    console.log('📂 V2 query result:', { v2Data: v2Data?.length, v2Error });
+
     if (!v2Error && v2Data && v2Data.length > 0) {
       // Filter by folder (check local_recipe_data.folders array)
       const filtered = v2Data.filter(row => {
         const recipeData = row.local_recipe_data || {};
         const recipeFolders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : ['All Recipes']);
+        console.log('📂 Recipe folders:', recipeFolders, 'looking for:', folderName);
         return recipeFolders.includes(folderName);
       });
 
+      console.log('📂 Filtered V2 recipes:', filtered.length);
       return filtered.map(row => ({
         id: row.local_recipe_data?.id || row.id,
         title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
@@ -1040,12 +1048,14 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
     }
 
     // Fallback to old table
+    console.log('📂 Trying old recipes table...');
     const { data, error } = await supabase
       .from('recipes')
       .select('id, title, image_url, source_url, recipe_data')
       .eq('user_id', targetUserId)
       .is('deleted_at', null);
 
+    console.log('📂 Old table result:', { data: data?.length, error });
     if (error) throw error;
 
     // Filter by folder from recipe_data
