@@ -40,11 +40,13 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [featuredRecipes, setFeaturedRecipes] = useState([]);
+  const [sampleRecipes, setSampleRecipes] = useState([]);
   const [publicFolders, setPublicFolders] = useState([]);
   const [currentView, setCurrentView] = useState('main'); // 'main', 'recipes', 'folders', 'folder-detail'
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [folderRecipes, setFolderRecipes] = useState([]);
   const [publicRecipes, setPublicRecipes] = useState([]);
+  const [uncategorizedRecipes, setUncategorizedRecipes] = useState([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -78,14 +80,21 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
       setIsFollowing(following);
 
       if (profileData?.canView) {
-        const [featured, folders] = await Promise.all([
+        const [featured, folders, allRecipes] = await Promise.all([
           getUserFeaturedRecipes(targetUserId),
           getUserPublicFolders(targetUserId),
+          getUserPublicRecipes(targetUserId),
         ]);
         console.log('📷 Featured recipes loaded:', featured?.length, featured);
         console.log('📁 Public folders loaded:', folders?.length);
         setFeaturedRecipes(featured || []);
         setPublicFolders(folders || []);
+
+        // Get 5 random sample recipes (excluding featured)
+        const featuredIds = (featured || []).map(r => r.id);
+        const nonFeatured = (allRecipes || []).filter(r => !featuredIds.includes(r.id));
+        const shuffled = nonFeatured.sort(() => Math.random() - 0.5);
+        setSampleRecipes(shuffled.slice(0, 5));
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -234,33 +243,61 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
     </View>
   );
 
+  const loadUncategorizedRecipes = async () => {
+    setSelectedFolder('Uncategorized');
+    setCurrentView('folder-detail');
+    setLoadingContent(true);
+    try {
+      const allRecipes = await getUserPublicRecipes(targetUserId);
+      // Filter recipes that don't have a specific cookbook folder
+      const uncategorized = (allRecipes || []).filter(recipe => {
+        const folders = recipe.folders || [];
+        // Recipe is uncategorized if it has no folders, or only has "All Recipes" or "My Creations"
+        return folders.length === 0 ||
+               folders.every(f => f === 'All Recipes' || f === 'My Creations');
+      });
+      setFolderRecipes(uncategorized);
+    } catch (error) {
+      console.error('Error loading uncategorized recipes:', error);
+      setFolderRecipes([]);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
+
   const renderFoldersView = () => (
     <View style={styles.subView}>
       <View style={styles.subViewHeader}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>{'<'} Back</Text>
         </TouchableOpacity>
-        <Text style={styles.subViewTitle}>My Creations</Text>
+        <Text style={styles.subViewTitle}>Cookbooks</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {publicFolders.length === 0 ? (
-        <Text style={styles.emptyText}>No cookbooks created yet</Text>
-      ) : (
-        <ScrollView style={styles.foldersList}>
-          {publicFolders.map(folder => (
-            <TouchableOpacity
-              key={folder.fullPath || folder.name}
-              style={styles.folderListItem}
-              onPress={() => loadFolderRecipes(folder.fullPath || folder.name)}
-            >
-              <Text style={styles.folderIcon}>📖</Text>
-              <Text style={styles.folderListName}>{folder.displayName || folder.name}</Text>
-              <Text style={styles.folderArrow}>{'>'}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
+      <ScrollView style={styles.foldersList}>
+        {publicFolders.map(folder => (
+          <TouchableOpacity
+            key={folder.fullPath || folder.name}
+            style={styles.folderListItem}
+            onPress={() => loadFolderRecipes(folder.fullPath || folder.name)}
+          >
+            <Text style={styles.folderIcon}>📖</Text>
+            <Text style={styles.folderListName}>{folder.displayName || folder.name}</Text>
+            <Text style={styles.folderArrow}>{'>'}</Text>
+          </TouchableOpacity>
+        ))}
+
+        {/* Uncategorized folder for recipes without a cookbook */}
+        <TouchableOpacity
+          style={styles.folderListItem}
+          onPress={loadUncategorizedRecipes}
+        >
+          <Text style={styles.folderIcon}>📋</Text>
+          <Text style={styles.folderListName}>Uncategorized</Text>
+          <Text style={styles.folderArrow}>{'>'}</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 
@@ -365,28 +402,49 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
           )}
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={loadPublicRecipes}
-          >
-            <Text style={styles.actionButtonIcon}>👨‍🍳</Text>
-            <View style={styles.actionButtonTextContainer}>
-              <Text style={styles.actionButtonTitle}>My Creations</Text>
-              <Text style={styles.actionButtonSubtitle}>All original recipes</Text>
-            </View>
-            <Text style={styles.actionButtonArrow}>{'>'}</Text>
-          </TouchableOpacity>
+        {/* Sample Recipes Section */}
+        {sampleRecipes.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recipes</Text>
+            {sampleRecipes.map((recipe) => (
+              <TouchableOpacity
+                key={recipe.id}
+                style={styles.sampleRecipeRow}
+                onPress={() => onRecipePress?.(recipe)}
+              >
+                {recipe.imageUrl ? (
+                  <Image
+                    source={{ uri: recipe.imageUrl }}
+                    style={styles.sampleRecipeImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.sampleRecipeImage, styles.sampleRecipeImagePlaceholder]}>
+                    <Text style={styles.samplePlaceholderText}>🍽️</Text>
+                  </View>
+                )}
+                <View style={styles.sampleRecipeInfo}>
+                  <Text style={styles.sampleRecipeTitle} numberOfLines={1}>{recipe.title}</Text>
+                  {recipe.isCustom && (
+                    <Text style={styles.sampleRecipeBadge}>Original</Text>
+                  )}
+                </View>
+                <Text style={styles.sampleRecipeArrow}>{'>'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
+        {/* View All Recipes Button */}
+        <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => setCurrentView('folders')}
           >
             <Text style={styles.actionButtonIcon}>📚</Text>
             <View style={styles.actionButtonTextContainer}>
-              <Text style={styles.actionButtonTitle}>Cookbooks</Text>
-              <Text style={styles.actionButtonSubtitle}>Browse organized collections</Text>
+              <Text style={styles.actionButtonTitle}>{profile?.username || 'User'}'s Recipes</Text>
+              <Text style={styles.actionButtonSubtitle}>Browse all cookbooks</Text>
             </View>
             <Text style={styles.actionButtonArrow}>{'>'}</Text>
           </TouchableOpacity>
@@ -929,6 +987,50 @@ const styles = StyleSheet.create({
   folderArrow: {
     fontSize: 18,
     color: colors.textSecondary,
+  },
+
+  // Sample Recipes List
+  sampleRecipeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sampleRecipeImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: colors.border,
+  },
+  sampleRecipeImagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  samplePlaceholderText: {
+    fontSize: 20,
+  },
+  sampleRecipeInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  sampleRecipeTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  sampleRecipeBadge: {
+    fontSize: 11,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  sampleRecipeArrow: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginLeft: 8,
   },
 });
 
