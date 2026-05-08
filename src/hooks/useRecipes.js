@@ -127,14 +127,24 @@ export const useRecipes = (user) => {
 
     if (success) {
       setRecipes(updatedRecipes);
-      console.log('✅ Recipe saved! Total recipes:', updatedRecipes.length);
+      console.log('✅ Recipe saved locally! Total recipes:', updatedRecipes.length);
 
-      // Sync to Supabase in background
+      // Sync to Supabase - wait for it to complete
       if (user) {
         console.log('🔄 Syncing recipe to Supabase:', recipeWithTimestamp.title);
-        saveRecipeWithDualWrite(user.uid, recipeWithTimestamp)
-          .then(() => console.log('✅ Recipe synced to Supabase'))
-          .catch(err => console.error('❌ Supabase sync failed:', err));
+        try {
+          await saveRecipeWithDualWrite(user.uid, recipeWithTimestamp);
+          console.log('✅ Recipe synced to Supabase');
+        } catch (err) {
+          console.error('❌ Supabase sync failed:', err);
+          // Still return true since local save succeeded
+          // But alert the user
+          if (!silent) {
+            Alert.alert('Sync Warning', 'Recipe saved locally but cloud sync failed. It may not appear on other devices.');
+          }
+        }
+      } else {
+        console.log('⚠️ No user logged in - recipe only saved locally');
       }
 
       return true;
