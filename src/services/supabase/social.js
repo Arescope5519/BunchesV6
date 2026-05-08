@@ -843,28 +843,26 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       .is('deleted_at', null)
       .limit(100);
 
-    if (!v2Error && v2Data) {
-      // Filter to recipes in My Creations or specified subfolder
-      return v2Data
-        .filter(row => {
+    if (!v2Error && v2Data && v2Data.length > 0) {
+      let filtered = v2Data;
+
+      // Filter to specific folder if provided
+      if (folderPath) {
+        filtered = v2Data.filter(row => {
           const recipeData = row.local_recipe_data || {};
           const folders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : []);
+          return folders.includes(folderPath);
+        });
+      }
 
-          if (folderPath) {
-            // Looking for specific subfolder
-            return folders.includes(folderPath);
-          }
-          // Looking for all My Creations recipes
-          return folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'));
-        })
-        .map(row => ({
-          id: row.local_recipe_data?.id || row.id,
-          title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
-          imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
-          sourceUrl: row.global_recipes?.source_url || null,
-          folders: row.local_recipe_data?.folders || [],
-          isCustom: true,
-        }));
+      return filtered.map(row => ({
+        id: row.local_recipe_data?.id || row.id,
+        title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
+        imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
+        sourceUrl: row.global_recipes?.source_url || null,
+        folders: row.local_recipe_data?.folders || [],
+        isCustom: !row.global_recipes?.source_url,
+      }));
     }
 
     // Fallback to old table
@@ -877,24 +875,25 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
 
     if (error) throw error;
 
-    return (data || [])
-      .filter(row => {
+    let filtered = data || [];
+
+    // Filter to specific folder if provided
+    if (folderPath) {
+      filtered = filtered.filter(row => {
         const recipeData = row.recipe_data || {};
         const folders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : []);
+        return folders.includes(folderPath);
+      });
+    }
 
-        if (folderPath) {
-          return folders.includes(folderPath);
-        }
-        return folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'));
-      })
-      .map(row => ({
-        id: row.recipe_data?.id || row.id,
-        title: row.title || 'Untitled',
-        imageUrl: row.image_url || null,
-        sourceUrl: row.source_url || null,
-        folders: row.recipe_data?.folders || [],
-        isCustom: true,
-      }));
+    return filtered.map(row => ({
+      id: row.recipe_data?.id || row.id,
+      title: row.title || 'Untitled',
+      imageUrl: row.image_url || null,
+      sourceUrl: row.source_url || null,
+      folders: row.recipe_data?.folders || [],
+      isCustom: !row.source_url,
+    }));
   } catch (error) {
     console.error('Error getting public recipes:', error);
     return [];
@@ -1010,8 +1009,7 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
       .from('user_recipes_v2')
       .select(`
         id,
-        folder,
-        folders,
+        local_recipe_data,
         global_recipes (
           id,
           title,
@@ -1024,37 +1022,46 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
       .eq('user_id', targetUserId)
       .is('deleted_at', null);
 
-    if (!v2Error && v2Data) {
-      // Filter by folder (check folders array)
+    if (!v2Error && v2Data && v2Data.length > 0) {
+      // Filter by folder (check local_recipe_data.folders array)
       const filtered = v2Data.filter(row => {
-        const recipeFolders = row.folders || [row.folder || 'All Recipes'];
+        const recipeData = row.local_recipe_data || {};
+        const recipeFolders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : ['All Recipes']);
         return recipeFolders.includes(folderName);
       });
 
       return filtered.map(row => ({
-        id: row.id,
-        title: row.global_recipes?.title || 'Untitled',
-        imageUrl: row.global_recipes?.image_url || null,
+        id: row.local_recipe_data?.id || row.id,
+        title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
+        imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
         sourceUrl: row.global_recipes?.source_url || null,
+        folders: row.local_recipe_data?.folders || [],
       }));
     }
 
     // Fallback to old table
     const { data, error } = await supabase
       .from('recipes')
-      .select('id, title, image_url, source_url')
+      .select('id, title, image_url, source_url, recipe_data')
       .eq('user_id', targetUserId)
-      .eq('folder', folderName)
       .is('deleted_at', null);
 
     if (error) throw error;
 
-    return (data || []).map(row => ({
-      id: row.id,
-      title: row.title || 'Untitled',
-      imageUrl: row.image_url || null,
-      sourceUrl: row.source_url || null,
-    }));
+    // Filter by folder from recipe_data
+    return (data || [])
+      .filter(row => {
+        const recipeData = row.recipe_data || {};
+        const recipeFolders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : [row.folder || 'All Recipes']);
+        return recipeFolders.includes(folderName);
+      })
+      .map(row => ({
+        id: row.id,
+        title: row.title || 'Untitled',
+        imageUrl: row.image_url || null,
+        sourceUrl: row.source_url || null,
+        folders: row.recipe_data?.folders || [],
+      }));
   } catch (error) {
     console.error('Error getting folder recipes:', error);
     return [];
