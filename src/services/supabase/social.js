@@ -831,6 +831,8 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       .from('user_recipes_v2')
       .select(`
         id,
+        folders,
+        folder,
         local_recipe_data,
         global_recipe_id,
         global_recipes (
@@ -853,7 +855,8 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       if (folderPath) {
         filtered = v2Data.filter(row => {
           const recipeData = row.local_recipe_data || {};
-          const folders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : []);
+          // Check top-level folders first, then fall back to local_recipe_data
+          const folders = row.folders || recipeData.folders || (row.folder ? [row.folder] : (recipeData.folder ? [recipeData.folder] : []));
           return folders.includes(folderPath);
         });
       }
@@ -863,7 +866,7 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
         title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
         imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
         sourceUrl: row.global_recipes?.source_url || null,
-        folders: row.local_recipe_data?.folders || [],
+        folders: row.folders || row.local_recipe_data?.folders || [],
         isCustom: !row.global_recipes?.source_url,
       }));
     }
@@ -1013,6 +1016,8 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
       .from('user_recipes_v2')
       .select(`
         id,
+        folders,
+        folder,
         local_recipe_data,
         global_recipes (
           id,
@@ -1029,10 +1034,11 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
     console.log('📂 V2 query result:', { v2Data: v2Data?.length, v2Error });
 
     if (!v2Error && v2Data && v2Data.length > 0) {
-      // Filter by folder (check local_recipe_data.folders array)
+      // Filter by folder (check both top-level folders and local_recipe_data.folders)
       const filtered = v2Data.filter(row => {
         const recipeData = row.local_recipe_data || {};
-        const recipeFolders = recipeData.folders || (recipeData.folder ? [recipeData.folder] : ['All Recipes']);
+        // Check top-level folders first, then fall back to local_recipe_data
+        const recipeFolders = row.folders || recipeData.folders || (row.folder ? [row.folder] : (recipeData.folder ? [recipeData.folder] : ['All Recipes']));
         console.log('📂 Recipe folders:', recipeFolders, 'looking for:', folderName);
         return recipeFolders.includes(folderName);
       });
@@ -1043,7 +1049,7 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
         title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
         imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
         sourceUrl: row.global_recipes?.source_url || null,
-        folders: row.local_recipe_data?.folders || [],
+        folders: row.folders || row.local_recipe_data?.folders || [],
       }));
     }
 

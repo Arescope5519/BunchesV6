@@ -397,7 +397,22 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
       instructions = recipe.instructions || '';
     }
 
-    console.log('📸 Saving recipe:', recipe.title, 'image_url:', imageUrl);
+    // Build recipe_data object with all local data including folders
+    const recipeData = {
+      id: recipe.id,
+      title: recipe.title,
+      folders: recipe.folders || (recipe.folder ? [recipe.folder] : ['All Recipes']),
+      folder: recipe.folder || recipe.folders?.[0] || 'All Recipes',
+      image_url: imageUrl,
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions,
+      notes: recipe.notes,
+      createdBy: recipe.createdBy,
+      createdAt: recipe.createdAt,
+      updatedAt: recipe.updatedAt,
+    };
+
+    console.log('📸 Saving recipe:', recipe.title, 'image_url:', imageUrl, 'folders:', recipeData.folders);
 
     const { error } = await supabase
       .from('recipes')
@@ -415,6 +430,8 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
         is_private: recipe.isPrivate || false,
         created_at: recipe.createdAt ? new Date(recipe.createdAt).toISOString() : new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        // Store full recipe data for proper folder support
+        recipe_data: recipeData,
         // New fields for stats and versioning
         stats: recipe.stats || { likes: 0, saves: 0, views: 0 },
         original_recipe: recipe.originalRecipe || null,
@@ -429,7 +446,7 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
 
     if (error) throw error;
 
-    console.log(`✅ Saved recipe "${recipe.title}"`);
+    console.log(`✅ Saved recipe "${recipe.title}" with folders:`, recipeData.folders);
   } catch (error) {
     console.error('❌ Error saving recipe:', error);
     throw error;
@@ -831,15 +848,20 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
       }
 
       localRecipeData = {
+        id: recipe.id,
         title: recipe.title,
         ingredients: ingredients,
         instructions: instructions,
         image_url: recipe.imageUrl || recipe.image_url || recipe.image || null,
+        folders: recipe.folders || (recipe.folder ? [recipe.folder] : ['All Recipes']),
+        folder: recipe.folder || recipe.folders?.[0] || 'All Recipes',
         prep_time: recipe.prep_time || recipe.prepTime || null,
         cook_time: recipe.cook_time || recipe.cookTime || null,
         total_time: recipe.total_time || recipe.totalTime || null,
         servings: recipe.servings || null,
         nutrition: recipe.nutrition || null,
+        createdBy: recipe.createdBy || null,
+        createdAt: recipe.createdAt || Date.now(),
       };
     }
 
