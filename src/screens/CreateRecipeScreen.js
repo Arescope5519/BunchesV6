@@ -20,6 +20,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase/config';
+import { checkImageModeration, logFlaggedContent } from '../services/moderation';
 import colors from '../constants/colors';
 
 export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
@@ -39,6 +40,39 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   const [instructions, setInstructions] = useState(['']);
   const [selectedInstructionIndex, setSelectedInstructionIndex] = useState(0);
 
+  // Run moderation check and set image state if it passes
+  const processPickedImage = async (asset) => {
+    setUploadingImage(true);
+    try {
+      const check = await checkImageModeration(asset.uri);
+
+      if (!check.safe) {
+        // Log the flagged attempt for admin review
+        if (userId) {
+          logFlaggedContent(supabase, {
+            userId,
+            contentType: 'recipe_photo_rejected',
+            contentId: null,
+            scores: check.scores,
+            reason: check.reason,
+            imageUrl: null,
+          });
+        }
+
+        Alert.alert(
+          'Image Not Allowed',
+          `This image was flagged as inappropriate (${check.reason}). Please choose a different photo.`,
+        );
+        return;
+      }
+
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Pick image from library
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -56,8 +90,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-      setImageBase64(result.assets[0].base64);
+      await processPickedImage(result.assets[0]);
     }
   };
 
@@ -77,8 +110,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-      setImageBase64(result.assets[0].base64);
+      await processPickedImage(result.assets[0]);
     }
   };
 
@@ -321,7 +353,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
             {uploadingImage ? (
               <View style={styles.imagePlaceholder}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.imagePlaceholderText}>Uploading...</Text>
+                <Text style={styles.imagePlaceholderText}>Checking image...</Text>
               </View>
             ) : imageUri ? (
               <View style={styles.imagePreviewContainer}>
