@@ -7,8 +7,8 @@
  */
 
 // Sightengine API credentials - get from https://dashboard.sightengine.com
-const SIGHTENGINE_API_USER = '';
-const SIGHTENGINE_API_SECRET = '';
+const SIGHTENGINE_API_USER = '258200243';
+const SIGHTENGINE_API_SECRET = 'QG8YekqRScbrWPHPJCtgVw6mTfNhrczQ';
 
 // Moderation models to check against
 const MODELS = 'nudity-2.1,offensive,gore,weapon';
