@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStorage } from '../utils/storage';
 import { saveFoldersToDatabase, loadFoldersFromDatabase } from '../services/supabase/database';
+import { containsProfanity } from '../services/profanityFilter';
 
 // System folders that cannot be deleted or renamed
 export const SYSTEM_FOLDERS = ['All Recipes', 'Favorites', 'Recently Deleted', 'My Creations'];
@@ -138,6 +139,11 @@ export const useFolders = (user) => {
       return false;
     }
 
+    if (containsProfanity(folderName)) {
+      Alert.alert('Inappropriate Content', 'Cookbook name contains inappropriate language');
+      return false;
+    }
+
     const folderNames = getFolderNames();
     if (folderNames.includes(folderName.trim())) {
       Alert.alert('Error', 'A folder with this name already exists');
@@ -194,6 +200,11 @@ export const useFolders = (user) => {
   const renameFolder = async (oldName, newName) => {
     if (!newName.trim()) {
       Alert.alert('Error', 'Please enter a folder name');
+      return { success: false };
+    }
+
+    if (containsProfanity(newName)) {
+      Alert.alert('Inappropriate Content', 'Cookbook name contains inappropriate language');
       return { success: false };
     }
 

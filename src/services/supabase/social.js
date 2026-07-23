@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './config';
+import { containsProfanity } from '../profanityFilter';
 
 /**
  * Generate a random user code (6 characters)
@@ -46,6 +47,10 @@ export const isUsernameAvailable = async (username) => {
 export const setupUserProfile = async (userId, username) => {
   try {
     const normalized = username.toLowerCase().trim();
+
+    if (containsProfanity(normalized)) {
+      throw new Error('Username contains inappropriate language');
+    }
 
     const available = await isUsernameAvailable(normalized);
     if (!available) {
@@ -587,6 +592,10 @@ export const updatePrivacySettings = async (userId, settings) => {
 export const changeUsername = async (userId, newUsername) => {
   try {
     const normalized = newUsername.toLowerCase().trim();
+
+    if (containsProfanity(normalized)) {
+      throw new Error('Username contains inappropriate language');
+    }
 
     // Check availability
     const available = await isUsernameAvailable(normalized);

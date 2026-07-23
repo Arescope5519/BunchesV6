@@ -17,6 +17,7 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { checkFields } from '../services/profanityFilter';
 import colors from '../constants/colors';
 
 // Helper to normalize ingredients to consistent format { section: [items] }
@@ -66,6 +67,19 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   const [editValue, setEditValue] = useState('');
 
   const handleSave = () => {
+    const profanityHit = checkFields({
+      title: localRecipe?.title,
+      ingredients: localRecipe?.ingredients,
+      instructions: localRecipe?.instructions,
+    });
+    if (profanityHit) {
+      Alert.alert(
+        'Inappropriate Content',
+        `The recipe ${profanityHit.field} contains inappropriate language and cannot be saved.`,
+      );
+      return;
+    }
+
     if (onSave) {
       onSave(selectedFolder, localRecipe); // Pass modified recipe
     }

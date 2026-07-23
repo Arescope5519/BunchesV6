@@ -21,6 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase/config';
 import { checkImageModeration, logFlaggedContent } from '../services/moderation';
+import { checkFields } from '../services/profanityFilter';
 import colors from '../constants/colors';
 
 export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
@@ -241,6 +242,20 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
     const validInstructions = instructions.filter(inst => inst.trim().length > 0);
     if (validInstructions.length === 0) {
       Alert.alert('Missing Instructions', 'Please add at least one instruction');
+      return;
+    }
+
+    // Profanity check
+    const profanityHit = checkFields({
+      title: title.trim(),
+      ingredients: formattedIngredients,
+      instructions: validInstructions,
+    });
+    if (profanityHit) {
+      Alert.alert(
+        'Inappropriate Content',
+        `Please remove inappropriate language from your ${profanityHit.field}.`,
+      );
       return;
     }
 
