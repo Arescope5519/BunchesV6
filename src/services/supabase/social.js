@@ -1237,6 +1237,124 @@ export const getUserFollowing = async (userId) => {
   }
 };
 
+/**
+ * Get full recipe data from another user's account
+ * Returns a recipe object formatted like a local recipe (parsed ingredients/instructions)
+ */
+export const getFullPublicRecipe = async (targetUserId, recipeId) => {
+  console.log('📖 getFullPublicRecipe:', { targetUserId, recipeId });
+
+  const parseIngredients = (raw) => {
+    if (!raw) return { main: [] };
+    if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+    if (Array.isArray(raw)) return { main: raw };
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) return { main: parsed };
+      return { main: [String(parsed)] };
+    } catch {
+      return { main: String(raw).split('\n').filter(l => l.trim()) };
+    }
+  };
+
+  const parseInstructions = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [String(parsed)];
+    } catch {
+      return String(raw).split('\n').filter(l => l.trim());
+    }
+  };
+
+  try {
+    // Try V2 tables first - match by cloud id or local id
+    const { data: v2Data, error: v2Error } = await supabase
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        folders,
+        folder,
+        local_recipe_data,
+        global_recipes (
+          id,
+          title,
+          image_url,
+          source_url,
+          ingredients,
+          instructions,
+          author
+        )
+      `)
+      .eq('user_id', targetUserId)
+      .is('deleted_at', null);
+
+    if (!v2Error && v2Data && v2Data.length > 0) {
+      const match = v2Data.find(row => {
+        const localId = row.local_recipe_data?.id;
+        return row.id === recipeId || localId === recipeId;
+      });
+
+      if (match) {
+        const local = match.local_recipe_data || {};
+        const global = match.global_recipes || {};
+        return {
+          id: local.id || match.id,
+          title: local.title || global.title || 'Untitled',
+          image_url: local.image_url || global.image_url || null,
+          imageUrl: local.image_url || global.image_url || null,
+          source_url: global.source_url || null,
+          sourceUrl: global.source_url || null,
+          ingredients: parseIngredients(local.ingredients || global.ingredients),
+          instructions: parseInstructions(local.instructions || global.instructions),
+          folders: match.folders || local.folders || [],
+          folder: match.folder || local.folder || 'All Recipes',
+          author: global.author || null,
+          createdBy: local.createdBy || null,
+          isReadOnly: true,
+        };
+      }
+    }
+
+    // Fallback to old recipes table
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('user_id', targetUserId)
+      .eq('id', recipeId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      console.error('❌ Error fetching full public recipe:', error);
+      return null;
+    }
+    if (!data) return null;
+
+    const rd = data.recipe_data || {};
+    return {
+      id: data.id,
+      title: data.title || rd.title || 'Untitled',
+      image_url: data.image_url || rd.image_url || null,
+      imageUrl: data.image_url || rd.image_url || null,
+      source_url: data.source_url || null,
+      sourceUrl: data.source_url || null,
+      ingredients: parseIngredients(rd.ingredients || data.ingredients),
+      instructions: parseInstructions(rd.instructions || data.instructions),
+      folders: rd.folders || (data.folder ? [data.folder] : []),
+      folder: data.folder || rd.folder || 'All Recipes',
+      notes: data.notes || rd.notes || null,
+      createdBy: rd.createdBy || null,
+      isReadOnly: true,
+    };
+  } catch (error) {
+    console.error('❌ getFullPublicRecipe error:', error);
+    return null;
+  }
+};
+
 export default {
   isUsernameAvailable,
   setupUserProfile,
@@ -1267,4 +1385,5 @@ export default {
   unfollowUser,
   getUserFollowers,
   getUserFollowing,
+  getFullPublicRecipe,
 };

@@ -176,7 +176,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
     <TouchableOpacity
       key={recipe.id}
       style={[styles.recipeCard, isSmall && styles.recipeCardSmall]}
-      onPress={() => onRecipePress?.(recipe)}
+      onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
     >
       {recipe.imageUrl ? (
         <Image
@@ -209,7 +209,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
           <TouchableOpacity
             key={recipe.id}
             style={styles.recipeListItem}
-            onPress={() => onRecipePress?.(recipe)}
+            onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
           >
             {recipe.imageUrl ? (
               <Image source={{ uri: recipe.imageUrl }} style={styles.recipeListImage} />
@@ -359,7 +359,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
                 renderItem={({ item: recipe }) => (
                   <TouchableOpacity
                     style={[styles.featuredCard, { width: CARD_WIDTH }]}
-                    onPress={() => onRecipePress?.(recipe)}
+                    onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
                     activeOpacity={0.9}
                   >
                     {recipe.imageUrl ? (
@@ -410,7 +410,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
               <TouchableOpacity
                 key={recipe.id}
                 style={styles.sampleRecipeRow}
-                onPress={() => onRecipePress?.(recipe)}
+                onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
               >
                 {recipe.imageUrl ? (
                   <Image

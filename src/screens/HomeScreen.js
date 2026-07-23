@@ -61,6 +61,7 @@ import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constant
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
 import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
+import { getFullPublicRecipe } from '../services/supabase/social';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -2224,10 +2225,31 @@ export const HomeScreen = ({ user }) => {
           checkUsernameAvailable={checkUsernameAvailable}
           onRefresh={refreshSocialData}
           currentUserId={user?.uid}
-          onRecipePress={(recipe) => {
+          onRecipePress={async (recipe) => {
             setCurrentScreen('recipes');
-            // TODO: Open recipe detail for shared recipes
-            console.log('View recipe:', recipe.title);
+            try {
+              const ownerId = recipe.ownerUserId;
+              if (!ownerId) {
+                console.warn('No ownerUserId on recipe, opening with partial data');
+                setSelectedRecipe({
+                  ...recipe,
+                  ingredients: recipe.ingredients || { main: [] },
+                  instructions: recipe.instructions || [],
+                  isReadOnly: true,
+                });
+                return;
+              }
+
+              const full = await getFullPublicRecipe(ownerId, recipe.id);
+              if (full) {
+                setSelectedRecipe(full);
+              } else {
+                Alert.alert('Recipe Not Available', 'This recipe could not be loaded.');
+              }
+            } catch (err) {
+              console.error('Failed to load public recipe:', err);
+              Alert.alert('Error', 'Failed to load recipe details.');
+            }
           }}
           recipes={recipes}
           onProfileUpdated={refreshSocialData}
