@@ -2793,8 +2793,9 @@ export const HomeScreen = ({ user }) => {
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     onPress={() => {
-                      const customFolders = getCustomFolders();
-                      if (customFolders.length === 0) {
+                      const importableFolders = getCustomFolders()
+                        .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+                      if (importableFolders.length === 0) {
                         Alert.alert('No Cookbooks', 'Create a cookbook first to add this recipe.', [
                           { text: 'OK' },
                           {
@@ -3326,7 +3327,9 @@ export const HomeScreen = ({ user }) => {
             <View style={{ width: 60 }} />
           </View>
           <ScrollView style={{ flex: 1, padding: 20 }}>
-            {getCustomFolders().map((folder) => (
+            {getCustomFolders()
+              .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'))
+              .map((folder) => (
               <TouchableOpacity
                 key={folder}
                 style={styles.folderManagerItem}
