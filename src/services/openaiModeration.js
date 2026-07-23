@@ -2,7 +2,9 @@
  * FILENAME: src/services/openaiModeration.js
  * PURPOSE: Text content moderation via OpenAI Moderation API
  *
- * Sign up at https://platform.openai.com and add your API key below.
+ * Sign up at https://platform.openai.com and add your API key to
+ * src/services/secrets.js (which is gitignored - see secrets.example.js).
+ *
  * The OpenAI Moderation API is FREE and does not train on your data
  * (per OpenAI's usage policy for the /moderations endpoint).
  *
@@ -10,8 +12,14 @@
  * for processing. Users should be informed of this via a disclaimer.
  */
 
-// OpenAI API key - get from https://platform.openai.com/api-keys
-const OPENAI_API_KEY = '';
+// Load API key from local secrets file (never committed)
+let OPENAI_API_KEY = '';
+try {
+  const { SECRETS } = require('./secrets');
+  OPENAI_API_KEY = SECRETS.OPENAI_API_KEY || '';
+} catch (e) {
+  // secrets.js not present - moderation will be skipped (fail-open)
+}
 
 // Categories to block. See https://platform.openai.com/docs/guides/moderation/overview
 // for full list. We're more strict about hate/sexual/harassment.

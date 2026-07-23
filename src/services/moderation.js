@@ -6,9 +6,17 @@
  * Free tier: 500 operations/month.
  */
 
-// Sightengine API credentials - get from https://dashboard.sightengine.com
-const SIGHTENGINE_API_USER = '258200243';
-const SIGHTENGINE_API_SECRET = 'QG8YekqRScbrWPHPJCtgVw6mTfNhrczQ';
+// Sightengine API credentials - loaded from src/services/secrets.js (gitignored)
+// See secrets.example.js for setup instructions.
+let SIGHTENGINE_API_USER = '';
+let SIGHTENGINE_API_SECRET = '';
+try {
+  const { SECRETS } = require('./secrets');
+  SIGHTENGINE_API_USER = SECRETS.SIGHTENGINE_API_USER || '';
+  SIGHTENGINE_API_SECRET = SECRETS.SIGHTENGINE_API_SECRET || '';
+} catch (e) {
+  // secrets.js not present - moderation will be skipped (fail-open)
+}
 
 // Moderation models to check against
 const MODELS = 'nudity-2.1,offensive,gore,weapon';
