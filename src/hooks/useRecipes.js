@@ -916,6 +916,52 @@ export const useRecipes = (user) => {
     return false;
   };
 
+  /**
+   * Refresh the "original" version of an imported recipe from its owner
+   * Returns the updated recipe (with fresh originalRecipe) or null if nothing to update
+   */
+  const refreshOriginalFromOwner = async (recipeId) => {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return null;
+    if (!recipe.originalOwnerId || !recipe.originalOwnerRecipeId) return null;
+
+    try {
+      const { getFullPublicRecipe } = require('../services/supabase/social');
+      const fresh = await getFullPublicRecipe(recipe.originalOwnerId, recipe.originalOwnerRecipeId);
+      if (!fresh) return null;
+
+      // Compare to existing to skip pointless writes
+      const existing = recipe.originalRecipe || {};
+      const same =
+        existing.title === fresh.title &&
+        JSON.stringify(existing.ingredients) === JSON.stringify(fresh.ingredients) &&
+        JSON.stringify(existing.instructions) === JSON.stringify(fresh.instructions) &&
+        (existing.image_url || existing.imageUrl || null) === (fresh.image_url || fresh.imageUrl || null);
+      if (same) {
+        console.log('🔄 Original unchanged for', recipe.title);
+        return recipe;
+      }
+
+      const newOriginal = {
+        title: fresh.title,
+        image_url: fresh.image_url || fresh.imageUrl || null,
+        ingredients: fresh.ingredients,
+        instructions: fresh.instructions,
+      };
+
+      const updated = { ...recipe, originalRecipe: newOriginal, originalRefreshedAt: Date.now() };
+      const updatedRecipes = recipes.map(r => (r.id === recipeId ? updated : r));
+      await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+      setRecipes(updatedRecipes);
+
+      console.log('🔄 Refreshed original version from owner for:', recipe.title);
+      return updated;
+    } catch (err) {
+      console.error('❌ Failed to refresh original from owner:', err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     setRecipes([]);
     setSynced(false);
@@ -951,6 +997,8 @@ export const useRecipes = (user) => {
     selectVariant,
     createVariant,
     deleteVariant,
+    // Original-recipe sync for imported recipes
+    refreshOriginalFromOwner,
   };
 };
 

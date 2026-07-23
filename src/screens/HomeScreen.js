@@ -171,6 +171,8 @@ export const HomeScreen = ({ user }) => {
     selectVariant,
     createVariant,
     deleteVariant,
+    // Original-recipe sync
+    refreshOriginalFromOwner,
   } = useRecipes(user);
 
   const {
@@ -366,6 +368,20 @@ export const HomeScreen = ({ user }) => {
       subscription?.remove();
     };
   }, [user]);
+
+  // When opening an imported recipe, silently refresh its "original" from the owner
+  useEffect(() => {
+    if (!selectedRecipe) return;
+    if (selectedRecipe.isReadOnly) return; // Already viewing owner's live copy
+    if (!selectedRecipe.originalOwnerId || !selectedRecipe.originalOwnerRecipeId) return;
+
+    // Fire and forget - updates the recipe in local state when done
+    refreshOriginalFromOwner(selectedRecipe.id).then((updated) => {
+      if (updated && selectedRecipe && updated.id === selectedRecipe.id) {
+        setSelectedRecipe(updated);
+      }
+    });
+  }, [selectedRecipe?.id]);
 
   // Handle pending friend request when social data is ready
   useEffect(() => {
@@ -1525,6 +1541,14 @@ export const HomeScreen = ({ user }) => {
 
     const newId = `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    // Snapshot of the owner's current recipe (used as the "original" version)
+    const originalSnapshot = {
+      title: importingRecipe.title,
+      image_url: importingRecipe.image_url || importingRecipe.imageUrl || null,
+      ingredients: importingRecipe.ingredients,
+      instructions: importingRecipe.instructions,
+    };
+
     const cleanedRecipe = {
       id: newId,
       title: importingRecipe.title,
@@ -1541,6 +1565,10 @@ export const HomeScreen = ({ user }) => {
         id: importingRecipe.ownerUserId,
         username: importingRecipe.ownerUsername,
       } : null),
+      // Track owner for original-version sync
+      originalOwnerId: importingRecipe.ownerUserId || null,
+      originalOwnerRecipeId: importingRecipe.id || null,
+      originalRecipe: originalSnapshot,
       importedFrom: importingRecipe.ownerUserId || null,
       importedAt: Date.now(),
       createdAt: Date.now(),
