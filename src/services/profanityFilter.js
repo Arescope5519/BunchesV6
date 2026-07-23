@@ -181,3 +181,56 @@ export const checkFields = (fields) => {
   }
   return null;
 };
+
+/**
+ * Two-stage check: wordlist first (instant, offline), then OpenAI (comprehensive)
+ * OpenAI only called if wordlist passes AND API key is configured.
+ * @param {string} text
+ * @returns {Promise<{safe: boolean, reason: string|null}>}
+ */
+export const containsProfanityAsync = async (text) => {
+  // Stage 1: local wordlist (fast, offline, no API cost)
+  const localHit = findProfanity(text);
+  if (localHit) {
+    return { safe: false, reason: 'local:wordlist' };
+  }
+
+  // Stage 2: OpenAI Moderation (comprehensive, catches nuanced stuff)
+  try {
+    const { checkTextWithOpenAI } = require('./openaiModeration');
+    const openai = await checkTextWithOpenAI(text);
+    if (!openai.safe) {
+      return { safe: false, reason: `openai:${openai.reason}` };
+    }
+  } catch (err) {
+    console.warn('OpenAI moderation unavailable:', err?.message);
+  }
+
+  return { safe: true, reason: null };
+};
+
+/**
+ * Two-stage field check: wordlist first, then OpenAI if wordlist passes.
+ * @param {Object} fields
+ * @returns {Promise<{safe: boolean, field: string|null, reason: string|null}>}
+ */
+export const checkFieldsAsync = async (fields) => {
+  // Stage 1: local wordlist
+  const localHit = checkFields(fields);
+  if (localHit) {
+    return { safe: false, field: localHit.field, reason: `local:wordlist:${localHit.word}` };
+  }
+
+  // Stage 2: OpenAI Moderation (one batched call for all fields)
+  try {
+    const { checkFieldsWithOpenAI } = require('./openaiModeration');
+    const openai = await checkFieldsWithOpenAI(fields);
+    if (!openai.safe) {
+      return { safe: false, field: openai.field, reason: `openai:${openai.reason}` };
+    }
+  } catch (err) {
+    console.warn('OpenAI moderation unavailable:', err?.message);
+  }
+
+  return { safe: true, field: null, reason: null };
+};
