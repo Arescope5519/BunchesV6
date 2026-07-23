@@ -42,6 +42,7 @@ import { useSocial } from '../hooks/useSocial';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
+import UserProfile from '../components/UserProfile';
 import { GroceryList } from '../components/GroceryList';
 import { IngredientSearch } from '../components/IngredientSearch';
 import { DashboardScreen } from './DashboardScreen';
@@ -81,6 +82,9 @@ export const HomeScreen = ({ user }) => {
   const [showFolderManager, setShowFolderManager] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
+  const [viewingUserProfile, setViewingUserProfile] = useState(null);
+  const [importingRecipe, setImportingRecipe] = useState(null);
+  const [showImportFolderPicker, setShowImportFolderPicker] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -1515,6 +1519,45 @@ export const HomeScreen = ({ user }) => {
   };
 
   // Share recipe with prompt for edit options
+  // Handle import of a public recipe into current user's cookbooks
+  const handleImportPublicRecipe = async (targetFolder) => {
+    if (!importingRecipe) return;
+
+    const newId = `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const cleanedRecipe = {
+      id: newId,
+      title: importingRecipe.title,
+      image_url: importingRecipe.image_url || importingRecipe.imageUrl || null,
+      ingredients: importingRecipe.ingredients,
+      instructions: importingRecipe.instructions,
+      // Preserve original source_url so global_recipes stays linked to owner
+      source_url: importingRecipe.source_url || importingRecipe.sourceUrl || null,
+      url: importingRecipe.source_url || importingRecipe.sourceUrl || null,
+      folder: targetFolder,
+      folders: [targetFolder],
+      notes: importingRecipe.notes || null,
+      createdBy: importingRecipe.createdBy || (importingRecipe.ownerUserId ? {
+        id: importingRecipe.ownerUserId,
+        username: importingRecipe.ownerUsername,
+      } : null),
+      importedFrom: importingRecipe.ownerUserId || null,
+      importedAt: Date.now(),
+      createdAt: Date.now(),
+    };
+
+    setShowImportFolderPicker(false);
+    setImportingRecipe(null);
+    setSelectedRecipe(null);
+
+    const saved = await saveRecipe(cleanedRecipe);
+    if (saved) {
+      Alert.alert('✅ Added', `"${cleanedRecipe.title}" added to ${targetFolder}!`);
+    } else {
+      Alert.alert('Error', 'Failed to add recipe. Please try again.');
+    }
+  };
+
   const handleShareRecipe = (recipe) => {
     // Check if recipe has edits - if so, offer options
     if (recipe.hasEdits && recipe.originalRecipe) {
@@ -2745,6 +2788,35 @@ export const HomeScreen = ({ user }) => {
                     <Text style={styles.iconButtonText}>🗑️</Text>
                   </TouchableOpacity>
                 </View>
+              ) : selectedRecipe.isReadOnly ? (
+                // Read-only actions for viewing another user's recipe
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const customFolders = getCustomFolders();
+                      if (customFolders.length === 0) {
+                        Alert.alert('No Cookbooks', 'Create a cookbook first to add this recipe.', [
+                          { text: 'OK' },
+                          {
+                            text: 'Create Cookbook',
+                            onPress: () => {
+                              setSelectedRecipe(null);
+                              setShowFolderManager(true);
+                              setTimeout(() => setShowAddFolder(true), 300);
+                            }
+                          }
+                        ]);
+                        return;
+                      }
+                      setImportingRecipe(selectedRecipe);
+                      setShowImportFolderPicker(true);
+                    }}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>📥</Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 // Normal actions for active recipes
                 <View style={styles.modalActions}>
@@ -2824,14 +2896,18 @@ export const HomeScreen = ({ user }) => {
               )}
               <RecipeDetail
                 recipe={selectedRecipe}
-                onUpdate={selectedRecipe.deletedAt ? null : updateRecipe}
+                onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}
                 isFolderPrivate={isFolderPrivate(selectedRecipe.folder)}
-                onToggleVersion={selectedRecipe.deletedAt ? null : toggleRecipeVersion}
-                onSelectVariant={selectedRecipe.deletedAt ? null : selectVariant}
-                onCreateVariant={selectedRecipe.deletedAt ? null : createVariant}
-                onDeleteVariant={selectedRecipe.deletedAt ? null : deleteVariant}
+                onToggleVersion={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : toggleRecipeVersion}
+                onSelectVariant={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : selectVariant}
+                onCreateVariant={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : createVariant}
+                onDeleteVariant={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : deleteVariant}
+                onViewOwnerProfile={(ownerId, username) => {
+                  setSelectedRecipe(null);
+                  setViewingUserProfile(ownerId);
+                }}
               />
               <View style={styles.bottomSpacer} />
             </ScrollView>
@@ -3214,6 +3290,57 @@ export const HomeScreen = ({ user }) => {
         onClose={() => setShowWelcomeModal(false)}
         onDontShowAgain={handleWelcomeDontShowAgain}
       />
+
+      {/* Public User Profile Modal (from recipe owner link) */}
+      <UserProfile
+        visible={!!viewingUserProfile}
+        onClose={() => setViewingUserProfile(null)}
+        targetUserId={viewingUserProfile}
+        currentUserId={user?.uid}
+        onRecipePress={async (recipe) => {
+          setViewingUserProfile(null);
+          try {
+            const ownerId = recipe.ownerUserId;
+            if (!ownerId) return;
+            const full = await getFullPublicRecipe(ownerId, recipe.id);
+            if (full) setSelectedRecipe(full);
+          } catch (err) {
+            console.error('Failed to load recipe:', err);
+          }
+        }}
+      />
+
+      {/* Import Public Recipe Folder Picker */}
+      <Modal
+        visible={showImportFolderPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowImportFolderPicker(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowImportFolderPicker(false)}>
+              <Text style={styles.modalCloseButton}>✕ Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalHeaderTitle}>Add to Cookbook</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          <ScrollView style={{ flex: 1, padding: 20 }}>
+            {getCustomFolders().map((folder) => (
+              <TouchableOpacity
+                key={folder}
+                style={styles.folderManagerItem}
+                onPress={() => handleImportPublicRecipe(folder)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20, marginRight: 12 }}>📖</Text>
+                  <Text style={styles.folderManagerItemText}>{folder}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       {/* Bottom Navigation Bar */}
       {renderNavigationBar()}

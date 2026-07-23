@@ -112,7 +112,9 @@ export const RecipeDetail = ({
   onCreateVariant, // For creating a new variant
   onDeleteVariant, // For deleting a variant
   onShare, // For sharing with edit options
+  onViewOwnerProfile, // For opening the recipe owner's profile
 }) => {
+  const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
 
@@ -261,6 +263,7 @@ export const RecipeDetail = ({
    * Handle long press on ingredient/instruction/section
    */
   const handleLongPress = (type, sectionKey, index, value) => {
+    if (isReadOnly) return;
     console.log('Long press:', type, sectionKey, index, value);
     setEditingItem({ type, sectionKey, index, value });
     setSwapMode(null);
@@ -721,12 +724,14 @@ export const RecipeDetail = ({
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              onPress={() => setShowTagEditor(true)}
-              style={styles.tagEditButton}
-            >
-              <Text style={styles.tagEditButtonText}>Edit</Text>
-            </TouchableOpacity>
+            {!isReadOnly && (
+              <TouchableOpacity
+                onPress={() => setShowTagEditor(true)}
+                style={styles.tagEditButton}
+              >
+                <Text style={styles.tagEditButtonText}>Edit</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -774,7 +779,7 @@ export const RecipeDetail = ({
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Ingredients</Text>
-        {!selectionMode && (
+        {!selectionMode && !isReadOnly && (
           <View style={styles.sectionHeaderButtons}>
             <TouchableOpacity onPress={() => setShowTagEditor(true)} style={styles.addSectionButton}>
               <Text style={styles.addSectionText}>+ Tags</Text>
@@ -1131,30 +1136,56 @@ export const RecipeDetail = ({
       ))}
 
       {/* Source/Creator Info */}
-      {(localRecipe.url || localRecipe.createdBy) && (
-        <View style={styles.sourceContainer}>
-          {localRecipe.url ? (
-            <>
+      {(() => {
+        const sourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
+        const isBunchesUrl = sourceUrl && sourceUrl.startsWith('bunches://');
+        const creatorUsername = localRecipe.ownerUsername || localRecipe.createdBy?.username;
+        const creatorUserId = localRecipe.ownerUserId || localRecipe.createdBy?.id;
+
+        // Read-only or Bunches user recipe: show creator link, not the bunches URL
+        if (isBunchesUrl || (isReadOnly && creatorUsername)) {
+          if (!creatorUsername) return null;
+          return (
+            <View style={styles.sourceContainer}>
+              <Text style={styles.sourceLabel}>Created by:</Text>
+              <TouchableOpacity onPress={() => onViewOwnerProfile?.(creatorUserId, creatorUsername)}>
+                <Text style={styles.sourceUrl}>@{creatorUsername}</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+        // External URL: show link
+        if (sourceUrl) {
+          return (
+            <View style={styles.sourceContainer}>
               <Text style={styles.sourceLabel}>Source:</Text>
               <TouchableOpacity onPress={() => {
-                Linking.openURL(localRecipe.url).catch(err =>
+                Linking.openURL(sourceUrl).catch(() =>
                   Alert.alert('Error', 'Could not open URL')
                 );
               }}>
-                <Text style={styles.sourceUrl}>{localRecipe.url}</Text>
+                <Text style={styles.sourceUrl}>{sourceUrl}</Text>
               </TouchableOpacity>
-            </>
-          ) : localRecipe.source === 'manual' && localRecipe.createdBy?.username ? (
-            <>
+            </View>
+          );
+        }
+
+        // Manual recipe fallback
+        if (localRecipe.source === 'manual' && creatorUsername) {
+          return (
+            <View style={styles.sourceContainer}>
               <Text style={styles.sourceLabel}>Created by:</Text>
-              <Text style={styles.creatorName}>{localRecipe.createdBy.username}</Text>
-            </>
-          ) : null}
-        </View>
-      )}
+              <Text style={styles.creatorName}>@{creatorUsername}</Text>
+            </View>
+          );
+        }
+
+        return null;
+      })()}
 
       {/* Privacy Toggle */}
-      {onUpdate && (
+      {onUpdate && !isReadOnly && (
         <View style={styles.privacyContainer}>
           <View style={styles.privacyRow}>
             <Text style={styles.privacyLabel}>

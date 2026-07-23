@@ -1244,6 +1244,19 @@ export const getUserFollowing = async (userId) => {
 export const getFullPublicRecipe = async (targetUserId, recipeId) => {
   console.log('📖 getFullPublicRecipe:', { targetUserId, recipeId });
 
+  // Fetch owner's username for display
+  let ownerUsername = null;
+  try {
+    const { data: ownerProfile } = await supabase
+      .from('user_profiles')
+      .select('username')
+      .eq('user_id', targetUserId)
+      .maybeSingle();
+    ownerUsername = ownerProfile?.username || null;
+  } catch (e) {
+    console.warn('Could not fetch owner username:', e);
+  }
+
   const parseIngredients = (raw) => {
     if (!raw) return { main: [] };
     if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
@@ -1312,7 +1325,9 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
           folders: match.folders || local.folders || [],
           folder: match.folder || local.folder || 'All Recipes',
           author: global.author || null,
-          createdBy: local.createdBy || null,
+          createdBy: local.createdBy || { id: targetUserId, username: ownerUsername },
+          ownerUserId: targetUserId,
+          ownerUsername,
           isReadOnly: true,
         };
       }
@@ -1346,7 +1361,9 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
       folders: rd.folders || (data.folder ? [data.folder] : []),
       folder: data.folder || rd.folder || 'All Recipes',
       notes: data.notes || rd.notes || null,
-      createdBy: rd.createdBy || null,
+      createdBy: rd.createdBy || { id: targetUserId, username: ownerUsername },
+      ownerUserId: targetUserId,
+      ownerUsername,
       isReadOnly: true,
     };
   } catch (error) {
