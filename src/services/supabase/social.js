@@ -1544,13 +1544,32 @@ export const getBlockedUsers = async (currentUserId) => {
     const { data, error } = await supabase
       .from('user_blocks')
       .select('blocked_id, created_at')
-      .eq('blocker_id', currentUserId);
+      .eq('blocker_id', currentUserId)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('❌ getBlockedUsers error:', error);
       return [];
     }
-    return data || [];
+
+    if (!data || data.length === 0) return [];
+
+    // Enrich with usernames
+    const ids = data.map(row => row.blocked_id);
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, username, avatar_url')
+      .in('user_id', ids);
+
+    const profileMap = {};
+    (profiles || []).forEach(p => { profileMap[p.user_id] = p; });
+
+    return data.map(row => ({
+      userId: row.blocked_id,
+      username: profileMap[row.blocked_id]?.username || 'unknown',
+      avatarUrl: profileMap[row.blocked_id]?.avatar_url || null,
+      blockedAt: row.created_at,
+    }));
   } catch (err) {
     console.error('❌ getBlockedUsers error:', err);
     return [];

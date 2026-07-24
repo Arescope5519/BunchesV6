@@ -71,6 +71,7 @@ import {
   getBlockStatus,
 } from '../services/supabase/social';
 import AdminReports from '../components/AdminReports';
+import BlockedUsers from '../components/BlockedUsers';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -100,6 +101,7 @@ export const HomeScreen = ({ user }) => {
   const [submittingReport, setSubmittingReport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminReports, setShowAdminReports] = useState(false);
+  const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -2430,6 +2432,7 @@ export const HomeScreen = ({ user }) => {
           onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
           isAdmin={isAdmin}
           onOpenAdminReports={() => setShowAdminReports(true)}
+          onOpenBlockedUsers={() => setShowBlockedUsers(true)}
         />
       )}
 
@@ -3584,6 +3587,13 @@ export const HomeScreen = ({ user }) => {
           setShowAdminReports(false);
           setViewingUserProfile(userId);
         }}
+      />
+
+      {/* Blocked Users */}
+      <BlockedUsers
+        visible={showBlockedUsers}
+        onClose={() => setShowBlockedUsers(false)}
+        currentUserId={user?.uid}
       />
 
       {/* Bottom Navigation Bar */}
