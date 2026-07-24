@@ -23,12 +23,13 @@ const CORS_HEADERS = {
 const MODELS = 'nudity-2.1,offensive,gore,weapon';
 
 const THRESHOLDS: Record<string, number> = {
-  nudity_raw: 0.5,
-  nudity_sexual: 0.3,
-  nudity_suggestive: 0.85,
-  offensive: 0.5,
-  gore: 0.5,
-  weapon: 0.7,
+  nudity_raw: 0.4,          // Explicit nudity - strict
+  nudity_sexual: 0.3,       // Sexual acts/display - strict
+  nudity_suggestive: 0.5,   // Suggestive (bikinis, lingerie, cleavage) - moderate
+  nudity_partial: 0.5,      // Partial nudity - moderate
+  offensive: 0.5,           // Offensive gestures/symbols
+  gore: 0.5,                // Gore/violence
+  weapon: 0.7,              // Weapons (kitchen knives get through)
 };
 
 Deno.serve(async (req: Request) => {
@@ -75,14 +76,29 @@ Deno.serve(async (req: Request) => {
       return json({ safe: true, reason: null, scores: null }, 200);
     }
 
+    // Log raw response for tuning thresholds
+    console.log('Sightengine raw scores:', JSON.stringify({
+      nudity: result.nudity,
+      offensive: result.offensive,
+      gore: result.gore,
+      weapon: result.weapon,
+    }));
+
     const scores = {
-      nudity_raw: result.nudity?.raw || result.nudity?.sexual_display || 0,
+      nudity_raw: Math.max(
+        result.nudity?.raw || 0,
+        result.nudity?.sexual_display || 0,
+      ),
       nudity_sexual: Math.max(
         result.nudity?.sexual_activity || 0,
         result.nudity?.sexual_display || 0,
         result.nudity?.erotica || 0,
       ),
-      nudity_suggestive: result.nudity?.suggestive || 0,
+      nudity_suggestive: Math.max(
+        result.nudity?.suggestive || 0,
+        result.nudity?.mildly_suggestive || 0,
+      ),
+      nudity_partial: result.nudity?.partial || result.nudity?.partial_nudity || 0,
       offensive: result.offensive?.prob || 0,
       gore: result.gore?.prob || 0,
       weapon: result.weapon?.classes?.firearm || result.weapon?.prob || 0,
@@ -92,6 +108,7 @@ Deno.serve(async (req: Request) => {
     if (scores.nudity_raw > THRESHOLDS.nudity_raw) violations.push('explicit content');
     if (scores.nudity_sexual > THRESHOLDS.nudity_sexual) violations.push('sexual content');
     if (scores.nudity_suggestive > THRESHOLDS.nudity_suggestive) violations.push('suggestive content');
+    if (scores.nudity_partial > THRESHOLDS.nudity_partial) violations.push('partial nudity');
     if (scores.offensive > THRESHOLDS.offensive) violations.push('offensive content');
     if (scores.gore > THRESHOLDS.gore) violations.push('gore/violence');
     if (scores.weapon > THRESHOLDS.weapon) violations.push('weapons');
