@@ -85,6 +85,10 @@ export const HomeScreen = ({ user }) => {
   const [viewingUserProfile, setViewingUserProfile] = useState(null);
   const [importingRecipe, setImportingRecipe] = useState(null);
   const [showImportFolderPicker, setShowImportFolderPicker] = useState(false);
+  const [reportingRecipe, setReportingRecipe] = useState(null);
+  const [reportReason, setReportReason] = useState('inappropriate');
+  const [reportDetails, setReportDetails] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -1586,39 +1590,39 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Submit a report for a recipe with the given reason
-  const handleSubmitReport = async (recipe, reason) => {
-    if (!recipe || !user?.uid) return;
-
-    const success = await submitContentReport({
-      reporterId: user.uid,
-      reportedUserId: recipe.ownerUserId || recipe.createdBy?.id || 'unknown',
-      contentType: 'recipe',
-      contentId: recipe.id,
-      reason,
-      details: null,
-    });
-
-    if (success) {
-      Alert.alert('Report Submitted', 'Thank you. Our team will review this content.');
-    } else {
-      Alert.alert('Report Failed', 'Could not submit your report. Please try again.');
-    }
+  // Open the report modal for a recipe
+  const openReportDialog = (recipe) => {
+    setReportingRecipe(recipe);
+    setReportReason('inappropriate');
+    setReportDetails('');
   };
 
-  // Show reason picker for reporting a recipe
-  const openReportDialog = (recipe) => {
-    Alert.alert(
-      'Report Recipe',
-      'Why are you reporting this recipe?',
-      [
-        { text: 'Inappropriate content', onPress: () => handleSubmitReport(recipe, 'inappropriate') },
-        { text: 'Hate or harassment', onPress: () => handleSubmitReport(recipe, 'hate_harassment') },
-        { text: 'Spam or misleading', onPress: () => handleSubmitReport(recipe, 'spam') },
-        { text: 'Other', onPress: () => handleSubmitReport(recipe, 'other') },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+  // Submit the report from the modal
+  const handleSubmitReport = async () => {
+    if (!reportingRecipe || !user?.uid) return;
+
+    setSubmittingReport(true);
+    try {
+      const success = await submitContentReport({
+        reporterId: user.uid,
+        reportedUserId: reportingRecipe.ownerUserId || reportingRecipe.createdBy?.id || 'unknown',
+        contentType: 'recipe',
+        contentId: reportingRecipe.id,
+        reason: reportReason,
+        details: reportDetails.trim() || null,
+      });
+
+      setReportingRecipe(null);
+      setReportDetails('');
+
+      if (success) {
+        Alert.alert('Report Submitted', 'Thank you. Our team will review this content.');
+      } else {
+        Alert.alert('Report Failed', 'Could not submit your report. Please try again.');
+      }
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   const handleShareRecipe = (recipe) => {
@@ -3412,6 +3416,105 @@ export const HomeScreen = ({ user }) => {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Report Recipe Modal */}
+      <Modal
+        visible={!!reportingRecipe}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => !submittingReport && setReportingRecipe(null)}
+      >
+        <SafeAreaView style={styles.container}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={() => setReportingRecipe(null)}
+                disabled={submittingReport}
+              >
+                <Text style={[styles.modalCloseButton, submittingReport && { opacity: 0.4 }]}>
+                  ✕ Cancel
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Report Recipe</Text>
+              <TouchableOpacity
+                onPress={handleSubmitReport}
+                disabled={submittingReport}
+              >
+                {submittingReport ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveButton}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ flex: 1, padding: 20 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: colors.text }}>
+                Reason
+              </Text>
+              {[
+                { key: 'inappropriate', label: 'Inappropriate content' },
+                { key: 'hate_harassment', label: 'Hate or harassment' },
+                { key: 'spam', label: 'Spam or misleading' },
+                { key: 'other', label: 'Other' },
+              ].map(option => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={{
+                    padding: 14,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: reportReason === option.key ? colors.primary : colors.border,
+                    backgroundColor: reportReason === option.key ? colors.primaryLight : '#fff',
+                    marginBottom: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                  onPress={() => setReportReason(option.key)}
+                >
+                  <Text style={{ fontSize: 18, marginRight: 10 }}>
+                    {reportReason === option.key ? '●' : '○'}
+                  </Text>
+                  <Text style={{ fontSize: 15, color: colors.text }}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              <Text style={{ fontSize: 16, fontWeight: '600', marginTop: 20, marginBottom: 8, color: colors.text }}>
+                Additional details (optional)
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>
+                Give us more context so we can review this faster.
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: '#fff',
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 15,
+                  color: colors.text,
+                  minHeight: 100,
+                  textAlignVertical: 'top',
+                }}
+                placeholder="Describe the issue (max 500 characters)"
+                placeholderTextColor={colors.textSecondary}
+                value={reportDetails}
+                onChangeText={(text) => setReportDetails(text.slice(0, 500))}
+                multiline
+                maxLength={500}
+              />
+              <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: 'right', marginTop: 4 }}>
+                {reportDetails.length}/500
+              </Text>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
 
