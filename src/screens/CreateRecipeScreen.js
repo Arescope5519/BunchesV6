@@ -34,6 +34,9 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   const [imageBase64, setImageBase64] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  // Save state
+  const [saving, setSaving] = useState(false);
+
   // Structured ingredients: [{ quantity: '', text: '' }]
   const [ingredients, setIngredients] = useState([{ quantity: '', text: '' }]);
 
@@ -219,6 +222,8 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   };
 
   const handleSave = async () => {
+    if (saving) return; // Prevent double-save
+
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a recipe title');
       return;
@@ -245,45 +250,50 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       return;
     }
 
-    // Profanity check (local wordlist + OpenAI moderation)
-    const profanityCheck = await checkFieldsAsync({
-      title: title.trim(),
-      ingredients: formattedIngredients,
-      instructions: validInstructions,
-    });
-    if (!profanityCheck.safe) {
-      Alert.alert(
-        'Inappropriate Content',
-        `Please remove inappropriate language from your ${profanityCheck.field || 'recipe'}.`,
-      );
-      return;
+    setSaving(true);
+    try {
+      // Profanity check (local wordlist + OpenAI moderation)
+      const profanityCheck = await checkFieldsAsync({
+        title: title.trim(),
+        ingredients: formattedIngredients,
+        instructions: validInstructions,
+      });
+      if (!profanityCheck.safe) {
+        Alert.alert(
+          'Inappropriate Content',
+          `Please remove inappropriate language from your ${profanityCheck.field || 'recipe'}.`,
+        );
+        return;
+      }
+
+      const recipeId = `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Upload image if selected
+      let imageUrl = null;
+      if (imageBase64 && userId) {
+        setUploadingImage(true);
+        imageUrl = await uploadImage(imageBase64, recipeId);
+        setUploadingImage(false);
+      }
+
+      const recipe = {
+        id: recipeId,
+        title: title.trim(),
+        folder: selectedFolder,
+        image_url: imageUrl,
+        ingredients: {
+          main: formattedIngredients,
+        },
+        instructions: validInstructions,
+        source: 'manual',
+        createdAt: Date.now(),
+        isFavorite: false,
+      };
+
+      onSave(recipe);
+    } finally {
+      setSaving(false);
     }
-
-    const recipeId = `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Upload image if selected
-    let imageUrl = null;
-    if (imageBase64 && userId) {
-      setUploadingImage(true);
-      imageUrl = await uploadImage(imageBase64, recipeId);
-      setUploadingImage(false);
-    }
-
-    const recipe = {
-      id: recipeId,
-      title: title.trim(),
-      folder: selectedFolder,
-      image_url: imageUrl,
-      ingredients: {
-        main: formattedIngredients,
-      },
-      instructions: validInstructions,
-      source: 'manual',
-      createdAt: Date.now(),
-      isFavorite: false,
-    };
-
-    onSave(recipe);
   };
 
   return (
@@ -300,8 +310,12 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
           <Text style={styles.closeButton}>✕ Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Recipe</Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveButton}>Save</Text>
+        <TouchableOpacity onPress={handleSave} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveButton}>Save</Text>
+          )}
         </TouchableOpacity>
       </View>
 

@@ -50,11 +50,56 @@ const ALLOWED_EXCEPTIONS = [
   'crass',
 ];
 
+// Multi-word phrases to block (matched as substrings, case-insensitive)
+// These catch things like "kill yourself" that OpenAI might miss due to context
+const BLOCKED_PHRASES = [
+  'kill yourself',
+  'kill your self',
+  'kys',
+  'kill myself',
+  'kill me',
+  'commit suicide',
+  'commit su1c1de',
+  'end my life',
+  'end your life',
+  'off yourself',
+  'off myself',
+  'hang yourself',
+  'hang myself',
+  'shoot yourself',
+  'shoot up',
+  'die in a fire',
+  'kill children',
+  'kill kids',
+  'child porn',
+  'child p0rn',
+  'kill people',
+  'murder',
+];
+
 // Build final word set
 const BLOCKED_WORDS = new Set(
   [...BASE_WORDS, ...CUSTOM_ADDITIONS].map(w => w.toLowerCase())
 );
 const EXCEPTIONS = new Set(ALLOWED_EXCEPTIONS.map(w => w.toLowerCase()));
+
+// Precompile phrase regex for efficiency
+const PHRASE_REGEX = BLOCKED_PHRASES.length > 0
+  ? new RegExp(
+      BLOCKED_PHRASES
+        .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'))
+        .join('|'),
+      'i'
+    )
+  : null;
+
+/**
+ * Check for blocked phrases (multi-word patterns)
+ */
+const containsBlockedPhrase = (text) => {
+  if (!text || !PHRASE_REGEX) return false;
+  return PHRASE_REGEX.test(String(text));
+};
 
 /**
  * Normalize a token - strip punctuation, convert leet-speak
@@ -99,6 +144,9 @@ const isTokenBlocked = (token) => {
 export const containsProfanity = (text) => {
   if (!text) return false;
 
+  // Check multi-word phrases first
+  if (containsBlockedPhrase(text)) return true;
+
   const tokens = tokenize(String(text));
   for (const token of tokens) {
     const normalized = normalizeToken(token);
@@ -122,6 +170,12 @@ export const containsProfanity = (text) => {
  */
 export const findProfanity = (text) => {
   if (!text) return null;
+
+  // Check multi-word phrases first
+  if (containsBlockedPhrase(text)) {
+    const match = String(text).match(PHRASE_REGEX);
+    return match ? match[0] : 'inappropriate phrase';
+  }
 
   const tokens = tokenize(String(text));
   for (const token of tokens) {
