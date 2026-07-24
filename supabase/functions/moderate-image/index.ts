@@ -20,7 +20,11 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const MODELS = 'nudity-2.1,offensive,gore,weapon';
+const MODELS = 'nudity-2.1,offensive,gore,weapon,faces';
+
+// Maximum number of faces allowed in a recipe photo.
+// Set to 0 to block any image with a face (recommended for food-only content).
+const MAX_FACES_ALLOWED = 0;
 
 const THRESHOLDS: Record<string, number> = {
   nudity_raw: 0.4,          // Explicit nudity - strict
@@ -76,12 +80,16 @@ Deno.serve(async (req: Request) => {
       return json({ safe: true, reason: null, scores: null }, 200);
     }
 
+    // Count faces detected
+    const faceCount = Array.isArray(result.faces) ? result.faces.length : 0;
+
     // Log raw response for tuning thresholds
     console.log('Sightengine raw scores:', JSON.stringify({
       nudity: result.nudity,
       offensive: result.offensive,
       gore: result.gore,
       weapon: result.weapon,
+      face_count: faceCount,
     }));
 
     const scores = {
@@ -102,6 +110,7 @@ Deno.serve(async (req: Request) => {
       offensive: result.offensive?.prob || 0,
       gore: result.gore?.prob || 0,
       weapon: result.weapon?.classes?.firearm || result.weapon?.prob || 0,
+      face_count: faceCount,
     };
 
     const violations: string[] = [];
@@ -112,6 +121,7 @@ Deno.serve(async (req: Request) => {
     if (scores.offensive > THRESHOLDS.offensive) violations.push('offensive content');
     if (scores.gore > THRESHOLDS.gore) violations.push('gore/violence');
     if (scores.weapon > THRESHOLDS.weapon) violations.push('weapons');
+    if (faceCount > MAX_FACES_ALLOWED) violations.push('people in photo (recipe photos should show food, not people)');
 
     if (violations.length > 0) {
       return json({ safe: false, reason: violations.join(', '), scores }, 200);

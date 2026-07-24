@@ -63,9 +63,13 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
           });
         }
 
+        // Show a friendlier message when the issue is people-in-photo
+        const isPersonIssue = check.reason?.includes('people in photo');
         Alert.alert(
-          'Image Not Allowed',
-          `This image was flagged as inappropriate (${check.reason}). Please choose a different photo.`,
+          isPersonIssue ? 'Photo Must Be of Food' : 'Image Not Allowed',
+          isPersonIssue
+            ? 'Recipe photos should show the food, not people. Please choose a photo without faces.'
+            : `This image was flagged as inappropriate (${check.reason}). Please choose a different photo.`,
         );
         return;
       }
