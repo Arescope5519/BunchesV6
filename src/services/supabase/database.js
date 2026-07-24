@@ -459,19 +459,72 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
  * @param {string} recipeId - Recipe ID
  */
 export const deleteRecipeFromDatabase = async (userId, recipeId) => {
+  const deletedAt = new Date().toISOString();
+  let anySuccess = false;
+
+  // Delete from OLD recipes table
   try {
     const { error } = await supabase
       .from('recipes')
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: deletedAt })
       .eq('id', recipeId)
       .eq('user_id', userId);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Delete from recipes failed:', error);
+    } else {
+      console.log(`✅ Marked deleted in recipes table: ${recipeId}`);
+      anySuccess = true;
+    }
+  } catch (err) {
+    console.error('❌ recipes delete error:', err);
+  }
 
-    console.log(`✅ Deleted recipe ${recipeId}`);
-  } catch (error) {
-    console.error('❌ Error deleting recipe:', error);
-    throw error;
+  // Also delete from user_recipes_v2 table (matches by cloud id OR local_recipe_data.id)
+  try {
+    // Try direct id match first
+    const { error: idErr, count: idCount } = await supabase
+      .from('user_recipes_v2')
+      .update({ deleted_at: deletedAt }, { count: 'exact' })
+      .eq('id', recipeId)
+      .eq('user_id', userId);
+
+    if (!idErr && (idCount || 0) > 0) {
+      console.log(`✅ Marked deleted in user_recipes_v2 by id: ${recipeId} (${idCount} rows)`);
+      anySuccess = true;
+    } else {
+      // Recipe id might be a local recipe id, not the cloud row id
+      // Fetch all rows for this user and match on local_recipe_data.id
+      const { data: rows } = await supabase
+        .from('user_recipes_v2')
+        .select('id, local_recipe_data')
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      if (rows && rows.length > 0) {
+        const matchingIds = rows
+          .filter(r => r.local_recipe_data?.id === recipeId)
+          .map(r => r.id);
+
+        if (matchingIds.length > 0) {
+          const { error: v2Err } = await supabase
+            .from('user_recipes_v2')
+            .update({ deleted_at: deletedAt })
+            .in('id', matchingIds);
+
+          if (!v2Err) {
+            console.log(`✅ Marked deleted in user_recipes_v2 by local id: ${recipeId} (${matchingIds.length} rows)`);
+            anySuccess = true;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('❌ user_recipes_v2 delete error:', err);
+  }
+
+  if (!anySuccess) {
+    throw new Error(`Failed to delete recipe ${recipeId} from any table`);
   }
 };
 
