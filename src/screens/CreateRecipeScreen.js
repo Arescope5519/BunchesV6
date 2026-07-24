@@ -306,8 +306,8 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.closeButton}>✕ Cancel</Text>
+        <TouchableOpacity onPress={onClose} disabled={saving}>
+          <Text style={[styles.closeButton, saving && { opacity: 0.4 }]}>✕ Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Recipe</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving}>
