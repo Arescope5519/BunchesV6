@@ -48,7 +48,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   const processPickedImage = async (asset) => {
     setUploadingImage(true);
     try {
-      const check = await checkImageModeration(asset.uri);
+      const check = await checkImageModeration(asset.uri, asset.base64);
 
       if (!check.safe) {
         // Log the flagged attempt for admin review

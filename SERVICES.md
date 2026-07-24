@@ -45,15 +45,16 @@ Master reference for every external service and internal module your app depends
 
 **What it sees:** Every recipe photo before it uploads to Supabase Storage
 
-**Config:** `src/services/moderation.js`
-**Credentials:** API user + API secret (embedded in app - see security note)
+**Access pattern:** App → Supabase Edge Function `moderate-image` → Sightengine
+**App-side client:** `src/services/moderation.js`
+**Edge function:** `supabase/functions/moderate-image/index.ts`
+**Credentials:** API user + API secret in **Supabase env vars** (not in APK)
 **Cost:** Free tier = 500 checks/month, then paid
 **Docs:** https://sightengine.com/docs
 
 **Categories checked:** Nudity, offensive, gore, weapons
-**Threshold config:** `THRESHOLDS` object in `moderation.js`
+**Threshold config:** `THRESHOLDS` object in the Edge Function's `index.ts`
 
-**⚠️ SECURITY:** Credentials are currently in the APK. Move behind a Supabase Edge Function before scaling.
 **⚠️ DISCLAIMER NEEDED:** Users' photos are transmitted to Sightengine's servers for analysis.
 
 ---
@@ -63,8 +64,10 @@ Master reference for every external service and internal module your app depends
 
 **What it sees:** Recipe titles, ingredients, instructions, cookbook names, usernames (only after they pass the local wordlist)
 
-**Config:** `src/services/openaiModeration.js`
-**Credentials:** OpenAI API key (embedded in app - see security note)
+**Access pattern:** App → Supabase Edge Function `moderate-text` → OpenAI
+**App-side client:** `src/services/openaiModeration.js`
+**Edge function:** `supabase/functions/moderate-text/index.ts`
+**Credentials:** OpenAI API key in **Supabase env vars** (not in APK)
 **Cost:** **FREE** for the moderation endpoint (does NOT charge or train on data)
 **Docs:** https://platform.openai.com/docs/guides/moderation
 
@@ -73,7 +76,6 @@ Master reference for every external service and internal module your app depends
 
 **Data policy:** Per OpenAI's usage policy, Moderation API inputs are NOT used for training. Retained up to 30 days for abuse monitoring, then deleted.
 
-**⚠️ SECURITY:** API key is in the APK. Move behind Supabase Edge Function eventually.
 **⚠️ DISCLAIMER NEEDED:** Users' text is transmitted to OpenAI's servers for analysis.
 
 ---
@@ -242,8 +244,8 @@ Google Sign-In → Supabase Auth → session token stored in AsyncStorage
 
 ## Security Notes (Pre-Production Checklist)
 
-- [ ] Sightengine credentials in APK - move behind Supabase Edge Function
-- [ ] OpenAI API key in APK - move behind Supabase Edge Function
+- [x] Sightengine credentials moved to Supabase Edge Function ✅
+- [x] OpenAI API key moved to Supabase Edge Function ✅
 - [ ] Supabase anon key in APK - this is OK (it's designed for client-side use, RLS enforces security)
 - [ ] User photos routed to Sightengine - needs disclaimer in ToS / Privacy Policy
 - [ ] User text routed to OpenAI - needs disclaimer in ToS / Privacy Policy
