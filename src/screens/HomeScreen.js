@@ -62,7 +62,15 @@ import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constant
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
 import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
-import { getFullPublicRecipe, submitContentReport } from '../services/supabase/social';
+import {
+  getFullPublicRecipe,
+  submitContentReport,
+  isUserAdmin,
+  blockUser,
+  unblockUser,
+  getBlockStatus,
+} from '../services/supabase/social';
+import AdminReports from '../components/AdminReports';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -86,9 +94,12 @@ export const HomeScreen = ({ user }) => {
   const [importingRecipe, setImportingRecipe] = useState(null);
   const [showImportFolderPicker, setShowImportFolderPicker] = useState(false);
   const [reportingRecipe, setReportingRecipe] = useState(null);
+  const [reportingProfile, setReportingProfile] = useState(null); // { userId, username }
   const [reportReason, setReportReason] = useState('inappropriate');
   const [reportDetails, setReportDetails] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminReports, setShowAdminReports] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -298,6 +309,14 @@ export const HomeScreen = ({ user }) => {
       // Load followed cookbooks
       const cookbooks = await loadFollowedCookbooks(user?.uid);
       setFollowedCookbooks(cookbooks);
+
+      // Check admin status
+      if (user?.uid) {
+        const adminStatus = await isUserAdmin(user.uid);
+        setIsAdmin(adminStatus);
+      } else {
+        setIsAdmin(false);
+      }
     };
     loadSettings();
   }, [user?.uid, hasCheckedWelcome]);
@@ -1593,29 +1612,48 @@ export const HomeScreen = ({ user }) => {
   // Open the report modal for a recipe
   const openReportDialog = (recipe) => {
     setReportingRecipe(recipe);
+    setReportingProfile(null);
+    setReportReason('inappropriate');
+    setReportDetails('');
+  };
+
+  // Open the report modal for a profile
+  const openProfileReportDialog = ({ userId, username }) => {
+    setReportingProfile({ userId, username });
+    setReportingRecipe(null);
     setReportReason('inappropriate');
     setReportDetails('');
   };
 
   // Submit the report from the modal
   const handleSubmitReport = async () => {
-    if (!reportingRecipe || !user?.uid) return;
+    if (!user?.uid) return;
+    const isProfileReport = !!reportingProfile;
+    const target = isProfileReport ? reportingProfile : reportingRecipe;
+    if (!target) return;
 
     setSubmittingReport(true);
     try {
-      const success = await submitContentReport({
+      const result = await submitContentReport({
         reporterId: user.uid,
-        reportedUserId: reportingRecipe.ownerUserId || reportingRecipe.createdBy?.id || 'unknown',
-        contentType: 'recipe',
-        contentId: reportingRecipe.id,
+        reportedUserId: isProfileReport
+          ? reportingProfile.userId
+          : (reportingRecipe.ownerUserId || reportingRecipe.createdBy?.id || 'unknown'),
+        contentType: isProfileReport ? 'profile' : 'recipe',
+        contentId: isProfileReport ? reportingProfile.userId : reportingRecipe.id,
         reason: reportReason,
         details: reportDetails.trim() || null,
       });
 
       setReportingRecipe(null);
+      setReportingProfile(null);
       setReportDetails('');
 
-      if (success) {
+      if (result?.rateLimited) {
+        Alert.alert('Too Many Reports', 'You have submitted too many reports recently. Please try again later.');
+      } else if (result?.duplicate) {
+        Alert.alert('Already Reported', 'You already reported this recently. Our team will review it.');
+      } else if (result?.success) {
         Alert.alert('Report Submitted', 'Thank you. Our team will review this content.');
       } else {
         Alert.alert('Report Failed', 'Could not submit your report. Please try again.');
@@ -2363,6 +2401,10 @@ export const HomeScreen = ({ user }) => {
           }}
           recipes={recipes}
           onProfileUpdated={refreshSocialData}
+          onReportProfile={({ userId, username }) => {
+            setCurrentScreen('recipes');
+            setTimeout(() => openProfileReportDialog({ userId, username }), 300);
+          }}
         />
       )}
 
@@ -2386,6 +2428,8 @@ export const HomeScreen = ({ user }) => {
           onSyncNow={handleSyncNow}
           showQuickLinkButton={showQuickLinkButton}
           onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
+          isAdmin={isAdmin}
+          onOpenAdminReports={() => setShowAdminReports(true)}
         />
       )}
 
@@ -3383,6 +3427,10 @@ export const HomeScreen = ({ user }) => {
             console.error('Failed to load recipe:', err);
           }
         }}
+        onReportProfile={({ userId, username }) => {
+          setViewingUserProfile(null);
+          setTimeout(() => openProfileReportDialog({ userId, username }), 300);
+        }}
       />
 
       {/* Import Public Recipe Folder Picker */}
@@ -3419,12 +3467,16 @@ export const HomeScreen = ({ user }) => {
         </SafeAreaView>
       </Modal>
 
-      {/* Report Recipe Modal */}
+      {/* Report Content Modal (recipes or profiles) */}
       <Modal
-        visible={!!reportingRecipe}
+        visible={!!(reportingRecipe || reportingProfile)}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => !submittingReport && setReportingRecipe(null)}
+        onRequestClose={() => {
+          if (submittingReport) return;
+          setReportingRecipe(null);
+          setReportingProfile(null);
+        }}
       >
         <SafeAreaView style={styles.container}>
           <KeyboardAvoidingView
@@ -3433,14 +3485,16 @@ export const HomeScreen = ({ user }) => {
           >
             <View style={styles.modalHeader}>
               <TouchableOpacity
-                onPress={() => setReportingRecipe(null)}
+                onPress={() => { setReportingRecipe(null); setReportingProfile(null); }}
                 disabled={submittingReport}
               >
                 <Text style={[styles.modalCloseButton, submittingReport && { opacity: 0.4 }]}>
                   ✕ Cancel
                 </Text>
               </TouchableOpacity>
-              <Text style={styles.modalHeaderTitle}>Report Recipe</Text>
+              <Text style={styles.modalHeaderTitle}>
+                {reportingProfile ? `Report @${reportingProfile.username}` : 'Report Recipe'}
+              </Text>
               <TouchableOpacity
                 onPress={handleSubmitReport}
                 disabled={submittingReport}
@@ -3517,6 +3571,20 @@ export const HomeScreen = ({ user }) => {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+
+      {/* Admin Reports Review */}
+      <AdminReports
+        visible={showAdminReports}
+        onClose={() => setShowAdminReports(false)}
+        onOpenRecipe={(recipe) => {
+          setShowAdminReports(false);
+          setSelectedRecipe(recipe);
+        }}
+        onOpenProfile={(userId) => {
+          setShowAdminReports(false);
+          setViewingUserProfile(userId);
+        }}
+      />
 
       {/* Bottom Navigation Bar */}
       {renderNavigationBar()}

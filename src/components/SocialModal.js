@@ -43,6 +43,7 @@ export const SocialModal = ({
   onRecipePress,
   recipes,
   onProfileUpdated,
+  onReportProfile,
 }) => {
   const [activeTab, setActiveTab] = useState('friends');
   const [refreshing, setRefreshing] = useState(false);
@@ -782,6 +783,10 @@ export const SocialModal = ({
           onRecipePress={(recipe) => {
             setViewingProfileId(null);
             onRecipePress?.(recipe);
+          }}
+          onReportProfile={({ userId, username }) => {
+            setViewingProfileId(null);
+            onReportProfile?.({ userId, username });
           }}
         />
 

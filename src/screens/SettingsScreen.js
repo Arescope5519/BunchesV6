@@ -43,6 +43,8 @@ export const SettingsScreen = ({
   onSyncNow,
   showQuickLinkButton,
   onToggleQuickLinkButton,
+  isAdmin,
+  onOpenAdminReports,
 }) => {
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -636,6 +638,26 @@ export const SettingsScreen = ({
                 </TouchableOpacity>
               )}
             </View>
+          </View>
+        )}
+
+        {/* Admin Section (only for admin users) */}
+        {isAdmin && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Admin</Text>
+            <TouchableOpacity
+              style={[styles.infoCard, { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+              onPress={onOpenAdminReports}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>🚩</Text>
+                <View>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#000' }}>Moderation Queue</Text>
+                  <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Review pending reports</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 18, color: '#999' }}>{'>'}</Text>
+            </TouchableOpacity>
           </View>
         )}
 

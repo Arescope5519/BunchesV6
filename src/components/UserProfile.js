@@ -19,6 +19,7 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
+  Alert,
 } from 'react-native';
 import colors from '../constants/colors';
 import {
@@ -31,12 +32,22 @@ import {
   isFollowing as checkIsFollowing,
   followUser,
   unfollowUser,
+  blockUser,
+  unblockUser,
+  getBlockStatus,
 } from '../services/supabase/social';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const RECIPE_CARD_WIDTH = 140;
 
-const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePress }) => {
+const UserProfile = ({
+  visible,
+  onClose,
+  targetUserId,
+  currentUserId,
+  onRecipePress,
+  onReportProfile,
+}) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [featuredRecipes, setFeaturedRecipes] = useState([]);
@@ -51,6 +62,8 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [blockStatus, setBlockStatus] = useState({ blocking: false, blockedBy: false });
+  const [blockActionLoading, setBlockActionLoading] = useState(false);
 
   const CARD_WIDTH = SCREEN_WIDTH - 48; // Full width minus padding
 
@@ -72,12 +85,14 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const [profileData, following] = await Promise.all([
+      const [profileData, following, blocks] = await Promise.all([
         getPublicProfile(targetUserId, currentUserId),
         checkIsFollowing(currentUserId, targetUserId),
+        getBlockStatus(currentUserId, targetUserId),
       ]);
       setProfile(profileData);
       setIsFollowing(following);
+      setBlockStatus(blocks);
 
       if (profileData?.canView) {
         const [featured, folders, allRecipes] = await Promise.all([
@@ -126,6 +141,55 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
     } finally {
       setFollowLoading(false);
     }
+  };
+
+  const handleBlockToggle = async () => {
+    setBlockActionLoading(true);
+    try {
+      if (blockStatus.blocking) {
+        const ok = await unblockUser(currentUserId, targetUserId);
+        if (ok) setBlockStatus(prev => ({ ...prev, blocking: false }));
+      } else {
+        const ok = await blockUser(currentUserId, targetUserId);
+        if (ok) {
+          setBlockStatus(prev => ({ ...prev, blocking: true }));
+          // Also unfollow if we were following
+          if (isFollowing) {
+            await unfollowUser(currentUserId, targetUserId);
+            setIsFollowing(false);
+          }
+        }
+      }
+    } finally {
+      setBlockActionLoading(false);
+    }
+  };
+
+  const openActionMenu = () => {
+    const username = profile?.username || 'user';
+    const buttons = [
+      { text: 'Report', onPress: () => onReportProfile?.({ userId: targetUserId, username }) },
+      {
+        text: blockStatus.blocking ? 'Unblock' : 'Block',
+        style: blockStatus.blocking ? 'default' : 'destructive',
+        onPress: () => {
+          if (blockStatus.blocking) {
+            handleBlockToggle();
+          } else {
+            Alert.alert(
+              `Block @${username}?`,
+              'They won\'t be able to interact with you and you won\'t see their content.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Block', style: 'destructive', onPress: handleBlockToggle },
+              ]
+            );
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ];
+    Alert.alert(`@${username}`, null, buttons);
   };
 
   const loadPublicRecipes = async () => {
@@ -322,6 +386,28 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
   };
 
   const renderMainView = () => {
+    if (blockStatus.blocking) {
+      return (
+        <View style={styles.privateProfileContainer}>
+          <Text style={styles.privateProfileIcon}>🚫</Text>
+          <Text style={styles.privateProfileTitle}>Blocked</Text>
+          <Text style={styles.privateProfileText}>
+            You have blocked this user. Their content is hidden. Tap ⋯ to unblock.
+          </Text>
+        </View>
+      );
+    }
+    if (blockStatus.blockedBy) {
+      return (
+        <View style={styles.privateProfileContainer}>
+          <Text style={styles.privateProfileIcon}>🚫</Text>
+          <Text style={styles.privateProfileTitle}>Not Available</Text>
+          <Text style={styles.privateProfileText}>
+            This profile is not available.
+          </Text>
+        </View>
+      );
+    }
     if (!profile?.canView) {
       return (
         <View style={styles.privateProfileContainer}>
@@ -514,7 +600,7 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
                 </View>
               </View>
               {/* Follow Button */}
-              {currentUserId !== targetUserId && (
+              {currentUserId !== targetUserId && !blockStatus.blocking && (
                 <TouchableOpacity
                   style={[
                     styles.followButton,
@@ -529,6 +615,16 @@ const UserProfile = ({ visible, onClose, targetUserId, currentUserId, onRecipePr
                   ]}>
                     {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
                   </Text>
+                </TouchableOpacity>
+              )}
+              {/* Actions Menu */}
+              {currentUserId !== targetUserId && (
+                <TouchableOpacity
+                  onPress={openActionMenu}
+                  style={{ padding: 8, marginLeft: 8 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={{ fontSize: 22, color: '#666' }}>⋯</Text>
                 </TouchableOpacity>
               )}
             </View>

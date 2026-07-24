@@ -1403,6 +1403,34 @@ export const submitContentReport = async ({
   details,
 }) => {
   try {
+    // Rate limit: max 10 reports per user per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from('content_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('reporter_id', reporterId)
+      .gte('created_at', oneHourAgo);
+
+    if (recentCount != null && recentCount >= 10) {
+      console.warn('🚩 Rate limit hit for reporter:', reporterId);
+      return { success: false, rateLimited: true };
+    }
+
+    // Duplicate check: prevent same report on same content within 24h
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: dupCount } = await supabase
+      .from('content_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('reporter_id', reporterId)
+      .eq('content_type', contentType)
+      .eq('content_id', contentId)
+      .gte('created_at', oneDayAgo);
+
+    if (dupCount != null && dupCount > 0) {
+      console.log('🚩 Duplicate report from same reporter');
+      return { success: false, duplicate: true };
+    }
+
     const { error } = await supabase.from('content_reports').insert({
       reporter_id: reporterId,
       reported_user_id: reportedUserId,
@@ -1416,13 +1444,248 @@ export const submitContentReport = async ({
 
     if (error) {
       console.error('❌ Failed to submit report:', error);
-      return false;
+      return { success: false };
     }
 
     console.log('🚩 Report submitted:', { contentType, reason });
-    return true;
+    return { success: true };
   } catch (err) {
     console.error('❌ submitContentReport error:', err);
+    return { success: false };
+  }
+};
+
+/**
+ * Block a user - they can't see your content and you can't see theirs
+ */
+export const blockUser = async (currentUserId, targetUserId) => {
+  try {
+    if (!currentUserId || !targetUserId || currentUserId === targetUserId) return false;
+
+    const { error } = await supabase
+      .from('user_blocks')
+      .insert({
+        blocker_id: currentUserId,
+        blocked_id: targetUserId,
+      });
+
+    if (error && error.code !== '23505') {
+      // 23505 = unique violation (already blocked)
+      console.error('❌ Failed to block user:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('❌ blockUser error:', err);
+    return false;
+  }
+};
+
+/**
+ * Unblock a user
+ */
+export const unblockUser = async (currentUserId, targetUserId) => {
+  try {
+    const { error } = await supabase
+      .from('user_blocks')
+      .delete()
+      .eq('blocker_id', currentUserId)
+      .eq('blocked_id', targetUserId);
+
+    if (error) {
+      console.error('❌ Failed to unblock user:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ unblockUser error:', err);
+    return false;
+  }
+};
+
+/**
+ * Check if currentUser has blocked targetUser OR is blocked by targetUser
+ * @returns {Promise<{blocking: boolean, blockedBy: boolean}>}
+ */
+export const getBlockStatus = async (currentUserId, targetUserId) => {
+  try {
+    if (!currentUserId || !targetUserId) {
+      return { blocking: false, blockedBy: false };
+    }
+
+    const { data, error } = await supabase
+      .from('user_blocks')
+      .select('blocker_id, blocked_id')
+      .or(
+        `and(blocker_id.eq.${currentUserId},blocked_id.eq.${targetUserId}),` +
+        `and(blocker_id.eq.${targetUserId},blocked_id.eq.${currentUserId})`
+      );
+
+    if (error) {
+      console.error('❌ getBlockStatus error:', error);
+      return { blocking: false, blockedBy: false };
+    }
+
+    const blocking = data?.some(r => r.blocker_id === currentUserId);
+    const blockedBy = data?.some(r => r.blocker_id === targetUserId);
+    return { blocking, blockedBy };
+  } catch (err) {
+    console.error('❌ getBlockStatus error:', err);
+    return { blocking: false, blockedBy: false };
+  }
+};
+
+/**
+ * Get list of users the current user has blocked
+ */
+export const getBlockedUsers = async (currentUserId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_blocks')
+      .select('blocked_id, created_at')
+      .eq('blocker_id', currentUserId);
+
+    if (error) {
+      console.error('❌ getBlockedUsers error:', error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('❌ getBlockedUsers error:', err);
+    return [];
+  }
+};
+
+/**
+ * Check if a user is an admin
+ */
+export const isUserAdmin = async (userId) => {
+  try {
+    if (!userId) return false;
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) return false;
+    return !!data?.is_admin;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Admin: get pending reports with reporter and reported user info
+ */
+export const getPendingReports = async () => {
+  try {
+    const { data: reports, error } = await supabase
+      .from('content_reports')
+      .select('*')
+      .eq('status', 'pending_review')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ getPendingReports error:', error);
+      return [];
+    }
+
+    if (!reports || reports.length === 0) return [];
+
+    // Get all user_ids involved so we can enrich with usernames
+    const userIds = new Set();
+    reports.forEach(r => {
+      if (r.reporter_id) userIds.add(r.reporter_id);
+      if (r.reported_user_id) userIds.add(r.reported_user_id);
+    });
+
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, username')
+      .in('user_id', Array.from(userIds));
+
+    const profileMap = {};
+    (profiles || []).forEach(p => { profileMap[p.user_id] = p.username; });
+
+    return reports.map(r => ({
+      ...r,
+      reporterUsername: profileMap[r.reporter_id] || 'unknown',
+      reportedUsername: profileMap[r.reported_user_id] || 'unknown',
+    }));
+  } catch (err) {
+    console.error('❌ getPendingReports error:', err);
+    return [];
+  }
+};
+
+/**
+ * Admin: resolve a report (dismiss, delete content, or ban user)
+ * @param {string} reportId
+ * @param {string} resolution - 'dismissed' | 'content_removed' | 'user_banned'
+ * @param {string} [notes] - optional reviewer notes
+ */
+export const resolveReport = async (reportId, resolution, notes = null) => {
+  try {
+    const { error } = await supabase
+      .from('content_reports')
+      .update({
+        status: resolution,
+        reviewed_at: new Date().toISOString(),
+        reviewer_notes: notes,
+      })
+      .eq('id', reportId);
+
+    if (error) {
+      console.error('❌ resolveReport error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ resolveReport error:', err);
+    return false;
+  }
+};
+
+/**
+ * Admin: ban a user (they can no longer sign in / their content is hidden)
+ */
+export const banUser = async (userId, reason = null) => {
+  try {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        is_banned: true,
+        banned_at: new Date().toISOString(),
+        banned_reason: reason,
+        is_public: false,
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('❌ banUser error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ banUser error:', err);
+    return false;
+  }
+};
+
+/**
+ * Admin: soft-delete a recipe by id (works for both recipes and user_recipes_v2)
+ */
+export const adminDeleteRecipe = async (recipeId) => {
+  try {
+    const now = new Date().toISOString();
+    // Try both tables; ignore errors
+    await supabase.from('recipes').update({ deleted_at: now }).eq('id', recipeId);
+    await supabase.from('user_recipes_v2').update({ deleted_at: now }).eq('id', recipeId);
+    return true;
+  } catch (err) {
+    console.error('❌ adminDeleteRecipe error:', err);
     return false;
   }
 };
@@ -1459,4 +1722,13 @@ export default {
   getUserFollowing,
   getFullPublicRecipe,
   submitContentReport,
+  blockUser,
+  unblockUser,
+  getBlockStatus,
+  getBlockedUsers,
+  isUserAdmin,
+  getPendingReports,
+  resolveReport,
+  banUser,
+  adminDeleteRecipe,
 };
