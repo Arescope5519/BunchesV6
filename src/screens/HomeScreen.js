@@ -62,7 +62,7 @@ import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constant
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
 import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
-import { getFullPublicRecipe } from '../services/supabase/social';
+import { getFullPublicRecipe, submitContentReport } from '../services/supabase/social';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -1586,6 +1586,41 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Submit a report for a recipe with the given reason
+  const handleSubmitReport = async (recipe, reason) => {
+    if (!recipe || !user?.uid) return;
+
+    const success = await submitContentReport({
+      reporterId: user.uid,
+      reportedUserId: recipe.ownerUserId || recipe.createdBy?.id || 'unknown',
+      contentType: 'recipe',
+      contentId: recipe.id,
+      reason,
+      details: null,
+    });
+
+    if (success) {
+      Alert.alert('Report Submitted', 'Thank you. Our team will review this content.');
+    } else {
+      Alert.alert('Report Failed', 'Could not submit your report. Please try again.');
+    }
+  };
+
+  // Show reason picker for reporting a recipe
+  const openReportDialog = (recipe) => {
+    Alert.alert(
+      'Report Recipe',
+      'Why are you reporting this recipe?',
+      [
+        { text: 'Inappropriate content', onPress: () => handleSubmitReport(recipe, 'inappropriate') },
+        { text: 'Hate or harassment', onPress: () => handleSubmitReport(recipe, 'hate_harassment') },
+        { text: 'Spam or misleading', onPress: () => handleSubmitReport(recipe, 'spam') },
+        { text: 'Other', onPress: () => handleSubmitReport(recipe, 'other') },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   const handleShareRecipe = (recipe) => {
     // Check if recipe has edits - if so, offer options
     if (recipe.hasEdits && recipe.originalRecipe) {
@@ -2844,6 +2879,13 @@ export const HomeScreen = ({ user }) => {
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Text style={styles.iconButtonText}>📥</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => openReportDialog(selectedRecipe)}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.iconButtonText}>🚩</Text>
                   </TouchableOpacity>
                 </View>
               ) : (

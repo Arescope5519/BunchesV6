@@ -1383,6 +1383,50 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
   }
 };
 
+/**
+ * Report a recipe or user for inappropriate content
+ * @param {object} params
+ * @param {string} params.reporterId
+ * @param {string} params.reportedUserId
+ * @param {string} params.contentType - 'recipe' | 'profile' | 'other'
+ * @param {string} params.contentId - id of the content being reported
+ * @param {string} params.reason - short reason category
+ * @param {string} [params.details] - optional user-provided text
+ * @returns {Promise<boolean>}
+ */
+export const submitContentReport = async ({
+  reporterId,
+  reportedUserId,
+  contentType,
+  contentId,
+  reason,
+  details,
+}) => {
+  try {
+    const { error } = await supabase.from('content_reports').insert({
+      reporter_id: reporterId,
+      reported_user_id: reportedUserId,
+      content_type: contentType,
+      content_id: contentId,
+      reason: reason,
+      details: details || null,
+      status: 'pending_review',
+      created_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error('❌ Failed to submit report:', error);
+      return false;
+    }
+
+    console.log('🚩 Report submitted:', { contentType, reason });
+    return true;
+  } catch (err) {
+    console.error('❌ submitContentReport error:', err);
+    return false;
+  }
+};
+
 export default {
   isUsernameAvailable,
   setupUserProfile,
@@ -1414,4 +1458,5 @@ export default {
   getUserFollowers,
   getUserFollowing,
   getFullPublicRecipe,
+  submitContentReport,
 };
