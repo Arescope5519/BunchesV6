@@ -603,6 +603,16 @@ export const syncRecipes = async (userId, localRecipes) => {
       }
 
       if (!dbRecipe) {
+        // Not in V2 - check if it was deleted in old table before we upload
+        if (dbDeletedAt) {
+          console.log(`🗑️ Recipe "${localRecipe.title}" was deleted in DB (old table), propagating deletion to local`);
+          mergedRecipes.push({
+            ...localRecipe,
+            deletedAt: new Date(dbDeletedAt).getTime(),
+            updatedAt: Date.now(),
+          });
+          return;
+        }
         // Only in local - upload it
         console.log(`📤 Uploading local recipe: "${localRecipe.title}"`);
         recipesToUpload.push(localRecipe);
