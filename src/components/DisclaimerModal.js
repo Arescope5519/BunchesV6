@@ -13,7 +13,6 @@ import {
   ScrollView,
   StyleSheet,
   Linking,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -62,13 +61,18 @@ const DisclaimerModal = ({ visible, onAccept }) => {
       presentationStyle="fullScreen"
       onRequestClose={() => {}} // Prevent dismissing without accepting
     >
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Welcome to Bunches</Text>
           <Text style={styles.subtitle}>Before you start cooking...</Text>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 20 }}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={true}
+          bounces={true}
+        >
           <View style={styles.section}>
             <Text style={styles.sectionIcon}>🛡️</Text>
             <Text style={styles.sectionTitle}>Content Moderation</Text>
@@ -147,7 +151,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
             </Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -156,7 +160,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     padding: 20,
-    paddingTop: 40,
+    paddingTop: 50,
     backgroundColor: colors.primary,
     alignItems: 'center',
   },
@@ -170,7 +174,8 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
   },
-  content: { flex: 1, padding: 20 },
+  content: { flex: 1 },
+  contentContainer: { padding: 20, paddingBottom: 40 },
   section: {
     backgroundColor: '#fff',
     padding: 16,
