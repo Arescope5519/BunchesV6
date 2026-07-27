@@ -3644,6 +3644,7 @@ export const HomeScreen = ({ user }) => {
         onClose={() => setShowMealPlanning(false)}
         userId={user?.uid}
         recipes={recipes}
+        onOpenRecipe={(recipe) => setSelectedRecipe(recipe)}
         onGenerateGroceryList={(planRecipes) => {
           // Add all ingredients from the plan's recipes to the grocery list
           const allIngredients = [];

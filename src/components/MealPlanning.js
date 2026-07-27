@@ -46,12 +46,15 @@ const MealPlanning = ({
   userId,
   recipes = [],
   onGenerateGroceryList,
+  onOpenRecipe,
 }) => {
   const [weekStart, setWeekStart] = useState(getWeekStart());
-  const [meals, setMeals] = useState({}); // { "YYYY-MM-DD": { breakfast: [id], lunch: [id], dinner: [id] } }
+  // meals: { "YYYY-MM-DD": { breakfast: [{recipeId, servings, isLeftover}], lunch: [...], dinner: [...] } }
+  const [meals, setMeals] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pickerSlot, setPickerSlot] = useState(null); // { date, slot }
+  const [editingAssignment, setEditingAssignment] = useState(null); // { date, slot, index }
 
   const loadPlan = useCallback(async () => {
     if (!userId || !visible) return;
@@ -78,16 +81,28 @@ const MealPlanning = ({
     }
   };
 
-  const getMealsForSlot = (date, slot) => {
-    return meals[date]?.[slot] || [];
+  // Normalize old string[] format to {recipeId, servings, isLeftover}[]
+  const normalizeAssignments = (raw) => {
+    if (!raw) return [];
+    return raw.map(item => {
+      if (typeof item === 'string') {
+        return { recipeId: item, servings: 1, isLeftover: false };
+      }
+      return { recipeId: item.recipeId, servings: item.servings || 1, isLeftover: !!item.isLeftover };
+    });
   };
 
-  const addRecipeToSlot = async (date, slot, recipeId) => {
+  const getMealsForSlot = (date, slot) => {
+    return normalizeAssignments(meals[date]?.[slot]);
+  };
+
+  const addRecipeToSlot = async (date, slot, recipeId, servings = 1, isLeftover = false) => {
     const newMeals = { ...meals };
     if (!newMeals[date]) newMeals[date] = {};
-    const existing = newMeals[date][slot] || [];
-    if (existing.includes(recipeId)) return;
-    newMeals[date] = { ...newMeals[date], [slot]: [...existing, recipeId] };
+    const existing = normalizeAssignments(newMeals[date][slot]);
+    if (existing.some(a => a.recipeId === recipeId)) return;
+    const newAssignment = { recipeId, servings, isLeftover };
+    newMeals[date] = { ...newMeals[date], [slot]: [...existing, newAssignment] };
     setMeals(newMeals);
     setPickerSlot(null);
     await persist(newMeals);
@@ -96,9 +111,22 @@ const MealPlanning = ({
   const removeRecipeFromSlot = async (date, slot, recipeId) => {
     const newMeals = { ...meals };
     if (!newMeals[date]?.[slot]) return;
+    const existing = normalizeAssignments(newMeals[date][slot]);
     newMeals[date] = {
       ...newMeals[date],
-      [slot]: newMeals[date][slot].filter(id => id !== recipeId),
+      [slot]: existing.filter(a => a.recipeId !== recipeId),
+    };
+    setMeals(newMeals);
+    await persist(newMeals);
+  };
+
+  const updateAssignment = async (date, slot, recipeId, patch) => {
+    const newMeals = { ...meals };
+    if (!newMeals[date]?.[slot]) return;
+    const existing = normalizeAssignments(newMeals[date][slot]);
+    newMeals[date] = {
+      ...newMeals[date],
+      [slot]: existing.map(a => (a.recipeId === recipeId ? { ...a, ...patch } : a)),
     };
     setMeals(newMeals);
     await persist(newMeals);
@@ -114,26 +142,36 @@ const MealPlanning = ({
 
   const handleGenerateGroceryList = () => {
     if (!onGenerateGroceryList) return;
-    // Collect all recipe ids from the plan
-    const recipeIds = [];
+
+    // Collect only cook-fresh assignments (skip leftovers to avoid double-buying).
+    // For each recipe, sum servings across all its cook-fresh appearances.
+    const servingsByRecipe = {}; // { recipeId: totalServings }
     Object.values(meals).forEach(day => {
       Object.values(day || {}).forEach(slotArr => {
-        (slotArr || []).forEach(id => recipeIds.push(id));
+        const assignments = normalizeAssignments(slotArr);
+        assignments.forEach(a => {
+          if (a.isLeftover) return; // skip leftovers
+          servingsByRecipe[a.recipeId] = (servingsByRecipe[a.recipeId] || 0) + (a.servings || 1);
+        });
       });
     });
 
-    if (recipeIds.length === 0) {
-      Alert.alert('Empty Plan', 'Add recipes to your meal plan before generating a grocery list.');
+    const recipesToBuy = Object.entries(servingsByRecipe)
+      .map(([recipeId, servings]) => {
+        const recipe = findRecipe(recipeId);
+        return recipe ? { ...recipe, plannedServings: servings } : null;
+      })
+      .filter(Boolean);
+
+    if (recipesToBuy.length === 0) {
+      Alert.alert(
+        'Empty Plan',
+        'Add cook-fresh meals to your plan before generating a grocery list. (Leftovers reuse ingredients.)'
+      );
       return;
     }
 
-    // Deduplicate but keep count for scaling later
-    const uniqueRecipeIds = [...new Set(recipeIds)];
-    const recipesInPlan = uniqueRecipeIds
-      .map(id => findRecipe(id))
-      .filter(Boolean);
-
-    onGenerateGroceryList(recipesInPlan);
+    onGenerateGroceryList(recipesToBuy);
   };
 
   const weekDays = getWeekDays(weekStart);
@@ -182,16 +220,26 @@ const MealPlanning = ({
               <View key={date} style={styles.dayRow}>
                 <Text style={styles.dayLabel}>{formatDayLabel(date)}</Text>
                 {MEAL_SLOTS.map(slot => {
-                  const recipeIds = getMealsForSlot(date, slot);
+                  const assignments = getMealsForSlot(date, slot);
                   return (
                     <View key={slot} style={styles.slot}>
                       <Text style={styles.slotLabel}>
                         {slot.charAt(0).toUpperCase() + slot.slice(1)}
                       </Text>
-                      {recipeIds.map(id => {
-                        const recipe = findRecipe(id);
+                      {assignments.map(a => {
+                        const recipe = findRecipe(a.recipeId);
                         return (
-                          <View key={id} style={styles.assignedRecipe}>
+                          <TouchableOpacity
+                            key={a.recipeId}
+                            style={[styles.assignedRecipe, a.isLeftover && styles.assignedRecipeLeftover]}
+                            onPress={() => {
+                              if (recipe && onOpenRecipe) {
+                                onClose();
+                                setTimeout(() => onOpenRecipe(recipe), 200);
+                              }
+                            }}
+                            onLongPress={() => setEditingAssignment({ date, slot, recipeId: a.recipeId })}
+                          >
                             {recipe?.image_url ? (
                               <Image source={{ uri: recipe.image_url }} style={styles.assignedThumb} />
                             ) : (
@@ -199,17 +247,24 @@ const MealPlanning = ({
                                 <Text style={{ fontSize: 14 }}>🍽️</Text>
                               </View>
                             )}
-                            <Text style={styles.assignedRecipeText} numberOfLines={1}>
-                              {recipe?.title || '(deleted recipe)'}
-                            </Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.assignedRecipeText} numberOfLines={1}>
+                                {a.isLeftover && '🥡 '}
+                                {recipe?.title || '(deleted recipe)'}
+                              </Text>
+                              <Text style={styles.assignedRecipeMeta}>
+                                {a.servings} serving{a.servings !== 1 ? 's' : ''}
+                                {a.isLeftover ? ' • leftovers' : ' • cook fresh'}
+                              </Text>
+                            </View>
                             <TouchableOpacity
                               style={styles.removeAssignedButton}
-                              onPress={() => removeRecipeFromSlot(date, slot, id)}
+                              onPress={() => removeRecipeFromSlot(date, slot, a.recipeId)}
                               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                               <Text style={styles.removeAssignedButtonText}>×</Text>
                             </TouchableOpacity>
-                          </View>
+                          </TouchableOpacity>
                         );
                       })}
                       <TouchableOpacity
@@ -425,6 +480,105 @@ const styles = StyleSheet.create({
     color: colors.text,
     padding: 8,
   },
+  // Assignment meta (servings, leftover)
+  assignedRecipeMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 1 },
+  assignedRecipeLeftover: { backgroundColor: '#fff9e6', borderColor: '#f39c12' },
+  // Config overlay
+  configOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  configCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+  },
+  configTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  configLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  servingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  servingsCount: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginHorizontal: 24,
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  leftoverToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  leftoverLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  leftoverHint: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  configActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  configCancel: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  configCancelText: { fontSize: 15, color: colors.text, fontWeight: '600' },
+  configConfirm: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  configConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
 
 // -----------------------------------------------------------------------------
@@ -434,6 +588,7 @@ const styles = StyleSheet.create({
 const RecipePicker = ({ visible, onClose, onPick, recipes = [], slotLabel }) => {
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [search, setSearch] = useState('');
+  const [configuring, setConfiguring] = useState(null); // { recipe, servings, isLeftover }
 
   // All recipes (filter deleted)
   const activeRecipes = useMemo(
@@ -476,8 +631,20 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], slotLabel }) => 
     if (!visible) {
       setSelectedFolder('All');
       setSearch('');
+      setConfiguring(null);
     }
   }, [visible]);
+
+  const handleCardTap = (recipe) => {
+    // Default: 1 serving, not leftover
+    setConfiguring({ recipe, servings: 1, isLeftover: false });
+  };
+
+  const handleConfirm = () => {
+    if (!configuring) return;
+    onPick(configuring.recipe.id, configuring.servings, configuring.isLeftover);
+    setConfiguring(null);
+  };
 
   return (
     <Modal
@@ -539,7 +706,7 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], slotLabel }) => 
                 <TouchableOpacity
                   key={recipe.id}
                   style={styles.pickerCard}
-                  onPress={() => onPick(recipe.id)}
+                  onPress={() => handleCardTap(recipe)}
                 >
                   {recipe.image_url ? (
                     <Image source={{ uri: recipe.image_url }} style={styles.pickerCardImage} />
@@ -557,6 +724,67 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], slotLabel }) => 
           )}
           <View style={{ height: 60 }} />
         </ScrollView>
+
+        {/* Configure servings/leftover */}
+        <Modal
+          visible={!!configuring}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setConfiguring(null)}
+        >
+          <View style={styles.configOverlay}>
+            <View style={styles.configCard}>
+              <Text style={styles.configTitle}>{configuring?.recipe?.title}</Text>
+
+              <Text style={styles.configLabel}>How many servings?</Text>
+              <View style={styles.servingsRow}>
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => setConfiguring(c => ({ ...c, servings: Math.max(1, c.servings - 1) }))}
+                >
+                  <Text style={styles.servingsButtonText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.servingsCount}>{configuring?.servings || 1}</Text>
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => setConfiguring(c => ({ ...c, servings: c.servings + 1 }))}
+                >
+                  <Text style={styles.servingsButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.leftoverToggle}
+                onPress={() => setConfiguring(c => ({ ...c, isLeftover: !c.isLeftover }))}
+              >
+                <View style={[styles.checkbox, configuring?.isLeftover && styles.checkboxChecked]}>
+                  {configuring?.isLeftover && <Text style={{ color: '#fff', fontWeight: '700' }}>✓</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.leftoverLabel}>🥡 This is leftovers</Text>
+                  <Text style={styles.leftoverHint}>
+                    Won't add ingredients to grocery list (already bought)
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.configActions}>
+                <TouchableOpacity
+                  style={styles.configCancel}
+                  onPress={() => setConfiguring(null)}
+                >
+                  <Text style={styles.configCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.configConfirm}
+                  onPress={handleConfirm}
+                >
+                  <Text style={styles.configConfirmText}>Add to Plan</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
