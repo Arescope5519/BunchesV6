@@ -66,6 +66,7 @@ import {
   getFullPublicRecipe,
   submitContentReport,
   isUserAdmin,
+  isUserPremium,
   blockUser,
   unblockUser,
   getBlockStatus,
@@ -73,6 +74,7 @@ import {
 import AdminReports from '../components/AdminReports';
 import BlockedUsers from '../components/BlockedUsers';
 import DisclaimerModal, { shouldShowDisclaimer } from '../components/DisclaimerModal';
+import MealPlanning from '../components/MealPlanning';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -101,9 +103,11 @@ export const HomeScreen = ({ user }) => {
   const [reportDetails, setReportDetails] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [showAdminReports, setShowAdminReports] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [showMealPlanning, setShowMealPlanning] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -322,12 +326,17 @@ export const HomeScreen = ({ user }) => {
       const cookbooks = await loadFollowedCookbooks(user?.uid);
       setFollowedCookbooks(cookbooks);
 
-      // Check admin status
+      // Check admin and premium status
       if (user?.uid) {
-        const adminStatus = await isUserAdmin(user.uid);
+        const [adminStatus, premiumStatus] = await Promise.all([
+          isUserAdmin(user.uid),
+          isUserPremium(user.uid),
+        ]);
         setIsAdmin(adminStatus);
+        setIsPremium(premiumStatus);
       } else {
         setIsAdmin(false);
+        setIsPremium(false);
       }
     };
     loadSettings();
@@ -2456,6 +2465,23 @@ export const HomeScreen = ({ user }) => {
           onClearChecked={handleClearCheckedItems}
           onClearAll={handleClearAllItems}
           onAddCustomItem={addCustomGroceryItem}
+          onOpenMealPlan={() => {
+            if (isPremium) {
+              setShowMealPlanning(true);
+            } else {
+              Alert.alert(
+                'Premium Feature',
+                'Meal Planning is a premium feature. Upgrade to plan your week, drag recipes to any day, and auto-generate grocery lists.',
+                [
+                  { text: 'Not Now', style: 'cancel' },
+                  { text: 'Learn More', onPress: () => {
+                    // TODO: open subscription flow when built
+                    Alert.alert('Coming Soon', 'Subscriptions launch soon. Stay tuned!');
+                  }},
+                ]
+              );
+            }
+          }}
         />
       )}
 
@@ -3610,6 +3636,50 @@ export const HomeScreen = ({ user }) => {
       <DisclaimerModal
         visible={showDisclaimer}
         onAccept={() => setShowDisclaimer(false)}
+      />
+
+      {/* Meal Planning (premium) */}
+      <MealPlanning
+        visible={showMealPlanning}
+        onClose={() => setShowMealPlanning(false)}
+        userId={user?.uid}
+        recipes={recipes}
+        onGenerateGroceryList={(planRecipes) => {
+          // Add all ingredients from the plan's recipes to the grocery list
+          const allIngredients = [];
+          planRecipes.forEach(recipe => {
+            const ingredients = recipe.ingredients || {};
+            if (typeof ingredients === 'object' && !Array.isArray(ingredients)) {
+              Object.values(ingredients).forEach(section => {
+                if (Array.isArray(section)) {
+                  section.forEach(item => {
+                    allIngredients.push({
+                      text: typeof item === 'string' ? item : item.text || String(item),
+                      section: 'main',
+                    });
+                  });
+                }
+              });
+            }
+          });
+
+          if (allIngredients.length === 0) {
+            Alert.alert('No Ingredients', 'The planned recipes have no ingredients to add.');
+            return;
+          }
+
+          addItemsToGroceryList(
+            allIngredients.map(i => i.text),
+            { title: 'From meal plan' },
+            'main'
+          );
+
+          Alert.alert(
+            'Grocery List Updated',
+            `Added ${allIngredients.length} items from your meal plan.`,
+          );
+          setShowMealPlanning(false);
+        }}
       />
 
       {/* Bottom Navigation Bar */}

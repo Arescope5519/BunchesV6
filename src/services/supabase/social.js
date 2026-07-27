@@ -1596,6 +1596,31 @@ export const isUserAdmin = async (userId) => {
 };
 
 /**
+ * Check if a user has premium (paid) status
+ */
+export const isUserPremium = async (userId) => {
+  try {
+    if (!userId) return false;
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('is_premium, premium_until, is_admin')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) return false;
+    if (!data) return false;
+    // Admins get all premium features for testing
+    if (data.is_admin) return true;
+    if (!data.is_premium) return false;
+    // Check expiry if set
+    if (data.premium_until && new Date(data.premium_until) < new Date()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Admin: get pending reports with reporter and reported user info
  */
 export const getPendingReports = async () => {
@@ -1709,6 +1734,76 @@ export const adminDeleteRecipe = async (recipeId) => {
   }
 };
 
+// ========================================================================
+// MEAL PLANNING (Premium feature)
+// ========================================================================
+
+/**
+ * Get the Monday of the week containing the given date (ISO format)
+ */
+export const getWeekStart = (date = new Date()) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0]; // "YYYY-MM-DD"
+};
+
+/**
+ * Load a user's meal plan for a specific week
+ * @param {string} userId
+ * @param {string} weekStartDate - "YYYY-MM-DD" (Monday)
+ * @returns {Promise<object|null>}
+ */
+export const getMealPlan = async (userId, weekStartDate) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('week_start_date', weekStartDate)
+      .maybeSingle();
+
+    if (error) {
+      console.error('❌ getMealPlan error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('❌ getMealPlan error:', err);
+    return null;
+  }
+};
+
+/**
+ * Save (upsert) a meal plan
+ * @param {string} userId
+ * @param {string} weekStartDate - "YYYY-MM-DD" (Monday)
+ * @param {object} meals - { "YYYY-MM-DD": { breakfast: [recipeIds], lunch: [], dinner: [] } }
+ */
+export const saveMealPlan = async (userId, weekStartDate, meals) => {
+  try {
+    const { error } = await supabase
+      .from('meal_plans')
+      .upsert({
+        user_id: userId,
+        week_start_date: weekStartDate,
+        meals,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,week_start_date' });
+
+    if (error) {
+      console.error('❌ saveMealPlan error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ saveMealPlan error:', err);
+    return false;
+  }
+};
+
 export default {
   isUsernameAvailable,
   setupUserProfile,
@@ -1746,8 +1841,12 @@ export default {
   getBlockStatus,
   getBlockedUsers,
   isUserAdmin,
+  isUserPremium,
   getPendingReports,
   resolveReport,
   banUser,
   adminDeleteRecipe,
+  getWeekStart,
+  getMealPlan,
+  saveMealPlan,
 };
