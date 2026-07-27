@@ -14,6 +14,8 @@ import {
   StyleSheet,
   Linking,
   Alert,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
@@ -54,14 +56,16 @@ const DisclaimerModal = ({ visible, onAccept }) => {
     onAccept?.();
   };
 
+  const screenHeight = Dimensions.get('window').height;
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="fullScreen"
+      transparent={false}
       onRequestClose={() => {}} // Prevent dismissing without accepting
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { height: screenHeight }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Welcome to Bunches</Text>
           <Text style={styles.subtitle}>Before you start cooking...</Text>
@@ -72,6 +76,10 @@ const DisclaimerModal = ({ visible, onAccept }) => {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={true}
           bounces={true}
+          nestedScrollEnabled={true}
+          scrollEnabled={true}
+          alwaysBounceVertical={true}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.section}>
             <Text style={styles.sectionIcon}>🛡️</Text>
