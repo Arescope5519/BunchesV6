@@ -72,6 +72,7 @@ import {
 } from '../services/supabase/social';
 import AdminReports from '../components/AdminReports';
 import BlockedUsers from '../components/BlockedUsers';
+import DisclaimerModal, { shouldShowDisclaimer } from '../components/DisclaimerModal';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -102,6 +103,7 @@ export const HomeScreen = ({ user }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminReports, setShowAdminReports] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -260,6 +262,14 @@ export const HomeScreen = ({ user }) => {
 
 
   // Detect new friend requests and show notification popup
+  // Show disclaimer on first launch
+  useEffect(() => {
+    (async () => {
+      const needed = await shouldShowDisclaimer();
+      if (needed) setShowDisclaimer(true);
+    })();
+  }, []);
+
   useEffect(() => {
     if (!user || !friendRequests || friendRequests.length === 0) {
       prevFriendRequestsRef.current = friendRequests || [];
@@ -3594,6 +3604,12 @@ export const HomeScreen = ({ user }) => {
         visible={showBlockedUsers}
         onClose={() => setShowBlockedUsers(false)}
         currentUserId={user?.uid}
+      />
+
+      {/* First-launch disclaimer */}
+      <DisclaimerModal
+        visible={showDisclaimer}
+        onAccept={() => setShowDisclaimer(false)}
       />
 
       {/* Bottom Navigation Bar */}
