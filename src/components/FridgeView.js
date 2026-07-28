@@ -2,14 +2,17 @@
  * FILENAME: src/components/FridgeView.js
  * PURPOSE: Current fridge inventory - computed from cook events minus consumption.
  *
- * STATUS: Basic implementation shows the inventory. Adjustments (spoiled, ate extra)
- * to be added in Chunk 3.
+ * Actions per item:
+ *   - Trash: pick how many servings to throw out (creates spoiled adjustment)
+ *   - Adjust portions: set what's actually left (updates cook_event.servings_produced
+ *     so remaining = desired count, works both up and down)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  Modal,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -19,11 +22,17 @@ import {
   Alert,
 } from 'react-native';
 import colors from '../constants/colors';
-import { getFridgeInventory, createFridgeAdjustment } from '../services/supabase/kitchen';
+import {
+  getFridgeInventory,
+  createFridgeAdjustment,
+  updateCookEvent,
+} from '../services/supabase/kitchen';
 
 const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
+  // modal state: { entry, mode: 'trash' | 'adjust', servings }
+  const [action, setAction] = useState(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -42,24 +51,61 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
 
   const findRecipe = (id) => recipes.find(r => r.id === id && !r.deletedAt);
 
-  const handleAdjustment = (entry, adjustmentType) => {
-    Alert.prompt?.(
-      adjustmentType === 'spoiled' ? 'Mark as spoiled' : 'Adjustment',
-      `How many servings? (out of ${entry.remaining} remaining)`,
-      async (text) => {
-        const servings = parseFloat(text);
-        if (!isNaN(servings) && servings > 0) {
-          await createFridgeAdjustment(userId, {
-            cookEventId: entry.cookEvent.id,
-            adjustmentType,
-            servings: Math.min(servings, entry.remaining),
-          });
-          load();
-        }
-      },
-      'plain-text',
-      String(entry.remaining)
-    ) || Alert.alert('Not Available', 'This action needs Alert.prompt (iOS only). Full adjustment UI coming soon.');
+  const openAction = (entry, mode) => {
+    // Default servings:
+    // - trash: throw out all remaining
+    // - adjust: current remaining
+    setAction({ entry, mode, servings: entry.remaining });
+  };
+
+  const adjustModalServings = (delta) => {
+    setAction(a => {
+      if (!a) return a;
+      let next;
+      if (delta < 0) {
+        if (a.servings <= 0.5) next = 0.5;
+        else if (a.servings === 1) next = 0.5;
+        else next = a.servings - 1;
+      } else {
+        if (a.servings === 0.5) next = 1;
+        else next = a.servings + 1;
+      }
+      // For adjust mode we allow 0 (fully consumed / trashed already)
+      if (a.mode === 'adjust' && next < 0.5) next = 0;
+      // For trash, cap at remaining
+      if (a.mode === 'trash') next = Math.min(next, a.entry.remaining);
+      return { ...a, servings: Math.max(0, next) };
+    });
+  };
+
+  const confirmAction = async () => {
+    if (!action) return;
+    const { entry, mode, servings } = action;
+
+    if (mode === 'trash') {
+      if (servings <= 0) {
+        setAction(null);
+        return;
+      }
+      const ok = await createFridgeAdjustment(userId, {
+        cookEventId: entry.cookEvent.id,
+        adjustmentType: 'spoiled',
+        servings: Math.min(servings, entry.remaining),
+      });
+      if (!ok) Alert.alert('Error', 'Could not update.');
+    } else if (mode === 'adjust') {
+      // Update cook_event.servings_produced so that:
+      //   new_remaining = desired
+      //   new_produced = desired + consumed + adjusted (existing)
+      const newProduced = Number(servings) + entry.consumed + entry.adjusted;
+      const ok = await updateCookEvent(entry.cookEvent.id, {
+        servingsProduced: newProduced,
+      });
+      if (!ok) Alert.alert('Error', 'Could not update.');
+    }
+
+    setAction(null);
+    await load();
   };
 
   return (
@@ -71,7 +117,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
           <Text style={styles.emptyIcon}>🥡</Text>
           <Text style={styles.emptyTitle}>Fridge is empty</Text>
           <Text style={styles.emptyText}>
-            Plan a cook event in the Cook tab. Anything you've cooked in the last 10 days will show up here.
+            Add a meal in the Cook tab. Anything you've cooked in the last 10 days will show up here.
           </Text>
         </View>
       ) : (
@@ -117,16 +163,16 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                 </TouchableOpacity>
                 <View style={styles.actions}>
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.spoiledButton]}
-                    onPress={() => handleAdjustment(entry, 'spoiled')}
+                    style={[styles.actionButton, styles.trashButton]}
+                    onPress={() => openAction(entry, 'trash')}
                   >
-                    <Text style={styles.actionText}>🗑 Spoiled</Text>
+                    <Text style={styles.actionText}>🗑 Trash</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.consumeButton]}
-                    onPress={() => handleAdjustment(entry, 'consumed')}
+                    style={[styles.actionButton, styles.adjustButton]}
+                    onPress={() => openAction(entry, 'adjust')}
                   >
-                    <Text style={styles.actionText}>🍴 Ate more</Text>
+                    <Text style={styles.actionText}>⚖️ Adjust portions</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -134,6 +180,71 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
           })}
         </ScrollView>
       )}
+
+      {/* Action Modal (Trash / Adjust) */}
+      <Modal
+        visible={!!action}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAction(null)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {action?.mode === 'trash' ? '🗑 Throw out' : '⚖️ Adjust portions'}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {action?.entry
+                ? (action.entry.cookEvent.is_takeout
+                    ? (action.entry.cookEvent.takeout_name || 'Takeout')
+                    : (findRecipe(action.entry.cookEvent.recipe_id)?.title || 'Recipe'))
+                : ''}
+            </Text>
+            <Text style={styles.modalHelp}>
+              {action?.mode === 'trash'
+                ? `Currently ${action?.entry?.remaining} serving${action?.entry?.remaining !== 1 ? 's' : ''} in the fridge`
+                : `Adjust to what's actually left in the fridge`}
+            </Text>
+
+            <View style={styles.servingsRow}>
+              <TouchableOpacity
+                style={[styles.servingsButton, action?.servings <= 0 && { opacity: 0.4 }]}
+                onPress={() => adjustModalServings(-1)}
+                disabled={action?.servings <= 0}
+              >
+                <Text style={styles.servingsButtonText}>−</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                <Text style={styles.servingsCount}>{action?.servings}</Text>
+                <Text style={styles.servingsHint}>
+                  {action?.mode === 'trash' ? 'trashing' : 'remaining'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.servingsButton,
+                  action?.mode === 'trash' && action?.servings >= action?.entry?.remaining && { opacity: 0.4 },
+                ]}
+                onPress={() => adjustModalServings(1)}
+                disabled={action?.mode === 'trash' && action?.servings >= action?.entry?.remaining}
+              >
+                <Text style={styles.servingsButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setAction(null)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirm} onPress={confirmAction}>
+                <Text style={styles.modalConfirmText}>
+                  {action?.mode === 'trash' ? 'Trash' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -168,9 +279,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
-  spoiledButton: { borderColor: colors.error || '#e74c3c' },
-  consumeButton: { borderColor: colors.primary },
+  trashButton: { borderColor: colors.error || '#e74c3c' },
+  adjustButton: { borderColor: colors.primary },
   actionText: { fontSize: 12, fontWeight: '600', color: colors.text },
+
+  // Modal
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 4 },
+  modalHelp: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 12, marginBottom: 8 },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  servingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  servingsCount: { fontSize: 28, fontWeight: '700', color: colors.text },
+  servingsHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  modalActions: { flexDirection: 'row', gap: 8 },
+  modalCancel: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  modalCancelText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  modalConfirm: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  modalConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
 
 export default FridgeView;
