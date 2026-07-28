@@ -30,6 +30,7 @@ import {
   deleteMealEvent,
   getFridgeInventory,
   createCookEvent,
+  getCookEvents,
   getWeekStart,
   getWeekDays,
   formatDayLabel,
@@ -45,6 +46,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const [weekStart, setWeekStart] = useState(getWeekStart());
   const [mealEvents, setMealEvents] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [allCookEvents, setAllCookEvents] = useState([]); // For display lookup, includes empty-fridge items
   const [loading, setLoading] = useState(false);
   const [addingTo, setAddingTo] = useState(null); // { date, slot }
 
@@ -55,12 +57,20 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     if (!userId) return;
     setLoading(true);
     try {
-      const [meals, fridge] = await Promise.all([
+      // Look back further for cook events to make sure we can display meals
+      // that reference older (now-depleted) cook events
+      const lookbackDate = new Date(weekStart);
+      lookbackDate.setDate(lookbackDate.getDate() - 14);
+      const lookbackStr = lookbackDate.toISOString().split('T')[0];
+
+      const [meals, fridge, cooks] = await Promise.all([
         getMealEvents(userId, weekStart, weekEnd),
         getFridgeInventory(userId, 10),
+        getCookEvents(userId, lookbackStr, weekEnd),
       ]);
       setMealEvents(meals);
       setInventory(fridge);
+      setAllCookEvents(cooks);
     } finally {
       setLoading(false);
     }
@@ -73,12 +83,14 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const findRecipe = (id) => recipes.find(r => r.id === id && !r.deletedAt);
   const findCookEvent = (id) => inventory.find(i => i.cookEvent.id === id)?.cookEvent;
 
-  // Also merge cook events found in existing meal events so we can render title/thumb
+  // Map of cook_event_id → cook event, so we can display meals whose cook events
+  // no longer have any remaining servings (and thus aren't in the fridge).
   const knownCookEvents = useMemo(() => {
     const map = {};
     inventory.forEach(i => { map[i.cookEvent.id] = i.cookEvent; });
+    allCookEvents.forEach(c => { map[c.id] = c; });
     return map;
-  }, [inventory]);
+  }, [inventory, allCookEvents]);
 
   const mealsForSlot = (date, slot) =>
     mealEvents.filter(m => m.meal_date === date && m.slot === slot);
@@ -267,59 +279,66 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
 const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickFromFridge, onAddTakeout }) => {
   const [mode, setMode] = useState('choose'); // 'choose', 'fridge', 'takeout'
   const [pickedFridgeItem, setPickedFridgeItem] = useState(null);
-  const [servingsToEat, setServingsToEat] = useState('1');
+  const [servingsToEat, setServingsToEat] = useState(1); // numeric, using +/- buttons
   // Takeout state
   const [takeoutName, setTakeoutName] = useState('');
-  const [takeoutOrdered, setTakeoutOrdered] = useState('1');
-  const [takeoutEaten, setTakeoutEaten] = useState('1');
+  const [takeoutOrdered, setTakeoutOrdered] = useState(1);
+  const [takeoutEaten, setTakeoutEaten] = useState(1);
 
   useEffect(() => {
     if (!visible) {
       setMode('choose');
       setPickedFridgeItem(null);
-      setServingsToEat('1');
+      setServingsToEat(1);
       setTakeoutName('');
-      setTakeoutOrdered('1');
-      setTakeoutEaten('1');
+      setTakeoutOrdered(1);
+      setTakeoutEaten(1);
     }
   }, [visible]);
 
   const findRecipe = (id) => recipes.find(r => r.id === id && !r.deletedAt);
 
   const confirmFridge = () => {
-    const s = parseFloat(servingsToEat);
-    if (isNaN(s) || s <= 0) {
-      Alert.alert('Invalid', 'Enter a valid serving count.');
-      return;
-    }
+    if (servingsToEat <= 0) return;
     const cap = pickedFridgeItem.remaining;
-    if (s > cap) {
+    if (servingsToEat > cap) {
       Alert.alert('Too many', `Only ${cap} serving(s) left.`);
       return;
     }
-    onPickFromFridge(pickedFridgeItem, s);
+    onPickFromFridge(pickedFridgeItem, servingsToEat);
   };
 
   const confirmTakeout = () => {
-    const ordered = parseFloat(takeoutOrdered);
-    const eaten = parseFloat(takeoutEaten);
     if (!takeoutName.trim()) {
       Alert.alert('Missing name', 'Enter a name for the takeout (e.g., "Pizza Hut").');
       return;
     }
-    if (isNaN(ordered) || ordered <= 0) {
-      Alert.alert('Invalid', 'Enter servings ordered.');
+    if (takeoutOrdered <= 0) {
+      Alert.alert('Invalid', 'Ordered servings must be greater than zero.');
       return;
     }
-    if (isNaN(eaten) || eaten <= 0) {
-      Alert.alert('Invalid', 'Enter servings eaten.');
+    if (takeoutEaten <= 0) {
+      Alert.alert('Invalid', 'Eaten servings must be greater than zero.');
       return;
     }
-    if (eaten > ordered) {
+    if (takeoutEaten > takeoutOrdered) {
       Alert.alert('Invalid', 'Servings eaten cannot exceed servings ordered.');
       return;
     }
-    onAddTakeout({ name: takeoutName.trim(), servingsOrdered: ordered, servingsEaten: eaten });
+    onAddTakeout({ name: takeoutName.trim(), servingsOrdered: takeoutOrdered, servingsEaten: takeoutEaten });
+  };
+
+  const adjustServings = (setter, current, delta, min = 0.5) => {
+    let next;
+    if (delta < 0) {
+      if (current <= 0.5) next = 0.5;
+      else if (current === 1) next = 0.5;
+      else next = current - 1;
+    } else {
+      if (current === 0.5) next = 1;
+      else next = current + 1;
+    }
+    setter(Math.max(min, next));
   };
 
   return (
@@ -421,15 +440,29 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickF
                 <Text style={styles.backLink}>{'< Back'}</Text>
               </TouchableOpacity>
               <Text style={styles.chooseHelp}>How many servings will you eat?</Text>
-              <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 16, textAlign: 'center' }}>
                 {pickedFridgeItem.remaining} serving{pickedFridgeItem.remaining !== 1 ? 's' : ''} available
               </Text>
-              <TextInput
-                style={styles.numberInput}
-                keyboardType="decimal-pad"
-                value={servingsToEat}
-                onChangeText={setServingsToEat}
-              />
+              <View style={styles.servingsRow}>
+                <TouchableOpacity
+                  style={[styles.servingsButton, servingsToEat <= 0.5 && { opacity: 0.4 }]}
+                  onPress={() => adjustServings(setServingsToEat, servingsToEat, -1)}
+                  disabled={servingsToEat <= 0.5}
+                >
+                  <Text style={styles.servingsButtonText}>−</Text>
+                </TouchableOpacity>
+                <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                  <Text style={styles.servingsCount}>{servingsToEat}</Text>
+                  <Text style={styles.servingsHint}>serving{servingsToEat !== 1 ? 's' : ''}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.servingsButton, servingsToEat >= pickedFridgeItem.remaining && { opacity: 0.4 }]}
+                  onPress={() => adjustServings(setServingsToEat, servingsToEat, 1)}
+                  disabled={servingsToEat >= pickedFridgeItem.remaining}
+                >
+                  <Text style={styles.servingsButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity style={styles.primaryButton} onPress={confirmFridge}>
                 <Text style={styles.primaryButtonText}>Add Meal</Text>
               </TouchableOpacity>
@@ -453,23 +486,48 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickF
               />
 
               <Text style={styles.inputLabel}>Servings ordered</Text>
-              <TextInput
-                style={styles.numberInput}
-                keyboardType="decimal-pad"
-                value={takeoutOrdered}
-                onChangeText={setTakeoutOrdered}
-              />
+              <View style={styles.servingsRow}>
+                <TouchableOpacity
+                  style={[styles.servingsButton, takeoutOrdered <= 0.5 && { opacity: 0.4 }]}
+                  onPress={() => adjustServings(setTakeoutOrdered, takeoutOrdered, -1)}
+                  disabled={takeoutOrdered <= 0.5}
+                >
+                  <Text style={styles.servingsButtonText}>−</Text>
+                </TouchableOpacity>
+                <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                  <Text style={styles.servingsCount}>{takeoutOrdered}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.servingsButton}
+                  onPress={() => adjustServings(setTakeoutOrdered, takeoutOrdered, 1)}
+                >
+                  <Text style={styles.servingsButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
 
               <Text style={styles.inputLabel}>Servings eaten now</Text>
-              <TextInput
-                style={styles.numberInput}
-                keyboardType="decimal-pad"
-                value={takeoutEaten}
-                onChangeText={setTakeoutEaten}
-              />
+              <View style={styles.servingsRow}>
+                <TouchableOpacity
+                  style={[styles.servingsButton, takeoutEaten <= 0.5 && { opacity: 0.4 }]}
+                  onPress={() => adjustServings(setTakeoutEaten, takeoutEaten, -1)}
+                  disabled={takeoutEaten <= 0.5}
+                >
+                  <Text style={styles.servingsButtonText}>−</Text>
+                </TouchableOpacity>
+                <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                  <Text style={styles.servingsCount}>{takeoutEaten}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.servingsButton, takeoutEaten >= takeoutOrdered && { opacity: 0.4 }]}
+                  onPress={() => adjustServings(setTakeoutEaten, takeoutEaten, 1)}
+                  disabled={takeoutEaten >= takeoutOrdered}
+                >
+                  <Text style={styles.servingsButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
 
               <Text style={styles.helper}>
-                Any leftovers (ordered - eaten) will appear in your fridge as takeout.
+                Any leftovers ({takeoutOrdered - takeoutEaten} serving{takeoutOrdered - takeoutEaten !== 1 ? 's' : ''}) will appear in your fridge as takeout.
               </Text>
 
               <TouchableOpacity style={styles.primaryButton} onPress={confirmTakeout}>
@@ -615,6 +673,24 @@ const styles = StyleSheet.create({
     color: colors.text,
     width: 100,
   },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  servingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  servingsCount: { fontSize: 28, fontWeight: '700', color: colors.text },
+  servingsHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   helper: {
     fontSize: 12,
     color: colors.textSecondary,
