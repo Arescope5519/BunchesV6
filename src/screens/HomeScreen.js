@@ -74,7 +74,7 @@ import {
 import AdminReports from '../components/AdminReports';
 import BlockedUsers from '../components/BlockedUsers';
 import DisclaimerModal, { shouldShowDisclaimer } from '../components/DisclaimerModal';
-import MealPlanning from '../components/MealPlanning';
+import KitchenScreen from '../components/KitchenScreen';
 
 // iOS Share Extension pending recipes
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
@@ -107,7 +107,6 @@ export const HomeScreen = ({ user }) => {
   const [showAdminReports, setShowAdminReports] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
-  const [showMealPlanning, setShowMealPlanning] = useState(false);
   const [pendingFolders, setPendingFolders] = useState([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
@@ -2456,32 +2455,18 @@ export const HomeScreen = ({ user }) => {
       )}
 
       {currentScreen === 'grocery' && (
-        <GroceryList
-          visible={true}
-          onClose={() => setCurrentScreen('recipes')}
+        <KitchenScreen
+          isPremium={isPremium}
+          userId={user?.uid}
+          recipes={recipes}
+          onOpenRecipe={(recipe) => setSelectedRecipe(recipe)}
           groceryList={groceryList}
           onToggleItem={handleToggleGroceryItem}
           onRemoveItem={handleRemoveGroceryItem}
           onClearChecked={handleClearCheckedItems}
           onClearAll={handleClearAllItems}
           onAddCustomItem={addCustomGroceryItem}
-          onOpenMealPlan={() => {
-            if (isPremium) {
-              setShowMealPlanning(true);
-            } else {
-              Alert.alert(
-                'Premium Feature',
-                'Meal Planning is a premium feature. Upgrade to plan your week, drag recipes to any day, and auto-generate grocery lists.',
-                [
-                  { text: 'Not Now', style: 'cancel' },
-                  { text: 'Learn More', onPress: () => {
-                    // TODO: open subscription flow when built
-                    Alert.alert('Coming Soon', 'Subscriptions launch soon. Stay tuned!');
-                  }},
-                ]
-              );
-            }
-          }}
+          onAddItemsToGroceryList={addItemsToGroceryList}
         />
       )}
 
@@ -3636,51 +3621,6 @@ export const HomeScreen = ({ user }) => {
       <DisclaimerModal
         visible={showDisclaimer}
         onAccept={() => setShowDisclaimer(false)}
-      />
-
-      {/* Meal Planning (premium) */}
-      <MealPlanning
-        visible={showMealPlanning}
-        onClose={() => setShowMealPlanning(false)}
-        userId={user?.uid}
-        recipes={recipes}
-        onOpenRecipe={(recipe) => setSelectedRecipe(recipe)}
-        onGenerateGroceryList={(planRecipes) => {
-          // Add all ingredients from the plan's recipes to the grocery list
-          const allIngredients = [];
-          planRecipes.forEach(recipe => {
-            const ingredients = recipe.ingredients || {};
-            if (typeof ingredients === 'object' && !Array.isArray(ingredients)) {
-              Object.values(ingredients).forEach(section => {
-                if (Array.isArray(section)) {
-                  section.forEach(item => {
-                    allIngredients.push({
-                      text: typeof item === 'string' ? item : item.text || String(item),
-                      section: 'main',
-                    });
-                  });
-                }
-              });
-            }
-          });
-
-          if (allIngredients.length === 0) {
-            Alert.alert('No Ingredients', 'The planned recipes have no ingredients to add.');
-            return;
-          }
-
-          addItemsToGroceryList(
-            allIngredients.map(i => i.text),
-            { title: 'From meal plan' },
-            'main'
-          );
-
-          Alert.alert(
-            'Grocery List Updated',
-            `Added ${allIngredients.length} items from your meal plan.`,
-          );
-          setShowMealPlanning(false);
-        }}
       />
 
       {/* Bottom Navigation Bar */}
