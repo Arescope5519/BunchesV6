@@ -143,7 +143,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                           {recipe?.title || '(deleted recipe)'}
                         </Text>
                         <Text style={styles.cookMeta}>
-                          Cook {event.servings_produced} serving{event.servings_produced !== 1 ? 's' : ''}
+                          {event.servings_produced} serving{event.servings_produced !== 1 ? 's' : ''}
                         </Text>
                       </View>
                       <TouchableOpacity
@@ -158,7 +158,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                 })}
 
                 <TouchableOpacity style={styles.addButton} onPress={() => setPickerDate(date)}>
-                  <Text style={styles.addButtonText}>+ Plan a cook</Text>
+                  <Text style={styles.addButtonText}>+ Add a meal</Text>
                 </TouchableOpacity>
               </View>
             );
@@ -176,6 +176,25 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       />
     </View>
   );
+};
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Extract the recipe's default servings.
+ * Falls back to parsing recipe.servings string, then to 1.
+ */
+const getBaseServings = (recipe) => {
+  if (!recipe) return 1;
+  if (recipe.base_servings) return Number(recipe.base_servings);
+  if (recipe.baseServings) return Number(recipe.baseServings);
+  if (recipe.servings) {
+    const match = String(recipe.servings).match(/(\d+(?:\.\d+)?)/);
+    if (match) return parseFloat(match[1]);
+  }
+  return 1;
 };
 
 // -----------------------------------------------------------------------------
@@ -228,8 +247,28 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
 
   const handleConfirm = () => {
     if (!configuring) return;
-    onPick(configuring.recipe, configuring.servings);
+    const baseServings = getBaseServings(configuring.recipe);
+    const totalServings = baseServings * configuring.multiplier;
+    onPick(configuring.recipe, totalServings);
     setConfiguring(null);
+  };
+
+  const changeMultiplier = (delta) => {
+    setConfiguring(c => {
+      if (!c) return c;
+      let next;
+      // Going down from 1 -> 0.5, from 0.5 stay at 0.5
+      if (delta < 0) {
+        if (c.multiplier <= 0.5) next = 0.5;
+        else if (c.multiplier === 1) next = 0.5;
+        else next = c.multiplier - 1;
+      } else {
+        // Going up from 0.5 -> 1, then integer increments
+        if (c.multiplier === 0.5) next = 1;
+        else next = c.multiplier + 1;
+      }
+      return { ...c, multiplier: next };
+    });
   };
 
   return (
@@ -240,7 +279,7 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
             <Text style={styles.headerAction}>✕ Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>
-            Cook on {dateLabel}
+            Meal on {dateLabel}
           </Text>
           <View style={{ width: 60 }} />
         </View>
@@ -285,7 +324,7 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
                 <TouchableOpacity
                   key={recipe.id}
                   style={styles.pickerCard}
-                  onPress={() => setConfiguring({ recipe, servings: recipe.base_servings || 4 })}
+                  onPress={() => setConfiguring({ recipe, multiplier: 1 })}
                 >
                   {recipe.image_url ? (
                     <Image source={{ uri: recipe.image_url }} style={styles.pickerCardImage} />
@@ -312,31 +351,43 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
           <View style={styles.configOverlay}>
             <View style={styles.configCard}>
               <Text style={styles.configTitle}>{configuring?.recipe?.title}</Text>
-              <Text style={styles.configLabel}>How many servings will you cook?</Text>
-              <View style={styles.servingsRow}>
-                <TouchableOpacity
-                  style={styles.servingsButton}
-                  onPress={() => setConfiguring(c => ({ ...c, servings: Math.max(1, c.servings - 1) }))}
-                >
-                  <Text style={styles.servingsButtonText}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.servingsCount}>{configuring?.servings || 1}</Text>
-                <TouchableOpacity
-                  style={styles.servingsButton}
-                  onPress={() => setConfiguring(c => ({ ...c, servings: c.servings + 1 }))}
-                >
-                  <Text style={styles.servingsButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.configHint}>
-                You can eat these servings today or save leftovers for later meals.
-              </Text>
+              {(() => {
+                const base = configuring ? getBaseServings(configuring.recipe) : 1;
+                const total = configuring ? base * configuring.multiplier : 0;
+                return (
+                  <>
+                    <Text style={styles.configLabel}>Recipe makes {base} serving{base !== 1 ? 's' : ''}</Text>
+                    <View style={styles.servingsRow}>
+                      <TouchableOpacity
+                        style={[styles.servingsButton, configuring?.multiplier <= 0.5 && { opacity: 0.4 }]}
+                        onPress={() => changeMultiplier(-1)}
+                        disabled={configuring?.multiplier <= 0.5}
+                      >
+                        <Text style={styles.servingsButtonText}>−</Text>
+                      </TouchableOpacity>
+                      <View style={{ alignItems: 'center', marginHorizontal: 20 }}>
+                        <Text style={styles.servingsCount}>{configuring?.multiplier}x</Text>
+                        <Text style={styles.servingsHint}>= {total} serving{total !== 1 ? 's' : ''}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.servingsButton}
+                        onPress={() => changeMultiplier(1)}
+                      >
+                        <Text style={styles.servingsButtonText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.configHint}>
+                      Adjust in whole batches. Use "0.5x" for a half batch.
+                    </Text>
+                  </>
+                );
+              })()}
               <View style={styles.configActions}>
                 <TouchableOpacity style={styles.configCancel} onPress={() => setConfiguring(null)}>
                   <Text style={styles.configCancelText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.configConfirm} onPress={handleConfirm}>
-                  <Text style={styles.configConfirmText}>Plan Cook</Text>
+                  <Text style={styles.configConfirmText}>Add Meal</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -512,9 +563,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    marginHorizontal: 24,
-    minWidth: 40,
     textAlign: 'center',
+  },
+  servingsHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   configHint: {
     fontSize: 12,

@@ -2,6 +2,10 @@
  * FILENAME: src/services/supabase/kitchen.js
  * PURPOSE: Cook events, meal events, and fridge inventory management.
  *
+ * Note on servings: Recipes may or may not specify base_servings. If missing,
+ * fall back to parsing the freeform `servings` string, then to 1 as a last
+ * resort. See getBaseServings() in CookSchedule.js.
+ *
  * Data model:
  *   cook_events: when + what the user cooks (with servings_produced)
  *   meal_events: when + what the user eats (references a cook_event, servings_consumed)
@@ -250,6 +254,9 @@ export const getFridgeInventory = async (userId, lookbackDays = 10) => {
     });
 
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const todayStr = now.toISOString().split('T')[0];
+
     return cookEvents
       .map(cook => {
         const produced = Number(cook.servings_produced);
@@ -257,16 +264,20 @@ export const getFridgeInventory = async (userId, lookbackDays = 10) => {
         const adjusted = adjustedByCook[cook.id] || 0;
         const remaining = produced - consumed - adjusted;
         const cookDate = new Date(cook.cook_date);
-        const daysOld = Math.floor((now - cookDate) / (1000 * 60 * 60 * 24));
+        cookDate.setHours(0, 0, 0, 0);
+        const daysOld = Math.max(0, Math.floor((now - cookDate) / (1000 * 60 * 60 * 24)));
+        const isPlanned = cook.cook_date > todayStr; // date is future
         return {
           cookEvent: cook,
           remaining,
           consumed,
           adjusted,
           daysOld,
+          isPlanned,
         };
       })
-      .filter(entry => entry.remaining > 0);
+      // Only show items with remaining servings AND that have been cooked (not future plans)
+      .filter(entry => entry.remaining > 0 && !entry.isPlanned);
   } catch (err) {
     console.error('❌ getFridgeInventory error:', err);
     return [];

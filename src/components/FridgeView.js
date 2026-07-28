@@ -104,7 +104,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                       {recipe?.title || '(deleted recipe)'}
                     </Text>
                     <Text style={styles.meta}>
-                      {entry.remaining} of {entry.cookEvent.servings_produced} servings left
+                      {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} left
                     </Text>
                     <Text style={[styles.meta, isOld && { color: colors.error || '#e74c3c' }]}>
                       Cooked {daysAgo} {isOld && '⚠️'}
