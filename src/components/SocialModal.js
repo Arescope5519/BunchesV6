@@ -45,7 +45,7 @@ export const SocialModal = ({
   onProfileUpdated,
   onReportProfile,
 }) => {
-  const [activeTab, setActiveTab] = useState('friends');
+  const [activeTab, setActiveTab] = useState('discover');
   const [refreshing, setRefreshing] = useState(false);
   const [viewingProfileId, setViewingProfileId] = useState(null);
   const [showMyProfile, setShowMyProfile] = useState(false);
@@ -744,19 +744,11 @@ export const SocialModal = ({
         {/* Tabs */}
         <View style={styles.tabs}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
-            onPress={() => setActiveTab('friends')}
+            style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
+            onPress={() => setActiveTab('discover')}
           >
-            <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-              Friends
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-            onPress={() => setActiveTab('requests')}
-          >
-            <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
-              Requests {friendRequests.length > 0 && `(${friendRequests.length})`}
+            <Text style={[styles.tabText, activeTab === 'discover' && styles.activeTabText]}>
+              🧭 Discover
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -764,12 +756,38 @@ export const SocialModal = ({
             onPress={() => setActiveTab('inbox')}
           >
             <Text style={[styles.tabText, activeTab === 'inbox' && styles.activeTabText]}>
-              Inbox {sharedItems.length > 0 && `(${sharedItems.length})`}
+              💬 {sharedItems.length > 0 ? `(${sharedItems.length})` : ''}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
+            onPress={() => setActiveTab('requests')}
+          >
+            <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
+              📨 {friendRequests.length > 0 ? `(${friendRequests.length})` : ''}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
+            onPress={() => setActiveTab('friends')}
+          >
+            <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
+              👥 Friends
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Tab Content */}
+        {activeTab === 'discover' && (
+          <View style={styles.discoverContainer}>
+            <Text style={styles.discoverIcon}>🧭</Text>
+            <Text style={styles.discoverTitle}>Discover</Text>
+            <Text style={styles.discoverSubtitle}>Coming Soon</Text>
+            <Text style={styles.discoverText}>
+              Find new recipes, explore trending dishes, and discover content from the community.
+            </Text>
+          </View>
+        )}
         {activeTab === 'friends' && renderFriendsTab()}
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'inbox' && renderInboxTab()}
@@ -870,6 +888,16 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
+  discoverContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  discoverIcon: { fontSize: 60, marginBottom: 12 },
+  discoverTitle: { fontSize: 26, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  discoverSubtitle: { fontSize: 14, color: colors.primary, marginBottom: 20, fontWeight: '600' },
+  discoverText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   tabContent: {
     flex: 1,
     padding: 16,

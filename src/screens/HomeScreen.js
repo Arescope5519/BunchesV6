@@ -812,16 +812,6 @@ export const HomeScreen = ({ user }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navButton, currentScreen === 'discover' && styles.navButtonActive]}
-          onPress={() => handleNavigation('discover')}
-        >
-          <Text style={styles.navButtonIcon}>🧭</Text>
-          <Text style={[styles.navButtonText, currentScreen === 'discover' && styles.navButtonTextActive]}>
-            Discover
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
           onPress={() => handleNavigation('settings')}
         >
