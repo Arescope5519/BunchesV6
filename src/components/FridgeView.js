@@ -83,31 +83,35 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
             {inventory.length} item{inventory.length !== 1 ? 's' : ''} in fridge
           </Text>
           {inventory.map(entry => {
-            const recipe = findRecipe(entry.cookEvent.recipe_id);
+            const cook = entry.cookEvent;
+            const recipe = cook.is_takeout ? null : findRecipe(cook.recipe_id);
             const daysAgo = entry.daysOld === 0 ? 'today' : entry.daysOld === 1 ? 'yesterday' : `${entry.daysOld} days ago`;
             const isOld = entry.daysOld >= 5;
+            const title = cook.is_takeout ? (cook.takeout_name || 'Takeout') : (recipe?.title || '(deleted recipe)');
             return (
-              <View key={entry.cookEvent.id} style={[styles.card, isOld && styles.cardOld]}>
+              <View key={cook.id} style={[styles.card, isOld && styles.cardOld]}>
                 <TouchableOpacity
                   style={styles.cardMain}
                   onPress={() => recipe && onOpenRecipe?.(recipe)}
+                  disabled={!recipe}
                 >
                   {recipe?.image_url ? (
                     <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
                   ) : (
                     <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                      <Text style={{ fontSize: 20 }}>🍽️</Text>
+                      <Text style={{ fontSize: 20 }}>{cook.is_takeout ? '🥡' : '🍽️'}</Text>
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.title} numberOfLines={1}>
-                      {recipe?.title || '(deleted recipe)'}
+                      {title}
+                      {cook.is_takeout && <Text style={styles.takeoutBadge}>  takeout</Text>}
                     </Text>
                     <Text style={styles.meta}>
                       {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} left
                     </Text>
                     <Text style={[styles.meta, isOld && { color: colors.error || '#e74c3c' }]}>
-                      Cooked {daysAgo} {isOld && '⚠️'}
+                      {cook.is_takeout ? 'Ordered' : 'Cooked'} {daysAgo} {isOld && '⚠️'}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -154,6 +158,7 @@ const styles = StyleSheet.create({
   thumb: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
   thumbPlaceholder: { backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 15, fontWeight: '600', color: colors.text },
+  takeoutBadge: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
   meta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   actions: { flexDirection: 'row', gap: 8 },
   actionButton: {

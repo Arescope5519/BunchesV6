@@ -44,16 +44,25 @@ export const getCookEvents = async (userId, startDate, endDate) => {
   }
 };
 
-export const createCookEvent = async (userId, { cookDate, recipeId, servingsProduced, notes }) => {
+export const createCookEvent = async (userId, {
+  cookDate,
+  recipeId,
+  servingsProduced,
+  notes,
+  isTakeout,
+  takeoutName,
+}) => {
   try {
     const { data, error } = await supabase
       .from('cook_events')
       .insert({
         user_id: userId,
         cook_date: cookDate,
-        recipe_id: recipeId,
+        recipe_id: recipeId || null,
         servings_produced: servingsProduced || 1,
         notes: notes || null,
+        is_takeout: !!isTakeout,
+        takeout_name: takeoutName || null,
       })
       .select()
       .single();

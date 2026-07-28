@@ -41,7 +41,8 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     setLoading(true);
     try {
       const events = await getCookEvents(userId, weekStart, weekEnd);
-      setCookEvents(events);
+      // Hide takeout events - they don't belong on the cook schedule
+      setCookEvents(events.filter(e => !e.is_takeout));
     } finally {
       setLoading(false);
     }
