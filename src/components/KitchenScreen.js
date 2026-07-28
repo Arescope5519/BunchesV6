@@ -82,6 +82,7 @@ const KitchenScreen = ({
           onClearChecked={onClearChecked}
           onClearAll={onClearAll}
           onAddCustomItem={onAddCustomItem}
+          embedded={true}
         />
       );
     }

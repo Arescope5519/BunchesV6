@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { colors } from '../constants/colors';
 
-export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onAddCustomItem, onOpenMealPlan }) => {
+export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onAddCustomItem, onOpenMealPlan, embedded = false }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
   const [customItemText, setCustomItemText] = useState('');
   const inputRef = useRef(null);
@@ -212,26 +212,28 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Grocery List</Text>
-        {onOpenMealPlan && (
-          <TouchableOpacity
-            style={{
-              marginLeft: 'auto',
-              backgroundColor: colors.primary,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-            onPress={onOpenMealPlan}
-          >
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>🗓️ Meal Plan</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Header - hidden when embedded in KitchenScreen (which has its own header) */}
+      {!embedded && (
+        <View style={styles.header}>
+          <Text style={styles.title}>Grocery List</Text>
+          {onOpenMealPlan && (
+            <TouchableOpacity
+              style={{
+                marginLeft: 'auto',
+                backgroundColor: colors.primary,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+              onPress={onOpenMealPlan}
+            >
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>🗓️ Meal Plan</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
         {/* Action Buttons */}
         <View style={styles.actionBar}>
