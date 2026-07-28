@@ -233,9 +233,9 @@ const MealPlanning = ({
                             key={a.recipeId}
                             style={[styles.assignedRecipe, a.isLeftover && styles.assignedRecipeLeftover]}
                             onPress={() => {
+                              // Open recipe ON TOP of meal planner so back returns to meal planner
                               if (recipe && onOpenRecipe) {
-                                onClose();
-                                setTimeout(() => onOpenRecipe(recipe), 200);
+                                onOpenRecipe(recipe);
                               }
                             }}
                             onLongPress={() => setEditingAssignment({ date, slot, recipeId: a.recipeId })}
@@ -312,8 +312,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
+    paddingTop: 50,
     backgroundColor: colors.primary,
-    paddingTop: 20,
   },
   closeButton: { color: '#fff', fontSize: 16, fontWeight: '600' },
   title: { color: '#fff', fontSize: 18, fontWeight: '700' },
