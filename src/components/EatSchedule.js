@@ -27,6 +27,7 @@ import colors from '../constants/colors';
 import {
   getMealEvents,
   createMealEvent,
+  updateMealEvent,
   deleteMealEvent,
   getFridgeInventory,
   createCookEvent,
@@ -49,6 +50,8 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const [allCookEvents, setAllCookEvents] = useState([]); // For display lookup, includes empty-fridge items
   const [loading, setLoading] = useState(false);
   const [addingTo, setAddingTo] = useState(null); // { date, slot }
+  const [editingMeal, setEditingMeal] = useState(null); // meal_event being edited
+  const [editServings, setEditServings] = useState(1);
 
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekEnd = weekDays[6];
@@ -143,6 +146,34 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     setAddingTo(null);
   };
 
+  const adjustEditServings = (delta) => {
+    setEditServings(current => {
+      if (delta < 0) {
+        if (current <= 0.5) return 0.5;
+        if (current === 1) return 0.5;
+        return current - 1;
+      }
+      if (current === 0.5) return 1;
+      return current + 1;
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingMeal) return;
+    const ok = await updateMealEvent(editingMeal.id, { servingsConsumed: editServings });
+    if (ok) {
+      setMealEvents(mealEvents.map(m =>
+        m.id === editingMeal.id ? { ...m, servings_consumed: editServings } : m
+      ));
+      // Refresh fridge counts
+      const fresh = await getFridgeInventory(userId, 10);
+      setInventory(fresh);
+    } else {
+      Alert.alert('Error', 'Could not save changes.');
+    }
+    setEditingMeal(null);
+  };
+
   const handleDeleteMeal = (mealEvent) => {
     Alert.alert(
       'Remove meal?',
@@ -191,6 +222,11 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         key={m.id}
         style={styles.mealItem}
         onPress={() => recipe && onOpenRecipe?.(recipe)}
+        onLongPress={() => {
+          setEditingMeal(m);
+          setEditServings(Number(m.servings_consumed) || 1);
+        }}
+        delayLongPress={400}
       >
         {recipe?.image_url ? (
           <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
@@ -268,6 +304,73 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         onPickFromFridge={handleAddFromFridge}
         onAddTakeout={handleAddTakeout}
       />
+
+      {/* Edit Meal Modal */}
+      <Modal
+        visible={!!editingMeal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEditingMeal(null)}
+      >
+        <View style={styles.editOverlay}>
+          <View style={styles.editCard}>
+            <Text style={styles.editTitle}>Edit meal</Text>
+            {(() => {
+              const cook = editingMeal ? knownCookEvents[editingMeal.cook_event_id] : null;
+              let title = 'Meal';
+              if (cook) {
+                if (cook.is_takeout) title = cook.takeout_name || 'Takeout';
+                else if (cook.recipe_id) title = findRecipe(cook.recipe_id)?.title || 'Recipe';
+              }
+              return <Text style={styles.editSubtitle}>{title}</Text>;
+            })()}
+            <Text style={styles.editLabel}>Servings eaten</Text>
+            <View style={styles.servingsRow}>
+              <TouchableOpacity
+                style={[styles.servingsButton, editServings <= 0.5 && { opacity: 0.4 }]}
+                onPress={() => adjustEditServings(-1)}
+                disabled={editServings <= 0.5}
+              >
+                <Text style={styles.servingsButtonText}>−</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                <Text style={styles.servingsCount}>{editServings}</Text>
+                <Text style={styles.servingsHint}>serving{editServings !== 1 ? 's' : ''}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.servingsButton}
+                onPress={() => adjustEditServings(1)}
+              >
+                <Text style={styles.servingsButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.editActions}>
+              <TouchableOpacity
+                style={styles.editDelete}
+                onPress={() => {
+                  const meal = editingMeal;
+                  setEditingMeal(null);
+                  handleDeleteMeal(meal);
+                }}
+              >
+                <Text style={styles.editDeleteText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.editCancel}
+                onPress={() => setEditingMeal(null)}
+              >
+                <Text style={styles.editCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.editSave}
+                onPress={saveEdit}
+              >
+                <Text style={styles.editSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -691,6 +794,45 @@ const styles = StyleSheet.create({
   servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
   servingsCount: { fontSize: 28, fontWeight: '700', color: colors.text },
   servingsHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+
+  // Edit meal modal
+  editOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  editCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
+  editTitle: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  editSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  editLabel: { fontSize: 14, fontWeight: '600', color: colors.text, textAlign: 'center' },
+  editActions: { flexDirection: 'row', gap: 8 },
+  editDelete: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.error || '#e74c3c',
+    alignItems: 'center',
+  },
+  editDeleteText: { color: colors.error || '#e74c3c', fontSize: 14, fontWeight: '600' },
+  editCancel: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  editCancelText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  editSave: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  editSaveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   helper: {
     fontSize: 12,
     color: colors.textSecondary,

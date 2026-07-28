@@ -169,6 +169,29 @@ export const createMealEvent = async (userId, { mealDate, slot, cookEventId, ser
   }
 };
 
+export const updateMealEvent = async (mealEventId, patch) => {
+  try {
+    const dbPatch = {};
+    if (patch.servingsConsumed !== undefined) dbPatch.servings_consumed = patch.servingsConsumed;
+    if (patch.mealDate !== undefined) dbPatch.meal_date = patch.mealDate;
+    if (patch.slot !== undefined) dbPatch.slot = patch.slot;
+
+    const { error } = await supabase
+      .from('meal_events')
+      .update(dbPatch)
+      .eq('id', mealEventId);
+
+    if (error) {
+      console.error('❌ updateMealEvent error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ updateMealEvent error:', err);
+    return false;
+  }
+};
+
 export const deleteMealEvent = async (mealEventId) => {
   try {
     const { error } = await supabase
