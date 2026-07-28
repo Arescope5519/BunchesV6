@@ -797,6 +797,21 @@ export const HomeScreen = ({ user }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.navButton, currentScreen === 'grocery' && styles.navButtonActive]}
+          onPress={() => handleNavigation('grocery')}
+        >
+          <Text style={styles.navButtonIcon}>🍽️</Text>
+          {getUncheckedCount && getUncheckedCount() > 0 && (
+            <View style={styles.navBadge}>
+              <Text style={styles.navBadgeText}>{getUncheckedCount()}</Text>
+            </View>
+          )}
+          <Text style={[styles.navButtonText, currentScreen === 'grocery' && styles.navButtonTextActive]}>
+            Kitchen
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.navButton, currentScreen === 'discover' && styles.navButtonActive]}
           onPress={() => handleNavigation('discover')}
         >
@@ -2185,17 +2200,6 @@ export const HomeScreen = ({ user }) => {
                 style={styles.iconHeaderButton}
               >
                 <Text style={styles.iconHeaderButtonText}>📂</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setCurrentScreen('grocery')}
-                style={styles.iconHeaderButton}
-              >
-                <Text style={styles.iconHeaderButtonText}>🛒</Text>
-                {getUncheckedCount() > 0 && (
-                  <View style={styles.headerBadge}>
-                    <Text style={styles.headerBadgeText}>{getUncheckedCount()}</Text>
-                  </View>
-                )}
               </TouchableOpacity>
             </View>
           </View>
