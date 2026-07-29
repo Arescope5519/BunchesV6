@@ -57,6 +57,55 @@ const formatDuration = (raw) => {
 };
 
 /**
+ * Extract numeric value from a nutrition string like "300 calories" or "40g" → 300.
+ * Returns null if no number found.
+ */
+const parseNutritionValue = (raw) => {
+  if (raw == null) return null;
+  const s = String(raw);
+  const match = s.match(/([\d.]+)/);
+  return match ? parseFloat(match[1]) : null;
+};
+
+/**
+ * Extract unit from a nutrition string. Returns the unit part (e.g. "g", "mg", "cal") or empty.
+ */
+const parseNutritionUnit = (raw) => {
+  if (raw == null) return '';
+  const s = String(raw).replace(/[\d.]+/, '').trim();
+  // Common cleanups
+  if (/calorie/i.test(s)) return 'cal';
+  if (/^g$/i.test(s) || /grams?/i.test(s)) return 'g';
+  if (/^mg$/i.test(s) || /milligram/i.test(s)) return 'mg';
+  return s.split(/\s+/)[0] || '';
+};
+
+/**
+ * Scale and format a nutrition value.
+ * If the raw value can't be parsed, returns the raw string unchanged.
+ */
+const scaleNutrition = (raw, factor) => {
+  const value = parseNutritionValue(raw);
+  if (value == null) return raw ? String(raw) : null;
+  const unit = parseNutritionUnit(raw);
+  const scaled = value * factor;
+  const rounded = scaled >= 10 ? Math.round(scaled) : Math.round(scaled * 10) / 10;
+  return unit ? `${rounded} ${unit}` : `${rounded}`;
+};
+
+const NUTRIENT_KEYS = [
+  { key: 'calories',         label: 'Calories' },
+  { key: 'fatContent',       label: 'Fat',      alt: ['fat'] },
+  { key: 'saturatedFatContent', label: 'Sat. Fat', alt: ['saturatedFat'] },
+  { key: 'carbohydrateContent', label: 'Carbs',  alt: ['carbs', 'carbohydrates'] },
+  { key: 'fiberContent',     label: 'Fiber',    alt: ['fiber'] },
+  { key: 'sugarContent',     label: 'Sugar',    alt: ['sugar'] },
+  { key: 'proteinContent',   label: 'Protein',  alt: ['protein'] },
+  { key: 'sodiumContent',    label: 'Sodium',   alt: ['sodium'] },
+  { key: 'cholesterolContent', label: 'Cholest.', alt: ['cholesterol'] },
+];
+
+/**
  * Format a servings field: strips duplicate values like "12,12" → "12".
  */
 const formatServings = (raw) => {
@@ -820,6 +869,51 @@ export const RecipeDetail = ({
           )}
         </View>
       )}
+
+      {/* Nutrition */}
+      {(() => {
+        const nutrition = localRecipe.nutrition;
+        if (!nutrition || typeof nutrition !== 'object') return null;
+
+        const items = NUTRIENT_KEYS
+          .map(nk => {
+            let raw = nutrition[nk.key];
+            if (raw == null && nk.alt) {
+              for (const a of nk.alt) {
+                if (nutrition[a] != null) { raw = nutrition[a]; break; }
+              }
+            }
+            if (raw == null) return null;
+            const scaled = scaleNutrition(raw, scaleFactor);
+            return scaled ? { label: nk.label, value: scaled } : null;
+          })
+          .filter(Boolean);
+
+        if (items.length === 0) return null;
+
+        // Serving-size vs total header
+        const perServing = nutrition.servingSize || null;
+        const perLabel = scaleFactor === 1
+          ? (perServing ? `per ${perServing}` : 'per serving')
+          : `total (${scaleFactor}x recipe)`;
+
+        return (
+          <View style={styles.nutritionContainer}>
+            <View style={styles.nutritionHeader}>
+              <Text style={styles.nutritionTitle}>📊 Nutrition</Text>
+              <Text style={styles.nutritionSub}>{perLabel}</Text>
+            </View>
+            <View style={styles.nutritionGrid}>
+              {items.map(item => (
+                <View key={item.label} style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>{item.value}</Text>
+                  <Text style={styles.nutritionLabel}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+      })()}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Ingredients</Text>
@@ -1614,6 +1708,53 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
     color: colors.text,
+  },
+  nutritionContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  nutritionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  nutritionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  nutritionSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  nutritionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  nutritionItem: {
+    width: '31%',
+    backgroundColor: '#f7f7f7',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  nutritionValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  nutritionLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   metaContainer: {
     flexDirection: 'column',
