@@ -126,10 +126,26 @@ const formatServings = (raw) => {
   if (!s) return '?';
   // Ignore ISO-duration junk that got saved in the wrong field
   if (/^PT0+[HMS]?$/i.test(s)) return '?';
-  // Dedupe comma-separated values (some sites return "12,12" or "4, 4")
+
+  // Detect "N,N" or "N, N unit" duplicates from JSON-LD arrays: keep the first + any unit
+  //   "12,12"          → "12"
+  //   "12,12 people"   → "12 people"
+  //   "4, 4 servings"  → "4 servings"
+  const dup = s.match(/^(\d+(?:\.\d+)?)\s*[,;/]\s*\1\b(.*)$/);
+  if (dup) {
+    return `${dup[1]}${dup[2]}`.trim();
+  }
+
+  // Dedupe comma-separated values that are all pure numbers, e.g. "4, 6" (a range)
+  // Only if EVERY part is a bare number, so we don't split "12, 12 people".
   const parts = s.split(/[,;/]/).map(p => p.trim()).filter(Boolean);
-  const unique = [...new Set(parts)];
-  return unique.join(', ');
+  const allNumbers = parts.length > 1 && parts.every(p => /^\d+(?:\.\d+)?$/.test(p));
+  if (allNumbers) {
+    const unique = [...new Set(parts)];
+    return unique.join(unique.length > 1 ? '-' : '');
+  }
+
+  return s;
 };
 
 const normalizeRecipe = (recipe) => {
