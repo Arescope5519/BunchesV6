@@ -1213,46 +1213,63 @@ export const RecipeDetail = ({
         return null;
       })()}
 
-      {/* Privacy Toggle */}
-      {onUpdate && !isReadOnly && (
-        <View style={styles.privacyContainer}>
-          <View style={styles.privacyRow}>
-            <Text style={styles.privacyLabel}>
-              {isFolderPrivate ? '🔒 Private (folder is private)' : localRecipe.isPrivate ? '🔒 Private Recipe' : '🌐 Public Recipe'}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.privacyToggle,
-                (localRecipe.isPrivate || isFolderPrivate) && styles.privacyToggleActive
-              ]}
-              onPress={() => {
-                if (isFolderPrivate) {
-                  Alert.alert(
-                    'Folder is Private',
-                    'This recipe is in a private folder, so it must remain private. Move it to a public folder to make it public.'
-                  );
-                  return;
-                }
-                const newPrivacy = !localRecipe.isPrivate;
-                setLocalRecipe(prev => ({ ...prev, isPrivate: newPrivacy }));
-                onUpdate({ ...localRecipe, isPrivate: newPrivacy });
-              }}
-              disabled={isFolderPrivate}
-            >
-              <Text style={styles.privacyToggleText}>
-                {(localRecipe.isPrivate || isFolderPrivate) ? 'Private' : 'Public'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.privacyHint}>
-            {isFolderPrivate
-              ? 'Recipes in private folders are always private'
-              : localRecipe.isPrivate
+      {/* Privacy Toggle
+          - Custom recipes (created in-app): controls whether the whole recipe is public
+          - Imported recipes (from the web): the original is already public online, so the
+            toggle only controls whether YOUR customized version (edits/variants) is shared */}
+      {onUpdate && !isReadOnly && (() => {
+        const sourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
+        const isCustom = !sourceUrl || sourceUrl.startsWith('bunches://');
+        const effectivePrivate = localRecipe.isPrivate || isFolderPrivate;
+
+        const label = isFolderPrivate
+          ? '🔒 Private (folder is private)'
+          : isCustom
+            ? (localRecipe.isPrivate ? '🔒 Private Recipe' : '🌐 Public Recipe')
+            : (localRecipe.isPrivate ? '✏️ My Version: Private' : '✏️ My Version: Shared');
+
+        const hint = isFolderPrivate
+          ? 'Recipes in private folders are always private'
+          : isCustom
+            ? (localRecipe.isPrivate
                 ? 'Only you can see this recipe'
-                : 'Friends can view this recipe if your account is public'}
-          </Text>
-        </View>
-      )}
+                : 'Friends can view this recipe if your account is public')
+            : (localRecipe.isPrivate
+                ? 'Your edits stay private - others only see the original recipe'
+                : 'Friends can see your customized version, including your edits');
+
+        return (
+          <View style={styles.privacyContainer}>
+            <View style={styles.privacyRow}>
+              <Text style={styles.privacyLabel}>{label}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.privacyToggle,
+                  effectivePrivate && styles.privacyToggleActive
+                ]}
+                onPress={() => {
+                  if (isFolderPrivate) {
+                    Alert.alert(
+                      'Folder is Private',
+                      'This recipe is in a private folder, so it must remain private. Move it to a public folder to make it public.'
+                    );
+                    return;
+                  }
+                  const newPrivacy = !localRecipe.isPrivate;
+                  setLocalRecipe(prev => ({ ...prev, isPrivate: newPrivacy }));
+                  onUpdate({ ...localRecipe, isPrivate: newPrivacy });
+                }}
+                disabled={isFolderPrivate}
+              >
+                <Text style={styles.privacyToggleText}>
+                  {effectivePrivate ? 'Private' : (isCustom ? 'Public' : 'Shared')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.privacyHint}>{hint}</Text>
+          </View>
+        );
+      })()}
 
       {/* Tag Editor Modal */}
       <Modal
