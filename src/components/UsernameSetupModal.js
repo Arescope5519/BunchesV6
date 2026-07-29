@@ -108,7 +108,7 @@ export const UsernameSetupModal = ({
       onRequestClose={() => {}} // Prevent closing without setup
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
       >
         <View style={styles.container}>

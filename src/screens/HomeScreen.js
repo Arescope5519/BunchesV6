@@ -2920,9 +2920,12 @@ export const HomeScreen = ({ user }) => {
           animationType="slide"
           onRequestClose={() => setSelectedRecipe(null)}
         >
+          {/* Android note: behavior="height" is a known cause of frozen
+              ScrollViews inside Modals - Android resizes the window natively
+              (adjustResize), so no KAV behavior is needed there. */}
           <KeyboardAvoidingView
             style={styles.modalContainer}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={0}
           >
             <StatusBar style="light" hidden={true} />
@@ -3559,7 +3562,7 @@ export const HomeScreen = ({ user }) => {
         <SafeAreaView style={styles.container}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <View style={styles.modalHeader}>
               <TouchableOpacity

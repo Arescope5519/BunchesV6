@@ -303,7 +303,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
       <StatusBar style="light" hidden={true} />

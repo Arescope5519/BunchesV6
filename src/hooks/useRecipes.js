@@ -225,19 +225,42 @@ export const useRecipes = (user) => {
    * Automatically tracks edits for imported recipes
    */
   const updateRecipe = async (updatedRecipe, editDescription = '') => {
-    // Find the original recipe to check if it was imported from URL
-    const originalRecipe = recipes.find(r => r.id === updatedRecipe.id);
+    // Find the stored version to compare against
+    const priorRecipe = recipes.find(r => r.id === updatedRecipe.id);
 
     let recipeWithTimestamp = {
       ...updatedRecipe,
       updatedAt: Date.now(),
     };
 
-    // If this is an imported recipe (has originalRecipe), track the edit
-    if (originalRecipe && originalRecipe.originalRecipe) {
-      const editHistory = originalRecipe.editHistory || [];
+    // Detect CONTENT edits (title/ingredients/instructions) - metadata-only
+    // updates like privacy, tags, or favorites must not create a "version".
+    const contentChanged = priorRecipe && (
+      priorRecipe.title !== updatedRecipe.title ||
+      JSON.stringify(priorRecipe.ingredients) !== JSON.stringify(updatedRecipe.ingredients) ||
+      JSON.stringify(priorRecipe.instructions) !== JSON.stringify(updatedRecipe.instructions)
+    );
+
+    if (contentChanged) {
+      // Ensure an original snapshot exists so the version toggle can offer
+      // "Original". For recipes that never had one (custom recipes, imports
+      // that skipped it), snapshot the PRE-EDIT state on first edit.
+      const originalSnapshot = priorRecipe.originalRecipe || {
+        title: priorRecipe.title,
+        ingredients: priorRecipe.ingredients,
+        instructions: priorRecipe.instructions,
+        prep_time: priorRecipe.prep_time,
+        cook_time: priorRecipe.cook_time,
+        total_time: priorRecipe.total_time,
+        servings: priorRecipe.servings,
+        nutrition: priorRecipe.nutrition,
+        image_url: priorRecipe.image_url,
+      };
+
+      const editHistory = priorRecipe.editHistory || [];
       recipeWithTimestamp = {
         ...recipeWithTimestamp,
+        originalRecipe: originalSnapshot,
         hasEdits: true,
         viewingOriginal: false, // Always show edited version after edit
         editHistory: [
