@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { checkFieldsAsync } from '../services/profanityFilter';
+import { formatDuration, formatServings, buildNutritionItems } from '../utils/recipeFormat';
 import colors from '../constants/colors';
 
 // Helper to normalize ingredients to consistent format { section: [items] }
@@ -152,7 +153,13 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ flexGrow: 1 }}
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Recipe Preview */}
         <View style={styles.previewSection}>
           <TouchableOpacity
@@ -184,7 +191,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
                 onLongPress={() => handleLongPress('prep_time', localRecipe.prep_time)}
                 delayLongPress={500}
               >
-                <Text style={styles.statNumber}>{localRecipe.prep_time}</Text>
+                <Text style={styles.statNumber}>{formatDuration(localRecipe.prep_time)}</Text>
                 <Text style={styles.statLabel}>Prep</Text>
               </TouchableOpacity>
             )}
@@ -194,7 +201,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
                 onLongPress={() => handleLongPress('cook_time', localRecipe.cook_time)}
                 delayLongPress={500}
               >
-                <Text style={styles.statNumber}>{localRecipe.cook_time}</Text>
+                <Text style={styles.statNumber}>{formatDuration(localRecipe.cook_time)}</Text>
                 <Text style={styles.statLabel}>Cook</Text>
               </TouchableOpacity>
             )}
@@ -204,7 +211,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
                 onLongPress={() => handleLongPress('total_time', localRecipe.total_time)}
                 delayLongPress={500}
               >
-                <Text style={styles.statNumber}>{localRecipe.total_time}</Text>
+                <Text style={styles.statNumber}>{formatDuration(localRecipe.total_time)}</Text>
                 <Text style={styles.statLabel}>Total</Text>
               </TouchableOpacity>
             )}
@@ -214,7 +221,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
                 onLongPress={() => handleLongPress('servings', localRecipe.servings)}
                 delayLongPress={500}
               >
-                <Text style={styles.statNumber}>{localRecipe.servings}</Text>
+                <Text style={styles.statNumber}>{formatServings(localRecipe.servings)}</Text>
                 <Text style={styles.statLabel}>Servings</Text>
               </TouchableOpacity>
             )}
@@ -283,6 +290,31 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
             ))}
           </View>
         )}
+
+        {/* Nutrition - matches what the saved recipe card will show */}
+        {(() => {
+          const items = buildNutritionItems(localRecipe.nutrition, 1);
+          if (items.length === 0) return null;
+          const perServing = localRecipe.nutrition?.servingSize || null;
+          return (
+            <View style={styles.detailSection}>
+              <View style={styles.nutritionHeader}>
+                <Text style={styles.sectionTitle}>📊 Nutrition</Text>
+                <Text style={styles.nutritionSub}>
+                  {perServing ? `per ${perServing}` : 'per serving'}
+                </Text>
+              </View>
+              <View style={styles.nutritionGrid}>
+                {items.map(item => (
+                  <View key={item.label} style={styles.nutritionItem}>
+                    <Text style={styles.nutritionValue}>{item.value}</Text>
+                    <Text style={styles.nutritionLabel}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -455,6 +487,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
     marginBottom: 12,
+  },
+  nutritionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  nutritionSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  nutritionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  nutritionItem: {
+    width: '31%',
+    backgroundColor: '#f7f7f7',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  nutritionValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  nutritionLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   ingredientSection: {
     marginBottom: 12,

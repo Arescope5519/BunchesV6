@@ -3032,7 +3032,12 @@ export const HomeScreen = ({ user }) => {
                 </View>
               )}
             </View>
-            <ScrollView style={styles.modalContent}>
+            <ScrollView
+              style={styles.modalContent}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
               {selectedRecipe.deletedAt && (
                 <View style={styles.deletedBanner}>
                   <Text style={styles.deletedBannerText}>
