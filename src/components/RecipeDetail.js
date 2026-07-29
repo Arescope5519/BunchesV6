@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image } from 'react-native';
 import colors from '../constants/colors';
 import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constants/tags';
 import {
@@ -700,6 +700,15 @@ export const RecipeDetail = ({
 
   return (
     <>
+      {/* Recipe photo - at the very top when one exists */}
+      {(localRecipe.image_url || localRecipe.imageUrl) && (
+        <Image
+          source={{ uri: localRecipe.image_url || localRecipe.imageUrl }}
+          style={styles.heroImage}
+          resizeMode="cover"
+        />
+      )}
+
       {/* Folder badge - shown if recipe is in a cookbook */}
       {localRecipe.folder && localRecipe.folder !== 'All Recipes' && (
         <Text style={styles.folderBadge}>{typeof localRecipe.folder === 'string' ? localRecipe.folder : localRecipe.folder?.name || ''}</Text>
@@ -1600,6 +1609,13 @@ export const RecipeDetail = ({
 };
 
 const styles = StyleSheet.create({
+  heroImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+    marginBottom: 14,
+    backgroundColor: colors.border,
+  },
   folderBadge: {
     fontSize: 12,
     fontWeight: '600',
