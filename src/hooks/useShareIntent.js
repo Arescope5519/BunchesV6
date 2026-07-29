@@ -81,13 +81,28 @@ export const useShareIntent = (onUrlReceived) => {
 
       // Use the ref to get the latest callback
       if (onUrlReceivedRef.current) {
+        console.log(`✅ [${Platform.OS}] Calling onUrlReceived callback...`);
         onUrlReceivedRef.current(sharedUrl);
+      } else {
+        console.error(`❌ [${Platform.OS}] No onUrlReceived callback set!`);
+        require('react-native').Alert.alert(
+          'Share Failed',
+          'App is not ready to receive shared recipes. Try again.',
+        );
       }
 
       // Don't call clearReceivedFiles() - it can interfere with detecting new shares
       // We use lastProcessedUrl to prevent duplicate processing instead
     } else {
       console.error(`❌ [${Platform.OS}] Could not extract URL from shared data:`, sharedData);
+      require('react-native').Alert.alert(
+        'Share Failed',
+        `Could not find a URL in the shared content:\n\n${
+          typeof sharedData === 'string'
+            ? sharedData.substring(0, 200)
+            : JSON.stringify(sharedData).substring(0, 200)
+        }`,
+      );
     }
   };
 

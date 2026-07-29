@@ -1180,6 +1180,8 @@ export const HomeScreen = ({ user }) => {
 
   // Share intent handler - iOS auto-saves, Android shows save screen
   useShareIntent((sharedUrlOrUrls, isBatch = false) => {
+    console.log('📤 [SHARE INTENT] Received:', { sharedUrlOrUrls, isBatch, platform: Platform.OS });
+
     if (Platform.OS === 'ios') {
       // iOS: Auto-save (Share Extension already showed preview)
       if (isBatch && Array.isArray(sharedUrlOrUrls)) {
@@ -1192,8 +1194,18 @@ export const HomeScreen = ({ user }) => {
     } else {
       // Android: Show save screen for confirmation
       const url = Array.isArray(sharedUrlOrUrls) ? sharedUrlOrUrls[0] : sharedUrlOrUrls;
+      console.log('📤 [SHARE INTENT] Android URL to extract:', url);
+      if (!url) {
+        Alert.alert('Share Failed', 'No URL was received. The share intent came through empty.');
+        return;
+      }
       setUrl(url);
-      extractRecipe(url);
+      extractRecipe(url).then(result => {
+        console.log('📤 [SHARE INTENT] extractRecipe returned:', result);
+      }).catch(err => {
+        console.error('📤 [SHARE INTENT] extractRecipe threw:', err);
+        Alert.alert('Share Failed', `Error: ${err.message}`);
+      });
     }
   });
 
