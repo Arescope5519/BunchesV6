@@ -27,6 +27,50 @@ const tryParseJSON = (value) => {
 };
 
 // Helper to normalize recipe format
+/**
+ * Format an ISO 8601 duration (e.g. "PT1H30M") or plain "30 minutes" into "1h 30 min".
+ * Returns "?" for empty/zero durations.
+ */
+const formatDuration = (raw) => {
+  if (!raw) return '?';
+  const s = String(raw).trim();
+  if (!s) return '?';
+
+  // ISO 8601 pattern PT#H#M#S
+  const iso = s.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
+  if (iso) {
+    const hours = parseInt(iso[1] || '0', 10);
+    const minutes = parseInt(iso[2] || '0', 10);
+    const seconds = parseInt(iso[3] || '0', 10);
+    if (hours === 0 && minutes === 0 && seconds === 0) return '?';
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes} min`);
+    if (seconds > 0 && hours === 0) parts.push(`${seconds}s`);
+    return parts.join(' ');
+  }
+
+  // Already-formatted plain string: swap trailing " m" for " min" but leave "min", "hr", etc alone.
+  return s
+    .replace(/(\d+)\s*m\b(?!in)/gi, '$1 min')
+    .replace(/(\d+)\s*h\b(?!r)/gi, '$1h');
+};
+
+/**
+ * Format a servings field: strips duplicate values like "12,12" → "12".
+ */
+const formatServings = (raw) => {
+  if (!raw) return '?';
+  const s = String(raw).trim();
+  if (!s) return '?';
+  // Ignore ISO-duration junk that got saved in the wrong field
+  if (/^PT0+[HMS]?$/i.test(s)) return '?';
+  // Dedupe comma-separated values (some sites return "12,12" or "4, 4")
+  const parts = s.split(/[,;/]/).map(p => p.trim()).filter(Boolean);
+  const unique = [...new Set(parts)];
+  return unique.join(', ');
+};
+
 const normalizeRecipe = (recipe) => {
   if (!recipe) return { ingredients: { main: [] }, instructions: [] };
 
@@ -761,17 +805,17 @@ export const RecipeDetail = ({
         <View style={styles.metaContainer}>
           {localRecipe.prep_time && (
             <Text style={styles.metaText}>
-              ⏱️ Prep Time: {!localRecipe.prep_time || localRecipe.prep_time.match(/^PT0+[HMS]?$/i) ? '?' : localRecipe.prep_time}
+              ⏱️ Prep Time: {formatDuration(localRecipe.prep_time)}
             </Text>
           )}
           {localRecipe.cook_time && (
             <Text style={styles.metaText}>
-              🔥 Cook Time: {!localRecipe.cook_time || localRecipe.cook_time.match(/^PT0+[HMS]?$/i) ? '?' : localRecipe.cook_time}
+              🔥 Cook Time: {formatDuration(localRecipe.cook_time)}
             </Text>
           )}
           {localRecipe.servings && (
             <Text style={styles.metaText}>
-              🍽️ Serves: {!localRecipe.servings || localRecipe.servings.match(/^PT0+[HMS]?$/i) ? '?' : localRecipe.servings}
+              🍽️ Serves: {formatServings(localRecipe.servings)}
             </Text>
           )}
         </View>
