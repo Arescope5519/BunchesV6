@@ -92,9 +92,23 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
     }
 
     setLoading(true);
+    console.log('🔍 Extracting recipe from:', recipeUrl);
 
     try {
-      const result = await extractor.extract(recipeUrl);
+      // Hard timeout - the extractor has its own 15s fetch timeout,
+      // but this catches any downstream hang.
+      const extractPromise = extractor.extract(recipeUrl);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Extraction timed out after 30 seconds')), 30000)
+      );
+      const result = await Promise.race([extractPromise, timeoutPromise]);
+
+      console.log('🔍 Extraction result:', {
+        success: result.success,
+        source: result.source,
+        title: result.data?.title,
+        error: result.error,
+      });
 
       if (result.success) {
         // Convert image to image_url for consistency
@@ -136,11 +150,20 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
         }
         return { action: 'extracted', recipe };
       } else {
-        Alert.alert('Extraction Failed', result.error || 'Unable to extract recipe');
+        Alert.alert(
+          '❌ Extraction Failed',
+          `Could not extract a recipe from that URL.\n\n${result.error || 'The site may not have structured recipe data.'}\n\nTry a different recipe URL.`,
+        );
         return { action: 'failed', error: result.error };
       }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      console.error('❌ Extraction error:', error);
+      Alert.alert(
+        '❌ Extraction Error',
+        error.message === 'Extraction timed out after 30 seconds'
+          ? 'The site took too long to respond. Check your internet or try again.'
+          : `Failed to extract recipe: ${error.message}`,
+      );
       return { action: 'error', error: error.message };
     } finally {
       setLoading(false);

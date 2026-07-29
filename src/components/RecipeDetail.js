@@ -62,6 +62,11 @@ const formatDuration = (raw) => {
  */
 const parseNutritionValue = (raw) => {
   if (raw == null) return null;
+  // Handle nested { value, unitText } shape from some schema.org nutrition fields
+  if (typeof raw === 'object' && raw !== null) {
+    raw = raw.value ?? raw.amount ?? raw.calories ?? raw['@value'];
+    if (raw == null) return null;
+  }
   const s = String(raw);
   const match = s.match(/([\d.]+)/);
   return match ? parseFloat(match[1]) : null;
@@ -72,6 +77,9 @@ const parseNutritionValue = (raw) => {
  */
 const parseNutritionUnit = (raw) => {
   if (raw == null) return '';
+  if (typeof raw === 'object' && raw !== null) {
+    return raw.unitText || raw.unit || '';
+  }
   const s = String(raw).replace(/[\d.]+/, '').trim();
   // Common cleanups
   if (/calorie/i.test(s)) return 'cal';
@@ -86,7 +94,11 @@ const parseNutritionUnit = (raw) => {
  */
 const scaleNutrition = (raw, factor) => {
   const value = parseNutritionValue(raw);
-  if (value == null) return raw ? String(raw) : null;
+  if (value == null) {
+    // Not a scalable value - only display if it's a plain string, skip objects
+    if (typeof raw === 'string' && raw.trim()) return raw;
+    return null;
+  }
   const unit = parseNutritionUnit(raw);
   const scaled = value * factor;
   const rounded = scaled >= 10 ? Math.round(scaled) : Math.round(scaled * 10) / 10;

@@ -3617,6 +3617,34 @@ export const HomeScreen = ({ user }) => {
         onAccept={() => setShowDisclaimer(false)}
       />
 
+      {/* Recipe extraction loading overlay */}
+      {loading && (
+        <View style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            padding: 24,
+            borderRadius: 12,
+            alignItems: 'center',
+            minWidth: 200,
+          }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text }}>
+              Extracting recipe…
+            </Text>
+            <Text style={{ marginTop: 4, fontSize: 12, color: colors.textSecondary, textAlign: 'center' }}>
+              This can take up to 30 seconds
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Bottom Navigation Bar */}
       {renderNavigationBar()}
     </SafeAreaView>
