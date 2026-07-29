@@ -1546,16 +1546,6 @@ export const RecipeDetail = ({
               </TouchableOpacity>
             ))}
 
-            {/* Create New Variant */}
-            <TouchableOpacity
-              style={styles.createVariantButton}
-              onPress={() => {
-                setShowVariantPicker(false);
-                setShowCreateVariant(true);
-              }}
-            >
-              <Text style={styles.createVariantButtonText}>+ Create New Variant</Text>
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>

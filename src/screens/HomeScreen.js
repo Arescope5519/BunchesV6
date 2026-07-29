@@ -2239,12 +2239,6 @@ export const HomeScreen = ({ user }) => {
               >
                 <Text style={styles.iconHeaderButtonText}>🔍</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowFolderManager(true)}
-                style={styles.iconHeaderButton}
-              >
-                <Text style={styles.iconHeaderButtonText}>📂</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -2260,14 +2254,32 @@ export const HomeScreen = ({ user }) => {
               </Text>
             </TouchableOpacity>
             <View style={styles.sortBarRight}>
-              {currentFolder !== 'Recently Deleted' && recipes.filter(r => r.deletedAt).length > 0 && (
+              {/* Trash ↔ Main Recipes toggle: in Recently Deleted the bin
+                  becomes a book that returns to All Recipes */}
+              {currentFolder === 'Recently Deleted' ? (
                 <TouchableOpacity
                   style={styles.viewModeButton}
-                  onPress={() => setCurrentFolder('Recently Deleted')}
+                  onPress={() => setCurrentFolder('All Recipes')}
                 >
-                  <Text style={styles.viewModeIcon}>🗑️</Text>
+                  <Text style={styles.viewModeIcon}>📖</Text>
                 </TouchableOpacity>
+              ) : (
+                recipes.filter(r => r.deletedAt).length > 0 && (
+                  <TouchableOpacity
+                    style={styles.viewModeButton}
+                    onPress={() => setCurrentFolder('Recently Deleted')}
+                  >
+                    <Text style={styles.viewModeIcon}>🗑️</Text>
+                  </TouchableOpacity>
+                )
               )}
+              {/* Cookbooks - next to the trash toggle, works as always */}
+              <TouchableOpacity
+                style={styles.viewModeButton}
+                onPress={() => setShowFolderManager(true)}
+              >
+                <Text style={styles.viewModeIcon}>📂</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.viewModeButton}
                 onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
