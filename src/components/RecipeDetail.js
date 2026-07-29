@@ -1532,7 +1532,14 @@ export const RecipeDetail = ({
                   setShowVariantPicker(false);
                 }}
               >
-                <Text style={styles.variantOptionText}>📝 {variant.name}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.variantOptionText}>
+                    {variant.sharedBy ? '🤝' : '📝'} {variant.name}
+                  </Text>
+                  {variant.sharedBy && (
+                    <Text style={styles.variantSharedBy}>shared by @{variant.sharedBy}</Text>
+                  )}
+                </View>
                 {selectedVariantId === variant.id && (
                   <Text style={styles.variantOptionCheck}>✓</Text>
                 )}
@@ -1771,6 +1778,11 @@ const styles = StyleSheet.create({
   variantOptionText: {
     fontSize: 15,
     color: colors.text,
+  },
+  variantSharedBy: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   variantOptionCheck: {
     fontSize: 16,

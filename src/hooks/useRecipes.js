@@ -709,6 +709,53 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * Add a fully-formed variant to a recipe (used when importing a friend's
+   * shared version of a recipe you already have). Does NOT auto-select it.
+   */
+  const addVariantToRecipe = async (recipeId, variant) => {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe || !variant) return false;
+
+    const newVariant = {
+      id: variant.id || `variant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: variant.name || 'Shared version',
+      edits: variant.edits || {},
+      sharedBy: variant.sharedBy || null,
+      createdAt: variant.createdAt || Date.now(),
+    };
+
+    const updatedRecipes = recipes.map(r => {
+      if (r.id === recipeId) {
+        return {
+          ...r,
+          variants: [...(r.variants || []), newVariant],
+          hasEdits: true,
+          updatedAt: Date.now(),
+        };
+      }
+      return r;
+    });
+
+    const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
+    if (success) {
+      setRecipes(updatedRecipes);
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        setSelectedRecipe(updatedRecipes.find(r => r.id === recipeId));
+      }
+      if (user) {
+        const updatedRecipe = updatedRecipes.find(r => r.id === recipeId);
+        if (updatedRecipe) {
+          saveRecipeWithDualWrite(user.uid, updatedRecipe).catch(err =>
+            console.error('Failed to sync shared variant to Supabase:', err)
+          );
+        }
+      }
+      return true;
+    }
+    return false;
+  };
+
+  /**
    * Delete a variant from a recipe
    */
   const deleteVariant = async (recipeId, variantId) => {
@@ -997,6 +1044,7 @@ export const useRecipes = (user) => {
     selectVariant,
     createVariant,
     deleteVariant,
+    addVariantToRecipe,
     // Original-recipe sync for imported recipes
     refreshOriginalFromOwner,
   };

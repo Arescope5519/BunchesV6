@@ -193,6 +193,7 @@ export const HomeScreen = ({ user }) => {
     selectVariant,
     createVariant,
     deleteVariant,
+    addVariantToRecipe,
     // Original-recipe sync
     refreshOriginalFromOwner,
   } = useRecipes(user);
@@ -1539,41 +1540,82 @@ export const HomeScreen = ({ user }) => {
   };
 
   // Share recipe handler - supports social sharing and edit options
+  // Resolve the sender's currently-effective edited fields (variant, legacy edit,
+  // or top-level fields when originalRecipe holds the base)
+  const getEffectiveEditedFields = (recipe) => {
+    if (recipe.variants?.length && recipe.selectedVariantId) {
+      const v = recipe.variants.find(x => x.id === recipe.selectedVariantId);
+      if (v?.edits) {
+        return {
+          title: v.edits.title ?? recipe.title,
+          ingredients: v.edits.ingredients ?? recipe.ingredients,
+          instructions: v.edits.instructions ?? recipe.instructions,
+        };
+      }
+    }
+    if (recipe.editedVersion) {
+      return {
+        title: recipe.editedVersion.title ?? recipe.title,
+        ingredients: recipe.editedVersion.ingredients ?? recipe.ingredients,
+        instructions: recipe.editedVersion.instructions ?? recipe.instructions,
+      };
+    }
+    // Legacy shape: top-level fields ARE the edited state, originalRecipe is the base
+    return {
+      title: recipe.title,
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions,
+    };
+  };
+
   const shareRecipe = async (recipe, options = {}) => {
     const { includeEdits = true } = options;
 
-    // Prepare recipe to share, handling edit options
-    let recipeToShare = { ...recipe };
+    // Base payload is always the ORIGINAL recipe when we have it, so the
+    // recipient gets a clean base + optional variant on top.
+    const base = recipe.originalRecipe || {};
+    const recipeToShare = {
+      ...recipe,
+      title: base.title ?? recipe.title,
+      ingredients: base.ingredients ?? recipe.ingredients,
+      instructions: base.instructions ?? recipe.instructions,
+      prep_time: base.prep_time ?? recipe.prep_time,
+      cook_time: base.cook_time ?? recipe.cook_time,
+      total_time: base.total_time ?? recipe.total_time,
+      servings: base.servings ?? recipe.servings,
+      nutrition: base.nutrition ?? recipe.nutrition,
+      image_url: base.image_url || base.image || recipe.image_url,
+    };
 
-    // If recipe has edits and user wants to share original only
-    if (recipe.hasEdits && recipe.originalRecipe && !includeEdits) {
-      recipeToShare = {
-        ...recipe,
-        title: recipe.originalRecipe.title,
-        ingredients: recipe.originalRecipe.ingredients,
-        instructions: recipe.originalRecipe.instructions,
-        prep_time: recipe.originalRecipe.prep_time,
-        cook_time: recipe.originalRecipe.cook_time,
-        total_time: recipe.originalRecipe.total_time,
-        servings: recipe.originalRecipe.servings,
-        nutrition: recipe.originalRecipe.nutrition,
-        image_url: recipe.originalRecipe.image_url || recipe.originalRecipe.image,
-        hasEdits: false,
-        editHistory: [],
-        editedVersion: undefined,
-        viewingOriginal: undefined,
+    // Build the shared variant when the sender wants to include their edits
+    let sharedVariant = null;
+    if (includeEdits && recipe.hasEdits) {
+      const edited = getEffectiveEditedFields(recipe);
+      sharedVariant = {
+        name: `${profile?.username || 'Friend'}'s version`,
+        sharedBy: profile?.username || null,
+        edits: edited,
+        createdAt: Date.now(),
       };
     }
 
     // If user is logged in, open friends picker
     if (user && profile) {
-      // Strip user-specific fields (folder, deletedAt, id) before sharing
-      const { deletedAt, id, folder, ...cleanRecipe } = recipeToShare;
+      // Strip user-specific + private-edit fields before sharing.
+      // The sender's own variants/edit history must never leak; edits travel
+      // ONLY via the explicit sharedVariant.
+      const {
+        deletedAt, id, folder, folders,
+        variants, selectedVariantId, editHistory, editedVersion,
+        hasEdits, viewingOriginal, originalRecipe, isFavorite, isPrivate,
+        ...cleanRecipe
+      } = recipeToShare;
       setShareItem({
         type: 'recipe',
         data: {
           ...cleanRecipe,
-          sharedWithEdits: includeEdits && recipe.hasEdits,
+          sharedVariant,
+          sharedWithEdits: !!sharedVariant,
         },
         name: recipe.title,
       });
@@ -2431,6 +2473,7 @@ export const HomeScreen = ({ user }) => {
             setCurrentScreen('recipes');
             setTimeout(() => openProfileReportDialog({ userId, username }), 300);
           }}
+          onAddVariantToRecipe={addVariantToRecipe}
         />
       )}
 

@@ -44,6 +44,7 @@ export const SocialModal = ({
   recipes,
   onProfileUpdated,
   onReportProfile,
+  onAddVariantToRecipe,
 }) => {
   const [activeTab, setActiveTab] = useState('discover');
   const [refreshing, setRefreshing] = useState(false);
@@ -124,6 +125,27 @@ export const SocialModal = ({
     }
   };
 
+  // Normalize a URL for duplicate matching (host + path, no www/protocol)
+  const normalizeShareUrl = (url) => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      return (parsed.hostname.replace(/^www\./, '') + parsed.pathname.replace(/\/$/, '')).toLowerCase();
+    } catch {
+      return String(url).toLowerCase();
+    }
+  };
+
+  const findExistingByUrl = (url) => {
+    const target = normalizeShareUrl(url);
+    if (!target) return null;
+    return (recipes || []).find(r => {
+      if (r.deletedAt) return false;
+      const rUrl = r.url || r.source_url || r.sourceUrl;
+      return rUrl && normalizeShareUrl(rUrl) === target;
+    });
+  };
+
   const handleImport = async (item) => {
     try {
       // Import the recipe(s) to local storage
@@ -132,12 +154,50 @@ export const SocialModal = ({
           Alert.alert('Error', 'Recipe data is missing');
           return;
         }
+
+        const { sharedVariant, sharedWithEdits, ...recipeData } = item.data;
+
+        // Build the variant object (fresh id, keep attribution)
+        const variantToAdd = sharedVariant ? {
+          id: `variant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: sharedVariant.name || `${item.fromUsername || 'Friend'}'s version`,
+          edits: sharedVariant.edits || {},
+          sharedBy: sharedVariant.sharedBy || item.fromUsername || null,
+          createdAt: Date.now(),
+        } : null;
+
+        // If the recipient already has this recipe (same source URL),
+        // don't duplicate it - just attach the shared version as a variant.
+        const existing = findExistingByUrl(recipeData.url || recipeData.source_url);
+        if (existing && variantToAdd && onAddVariantToRecipe) {
+          const ok = await onAddVariantToRecipe(existing.id, variantToAdd);
+          if (ok) {
+            await onImportSharedItem(item.id);
+            Alert.alert(
+              'Version Added!',
+              `You already have "${existing.title}". ${variantToAdd.name} was added to it - switch versions from the recipe's Version picker.`,
+            );
+            return;
+          }
+          // Fall through to normal import if variant add failed
+        } else if (existing && !variantToAdd) {
+          // Duplicate with no edits attached - nothing new to add
+          await onImportSharedItem(item.id);
+          Alert.alert('Already Saved', `"${existing.title}" is already in your recipes.`);
+          return;
+        }
+
         const recipe = {
-          ...item.data,
+          ...recipeData,
           id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           folder: 'All Recipes', // Reset folder - don't inherit sender's folder
           importedFrom: item.fromUsername,
           importedAt: Date.now(),
+          ...(variantToAdd ? {
+            variants: [variantToAdd],
+            selectedVariantId: variantToAdd.id, // open to the shared version
+            hasEdits: true,
+          } : {}),
         };
         await onImportRecipe(recipe);
       } else if (item.type === 'cookbook') {
