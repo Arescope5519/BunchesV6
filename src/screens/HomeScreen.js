@@ -94,6 +94,9 @@ export const HomeScreen = ({ user }) => {
   const [showFolderManager, setShowFolderManager] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [showMoveToFolder, setShowMoveToFolder] = useState(false);
+  // Incremented when the recipe modal finishes opening - remounts the inner
+  // ScrollView so Android re-measures it (fixes dead scroll until first tap)
+  const [recipeModalTick, setRecipeModalTick] = useState(0);
   const [viewingUserProfile, setViewingUserProfile] = useState(null);
   const [importingRecipe, setImportingRecipe] = useState(null);
   const [showImportFolderPicker, setShowImportFolderPicker] = useState(false);
@@ -2931,6 +2934,7 @@ export const HomeScreen = ({ user }) => {
           visible={!!selectedRecipe}
           animationType="slide"
           onRequestClose={() => setSelectedRecipe(null)}
+          onShow={() => setRecipeModalTick(t => t + 1)}
         >
           {/* Android note: behavior="height" is a known cause of frozen
               ScrollViews inside Modals - Android resizes the window natively
@@ -3091,6 +3095,7 @@ export const HomeScreen = ({ user }) => {
               )}
             </View>
             <ScrollView
+              key={`recipe-scroll-${recipeModalTick}`}
               style={styles.modalContent}
               nestedScrollEnabled={true}
               showsVerticalScrollIndicator={true}
