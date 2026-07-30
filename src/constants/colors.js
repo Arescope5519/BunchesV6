@@ -6,10 +6,10 @@
  */
 
 export const colors = {
-  // Primary - Espresso Brown
-  primary: '#4A342E',
-  primaryDark: '#33231F',
-  primaryLight: '#F3EBE3',
+  // Primary - Caramel Coffee (lightened from espresso for button visibility)
+  primary: '#7B5539',
+  primaryDark: '#5C3E29',
+  primaryLight: '#F0E4D7',
 
   // Accent - Honey
   accent: '#E9B44C',
