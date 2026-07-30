@@ -90,8 +90,10 @@
   RecipeDetail, conflict icon on cards
 
 ## Immediate Next Steps (per ROADMAP.md)
-1. RUN SQL: sql/add_dietary_preferences.sql AND sql/add_tag_search_counts.sql
-   in Supabase dashboard (dietary prefs + synced Frequently Used tags)
+1. RUN SQL (all three, BEFORE installing the new build):
+   sql/add_dietary_preferences.sql, sql/add_tag_search_counts.sql,
+   sql/add_global_recipe_tags.sql (global_recipes.tags is REQUIRED -
+   the recipe query selects it; backfill statement is optional)
 2. Test latest build (recipes page redesign + Phase 2 dietary features,
    plus still-untested: top bars, Cook-from-Eat flow, icons)
 3. Phase 2 COMPLETE (dietary filter now in IngredientSearch too)

@@ -5,6 +5,7 @@
 
 import { supabase } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getHighConfidenceTags } from '../../utils/autoTag';
 
 const LAST_SYNC_KEY = '@last_sync_timestamp';
 
@@ -117,7 +118,8 @@ export const loadRecipesFromDatabase = async (userId) => {
           total_time,
           servings,
           nutrition,
-          author
+          author,
+          tags
         )
       `)
       .eq('user_id', userId)
@@ -217,7 +219,8 @@ export const loadRecipesFromDatabase = async (userId) => {
         cook_time: globalRecipe?.cook_time || localData?.cook_time || null,
         servings: globalRecipe?.servings || localData?.servings || null,
         nutrition: globalRecipe?.nutrition || localData?.nutrition || null,
-        tags: row.tags || [],
+        tags: row.tags || [],                       // user's own tags (editable)
+        globalTags: globalRecipe?.tags || [],       // shared auto-tags (read-only)
         isFavorite: row.is_favorite || false,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
@@ -890,6 +893,16 @@ export const createGlobalRecipe = async (recipe) => {
       }
     }
 
+    // High-confidence auto-tags, computed once and stored on the global
+    // (shared, unchanging) version of the recipe
+    const autoTags = getHighConfidenceTags({
+      title: recipe.title,
+      instructions: instructions,
+      prep_time: recipe.prep_time || recipe.prepTime,
+      cook_time: recipe.cook_time || recipe.cookTime,
+      total_time: recipe.total_time || recipe.totalTime,
+    });
+
     const { data, error } = await supabase
       .from('global_recipes')
       .insert({
@@ -907,6 +920,7 @@ export const createGlobalRecipe = async (recipe) => {
         description: recipe.description || null,
         cuisine: recipe.cuisine || null,
         category: recipe.category || null,
+        tags: autoTags,
       })
       .select()
       .single();

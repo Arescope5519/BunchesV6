@@ -56,9 +56,29 @@ export const getFrequentTags = (searchCounts, limit = 8) => {
     .map(e => e.display);
 };
 
+/**
+ * All tags to display/filter for a recipe: shared auto-tags from the
+ * global version (recipe.globalTags, read-only) + the user's own tags
+ * (recipe.tags), deduped case-insensitively with global tags first.
+ */
+export const combineRecipeTags = (recipe) => {
+  const seen = new Set();
+  const combined = [];
+  [...(recipe?.globalTags || []), ...(recipe?.tags || [])].forEach(tag => {
+    if (typeof tag !== 'string') return;
+    const key = tag.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(tag);
+    }
+  });
+  return combined;
+};
+
 export default {
   TAG_CATEGORIES,
   PREDEFINED_TAGS,
   getPredefinedTagNames,
   getFrequentTags,
+  combineRecipeTags,
 };

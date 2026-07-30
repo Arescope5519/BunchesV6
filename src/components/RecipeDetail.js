@@ -10,7 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
-import { TAG_CATEGORIES, getPredefinedTagNames } from '../constants/tags';
+import { TAG_CATEGORIES, getPredefinedTagNames, combineRecipeTags } from '../constants/tags';
 import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
 import {
   parseRecipeIngredients,
@@ -138,6 +138,9 @@ export const RecipeDetail = ({
     });
     return Array.from(customTagSet).sort();
   }, [allRecipes]);
+
+  // Global auto-tags + user tags, deduped, for display
+  const displayTags = React.useMemo(() => combineRecipeTags(localRecipe), [localRecipe]);
 
   // Dietary analysis - derived from ingredients at render time, never stored
   const dietaryAnalysis = React.useMemo(
@@ -583,9 +586,16 @@ export const RecipeDetail = ({
   /**
    * Add a tag to the recipe
    */
+  // Is this tag already on the shared global version? (read-only there)
+  const isGlobalTag = (tagName) =>
+    (localRecipe.globalTags || []).some(
+      t => t.toLowerCase() === tagName.toLowerCase()
+    );
+
   const addTag = (tagName) => {
     const normalizedTag = tagName.trim();
     if (!normalizedTag) return;
+    if (isGlobalTag(normalizedTag)) return; // already on the recipe globally
 
     const currentTags = localRecipe.tags || [];
     if (currentTags.some(t => t.toLowerCase() === normalizedTag.toLowerCase())) {
@@ -730,8 +740,8 @@ export const RecipeDetail = ({
       )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 
-      {/* Tags - right below title (auto diet chips + user tags) */}
-      {(dietaryAnalysis.displayDiets.length > 0 || (localRecipe.tags && localRecipe.tags.length > 0)) && (
+      {/* Tags - right below title (auto diet chips + global auto-tags + user tags) */}
+      {(dietaryAnalysis.displayDiets.length > 0 || displayTags.length > 0) && (
         <View style={styles.tagsRow}>
           <View style={styles.tagsInlineContainer}>
             {dietaryAnalysis.displayDiets.map(dietKey => (
@@ -739,18 +749,18 @@ export const RecipeDetail = ({
                 <Text style={styles.dietChipText}>{dietLabel(dietKey)}</Text>
               </View>
             ))}
-            {(tagsExpanded ? (localRecipe.tags || []) : (localRecipe.tags || []).slice(0, 3)).map(tag => (
+            {(tagsExpanded ? displayTags : displayTags.slice(0, 3)).map(tag => (
               <View key={tag} style={styles.tagChipSimple}>
                 <Text style={styles.tagChipSimpleText}>{tag}</Text>
               </View>
             ))}
-            {(localRecipe.tags || []).length > 3 && (
+            {displayTags.length > 3 && (
               <TouchableOpacity
                 onPress={() => setTagsExpanded(!tagsExpanded)}
                 style={styles.tagExpandButton}
               >
                 <Text style={styles.tagExpandButtonText}>
-                  {tagsExpanded ? 'less' : `+${localRecipe.tags.length - 3}`}
+                  {tagsExpanded ? 'less' : `+${displayTags.length - 3}`}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1362,10 +1372,25 @@ export const RecipeDetail = ({
               </TouchableOpacity>
             </View>
 
-            {/* Current Tags */}
+            {/* Tags on the shared recipe (auto-tagged, read-only) */}
+            {localRecipe.globalTags && localRecipe.globalTags.length > 0 && (
+              <View style={styles.currentTagsSection}>
+                <Text style={styles.tagEditorSectionTitle}>From Recipe</Text>
+                <View style={styles.tagEditorTagsGrid}>
+                  {localRecipe.globalTags.map(tag => (
+                    <View key={tag} style={styles.globalTagChip}>
+                      <Ionicons name="sparkles" size={11} color={colors.primary} style={{ marginRight: 4 }} />
+                      <Text style={styles.globalTagChipText}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Current Tags (the user's own) */}
             {localRecipe.tags && localRecipe.tags.length > 0 && (
               <View style={styles.currentTagsSection}>
-                <Text style={styles.tagEditorSectionTitle}>Current Tags</Text>
+                <Text style={styles.tagEditorSectionTitle}>My Tags</Text>
                 <View style={styles.tagEditorTagsGrid}>
                   {localRecipe.tags.map(tag => (
                     <TouchableOpacity
@@ -1386,12 +1411,14 @@ export const RecipeDetail = ({
                 <Text style={styles.tagEditorSectionTitle}>Frequently Used</Text>
                 <View style={styles.tagEditorTagsGrid}>
                   {frequentTags.map(tag => {
-                    const isSelected = localRecipe.tags?.some(
+                    const isGlobal = isGlobalTag(tag);
+                    const isSelected = isGlobal || localRecipe.tags?.some(
                       t => t.toLowerCase() === tag.toLowerCase()
                     );
                     return (
                       <TouchableOpacity
                         key={tag}
+                        disabled={isGlobal}
                         style={[
                           styles.tagEditorChipOutline,
                           isSelected && styles.tagEditorChipOutlineSelected
@@ -1465,12 +1492,14 @@ export const RecipeDetail = ({
                   <Text style={styles.tagEditorSectionTitle}>{category.name}</Text>
                   <View style={styles.tagEditorTagsGrid}>
                     {category.tags.map(tagName => {
-                      const isSelected = localRecipe.tags?.some(
+                      const isGlobal = isGlobalTag(tagName);
+                      const isSelected = isGlobal || localRecipe.tags?.some(
                         t => t.toLowerCase() === tagName.toLowerCase()
                       );
                       return (
                         <TouchableOpacity
                           key={tagName}
+                          disabled={isGlobal}
                           style={[
                             styles.tagEditorChipOutline,
                             isSelected && styles.tagEditorChipOutlineSelected
@@ -2491,6 +2520,21 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 10,
     marginBottom: 6,
+  },
+  globalTagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+  },
+  globalTagChipText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
   tagChipSimpleText: {
     fontSize: 12,

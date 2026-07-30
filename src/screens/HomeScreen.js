@@ -58,7 +58,7 @@ import { WelcomeModal } from '../components/WelcomeModal';
 
 // Constants
 import colors from '../constants/colors';
-import { TAG_CATEGORIES, getPredefinedTagNames, getFrequentTags } from '../constants/tags';
+import { TAG_CATEGORIES, getPredefinedTagNames, getFrequentTags, combineRecipeTags } from '../constants/tags';
 import { ALLERGENS, DIETS, dietLabel, analyzeRecipe, getConflicts } from '../utils/dietaryAnalysis';
 import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supabase/dietary';
 
@@ -2100,13 +2100,11 @@ export const HomeScreen = ({ user }) => {
   const filteredRecipes = getFilteredRecipes(currentFolder);
   const nonDeletedRecipeCount = recipes.filter(r => !r.deletedAt).length;
 
-  // Get all unique tags from recipes for the filter
+  // Get all unique tags from recipes for the filter (user + global auto-tags)
   const allTags = useMemo(() => {
     const tagSet = new Set();
     recipes.forEach(recipe => {
-      if (recipe.tags && Array.isArray(recipe.tags)) {
-        recipe.tags.forEach(tag => tagSet.add(tag));
-      }
+      combineRecipeTags(recipe).forEach(tag => tagSet.add(tag));
     });
     return Array.from(tagSet).sort();
   }, [recipes]);
@@ -2233,11 +2231,12 @@ export const HomeScreen = ({ user }) => {
   const sortedRecipes = useMemo(() => {
     let recipesToSort = [...filteredRecipes];
 
-    // Filter by selected tags (show recipes that have ANY of the selected tags)
+    // Filter by selected tags (show recipes that have ANY of the selected
+    // tags, counting both user tags and global auto-tags)
     if (selectedTags.length > 0) {
       recipesToSort = recipesToSort.filter(recipe => {
-        if (!recipe.tags || !Array.isArray(recipe.tags)) return false;
-        return selectedTags.some(tag => recipe.tags.includes(tag));
+        const recipeTags = combineRecipeTags(recipe).map(t => t.toLowerCase());
+        return selectedTags.some(tag => recipeTags.includes(tag.toLowerCase()));
       });
     }
 
@@ -2793,6 +2792,7 @@ export const HomeScreen = ({ user }) => {
               {sortedRecipes.map((recipe) => {
                 const isSelected = selectedRecipes.has(recipe.id);
                 const dietConflicts = getConflicts(analysisById.get(recipe.id), dietaryPrefs);
+                const cardTags = combineRecipeTags(recipe);
                 // Debug image_url
                 if (viewMode === 'photo') {
                   console.log(`📷 Recipe "${recipe.title}" image_url:`, recipe.image_url ? recipe.image_url.substring(0, 50) + '...' : 'NONE');
@@ -2871,9 +2871,9 @@ export const HomeScreen = ({ user }) => {
                         )}
                       </View>
                       {/* Tag chips on recipe card - below title */}
-                      {recipe.tags && recipe.tags.length > 0 && (
+                      {cardTags.length > 0 && (
                         <View style={styles.recipeCardTags}>
-                          {(expandedTagsRecipeId === recipe.id ? recipe.tags : recipe.tags.slice(0, 3)).map(tag => (
+                          {(expandedTagsRecipeId === recipe.id ? cardTags : cardTags.slice(0, 3)).map(tag => (
                             <View
                               key={tag}
                               style={styles.recipeCardTagChip}
@@ -2881,7 +2881,7 @@ export const HomeScreen = ({ user }) => {
                               <Text style={styles.recipeCardTagText}>{tag}</Text>
                             </View>
                           ))}
-                          {recipe.tags.length > 3 && (
+                          {cardTags.length > 3 && (
                             <TouchableOpacity
                               onPress={(e) => {
                                 e.stopPropagation();
@@ -2892,7 +2892,7 @@ export const HomeScreen = ({ user }) => {
                               style={styles.recipeCardExpandTags}
                             >
                               <Text style={styles.recipeCardExpandTagsText}>
-                                {expandedTagsRecipeId === recipe.id ? 'less' : `+${recipe.tags.length - 3}`}
+                                {expandedTagsRecipeId === recipe.id ? 'less' : `+${cardTags.length - 3}`}
                               </Text>
                             </TouchableOpacity>
                           )}
