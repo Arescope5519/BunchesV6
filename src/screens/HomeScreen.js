@@ -780,7 +780,7 @@ export const HomeScreen = ({ user }) => {
           style={[styles.navButton, currentScreen === 'social' && styles.navButtonActive]}
           onPress={() => handleNavigation('social')}
         >
-          <Text style={styles.navButtonIcon}>👥</Text>
+          <Ionicons name="people" size={24} color={currentScreen === 'social' ? colors.primary : colors.textTertiary} />
           {notificationCounts.total > 0 && (
             <View style={styles.navBadge}>
               <Text style={styles.navBadgeText}>{notificationCounts.total}</Text>
@@ -795,7 +795,7 @@ export const HomeScreen = ({ user }) => {
           style={[styles.navButton, currentScreen === 'recipes' && styles.navButtonActive]}
           onPress={() => handleNavigation('recipes')}
         >
-          <Text style={styles.navButtonIcon}>📖</Text>
+          <Ionicons name="book" size={24} color={currentScreen === 'recipes' ? colors.primary : colors.textTertiary} />
           <Text style={[styles.navButtonText, currentScreen === 'recipes' && styles.navButtonTextActive]}>
             Recipes
           </Text>
@@ -805,7 +805,7 @@ export const HomeScreen = ({ user }) => {
           style={[styles.navButton, currentScreen === 'grocery' && styles.navButtonActive]}
           onPress={() => handleNavigation('grocery')}
         >
-          <Text style={styles.navButtonIcon}>🍽️</Text>
+          <Ionicons name="restaurant" size={24} color={currentScreen === 'grocery' ? colors.primary : colors.textTertiary} />
           {getUncheckedCount && getUncheckedCount() > 0 && (
             <View style={styles.navBadge}>
               <Text style={styles.navBadgeText}>{getUncheckedCount()}</Text>
@@ -820,7 +820,7 @@ export const HomeScreen = ({ user }) => {
           style={[styles.navButton, currentScreen === 'settings' && styles.navButtonActive]}
           onPress={() => handleNavigation('settings')}
         >
-          <Text style={styles.navButtonIcon}>⚙️</Text>
+          <Ionicons name="settings" size={24} color={currentScreen === 'settings' ? colors.primary : colors.textTertiary} />
           <Text style={[styles.navButtonText, currentScreen === 'settings' && styles.navButtonTextActive]}>
             Settings
           </Text>

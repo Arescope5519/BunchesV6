@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
   },
   editProfileHint: {
     fontSize: 11,
-    color: colors.primary,
+    color: 'rgba(255,255,255,0.85)',
     fontWeight: '600',
   },
   tabs: {
