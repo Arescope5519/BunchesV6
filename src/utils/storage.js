@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   GROCERY_LIST: 'groceryList',
   APP_SETTINGS: 'appSettings',
   FOLLOWED_COOKBOOKS: 'followedCookbooks',
+  TAG_SEARCH_COUNTS: 'tagSearchCounts',
 };
 
 /**
@@ -205,6 +206,41 @@ export const loadFollowedCookbooks = async (userId = null) => {
   } catch (error) {
     console.error('Failed to load followed cookbooks:', error);
     return [];
+  }
+};
+
+/**
+ * Save tag search counts to storage
+ * Shape: { [tagLowercase]: { display: 'Dinner', count: 5, lastUsed: 1690000000000 } }
+ * @param {Object} counts - The counts object
+ * @param {string|null} userId - Optional user ID for user-specific storage
+ */
+export const saveTagSearchCounts = async (counts, userId = null) => {
+  try {
+    const key = getUserKey(STORAGE_KEYS.TAG_SEARCH_COUNTS, userId);
+    await AsyncStorage.setItem(key, JSON.stringify(counts));
+    return true;
+  } catch (error) {
+    console.error('Failed to save tag search counts:', error);
+    return false;
+  }
+};
+
+/**
+ * Load tag search counts from storage
+ * @param {string|null} userId - Optional user ID for user-specific storage
+ */
+export const loadTagSearchCounts = async (userId = null) => {
+  try {
+    const key = getUserKey(STORAGE_KEYS.TAG_SEARCH_COUNTS, userId);
+    const stored = await AsyncStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return {};
+  } catch (error) {
+    console.error('Failed to load tag search counts:', error);
+    return {};
   }
 };
 

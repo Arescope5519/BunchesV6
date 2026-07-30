@@ -83,7 +83,7 @@ import KitchenScreen from '../components/KitchenScreen';
 import { getPendingRecipes, clearPendingRecipes } from '../services/pendingRecipes';
 
 // Storage utilities for manual sync
-import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, saveFollowedCookbooks, loadFollowedCookbooks } from '../utils/storage';
+import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, saveFollowedCookbooks, loadFollowedCookbooks, loadTagSearchCounts, saveTagSearchCounts } from '../utils/storage';
 
 // Recipe extractor for parsing shared URLs (consistent with Android)
 import RecipeExtractor from '../../RecipeExtractor';
@@ -2111,8 +2111,35 @@ export const HomeScreen = ({ user }) => {
     return Array.from(tagSet).sort();
   }, [recipes]);
 
-  // Most-used tags across recipes, for the Frequently Used section
-  const frequentTags = useMemo(() => getFrequentTags(recipes), [recipes]);
+  // Tag search tracking - counts how often each tag is used as a filter.
+  // Shape: { [tagLowercase]: { display, count, lastUsed } }, persisted locally.
+  const [tagSearchCounts, setTagSearchCounts] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    loadTagSearchCounts(user?.uid).then(counts => {
+      if (!cancelled) setTagSearchCounts(counts);
+    });
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  const recordTagSearch = (tag) => {
+    const key = tag.toLowerCase();
+    const existing = tagSearchCounts[key];
+    const next = {
+      ...tagSearchCounts,
+      [key]: {
+        display: existing?.display || tag,
+        count: (existing?.count || 0) + 1,
+        lastUsed: Date.now(),
+      },
+    };
+    setTagSearchCounts(next);
+    saveTagSearchCounts(next, user?.uid); // fire-and-forget persist
+  };
+
+  // Most-searched tags, for the Frequently Used section
+  const frequentTags = useMemo(() => getFrequentTags(tagSearchCounts), [tagSearchCounts]);
 
   // Dietary analysis per recipe (computed from ingredients, never stored)
   const analysisById = useMemo(() => {
@@ -2144,8 +2171,11 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  // Toggle tag in filter
+  // Toggle tag in filter (selecting counts as a "search" for Frequently Used)
   const toggleTagFilter = (tag) => {
+    if (!selectedTags.includes(tag)) {
+      recordTagSearch(tag);
+    }
     setSelectedTags(prev =>
       prev.includes(tag)
         ? prev.filter(t => t !== tag)
@@ -3274,6 +3304,7 @@ export const HomeScreen = ({ user }) => {
               <RecipeDetail
                 recipe={selectedRecipe}
                 dietaryPrefs={dietaryPrefs}
+                frequentTags={frequentTags}
                 onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}

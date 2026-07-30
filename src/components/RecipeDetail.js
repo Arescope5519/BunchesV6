@@ -10,7 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
-import { TAG_CATEGORIES, getPredefinedTagNames, getFrequentTags } from '../constants/tags';
+import { TAG_CATEGORIES, getPredefinedTagNames } from '../constants/tags';
 import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
 import {
   parseRecipeIngredients,
@@ -117,6 +117,7 @@ export const RecipeDetail = ({
   onShare, // For sharing with edit options
   onViewOwnerProfile, // For opening the recipe owner's profile
   dietaryPrefs = null, // { diets: [...], avoid: [...] } from user profile
+  frequentTags = [], // most-searched tags, passed down from HomeScreen
 }) => {
   const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
@@ -137,9 +138,6 @@ export const RecipeDetail = ({
     });
     return Array.from(customTagSet).sort();
   }, [allRecipes]);
-
-  // Most-used tags across all recipes, for the Frequently Used section
-  const frequentTags = React.useMemo(() => getFrequentTags(allRecipes), [allRecipes]);
 
   // Dietary analysis - derived from ingredients at render time, never stored
   const dietaryAnalysis = React.useMemo(

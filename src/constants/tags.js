@@ -43,27 +43,15 @@ export const getPredefinedTagNames = () => {
 };
 
 /**
- * Most-used tags across the user's recipes (predefined or custom),
- * case-insensitive, most frequent first. Only tags used on 2+ recipes
- * qualify - a tag used once isn't "frequent".
+ * Rank the user's frequently SEARCHED tags from stored search counts
+ * (see loadTagSearchCounts/saveTagSearchCounts in src/utils/storage.js).
+ * Counts shape: { [tagLowercase]: { display, count, lastUsed } }
+ * Tags searched 2+ times qualify; most-searched first, recency breaks ties.
  */
-export const getFrequentTags = (recipes, limit = 8) => {
-  const counts = new Map(); // lowercase -> { display, count }
-  (recipes || []).forEach(recipe => {
-    if (recipe.deletedAt) return;
-    (recipe.tags || []).forEach(tag => {
-      const key = tag.toLowerCase();
-      const entry = counts.get(key);
-      if (entry) {
-        entry.count += 1;
-      } else {
-        counts.set(key, { display: tag, count: 1 });
-      }
-    });
-  });
-  return Array.from(counts.values())
-    .filter(e => e.count >= 2)
-    .sort((a, b) => b.count - a.count || a.display.localeCompare(b.display))
+export const getFrequentTags = (searchCounts, limit = 8) => {
+  return Object.values(searchCounts || {})
+    .filter(e => e && e.count >= 2)
+    .sort((a, b) => b.count - a.count || (b.lastUsed || 0) - (a.lastUsed || 0))
     .slice(0, limit)
     .map(e => e.display);
 };
