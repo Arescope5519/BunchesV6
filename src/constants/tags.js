@@ -42,8 +42,35 @@ export const getPredefinedTagNames = () => {
   return PREDEFINED_TAGS.map(t => t.name);
 };
 
+/**
+ * Most-used tags across the user's recipes (predefined or custom),
+ * case-insensitive, most frequent first. Only tags used on 2+ recipes
+ * qualify - a tag used once isn't "frequent".
+ */
+export const getFrequentTags = (recipes, limit = 8) => {
+  const counts = new Map(); // lowercase -> { display, count }
+  (recipes || []).forEach(recipe => {
+    if (recipe.deletedAt) return;
+    (recipe.tags || []).forEach(tag => {
+      const key = tag.toLowerCase();
+      const entry = counts.get(key);
+      if (entry) {
+        entry.count += 1;
+      } else {
+        counts.set(key, { display: tag, count: 1 });
+      }
+    });
+  });
+  return Array.from(counts.values())
+    .filter(e => e.count >= 2)
+    .sort((a, b) => b.count - a.count || a.display.localeCompare(b.display))
+    .slice(0, limit)
+    .map(e => e.display);
+};
+
 export default {
   TAG_CATEGORIES,
   PREDEFINED_TAGS,
   getPredefinedTagNames,
+  getFrequentTags,
 };

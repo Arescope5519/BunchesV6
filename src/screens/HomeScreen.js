@@ -58,7 +58,7 @@ import { WelcomeModal } from '../components/WelcomeModal';
 
 // Constants
 import colors from '../constants/colors';
-import { TAG_CATEGORIES, getPredefinedTagNames } from '../constants/tags';
+import { TAG_CATEGORIES, getPredefinedTagNames, getFrequentTags } from '../constants/tags';
 import { ALLERGENS, DIETS, dietLabel, analyzeRecipe, getConflicts } from '../utils/dietaryAnalysis';
 import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supabase/dietary';
 
@@ -2111,6 +2111,9 @@ export const HomeScreen = ({ user }) => {
     return Array.from(tagSet).sort();
   }, [recipes]);
 
+  // Most-used tags across recipes, for the Frequently Used section
+  const frequentTags = useMemo(() => getFrequentTags(recipes), [recipes]);
+
   // Dietary analysis per recipe (computed from ingredients, never stored)
   const analysisById = useMemo(() => {
     const map = new Map();
@@ -2427,6 +2430,32 @@ export const HomeScreen = ({ user }) => {
           {showTagFilter && (
             <View style={styles.tagFilterDropdown}>
               <ScrollView style={styles.tagFilterScrollView} nestedScrollEnabled>
+                {/* Most-used tags first */}
+                {frequentTags.length > 0 && (
+                  <>
+                    <Text style={styles.tagFilterSectionTitle}>Frequently Used</Text>
+                    <View style={styles.tagFilterGrid}>
+                      {frequentTags.map(tagName => (
+                        <TouchableOpacity
+                          key={tagName}
+                          style={[
+                            styles.tagFilterChip,
+                            selectedTags.includes(tagName) && styles.tagFilterChipSelected
+                          ]}
+                          onPress={() => toggleTagFilter(tagName)}
+                        >
+                          <Text style={[
+                            styles.tagFilterChipText,
+                            selectedTags.includes(tagName) && styles.tagFilterChipTextSelected
+                          ]}>
+                            {tagName}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+
                 {/* Derived dietary filters - computed from ingredients */}
                 <Text style={styles.tagFilterSectionTitle}>Dietary</Text>
                 <View style={styles.tagFilterGrid}>
