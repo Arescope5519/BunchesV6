@@ -2169,7 +2169,7 @@ const styles = StyleSheet.create({
   },
   // Grocery list selection styles
   addToGroceryListMainButton: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -2206,7 +2206,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: colors.success,
+    backgroundColor: colors.primary,
     borderRadius: 6,
     alignItems: 'center',
   },
@@ -2246,8 +2246,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   checkboxSelected: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   checkboxCheck: {
     color: colors.white,
@@ -2270,7 +2270,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveEditButton: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
