@@ -1,141 +1,109 @@
 # Where We Left Off
 
-## Current Branch
-`claude/copy-broken-branch-qQg4U`
+**Last updated:** July 30, 2026 (end of long feature/design session)
 
-## Last Commit
-`7c2bd18` - Show actual error message in sync warning alert
+## Branches
+- **All work lives on `master`** (merged from `claude/copy-broken-branch-qQg4U`, which is identical).
+- New sessions: base work on `master`. Local machine (Y:\BunchesV6) can pull either branch - they match as of this update.
 
-## Active Issue
-Custom recipes not persisting after app uninstall/reinstall - cloud sync to Supabase was failing.
+## Working Name
+**Hunii** (tentative - decide before launch).
+- "Bunches" is OFF the table: registered trademark (Bunches, Inc., Class 45 social networking).
+- "HoneyBun" also blocked (Society Inc., Classes 9 + 45).
+- "Hunii" is USPTO-clear but collides practically with a VTuber (@huniibunchesofoats on TikTok, ironically). Accepted tradeoff for now; final call at launch prep.
 
-## Recent Fixes (last several commits)
-1. **`5233690`** - Fix recipe cloud sync: save `recipe_data` and `folders` properly to both `recipes` and `user_recipes_v2` tables
-2. **`ba177b0`** - Wait for Supabase sync to complete before returning success (was fire-and-forget)
-3. **`7c2bd18`** - Show actual error message in sync warning alert
+## Current App State (all built, on master)
 
-## Last Error Seen
-> "could not find the selected_variant_id column of recipes in the schema cache"
+### Core
+- Recipe extraction from URLs (share intent Android/iOS, quick link) with loading overlay,
+  30s timeout, clear failure alerts
+- Recipe cards: hero image on top, formatted times ("30 min"), deduped servings ("12 people"),
+  nutrition grid at bottom (scaled by recipe multiplier), version picker
+- Preview (SaveRecipeScreen) and saved card share formatters via src/utils/recipeFormat.js
+- Versions/variants: first content edit auto-snapshots "Original"; picker offers
+  Original / My Edits / friends' shared versions (attributed "shared by @user");
+  "+ Create New Variant" removed
+- Custom recipe creation with photo (moderated), profanity-filtered fields
 
-## SQL Ran to Fix
-```sql
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS recipe_data JSONB;
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS selected_variant_id TEXT;
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS variants JSONB DEFAULT '[]';
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS stats JSONB DEFAULT '{"likes": 0, "saves": 0, "views": 0}';
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS original_recipe JSONB;
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS has_edits BOOLEAN DEFAULT false;
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS edit_history JSONB DEFAULT '[]';
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS viewing_original BOOLEAN DEFAULT false;
-ALTER TABLE recipes ADD COLUMN IF NOT EXISTS edited_version JSONB;
-```
+### Kitchen (bottom nav tab, 4 sub-tabs)
+- **Cook** (premium): weekly cook plan, recipe picker w/ cookbook browse, batch multiplier
+  (base servings x 0.5/1/2...)
+- **Eat** (premium): weekly meal slots (breakfast/lunch/dinner). Add meal from:
+  Fridge (capped servings), Cook a Recipe (already-made → cook logged on eat day;
+  not-yet → day chips schedule onto Cook plan), Take Out (leftovers → fridge).
+  Tap meal = open recipe; long-press = edit servings/delete.
+- **Shop** (free): grocery list (existing feature, embedded)
+- **Fridge** (premium): computed inventory (cooked minus eaten minus adjustments),
+  days-old warnings at 5+, Trash + Adjust portions actions, takeout badges
+- Tables: cook_events (is_takeout/takeout_name), meal_events, fridge_adjustments
+- Premium gating via user_profiles.is_premium (+premium_until); admins auto-premium
 
-## SQL That May Still Need Running
+### Social
+- Friends, requests, inbox (threaded), Discover placeholder (default tab)
+- Profiles: featured carousel, sample recipes, cookbooks + Uncategorized
+- Public recipe read-only view (import 📥 excludes My Creations, report 🚩)
+- Share recipes with edits → attributed variant; recipient dedupe by URL
+  (existing recipe gains the variant, no duplicate)
+- Blocking (⋯ menu on profiles; Settings → Privacy → Blocked Users)
+- Original-recipe sync for user-imported recipes (silent refresh on open)
 
-### RLS Policies for viewing other users' recipes
-```sql
-CREATE POLICY "View public profiles recipes"
-ON recipes FOR SELECT
-USING (
-  user_id IN (
-    SELECT user_id FROM user_profiles WHERE is_public = true
-  )
-);
+### Moderation & Safety
+- Image moderation: Sightengine via Edge Function `moderate-image`
+  (nudity/offensive/gore/weapons + FACE DETECTION - no people in recipe photos)
+- Text moderation: local wordlist + phrases ("kill yourself" etc.) then OpenAI
+  omni-moderation via Edge Function `moderate-text`
+- Keys live in Supabase env vars (NOT in app). supabase/functions/* in repo.
+- Reports: modal w/ reason + 500-char details; rate-limited (10/hr, 24h dedupe)
+- Admin: Settings → Moderation Queue (dismiss/delete recipe/ban user + preview)
+- Discord webhook notifications via `moderation-webhook` fn + pg trigger
+- First-launch disclaimer modal (placeholder ToS/PP URLs - REAL DOCS STILL NEEDED)
 
-CREATE POLICY "View public profiles user_recipes_v2"
-ON user_recipes_v2 FOR SELECT
-USING (
-  user_id IN (
-    SELECT user_id FROM user_profiles WHERE is_public = true
-  )
-);
-```
+### Design (current)
+- Theme: **Honey + Forest** - forest green #2D6A4F primary, honey #E9B44C accent,
+  off-white bg. All in src/constants/colors.js (single-file swap).
+- All 4 top bars standardized: height 100, paddingTop 38, paddingBottom 8.
+  Social header = "Social" + profile chip centered on ONE line; Social sub-tabs
+  are a LIGHT row (not green) so green thickness matches everywhere.
+- Bottom nav: silvery frost bar (navBar tokens), Ionicons vector icons
+  (green active / gray inactive)
+- Vector icons (Ionicons) throughout chrome: header buttons in white circles,
+  modal actions, Kitchen + Social tabs. Grocery buttons follow theme color.
 
-### Storage bucket for recipe images (may already be done)
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('recipe-images', 'recipe-images', true)
-ON CONFLICT (id) DO NOTHING;
+### Known fixes to remember
+- Android modal scroll: KAV behavior must be undefined on Android (not "height");
+  recipe modal also remounts ScrollView via onShow tick (dead-scroll fix)
+- Recipe deletion syncs BOTH recipes + user_recipes_v2 tables; sync respects
+  old-table deleted_at (resurrection bug fixed)
+- All recipes migrated to user_recipes_v2 (127/127)
 
-CREATE POLICY "Users can upload recipe images"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'recipe-images' AND (storage.foldername(name))[1] = auth.uid()::text);
+## Immediate Next Steps (per ROADMAP.md)
+1. Test latest build (top bars, Cook-from-Eat flow, icons)
+2. Phase 2: Dietary filters + recipe tags
+3. Phase 3: Nutrition API (only if extracted data proves insufficient)
+4. Phase 4: Sharing/deep links/Instagram
+5. Phase 5: AI recipe scanning (flagship premium)
+6. Phase 6: Subscriptions (StoreKit/Play Billing)
+7. Phase 7: Launch prep (NAME DECISION, ToS/PP for real, store listings)
 
-CREATE POLICY "Public can view recipe images"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'recipe-images');
-```
-
-## Next Steps to Test
-
-1. **Pull latest changes**
-   ```
-   git pull origin claude/copy-broken-branch-qQg4U
-   ```
-
-2. **Rebuild** (Android build commands below)
-
-3. **Test custom recipe persistence:**
-   - Create a custom recipe
-   - Check console logs for `🔄 Syncing recipe to Supabase` and `✅ Recipe synced to Supabase`
-   - If you see a "Sync Warning" alert - the error message will now be shown, note what it says
-   - Uninstall and reinstall app - custom recipe should still appear
-
-4. **Test viewing other user's recipes:**
-   - Look at another user's profile
-   - Check that recipes appear under "Recipes" section and in "[Username]'s Recipes" -> Cookbooks
-   - If empty, may need the RLS policies above
-
-## Build Commands (Daniel's PC - Android)
-
+## Build (Android, Daniel's PC - project on Y:)
 ```cmd
-cd C:\Users\Daniel\BunchesV6
-git pull origin claude/copy-broken-branch-qQg4U
-git add -A && git commit -m "local" --allow-empty
+Y:
+cd Y:\BunchesV6
+git pull origin master
 taskkill /F /IM java.exe
 rmdir /s /q android
-rmdir /s /q node_modules
-npm install
 npx expo prebuild --clean --platform android
 cd android
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
 ```
+APK: `Y:\BunchesV6\android\app\build\outputs\apk\release\`
+(If a session pushes to a different branch, swap the pull accordingly.)
 
-APK: `android\app\build\outputs\apk\release\app-release.apk`
-
-## iOS Build Commands (when returning to iOS)
-
-```bash
-git pull origin claude/copy-broken-branch-qQg4U
-npm install
-npx expo prebuild --platform ios
-cd ios && pod install && cd ..
-```
-
-Then open `ios/BunchesV6.xcworkspace` in Xcode.
-
-## Feature Status
-
-### Completed
-- [x] "My Creations" system folder for custom recipes
-- [x] Folder persistence to Supabase across reinstalls
-- [x] Custom recipe photo upload (via ImagePicker base64 -> Supabase Storage)
-- [x] Featured recipes swipeable carousel on user profiles
-- [x] Auto-public profile when featuring a recipe
-- [x] Sample recipes section (5 random) on user profiles
-- [x] Cookbooks view with Uncategorized folder for recipes without a cookbook
-- [x] Instruction input text color fix on Android
-
-### Needs Testing (Blocked on Supabase)
-- [ ] Custom recipe cloud sync (last known issue: schema cache errors)
-- [ ] Custom recipe persistence after uninstall/reinstall
-- [ ] Viewing other user's recipes (may need RLS policies)
-
-## Files Most Recently Changed
-- `src/hooks/useRecipes.js` - Sync-await for recipe saves
-- `src/services/supabase/database.js` - `recipe_data` + `folders` in save payload
-- `src/services/supabase/social.js` - Read `folders` column from V2 table
-- `src/components/UserProfile.js` - Sample recipes + cookbooks layout
-- `src/screens/CreateRecipeScreen.js` - Photo picker UI
+## Accounts / Services
+- Supabase project ref: azdhiunzwslogbaiwtgi (see SERVICES.md for full map)
+- Test users: angrychef (admin), socci
+- secrets.js is gitignored; keys ALSO stored in Supabase env vars + Google
+  Password Manager backup. Edge functions: moderate-image, moderate-text,
+  moderation-webhook (Verify JWT ON for first two, OFF for webhook).
+- SQL history: tables recipes/user_recipes_v2/cook_events/meal_events/
+  fridge_adjustments/moderation_flags/content_reports/user_blocks/meal_plans(dropped)

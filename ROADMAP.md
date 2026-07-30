@@ -1,9 +1,10 @@
 # App Roadmap
 
-## Current State (as of writing)
+## Current State (updated July 30, 2026)
 - **Working name**: Hunii (tentative - final decision pre-launch)
 - **Original name**: Bunches (must not use - trademark conflict with Bunches, Inc. in Class 45 social networking)
-- **Repo branch**: `claude/copy-broken-branch-qQg4U`
+- **Repo branch**: `master` (all work merged; claude/copy-broken-branch-qQg4U is identical)
+- **See WHERE_WE_LEFT_OFF.md for the detailed current-state snapshot**
 
 ## Origin Story
 Built for developer's girlfriend who developed intracranial pressure requiring weight loss for medical reasons. Frustrated by ad-heavy recipe apps, created an ad-free health-focused alternative. Named after her nickname (honey bunches of oats → Hunii/Bunches).
@@ -40,7 +41,17 @@ Built for developer's girlfriend who developed intracranial pressure requiring w
 
 ---
 
-### 🔨 PHASE 1: Meal Planning + Grocery Lists (NEXT)
+### ✅ PHASE 1: Kitchen System (COMPLETE - evolved beyond original scope)
+Shipped as the Kitchen tab with 4 sub-tabs instead of simple meal planning:
+- Cook schedule (weekly, batch multipliers), Eat schedule (fridge/cook/takeout
+  sources per meal slot), Shop (grocery list), Fridge (computed inventory
+  with trash/adjust). Premium-gated except Shop.
+Also shipped since the roadmap was written: content moderation stack
+(Sightengine+OpenAI via Edge Functions), reports/blocking/admin queue,
+share-edits-as-variants, recipe versioning, Honey+Forest theme, vector
+icon chrome, normalized top bars, nutrition display.
+
+### 🔨 ORIGINAL PHASE 1 SPEC (superseded, kept for reference)
 **Goal**: Build weekly meal planning tools that give users a reason to open the app every week.
 
 **Features:**
@@ -61,7 +72,7 @@ Built for developer's girlfriend who developed intracranial pressure requiring w
 
 ---
 
-### 🔨 PHASE 2: Dietary Filters + Recipe Tags
+### 🔨 PHASE 2: Dietary Filters + Recipe Tags (NEXT)
 **Goal**: Enable filtering recipes by dietary needs (matches health-focused origin).
 
 **Features:**
