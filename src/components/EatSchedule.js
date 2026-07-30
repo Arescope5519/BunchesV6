@@ -120,6 +120,36 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     setAddingTo(null);
   };
 
+  /**
+   * Cook option from the eat page:
+   * - Already cooked: cook_event lands on the EAT date
+   * - Not cooked yet: cook_event lands on the chosen cookDate
+   * Either way a meal_event is created for the eat slot referencing it.
+   */
+  const handleAddCook = async ({ recipe, cookDate, servingsProduced, servingsEaten }) => {
+    if (!addingTo) return;
+    const cook = await createCookEvent(userId, {
+      cookDate,
+      recipeId: recipe.id,
+      servingsProduced,
+    });
+    if (!cook) {
+      Alert.alert('Error', 'Could not create the cook event.');
+      return;
+    }
+    const meal = await createMealEvent(userId, {
+      mealDate: addingTo.date,
+      slot: addingTo.slot,
+      cookEventId: cook.id,
+      servingsConsumed: servingsEaten,
+    });
+    if (!meal) {
+      Alert.alert('Error', 'Could not add the meal.');
+    }
+    setAddingTo(null);
+    await load();
+  };
+
   const handleAddTakeout = async ({ name, servingsOrdered, servingsEaten }) => {
     if (!addingTo) return;
     // Create a cook event marked as takeout for the SAME date
@@ -301,8 +331,10 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         slotLabel={addingTo ? `${SLOTS.find(s => s.key === addingTo.slot)?.label} on ${formatDayLabel(addingTo.date)}` : ''}
         inventory={inventory}
         recipes={recipes}
+        eatDate={addingTo?.date}
         onPickFromFridge={handleAddFromFridge}
         onAddTakeout={handleAddTakeout}
+        onAddCook={handleAddCook}
       />
 
       {/* Edit Meal Modal */}
@@ -379,14 +411,56 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
 // Add Meal Modal - choose source (fridge, takeout, cook fresh)
 // -----------------------------------------------------------------------------
 
-const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickFromFridge, onAddTakeout }) => {
-  const [mode, setMode] = useState('choose'); // 'choose', 'fridge', 'takeout'
+/**
+ * Extract the recipe's default servings (mirrors CookSchedule logic).
+ */
+const getBaseServings = (recipe) => {
+  if (!recipe) return 1;
+  if (recipe.base_servings) return Number(recipe.base_servings);
+  if (recipe.baseServings) return Number(recipe.baseServings);
+  if (recipe.servings) {
+    const match = String(recipe.servings).match(/(\d+(?:\.\d+)?)/);
+    if (match) return parseFloat(match[1]);
+  }
+  return 1;
+};
+
+/**
+ * Candidate cook days for a planned cook: today through the eat date
+ * (or the week leading up to the eat date if it's already past).
+ */
+const buildCookDayOptions = (eatDateStr) => {
+  if (!eatDateStr) return [];
+  const eat = new Date(eatDateStr);
+  eat.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = today <= eat ? today : new Date(eat.getTime() - 6 * 86400000);
+  const days = [];
+  let d = new Date(start);
+  while (d <= eat && days.length < 14) {
+    days.push(d.toISOString().split('T')[0]);
+    d = new Date(d.getTime() + 86400000);
+  }
+  if (days.length === 0) days.push(eatDateStr);
+  return days;
+};
+
+const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate, onPickFromFridge, onAddTakeout, onAddCook }) => {
+  const [mode, setMode] = useState('choose'); // 'choose', 'fridge', 'takeout', 'cook'
   const [pickedFridgeItem, setPickedFridgeItem] = useState(null);
   const [servingsToEat, setServingsToEat] = useState(1); // numeric, using +/- buttons
   // Takeout state
   const [takeoutName, setTakeoutName] = useState('');
   const [takeoutOrdered, setTakeoutOrdered] = useState(1);
   const [takeoutEaten, setTakeoutEaten] = useState(1);
+  // Cook state
+  const [cookRecipe, setCookRecipe] = useState(null);
+  const [cookSearch, setCookSearch] = useState('');
+  const [alreadyCooked, setAlreadyCooked] = useState(null); // null = unanswered
+  const [cookMultiplier, setCookMultiplier] = useState(1);
+  const [cookEatServings, setCookEatServings] = useState(1);
+  const [cookDay, setCookDay] = useState(null);
 
   useEffect(() => {
     if (!visible) {
@@ -396,6 +470,12 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickF
       setTakeoutName('');
       setTakeoutOrdered(1);
       setTakeoutEaten(1);
+      setCookRecipe(null);
+      setCookSearch('');
+      setAlreadyCooked(null);
+      setCookMultiplier(1);
+      setCookEatServings(1);
+      setCookDay(null);
     }
   }, [visible]);
 
@@ -429,6 +509,35 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickF
       return;
     }
     onAddTakeout({ name: takeoutName.trim(), servingsOrdered: takeoutOrdered, servingsEaten: takeoutEaten });
+  };
+
+  const adjustMultiplier = (delta) => {
+    setCookMultiplier(current => {
+      if (delta < 0) {
+        if (current <= 0.5) return 0.5;
+        if (current === 1) return 0.5;
+        return current - 1;
+      }
+      if (current === 0.5) return 1;
+      return current + 1;
+    });
+  };
+
+  const confirmCook = () => {
+    if (!cookRecipe) return;
+    const base = getBaseServings(cookRecipe);
+    const produced = base * cookMultiplier;
+    if (cookEatServings > produced) {
+      Alert.alert('Too many', `You're only making ${produced} serving${produced !== 1 ? 's' : ''}.`);
+      return;
+    }
+    const cookDate = alreadyCooked ? eatDate : (cookDay || eatDate);
+    onAddCook({
+      recipe: cookRecipe,
+      cookDate,
+      servingsProduced: produced,
+      servingsEaten: cookEatServings,
+    });
   };
 
   const adjustServings = (setter, current, delta, min = 0.5) => {
@@ -479,6 +588,20 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickF
 
               <TouchableOpacity
                 style={styles.optionCard}
+                onPress={() => setMode('cook')}
+              >
+                <Text style={styles.optionIcon}>🍳</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.optionTitle}>Cook a Recipe</Text>
+                  <Text style={styles.optionSubtitle}>
+                    Already made, or schedule it on the cook plan
+                  </Text>
+                </View>
+                <Text style={styles.optionArrow}>{'>'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.optionCard}
                 onPress={() => setMode('takeout')}
               >
                 <Text style={styles.optionIcon}>🥡</Text>
@@ -492,6 +615,180 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, onPickF
               </TouchableOpacity>
             </ScrollView>
           )}
+
+          {mode === 'cook' && !cookRecipe && (
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <TouchableOpacity onPress={() => setMode('choose')}>
+                <Text style={styles.backLink}>{'< Back'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.chooseHelp}>Pick a recipe to cook:</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Search recipes..."
+                placeholderTextColor={colors.textSecondary}
+                value={cookSearch}
+                onChangeText={setCookSearch}
+              />
+              <View style={{ marginTop: 12 }}>
+                {recipes
+                  .filter(r => !r.deletedAt)
+                  .filter(r => !cookSearch.trim() || (r.title || '').toLowerCase().includes(cookSearch.trim().toLowerCase()))
+                  .map(recipe => (
+                    <TouchableOpacity
+                      key={recipe.id}
+                      style={styles.fridgeItem}
+                      onPress={() => {
+                        setCookRecipe(recipe);
+                        setCookMultiplier(1);
+                        setCookEatServings(1);
+                        setCookDay(eatDate);
+                        setAlreadyCooked(null);
+                      }}
+                    >
+                      {recipe.image_url ? (
+                        <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+                      ) : (
+                        <View style={[styles.thumb, styles.thumbPlaceholder]}>
+                          <Text style={{ fontSize: 18 }}>🍽️</Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.mealTitle} numberOfLines={1}>{recipe.title}</Text>
+                        <Text style={styles.mealSubtitle}>
+                          Makes {getBaseServings(recipe)} serving{getBaseServings(recipe) !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+            </ScrollView>
+          )}
+
+          {mode === 'cook' && cookRecipe && alreadyCooked === null && (
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <TouchableOpacity onPress={() => setCookRecipe(null)}>
+                <Text style={styles.backLink}>{'< Back'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.chooseHelp}>{cookRecipe.title}</Text>
+              <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
+                Is this already cooked?
+              </Text>
+              <TouchableOpacity
+                style={styles.optionCard}
+                onPress={() => setAlreadyCooked(true)}
+              >
+                <Text style={styles.optionIcon}>✅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.optionTitle}>Yes, it's made</Text>
+                  <Text style={styles.optionSubtitle}>
+                    Logs the cook on this day; leftovers go to the fridge
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.optionCard}
+                onPress={() => setAlreadyCooked(false)}
+              >
+                <Text style={styles.optionIcon}>🗓️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.optionTitle}>Not yet - schedule it</Text>
+                  <Text style={styles.optionSubtitle}>
+                    Pick a day and it's added to your Cook plan
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+
+          {mode === 'cook' && cookRecipe && alreadyCooked !== null && (() => {
+            const base = getBaseServings(cookRecipe);
+            const produced = base * cookMultiplier;
+            const dayOptions = buildCookDayOptions(eatDate);
+            return (
+              <ScrollView contentContainerStyle={{ padding: 16 }}>
+                <TouchableOpacity onPress={() => setAlreadyCooked(null)}>
+                  <Text style={styles.backLink}>{'< Back'}</Text>
+                </TouchableOpacity>
+                <Text style={styles.chooseHelp}>{cookRecipe.title}</Text>
+
+                {!alreadyCooked && (
+                  <>
+                    <Text style={styles.inputLabel}>Cook on which day?</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                      {dayOptions.map(day => {
+                        const active = day === (cookDay || eatDate);
+                        return (
+                          <TouchableOpacity
+                            key={day}
+                            style={[styles.dayChip, active && styles.dayChipActive]}
+                            onPress={() => setCookDay(day)}
+                          >
+                            <Text style={[styles.dayChipText, active && styles.dayChipTextActive]}>
+                              {formatDayLabel(day)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                )}
+
+                <Text style={styles.inputLabel}>
+                  Batch size (recipe makes {base} serving{base !== 1 ? 's' : ''})
+                </Text>
+                <View style={styles.servingsRow}>
+                  <TouchableOpacity
+                    style={[styles.servingsButton, cookMultiplier <= 0.5 && { opacity: 0.4 }]}
+                    onPress={() => adjustMultiplier(-1)}
+                    disabled={cookMultiplier <= 0.5}
+                  >
+                    <Text style={styles.servingsButtonText}>−</Text>
+                  </TouchableOpacity>
+                  <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                    <Text style={styles.servingsCount}>{cookMultiplier}x</Text>
+                    <Text style={styles.servingsHint}>= {produced} serving{produced !== 1 ? 's' : ''}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.servingsButton}
+                    onPress={() => adjustMultiplier(1)}
+                  >
+                    <Text style={styles.servingsButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>Servings to eat at this meal</Text>
+                <View style={styles.servingsRow}>
+                  <TouchableOpacity
+                    style={[styles.servingsButton, cookEatServings <= 0.5 && { opacity: 0.4 }]}
+                    onPress={() => adjustServings(setCookEatServings, cookEatServings, -1)}
+                    disabled={cookEatServings <= 0.5}
+                  >
+                    <Text style={styles.servingsButtonText}>−</Text>
+                  </TouchableOpacity>
+                  <View style={{ alignItems: 'center', marginHorizontal: 24 }}>
+                    <Text style={styles.servingsCount}>{cookEatServings}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.servingsButton, cookEatServings >= produced && { opacity: 0.4 }]}
+                    onPress={() => adjustServings(setCookEatServings, cookEatServings, 1)}
+                    disabled={cookEatServings >= produced}
+                  >
+                    <Text style={styles.servingsButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.helper}>
+                  {alreadyCooked
+                    ? `Cook is logged for this day. ${produced - cookEatServings} serving${produced - cookEatServings !== 1 ? 's' : ''} will be in the fridge.`
+                    : `Added to the Cook plan on ${cookDay ? formatDayLabel(cookDay) : formatDayLabel(eatDate)}. Leftovers go to the fridge after cooking.`}
+                </Text>
+
+                <TouchableOpacity style={styles.primaryButton} onPress={confirmCook}>
+                  <Text style={styles.primaryButtonText}>Add to Plan</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            );
+          })()}
 
           {mode === 'fridge' && !pickedFridgeItem && (
             <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -794,6 +1091,21 @@ const styles = StyleSheet.create({
   servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
   servingsCount: { fontSize: 28, fontWeight: '700', color: colors.text },
   servingsHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  dayChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+  },
+  dayChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dayChipText: { fontSize: 13, color: colors.text },
+  dayChipTextActive: { color: '#fff', fontWeight: '600' },
 
   // Edit meal modal
   editOverlay: {
