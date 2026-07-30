@@ -13,6 +13,7 @@ import {
   saveRecipeWithDualWrite,
 } from '../services/supabase/database';
 import { MY_CREATIONS_FOLDER } from './useFolders';
+import { getHighConfidenceTags } from '../utils/autoTag';
 
 /**
  * Check if a recipe is custom (created by user, not imported from URL)
@@ -118,6 +119,11 @@ export const useRecipes = (user) => {
       folders: recipeFolders,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
+      // Mirror the auto-tags stored on the global version so they show
+      // immediately, without waiting for a cloud reload
+      globalTags: (recipe.globalTags && recipe.globalTags.length > 0)
+        ? recipe.globalTags
+        : getHighConfidenceTags(recipe),
     };
 
     // Filter out any existing recipe with the same ID to prevent duplicates
@@ -193,6 +199,9 @@ export const useRecipes = (user) => {
       id: recipe.id || `recipe-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
+      globalTags: (recipe.globalTags && recipe.globalTags.length > 0)
+        ? recipe.globalTags
+        : getHighConfidenceTags(recipe),
     }));
 
     // Get IDs of new recipes to filter out duplicates from existing recipes

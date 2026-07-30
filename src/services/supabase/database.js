@@ -632,7 +632,14 @@ export const syncRecipes = async (userId, localRecipes) => {
 
         if (localTime > dbTime) {
           recipesToUpload.push(localRecipe);
-          mergedRecipes.push(localRecipe);
+          // Carry over global auto-tags - they only live on the DB side,
+          // so a locally-newer copy must not erase them
+          mergedRecipes.push({
+            ...localRecipe,
+            globalTags: (localRecipe.globalTags && localRecipe.globalTags.length > 0)
+              ? localRecipe.globalTags
+              : dbRecipe.globalTags || [],
+          });
         } else {
           mergedRecipes.push(dbRecipe);
         }

@@ -22,7 +22,12 @@ const TITLE_RULES = [
   { tag: 'Beef', re: /\b(beef|steak|brisket|meatloaf)\b/i },
   { tag: 'Pork', re: /\b(pork|ham|carnitas|pulled pork)\b/i },
   { tag: 'Seafood', re: /\b(seafood|shrimp|salmon|fish|tuna|cod|tilapia|crab|lobster|scallops?|prawns?)\b/i },
-  { tag: 'Dessert', re: /\b(dessert|cakes?|cookies?|brownies?|pies?|cheesecake|cupcakes?|pudding|ice cream|tarts?|muffins?|donuts?|doughnuts?|cobbler|fudge|macarons?)\b/i },
+  {
+    tag: 'Dessert',
+    re: /\b(dessert|cakes?|cookies?|brownies?|pies?|cheesecake|cupcakes?|pudding|ice cream|tarts?|muffins?|donuts?|doughnuts?|cobbler|fudge|macarons?)\b/i,
+    // Savory "pies" must not read as dessert
+    except: /\b(pot pies?|shepherd'?s pies?|cottage pies?|pizza pies?)\b/gi,
+  },
   { tag: 'Breakfast', re: /\b(breakfast|pancakes?|waffles?|oatmeal|granola|french toast|omelet(te)?s?|frittata|brunch)\b/i },
 ];
 
@@ -80,7 +85,8 @@ export const getHighConfidenceTags = (recipe) => {
 
   const title = String(recipe.title || '');
   for (const rule of TITLE_RULES) {
-    if (rule.re.test(title)) tags.add(rule.tag);
+    const text = rule.except ? title.replace(rule.except, ' ') : title;
+    if (rule.re.test(text)) tags.add(rule.tag);
   }
 
   // Instructions text for method/appliance detection
