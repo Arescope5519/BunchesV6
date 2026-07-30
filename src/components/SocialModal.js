@@ -884,9 +884,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 15,
     height: 100,
     paddingTop: 38,
@@ -895,10 +896,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 3,
   },
   myProfileButton: {
     flexDirection: 'row',
