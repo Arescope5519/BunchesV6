@@ -2246,25 +2246,6 @@ export const HomeScreen = ({ user }) => {
             >
               <Ionicons name="search" size={22} color={colors.primary} />
             </TouchableOpacity>
-            {/* Trash ↔ Main Recipes toggle: in Recently Deleted the bin
-                becomes a book that returns to All Recipes */}
-            {currentFolder === 'Recently Deleted' ? (
-              <TouchableOpacity
-                style={styles.actionBarButton}
-                onPress={() => setCurrentFolder('All Recipes')}
-              >
-                <Ionicons name="book" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            ) : (
-              recipes.filter(r => r.deletedAt).length > 0 && (
-                <TouchableOpacity
-                  style={styles.actionBarButton}
-                  onPress={() => setCurrentFolder('Recently Deleted')}
-                >
-                  <Ionicons name="trash" size={22} color={colors.primary} />
-                </TouchableOpacity>
-              )
-            )}
             <TouchableOpacity
               style={styles.actionBarButton}
               onPress={() => setShowFolderManager(true)}
@@ -2432,6 +2413,23 @@ export const HomeScreen = ({ user }) => {
               >
                 <Text style={styles.tagFilterCloseButtonText}>Done</Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Cookbook title - shown when viewing a specific cookbook */}
+          {currentFolder !== 'All Recipes' && (
+            <View style={styles.folderTitleBar}>
+              <Ionicons
+                name={
+                  currentFolder === 'Recently Deleted' ? 'trash'
+                    : currentFolder === 'Favorites' ? 'star'
+                    : 'book'
+                }
+                size={16}
+                color={colors.primary}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.folderTitleText}>{currentFolder}</Text>
             </View>
           )}
         </>
@@ -4301,6 +4299,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightGray,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  folderTitleBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  folderTitleText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
   },
   sortButton: {
     flexDirection: 'row',
