@@ -180,12 +180,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderBottomWidth: 1,
     borderBottomColor: colors.primaryDark,
-    paddingTop: 45, // clear the status bar
+    height: 100,
+    paddingTop: 38, // clear the status bar
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 4,
     alignItems: 'center',
+    justifyContent: 'flex-end',
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },

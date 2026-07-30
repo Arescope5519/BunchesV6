@@ -795,7 +795,7 @@ export const SocialModal = ({
             style={styles.myProfileButton}
             onPress={() => setShowMyProfile(true)}
           >
-            <UserAvatar username={profile.username} size={24} />
+            <UserAvatar username={profile.username} size={22} />
             <Text style={styles.myUsername}>@{profile.username}</Text>
             <Text style={styles.editProfileHint}>Edit</Text>
           </TouchableOpacity>
@@ -884,25 +884,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 15,
-    paddingTop: 50,
-    paddingBottom: 15,
+    height: 100,
+    paddingTop: 38,
+    paddingBottom: 8,
     backgroundColor: colors.primary,
     borderBottomWidth: 0,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+    marginBottom: 3,
   },
   myProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
     gap: 6,
