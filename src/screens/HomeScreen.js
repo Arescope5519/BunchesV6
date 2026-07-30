@@ -64,7 +64,7 @@ import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supa
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
-import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase } from '../services/supabase/database';
+import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase } from '../services/supabase/database';
 import {
   getFullPublicRecipe,
   submitContentReport,
@@ -2112,14 +2112,41 @@ export const HomeScreen = ({ user }) => {
   }, [recipes]);
 
   // Tag search tracking - counts how often each tag is used as a filter.
-  // Shape: { [tagLowercase]: { display, count, lastUsed } }, persisted locally.
+  // Shape: { [tagLowercase]: { display, count, lastUsed } }.
+  // Source of truth: Supabase user_settings.tag_search_counts;
+  // AsyncStorage acts as a local cache / offline fallback.
   const [tagSearchCounts, setTagSearchCounts] = useState({});
 
   useEffect(() => {
     let cancelled = false;
-    loadTagSearchCounts(user?.uid).then(counts => {
-      if (!cancelled) setTagSearchCounts(counts);
-    });
+    const loadCounts = async () => {
+      // Local cache first for instant UI
+      const local = await loadTagSearchCounts(user?.uid);
+      if (!cancelled && Object.keys(local).length > 0) {
+        setTagSearchCounts(local);
+      }
+      if (!user?.uid) return;
+
+      // Then cloud - merge per tag, keeping the higher count (also
+      // migrates any counts gathered before cloud sync existed)
+      const remote = await loadTagSearchCountsFromDatabase(user.uid);
+      if (cancelled) return;
+      const merged = { ...remote };
+      let localAhead = false;
+      for (const [key, entry] of Object.entries(local)) {
+        const remoteEntry = merged[key];
+        if (!remoteEntry || (entry.count || 0) > (remoteEntry.count || 0)) {
+          merged[key] = entry;
+          localAhead = true;
+        }
+      }
+      setTagSearchCounts(merged);
+      saveTagSearchCounts(merged, user.uid);
+      if (localAhead) {
+        saveTagSearchCountsToDatabase(user.uid, merged);
+      }
+    };
+    loadCounts();
     return () => { cancelled = true; };
   }, [user?.uid]);
 
@@ -2135,7 +2162,11 @@ export const HomeScreen = ({ user }) => {
       },
     };
     setTagSearchCounts(next);
-    saveTagSearchCounts(next, user?.uid); // fire-and-forget persist
+    // Fire-and-forget: local cache + cloud
+    saveTagSearchCounts(next, user?.uid);
+    if (user?.uid) {
+      saveTagSearchCountsToDatabase(user.uid, next);
+    }
   };
 
   // Most-searched tags, for the Frequently Used section

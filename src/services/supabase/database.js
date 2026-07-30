@@ -760,6 +760,51 @@ export const loadFoldersFromDatabase = async (userId) => {
 };
 
 /**
+ * Save tag search counts to database (user_settings.tag_search_counts)
+ * @param {string} userId - User's unique ID
+ * @param {Object} counts - { [tagLowercase]: { display, count, lastUsed } }
+ */
+export const saveTagSearchCountsToDatabase = async (userId, counts) => {
+  try {
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert({
+        user_id: userId,
+        tag_search_counts: counts || {},
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving tag search counts:', error);
+    return false;
+  }
+};
+
+/**
+ * Load tag search counts from database
+ * @param {string} userId - User's unique ID
+ * @returns {Promise<Object>} counts object (empty on error/missing)
+ */
+export const loadTagSearchCountsFromDatabase = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('tag_search_counts')
+      .eq('user_id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    return data?.tag_search_counts || {};
+  } catch (error) {
+    console.error('❌ Error loading tag search counts:', error);
+    return {};
+  }
+};
+
+/**
  * Delete ALL recipes for a user (hard delete from database)
  * Used when user clears all data
  * @param {string} userId - User's unique ID
@@ -1057,6 +1102,8 @@ export default {
   syncRecipes,
   saveFoldersToDatabase,
   loadFoldersFromDatabase,
+  saveTagSearchCountsToDatabase,
+  loadTagSearchCountsFromDatabase,
   // V2 Migration exports
   findGlobalRecipeByUrl,
   createGlobalRecipe,
