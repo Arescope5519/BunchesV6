@@ -171,9 +171,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.white || '#fff',
+    backgroundColor: colors.primary,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.primaryDark,
     paddingTop: 45, // clear the status bar
   },
   tab: {
@@ -184,23 +184,23 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.accent || '#E9B44C',
   },
   tabIcon: {
     fontSize: 22,
     marginBottom: 4,
-    opacity: 0.5,
+    opacity: 0.6,
   },
   tabIconActive: {
     opacity: 1,
   },
   tabLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.75)',
     fontWeight: '500',
   },
   tabLabelActive: {
-    color: colors.primary,
+    color: '#fff',
     fontWeight: '700',
   },
   tabContent: { flex: 1 },

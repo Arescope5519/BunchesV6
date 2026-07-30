@@ -895,14 +895,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     paddingTop: 50,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: colors.primary,
+    borderBottomWidth: 0,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.text,
+    color: '#fff',
   },
   myProfileButton: {
     flexDirection: 'row',
@@ -910,14 +909,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
     gap: 8,
   },
   myUsername: {
     fontSize: 13,
     fontWeight: '500',
-    color: colors.text,
+    color: '#fff',
   },
   editProfileHint: {
     fontSize: 11,
@@ -926,9 +925,9 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.primaryDark,
   },
   tab: {
     flex: 1,
@@ -936,17 +935,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.accent || '#E9B44C',
   },
   tabText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.75)',
     fontWeight: '500',
   },
   activeTabText: {
-    color: colors.primary,
-    fontWeight: '600',
+    color: '#fff',
+    fontWeight: '700',
   },
   discoverContainer: {
     flex: 1,
