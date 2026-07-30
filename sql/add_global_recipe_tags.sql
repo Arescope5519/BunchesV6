@@ -19,7 +19,8 @@ UPDATE global_recipes SET tags = array_remove(ARRAY[
   CASE WHEN title ~* '\y(beef|steak|brisket|meatloaf)\y' THEN 'Beef' END,
   CASE WHEN title ~* '\y(pork|ham|carnitas)\y' THEN 'Pork' END,
   CASE WHEN title ~* '\y(seafood|shrimp|salmon|fish|tuna|cod|tilapia|crab|lobster|scallops?|prawns?)\y' THEN 'Seafood' END,
-  CASE WHEN title ~* '\y(dessert|cakes?|cookies?|brownies?|pies?|cheesecake|cupcakes?|pudding|ice cream|tarts?|muffins?|donuts?|doughnuts?|cobbler|fudge|macarons?)\y' THEN 'Dessert' END,
+  CASE WHEN regexp_replace(title, '\y(pot pies?|shepherd''?s pies?|cottage pies?|pizza pies?)\y', ' ', 'gi')
+            ~* '\y(dessert|cakes?|cookies?|brownies?|pies?|cheesecake|cupcakes?|pudding|ice cream|tarts?|muffins?|donuts?|doughnuts?|cobbler|fudge|macarons?)\y' THEN 'Dessert' END,
   CASE WHEN title ~* '\y(breakfast|pancakes?|waffles?|oatmeal|granola|french toast|omelet?tes?|frittata|brunch)\y' THEN 'Breakfast' END,
   CASE WHEN title ~* '\y(slow[- ]cooker|crock[- ]?pot)\y' THEN 'Slow Cooker' END,
   CASE WHEN title ~* '\y(instant[- ]pot|pressure[- ]cooker)\y' THEN 'Instant Pot' END,
