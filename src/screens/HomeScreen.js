@@ -4525,9 +4525,9 @@ const styles = StyleSheet.create({
   // Navigation Bar Styles
   navigationBar: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.navBar || colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.navBarBorder || colors.border,
     paddingBottom: 25, // Extra padding for Android navigation bar
     paddingTop: 8,
     elevation: 8,
