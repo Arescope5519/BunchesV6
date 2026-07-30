@@ -2265,7 +2265,7 @@ export const HomeScreen = ({ user }) => {
                   style={styles.viewModeButton}
                   onPress={() => setCurrentFolder('All Recipes')}
                 >
-                  <Text style={styles.viewModeIcon}>📖</Text>
+                  <Ionicons name="book" size={18} color={colors.primary} />
                 </TouchableOpacity>
               ) : (
                 recipes.filter(r => r.deletedAt).length > 0 && (
@@ -2273,7 +2273,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.viewModeButton}
                     onPress={() => setCurrentFolder('Recently Deleted')}
                   >
-                    <Text style={styles.viewModeIcon}>🗑️</Text>
+                    <Ionicons name="trash" size={18} color={colors.primary} />
                   </TouchableOpacity>
                 )
               )}
@@ -2282,13 +2282,13 @@ export const HomeScreen = ({ user }) => {
                 style={styles.viewModeButton}
                 onPress={() => setShowFolderManager(true)}
               >
-                <Text style={styles.viewModeIcon}>📂</Text>
+                <Ionicons name="folder-open" size={18} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.viewModeButton}
                 onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
               >
-                <Text style={styles.viewModeIcon}>{viewMode === 'list' ? '🖼️' : '📝'}</Text>
+                <Ionicons name={viewMode === 'list' ? 'image' : 'list'} size={18} color={colors.primary} />
               </TouchableOpacity>
               <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
             </View>
@@ -2306,7 +2306,7 @@ export const HomeScreen = ({ user }) => {
                 }}
               >
                 <Text style={styles.sortOptionText}>Alphabetical (A-Z)</Text>
-                {sortBy === 'alphabetical' && <Text style={styles.sortOptionCheck}>✓</Text>}
+                {sortBy === 'alphabetical' && <Ionicons name="checkmark" size={18} color={colors.primary} />}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2318,7 +2318,7 @@ export const HomeScreen = ({ user }) => {
                 }}
               >
                 <Text style={styles.sortOptionText}>Date Added (Newest First)</Text>
-                {sortBy === 'dateAdded' && sortOrder === 'desc' && <Text style={styles.sortOptionCheck}>✓</Text>}
+                {sortBy === 'dateAdded' && sortOrder === 'desc' && <Ionicons name="checkmark" size={18} color={colors.primary} />}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2330,7 +2330,7 @@ export const HomeScreen = ({ user }) => {
                 }}
               >
                 <Text style={styles.sortOptionText}>Date Added (Oldest First)</Text>
-                {sortBy === 'dateAdded' && sortOrder === 'asc' && <Text style={styles.sortOptionCheck}>✓</Text>}
+                {sortBy === 'dateAdded' && sortOrder === 'asc' && <Ionicons name="checkmark" size={18} color={colors.primary} />}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2342,7 +2342,7 @@ export const HomeScreen = ({ user }) => {
                 }}
               >
                 <Text style={styles.sortOptionText}>Recently Modified</Text>
-                {sortBy === 'dateModified' && <Text style={styles.sortOptionCheck}>✓</Text>}
+                {sortBy === 'dateModified' && <Ionicons name="checkmark" size={18} color={colors.primary} />}
               </TouchableOpacity>
             </View>
           )}
@@ -2353,8 +2353,14 @@ export const HomeScreen = ({ user }) => {
               style={[styles.tagFilterButton, showTagFilter && styles.tagFilterButtonActive]}
               onPress={() => setShowTagFilter(!showTagFilter)}
             >
+              <Ionicons
+                name="pricetag"
+                size={14}
+                color={showTagFilter ? colors.primary : colors.text}
+                style={{ marginRight: 5 }}
+              />
               <Text style={[styles.tagFilterButtonText, showTagFilter && styles.tagFilterButtonTextActive]}>
-                🏷️ Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
+                Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
               </Text>
             </TouchableOpacity>
             {selectedTags.length > 0 && (
@@ -2369,7 +2375,8 @@ export const HomeScreen = ({ user }) => {
                   style={styles.tagChipActive}
                   onPress={() => toggleTagFilter(tag)}
                 >
-                  <Text style={styles.tagChipActiveText}>{tag} ✕</Text>
+                  <Text style={styles.tagChipActiveText}>{tag}</Text>
+                  <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -2537,7 +2544,7 @@ export const HomeScreen = ({ user }) => {
 
       {currentScreen === 'discover' && (
         <View style={styles.discoverContainer}>
-          <Text style={styles.discoverIcon}>🧭</Text>
+          <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
           <Text style={styles.discoverTitle}>Discover</Text>
           <Text style={styles.discoverSubtitle}>Coming Soon</Text>
           <Text style={styles.discoverDescription}>
@@ -2580,8 +2587,9 @@ export const HomeScreen = ({ user }) => {
                     style={[styles.toolbarButton, styles.deleteButton]}
                     disabled={selectedRecipes.size === 0}
                   >
+                    <Ionicons name="trash" size={14} color="#fff" style={{ marginRight: 4 }} />
                     <Text style={[styles.toolbarButtonText, styles.deleteButtonText]}>
-                      🗑️ Delete
+                      Delete
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2628,7 +2636,7 @@ export const HomeScreen = ({ user }) => {
                       <View style={styles.checkbox}>
                         {isSelected && (
                           <View style={styles.checkboxChecked}>
-                            <Text style={styles.checkboxCheck}>✓</Text>
+                            <Ionicons name="checkmark" size={16} color="#fff" />
                           </View>
                         )}
                       </View>
@@ -2660,9 +2668,11 @@ export const HomeScreen = ({ user }) => {
                             style={styles.favoriteButton}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                           >
-                            <Text style={styles.favoriteIcon}>
-                              {recipe.isFavorite ? '⭐' : '☆'}
-                            </Text>
+                            <Ionicons
+                              name={recipe.isFavorite ? 'star' : 'star-outline'}
+                              size={20}
+                              color={recipe.isFavorite ? colors.favorite : colors.textTertiary}
+                            />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -2699,14 +2709,20 @@ export const HomeScreen = ({ user }) => {
                       </Text>
                       {/* Source/Creator badge */}
                       {recipe.source === 'manual' && recipe.createdBy?.username && (
-                        <Text style={styles.recipeCreator} numberOfLines={1}>
-                          ✏️ by {recipe.createdBy.username}
-                        </Text>
+                        <View style={styles.recipeMetaRow}>
+                          <Ionicons name="pencil" size={10} color={colors.primary} style={{ marginRight: 3 }} />
+                          <Text style={styles.recipeCreator} numberOfLines={1}>
+                            by {recipe.createdBy.username}
+                          </Text>
+                        </View>
                       )}
                       {recipe.url && (
-                        <Text style={styles.recipeSource} numberOfLines={1}>
-                          🔗 {new URL(recipe.url).hostname.replace('www.', '')}
-                        </Text>
+                        <View style={styles.recipeMetaRow}>
+                          <Ionicons name="link" size={10} color={colors.textTertiary} style={{ marginRight: 3 }} />
+                          <Text style={styles.recipeSource} numberOfLines={1}>
+                            {new URL(recipe.url).hostname.replace('www.', '')}
+                          </Text>
+                        </View>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -2728,8 +2744,9 @@ export const HomeScreen = ({ user }) => {
         <View style={styles.modalContainer}>
           <StatusBar style="light" hidden={true} />
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowFolderManager(false)}>
-              <Text style={styles.modalCloseButton}>✕ Close</Text>
+            <TouchableOpacity onPress={() => setShowFolderManager(false)} style={styles.modalCloseRow}>
+              <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={styles.modalCloseButton}>Close</Text>
             </TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>Cookbooks</Text>
             {currentFolder === 'Recently Deleted' ? (
@@ -2753,14 +2770,14 @@ export const HomeScreen = ({ user }) => {
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
               {folders.filter(f => f.name === 'All Recipes' || f.name === 'Favorites' || f.name === 'Recently Deleted').map((folderObj) => {
                 const folder = folderObj.name;
-                let icon = '📚';
+                let icon = 'book';
                 let count = recipes.length;
 
                 if (folder === 'Favorites') {
-                  icon = '⭐';
+                  icon = 'star';
                   count = recipes.filter(r => r.isFavorite && !r.deletedAt).length;
                 } else if (folder === 'Recently Deleted') {
-                  icon = '🗑️';
+                  icon = 'trash';
                   count = recipes.filter(r => r.deletedAt).length;
                 } else {
                   // All Recipes
@@ -2796,7 +2813,7 @@ export const HomeScreen = ({ user }) => {
                     delayLongPress={500}
                   >
                     <View style={styles.folderManagerItemLeft}>
-                      <Text style={styles.folderManagerIcon}>{icon}</Text>
+                      <Ionicons name={icon} size={18} color={colors.primary} style={styles.folderManagerIcon} />
                       <Text style={[
                         styles.folderManagerItemText,
                         currentFolder === folder && styles.folderManagerItemTextActive
@@ -2907,9 +2924,12 @@ export const HomeScreen = ({ user }) => {
                       }}
                     >
                       <View style={styles.folderManagerItemLeft}>
-                        <Text style={styles.folderManagerIcon}>
-                          {isPrivate ? '🔒' : '📖'}
-                        </Text>
+                        <Ionicons
+                          name={isPrivate ? 'lock-closed' : 'book'}
+                          size={18}
+                          color={colors.primary}
+                          style={styles.folderManagerIcon}
+                        />
                         <Text style={[
                           styles.folderManagerItemText,
                           currentFolder === folder && styles.folderManagerItemTextActive
@@ -2947,8 +2967,9 @@ export const HomeScreen = ({ user }) => {
           >
             <StatusBar style="light" hidden={true} />
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setSelectedRecipe(null)}>
-                <Text style={styles.modalCloseButton}>✕ Close</Text>
+              <TouchableOpacity onPress={() => setSelectedRecipe(null)} style={styles.modalCloseRow}>
+                <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.modalCloseButton}>Close</Text>
               </TouchableOpacity>
               {selectedRecipe.deletedAt ? (
                 // Actions for deleted recipes
@@ -3106,11 +3127,14 @@ export const HomeScreen = ({ user }) => {
             >
               {selectedRecipe.deletedAt && (
                 <View style={styles.deletedBanner}>
-                  <Text style={styles.deletedBannerText}>
-                    🗑️ Deleted on {new Date(selectedRecipe.deletedAt).toLocaleDateString()}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Ionicons name="trash" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.deletedBannerText}>
+                      Deleted on {new Date(selectedRecipe.deletedAt).toLocaleDateString()}
+                    </Text>
+                  </View>
                   <Text style={styles.deletedBannerSubtext}>
-                    Tap ♻️ to restore or 🗑️ to delete permanently
+                    Use the buttons above to restore or permanently delete
                   </Text>
                 </View>
               )}
@@ -3156,7 +3180,7 @@ export const HomeScreen = ({ user }) => {
                         >
                           <Text style={styles.folderItemText}>{folder}</Text>
                           <View style={[styles.folderCheckbox, isInFolder && styles.folderCheckboxChecked]}>
-                            {isInFolder && <Text style={styles.folderCheckmark}>✓</Text>}
+                            {isInFolder && <Ionicons name="checkmark" size={14} color={colors.white} />}
                           </View>
                         </TouchableOpacity>
                       );
@@ -3205,7 +3229,7 @@ export const HomeScreen = ({ user }) => {
                   setQuickLinkUrl('');
                 }}
               >
-                <Text style={styles.quickLinkClose}>✕</Text>
+                <Ionicons name="close" size={22} color={colors.textSecondary} style={{ padding: 4 }} />
               </TouchableOpacity>
             </View>
             <Text style={styles.quickLinkDescription}>
@@ -3324,7 +3348,7 @@ export const HomeScreen = ({ user }) => {
                     >
                       <Text style={styles.folderItemText}>{folder}</Text>
                       <View style={[styles.folderCheckbox, isInFolder && styles.folderCheckboxChecked]}>
-                        {isInFolder && <Text style={styles.folderCheckmark}>✓</Text>}
+                        {isInFolder && <Ionicons name="checkmark" size={14} color={colors.white} />}
                       </View>
                     </TouchableOpacity>
                   );
@@ -3543,8 +3567,9 @@ export const HomeScreen = ({ user }) => {
       >
         <SafeAreaView style={styles.container}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowImportFolderPicker(false)}>
-              <Text style={styles.modalCloseButton}>✕ Cancel</Text>
+            <TouchableOpacity onPress={() => setShowImportFolderPicker(false)} style={styles.modalCloseRow}>
+              <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={styles.modalCloseButton}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>Add to Cookbook</Text>
             <View style={{ width: 60 }} />
@@ -3559,7 +3584,7 @@ export const HomeScreen = ({ user }) => {
                 onPress={() => handleImportPublicRecipe(folder)}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 20, marginRight: 12 }}>📖</Text>
+                  <Ionicons name="book" size={20} color={colors.primary} style={{ marginRight: 12 }} />
                   <Text style={styles.folderManagerItemText}>{folder}</Text>
                 </View>
               </TouchableOpacity>
@@ -3588,9 +3613,11 @@ export const HomeScreen = ({ user }) => {
               <TouchableOpacity
                 onPress={() => { setReportingRecipe(null); setReportingProfile(null); }}
                 disabled={submittingReport}
+                style={[styles.modalCloseRow, submittingReport && { opacity: 0.4 }]}
               >
-                <Text style={[styles.modalCloseButton, submittingReport && { opacity: 0.4 }]}>
-                  ✕ Cancel
+                <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.modalCloseButton}>
+                  Cancel
                 </Text>
               </TouchableOpacity>
               <Text style={styles.modalHeaderTitle}>
@@ -3890,24 +3917,26 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     marginRight: -6,
   },
-  favoriteIcon: {
-    fontSize: 20,
-  },
   recipeMeta: {
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 3,
   },
+  recipeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
   recipeCreator: {
     fontSize: 10,
     color: colors.primary,
-    marginTop: 2,
     fontStyle: 'italic',
+    flex: 1,
   },
   recipeSource: {
     fontSize: 10,
     color: colors.textTertiary,
-    marginTop: 2,
+    flex: 1,
   },
   multiselectToolbar: {
     flexDirection: 'row',
@@ -3946,6 +3975,8 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: colors.error,
     borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   deleteButtonText: {
     color: '#fff',
@@ -3977,11 +4008,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxCheck: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -4005,6 +4031,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderBottomWidth: 1,
     borderBottomColor: colors.primaryDark,
+  },
+  modalCloseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   modalCloseButton: {
     fontSize: 16,
@@ -4100,7 +4130,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   folderManagerIcon: {
-    fontSize: 18,
+    marginRight: 10,
   },
   folderManagerItemText: {
     fontSize: 15,
@@ -4214,11 +4244,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  folderCheckmark: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
   deletedBanner: {
     backgroundColor: colors.error,
     padding: 16,
@@ -4230,7 +4255,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
   },
   deletedBannerSubtext: {
     color: colors.white,
@@ -4335,9 +4359,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  viewModeIcon: {
-    fontSize: 18,
-  },
   recipeCount: {
     fontSize: 13,
     color: colors.textSecondary,
@@ -4375,11 +4396,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     fontWeight: '500',
-  },
-  sortOptionCheck: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '700',
   },
   // Tag Filter Styles
   tagFilterBar: {
@@ -4620,11 +4636,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  quickLinkClose: {
-    fontSize: 20,
-    color: colors.textSecondary,
-    padding: 4,
-  },
   quickLinkDescription: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -4698,10 +4709,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
     backgroundColor: colors.background,
-  },
-  discoverIcon: {
-    fontSize: 80,
-    marginBottom: 20,
   },
   discoverTitle: {
     fontSize: 32,
