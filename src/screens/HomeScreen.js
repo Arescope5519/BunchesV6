@@ -2222,32 +2222,65 @@ export const HomeScreen = ({ user }) => {
             <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
               <Text style={styles.headerTitle}>Bunches</Text>
             </TouchableOpacity>
-            <View style={styles.headerButtons}>
-              <TouchableOpacity
-                onPress={() => setCurrentScreen('create')}
-                style={styles.iconHeaderButton}
-              >
-                <Ionicons name="add" size={22} color="#fff" />
-              </TouchableOpacity>
-              {showQuickLinkButton && (
-                <TouchableOpacity
-                  onPress={() => setShowQuickLinkModal(true)}
-                  style={styles.iconHeaderButton}
-                >
-                  <Ionicons name="link" size={20} color="#fff" />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={() => setShowIngredientSearch(true)}
-                style={styles.iconHeaderButton}
-              >
-                <Ionicons name="search" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
           </View>
 
-          {/* Sort/Filter Bar */}
-          <View style={styles.sortBar}>
+          {/* Actions Bar - light icon row like the Social sub-tabs */}
+          <View style={styles.actionsBar}>
+            <TouchableOpacity
+              style={styles.actionBarButton}
+              onPress={() => setCurrentScreen('create')}
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            {showQuickLinkButton && (
+              <TouchableOpacity
+                style={styles.actionBarButton}
+                onPress={() => setShowQuickLinkModal(true)}
+              >
+                <Ionicons name="link" size={22} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.actionBarButton}
+              onPress={() => setShowIngredientSearch(true)}
+            >
+              <Ionicons name="search" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            {/* Trash ↔ Main Recipes toggle: in Recently Deleted the bin
+                becomes a book that returns to All Recipes */}
+            {currentFolder === 'Recently Deleted' ? (
+              <TouchableOpacity
+                style={styles.actionBarButton}
+                onPress={() => setCurrentFolder('All Recipes')}
+              >
+                <Ionicons name="book" size={22} color={colors.primary} />
+              </TouchableOpacity>
+            ) : (
+              recipes.filter(r => r.deletedAt).length > 0 && (
+                <TouchableOpacity
+                  style={styles.actionBarButton}
+                  onPress={() => setCurrentFolder('Recently Deleted')}
+                >
+                  <Ionicons name="trash" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              )
+            )}
+            <TouchableOpacity
+              style={styles.actionBarButton}
+              onPress={() => setShowFolderManager(true)}
+            >
+              <Ionicons name="folder-open" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBarButton}
+              onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
+            >
+              <Ionicons name={viewMode === 'list' ? 'image' : 'list'} size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Sort + Tags Bar */}
+          <View style={styles.filterBar}>
             <TouchableOpacity
               style={styles.sortButton}
               onPress={() => setShowSortDropdown(!showSortDropdown)}
@@ -2257,41 +2290,38 @@ export const HomeScreen = ({ user }) => {
                 {sortOrder === 'asc' ? ' ↑' : ' ↓'}
               </Text>
             </TouchableOpacity>
-            <View style={styles.sortBarRight}>
-              {/* Trash ↔ Main Recipes toggle: in Recently Deleted the bin
-                  becomes a book that returns to All Recipes */}
-              {currentFolder === 'Recently Deleted' ? (
+            <TouchableOpacity
+              style={[styles.tagFilterButton, showTagFilter && styles.tagFilterButtonActive]}
+              onPress={() => setShowTagFilter(!showTagFilter)}
+            >
+              <Ionicons
+                name="pricetag"
+                size={14}
+                color={showTagFilter ? colors.primary : colors.text}
+                style={{ marginRight: 5 }}
+              />
+              <Text style={[styles.tagFilterButtonText, showTagFilter && styles.tagFilterButtonTextActive]}>
+                Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
+              </Text>
+            </TouchableOpacity>
+            {selectedTags.length > 0 && (
+              <TouchableOpacity onPress={clearTagFilters} style={styles.clearTagsButton}>
+                <Text style={styles.clearTagsButtonText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedTagsScroll}>
+              {selectedTags.map(tag => (
                 <TouchableOpacity
-                  style={styles.viewModeButton}
-                  onPress={() => setCurrentFolder('All Recipes')}
+                  key={tag}
+                  style={styles.tagChipActive}
+                  onPress={() => toggleTagFilter(tag)}
                 >
-                  <Ionicons name="book" size={18} color={colors.primary} />
+                  <Text style={styles.tagChipActiveText}>{tag}</Text>
+                  <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
-              ) : (
-                recipes.filter(r => r.deletedAt).length > 0 && (
-                  <TouchableOpacity
-                    style={styles.viewModeButton}
-                    onPress={() => setCurrentFolder('Recently Deleted')}
-                  >
-                    <Ionicons name="trash" size={18} color={colors.primary} />
-                  </TouchableOpacity>
-                )
-              )}
-              {/* Cookbooks - next to the trash toggle, works as always */}
-              <TouchableOpacity
-                style={styles.viewModeButton}
-                onPress={() => setShowFolderManager(true)}
-              >
-                <Ionicons name="folder-open" size={18} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.viewModeButton}
-                onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
-              >
-                <Ionicons name={viewMode === 'list' ? 'image' : 'list'} size={18} color={colors.primary} />
-              </TouchableOpacity>
-              <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
-            </View>
+              ))}
+            </ScrollView>
+            <Text style={styles.recipeCount}>{sortedRecipes.length} recipe{sortedRecipes.length !== 1 ? 's' : ''}</Text>
           </View>
 
           {/* Sort Dropdown Menu */}
@@ -2346,41 +2376,6 @@ export const HomeScreen = ({ user }) => {
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Tag Filter Bar */}
-          <View style={styles.tagFilterBar}>
-            <TouchableOpacity
-              style={[styles.tagFilterButton, showTagFilter && styles.tagFilterButtonActive]}
-              onPress={() => setShowTagFilter(!showTagFilter)}
-            >
-              <Ionicons
-                name="pricetag"
-                size={14}
-                color={showTagFilter ? colors.primary : colors.text}
-                style={{ marginRight: 5 }}
-              />
-              <Text style={[styles.tagFilterButtonText, showTagFilter && styles.tagFilterButtonTextActive]}>
-                Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
-              </Text>
-            </TouchableOpacity>
-            {selectedTags.length > 0 && (
-              <TouchableOpacity onPress={clearTagFilters} style={styles.clearTagsButton}>
-                <Text style={styles.clearTagsButtonText}>Clear</Text>
-              </TouchableOpacity>
-            )}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedTagsScroll}>
-              {selectedTags.map(tag => (
-                <TouchableOpacity
-                  key={tag}
-                  style={styles.tagChipActive}
-                  onPress={() => toggleTagFilter(tag)}
-                >
-                  <Text style={styles.tagChipActiveText}>{tag}</Text>
-                  <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
 
           {/* Tag Filter Dropdown */}
           {showTagFilter && (
@@ -3773,7 +3768,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 15,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
@@ -3781,41 +3776,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  headerButtons: {
+  actionsBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  iconHeaderButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginLeft: 8,
+  actionBarButton: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  iconHeaderButtonText: {
-    fontSize: 18,
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: colors.error,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-    paddingHorizontal: 4,
+    paddingVertical: 10,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -4322,12 +4293,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   // Sort/Filter styles
-  sortBar: {
+  filterBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingVertical: 8,
     backgroundColor: colors.lightGray,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -4341,32 +4311,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
+    marginRight: 8,
   },
   sortButtonText: {
     fontSize: 14,
     color: colors.text,
     fontWeight: '600',
   },
-  sortBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  viewModeButton: {
-    padding: 6,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   recipeCount: {
     fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '500',
+    marginLeft: 8,
   },
   sortDropdown: {
     position: 'absolute',
-    top: 120, // Below header + sort bar
+    top: 192, // Below header + actions bar + sort/tags bar
     left: 15,
     right: 15,
     backgroundColor: colors.white,
@@ -4398,15 +4358,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   // Tag Filter Styles
-  tagFilterBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
   tagFilterButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4442,7 +4393,7 @@ const styles = StyleSheet.create({
   },
   selectedTagsScroll: {
     marginLeft: 8,
-    flexGrow: 0,
+    flex: 1,
   },
   tagChipActive: {
     flexDirection: 'row',
