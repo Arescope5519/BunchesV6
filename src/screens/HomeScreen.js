@@ -4021,10 +4021,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   iconButton: {
-    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   iconButtonText: {
-    fontSize: 22,
+    fontSize: 20,
   },
   modalContent: {
     flex: 1,
