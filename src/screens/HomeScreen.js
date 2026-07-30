@@ -43,6 +43,7 @@ import { useSocial } from '../hooks/useSocial';
 // Components
 import RecipeDetail from '../components/RecipeDetail';
 import UserProfile from '../components/UserProfile';
+import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from '../components/GroceryList';
 import { IngredientSearch } from '../components/IngredientSearch';
 import { DashboardScreen } from './DashboardScreen';
@@ -2226,21 +2227,21 @@ export const HomeScreen = ({ user }) => {
                 onPress={() => setCurrentScreen('create')}
                 style={styles.iconHeaderButton}
               >
-                <Text style={styles.iconHeaderButtonText}>➕</Text>
+                <Ionicons name="add" size={22} color="#fff" />
               </TouchableOpacity>
               {showQuickLinkButton && (
                 <TouchableOpacity
                   onPress={() => setShowQuickLinkModal(true)}
                   style={styles.iconHeaderButton}
                 >
-                  <Text style={styles.iconHeaderButtonText}>🔗</Text>
+                  <Ionicons name="link" size={20} color="#fff" />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 onPress={() => setShowIngredientSearch(true)}
                 style={styles.iconHeaderButton}
               >
-                <Text style={styles.iconHeaderButtonText}>🔍</Text>
+                <Ionicons name="search" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
@@ -2960,7 +2961,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>♻️</Text>
+                    <Ionicons name="refresh" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -2988,7 +2989,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>🗑️</Text>
+                    <Ionicons name="trash" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ) : selectedRecipe.isReadOnly ? (
@@ -3018,14 +3019,14 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>📥</Text>
+                    <Ionicons name="download" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openReportDialog(selectedRecipe)}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>🚩</Text>
+                    <Ionicons name="flag" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -3036,16 +3037,18 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>
-                      {selectedRecipe.isFavorite ? '⭐' : '☆'}
-                    </Text>
+                    <Ionicons
+                      name={selectedRecipe.isFavorite ? 'star' : 'star-outline'}
+                      size={20}
+                      color={selectedRecipe.isFavorite ? '#E9B44C' : '#fff'}
+                    />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleShareRecipe(selectedRecipe)}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>📤</Text>
+                    <Ionicons name="share-social" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -3069,7 +3072,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>📖</Text>
+                    <Ionicons name="book" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -3089,7 +3092,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.iconButtonText}>🗑️</Text>
+                    <Ionicons name="trash" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
               )}
