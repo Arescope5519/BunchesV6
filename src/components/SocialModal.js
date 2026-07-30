@@ -820,7 +820,7 @@ export const SocialModal = ({
                 <Ionicons
                   name={tab.icon}
                   size={20}
-                  color={active ? '#fff' : 'rgba(255,255,255,0.6)'}
+                  color={active ? colors.primary : colors.textTertiary}
                   style={{ marginBottom: 3 }}
                 />
                 <Text style={[styles.tabText, active && styles.activeTabText]}>
@@ -921,9 +921,9 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.primaryDark,
+    borderBottomColor: colors.border,
   },
   tab: {
     flex: 1,
@@ -933,15 +933,15 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 3,
-    borderBottomColor: colors.accent || '#E9B44C',
+    borderBottomColor: colors.primary,
   },
   tabText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.textTertiary,
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    color: colors.primary,
     fontWeight: '700',
   },
   discoverContainer: {
