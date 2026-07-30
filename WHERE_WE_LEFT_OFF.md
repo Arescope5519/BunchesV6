@@ -94,7 +94,7 @@
    in Supabase dashboard (dietary prefs + synced Frequently Used tags)
 2. Test latest build (recipes page redesign + Phase 2 dietary features,
    plus still-untested: top bars, Cook-from-Eat flow, icons)
-3. Phase 2 leftover: dietary filter in IngredientSearch
+3. Phase 2 COMPLETE (dietary filter now in IngredientSearch too)
 4. Phase 3: Nutrition API (only if extracted data proves insufficient)
 5. Phase 4: Sharing/deep links/Instagram
 6. Phase 5: AI recipe scanning (flagship premium)

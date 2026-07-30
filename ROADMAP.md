@@ -88,7 +88,8 @@ icon chrome, normalized top bars, nutrition display.
       ingredient lines highlighted in RecipeDetail; "May contain" summary row)
 - [x] Warning when recipe conflicts with user's dietary needs (banner in
       RecipeDetail + alert icon on recipe cards)
-- [ ] Filter search results by dietary needs (IngredientSearch not wired yet)
+- [x] Filter search results by dietary needs (diet chips in IngredientSearch;
+      also supports diet-only browsing with no ingredients selected)
 
 **Estimated time**: 1-2 sessions (core built July 30, 2026 - test before checking off)
 

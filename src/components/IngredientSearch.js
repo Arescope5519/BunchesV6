@@ -16,8 +16,10 @@ import {
   FlatList,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { normalizeIngredient, matchesCanonical } from '../utils/IngredientNormalizer';
+import { DIETS, analyzeRecipe } from '../utils/dietaryAnalysis';
 
 /**
  * Helper to extract ingredients array from various formats
@@ -77,6 +79,25 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
   const [searchText, setSearchText] = useState('');
   const [selectedIngredients, setSelectedIngredients] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedDiets, setSelectedDiets] = useState([]);
+
+  // Dietary analysis per recipe (derived from ingredients)
+  const analysisById = useMemo(() => {
+    const map = new Map();
+    recipes.forEach(recipe => {
+      if (recipe.deletedAt) return;
+      map.set(recipe.id, analyzeRecipe(recipe.ingredients));
+    });
+    return map;
+  }, [recipes]);
+
+  const toggleDiet = (dietKey) => {
+    setSelectedDiets(prev =>
+      prev.includes(dietKey)
+        ? prev.filter(d => d !== dietKey)
+        : [...prev, dietKey]
+    );
+  };
 
   // Extract all unique normalized ingredients from all recipes
   const allIngredients = useMemo(() => {
@@ -142,15 +163,23 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     setSelectedIngredients(selectedIngredients.filter(i => i !== ingredient));
   };
 
-  // Find matching recipes and calculate match scores using normalized ingredients
+  // Find matching recipes and calculate match scores using normalized ingredients.
+  // Works with ingredients, dietary filters, or both.
   const matchingRecipes = useMemo(() => {
-    if (selectedIngredients.length === 0) return [];
+    if (selectedIngredients.length === 0 && selectedDiets.length === 0) return [];
 
     const results = [];
 
     recipes.forEach(recipe => {
       if (recipe.deletedAt) return;
       if (!recipe.ingredients) return;
+
+      // Dietary filter - recipe must satisfy ALL selected diets
+      if (selectedDiets.length > 0) {
+        const analysis = analysisById.get(recipe.id);
+        if (!analysis || analysis.diets.length === 0) return;
+        if (!selectedDiets.every(diet => analysis.diets.includes(diet))) return;
+      }
 
       let matchCount = 0;
 
@@ -168,22 +197,30 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
         }
       });
 
-      if (matchCount > 0) {
+      // With ingredients selected, require at least one match;
+      // with only dietary filters, include every qualifying recipe
+      if (matchCount > 0 || selectedIngredients.length === 0) {
         results.push({
           recipe,
           matchCount,
-          matchPercentage: (matchCount / selectedIngredients.length) * 100
+          matchPercentage: selectedIngredients.length > 0
+            ? (matchCount / selectedIngredients.length) * 100
+            : 0
         });
       }
     });
 
-    // Sort by match count (highest first)
-    return results.sort((a, b) => b.matchCount - a.matchCount);
-  }, [selectedIngredients, recipes]);
+    // Sort by match count (highest first), then title
+    return results.sort((a, b) =>
+      b.matchCount - a.matchCount ||
+      (a.recipe.title || '').localeCompare(b.recipe.title || '')
+    );
+  }, [selectedIngredients, recipes, selectedDiets, analysisById]);
 
   const handleClose = () => {
     setSearchText('');
     setSelectedIngredients([]);
+    setSelectedDiets([]);
     setShowSuggestions(false);
     onClose();
   };
@@ -199,8 +236,9 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose}>
-            <Text style={styles.closeButton}>✕ Close</Text>
+          <TouchableOpacity onPress={handleClose} style={styles.closeRow}>
+            <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={styles.closeButton}>Close</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Search by Ingredients</Text>
           <View style={styles.placeholder} />
@@ -259,6 +297,30 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
             )
           )}
 
+          {/* Dietary filter chips */}
+          <View style={styles.dietFilterRow}>
+            {DIETS.map(diet => {
+              const active = selectedDiets.includes(diet.key);
+              return (
+                <TouchableOpacity
+                  key={diet.key}
+                  style={[styles.dietChip, active && styles.dietChipActive]}
+                  onPress={() => toggleDiet(diet.key)}
+                >
+                  <Ionicons
+                    name="leaf"
+                    size={12}
+                    color={active ? '#fff' : colors.primary}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.dietChipText, active && styles.dietChipTextActive]}>
+                    {diet.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           {/* Selected Ingredients */}
           {selectedIngredients.length > 0 && (
             <View style={styles.selectedSection}>
@@ -275,7 +337,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                       activeOpacity={0.7}
                     >
                       <Text style={styles.chipText}>{ingredient}</Text>
-                      <Text style={styles.chipRemove}> ✕</Text>
+                      <Ionicons name="close" size={14} color="#fff" style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -286,22 +348,24 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
 
         {/* Results */}
         <View style={styles.resultsSection}>
-          {selectedIngredients.length === 0 ? (
+          {selectedIngredients.length === 0 && selectedDiets.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateIcon}>🔍</Text>
+              <Ionicons name="search" size={48} color={colors.textLight} style={{ marginBottom: 12 }} />
               <Text style={styles.emptyStateText}>
                 Select ingredients to find matching recipes
               </Text>
               <Text style={styles.emptyStateSubtext}>
-                Type in the search box and tap suggestions
+                Type in the search box and tap suggestions, or pick a dietary filter
               </Text>
             </View>
           ) : matchingRecipes.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateIcon}>😕</Text>
+              <Ionicons name="sad-outline" size={48} color={colors.textLight} style={{ marginBottom: 12 }} />
               <Text style={styles.emptyStateText}>No recipes found</Text>
               <Text style={styles.emptyStateSubtext}>
-                Try different ingredients
+                {selectedDiets.length > 0
+                  ? 'Try different ingredients or fewer dietary filters'
+                  : 'Try different ingredients'}
               </Text>
             </View>
           ) : (
@@ -326,12 +390,18 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                         {typeof item.recipe.folder === 'string' ? item.recipe.folder : item.recipe.folder?.name || 'All Recipes'} • {typeof item.recipe.ingredients === 'string' ? item.recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(item.recipe.ingredients || {}).flat().length} ingredients
                       </Text>
                     </View>
-                    <View style={styles.matchBadge}>
-                      <Text style={styles.matchText}>
-                        {item.matchCount}/{selectedIngredients.length}
-                      </Text>
-                      <Text style={styles.matchLabel}>match</Text>
-                    </View>
+                    {selectedIngredients.length > 0 ? (
+                      <View style={styles.matchBadge}>
+                        <Text style={styles.matchText}>
+                          {item.matchCount}/{selectedIngredients.length}
+                        </Text>
+                        <Text style={styles.matchLabel}>match</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.matchBadge}>
+                        <Ionicons name="leaf" size={18} color={colors.primary} />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 )}
               />
@@ -357,8 +427,40 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 15,
   },
+  closeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   closeButton: {
     fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  dietFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  dietChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+  },
+  dietChipActive: {
+    backgroundColor: colors.primary,
+  },
+  dietChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  dietChipTextActive: {
     color: '#fff',
     fontWeight: '600',
   },
@@ -505,10 +607,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
-  },
-  emptyStateIcon: {
-    fontSize: 48,
-    marginBottom: 12,
   },
   emptyStateText: {
     fontSize: 18,
