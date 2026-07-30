@@ -15,6 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { UserAvatar } from './UserAvatar';
 import UserProfile from './UserProfile';
@@ -803,38 +804,31 @@ export const SocialModal = ({
 
         {/* Tabs */}
         <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
-            onPress={() => setActiveTab('discover')}
-          >
-            <Text style={[styles.tabText, activeTab === 'discover' && styles.activeTabText]}>
-              🧭 Discover
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'inbox' && styles.activeTab]}
-            onPress={() => setActiveTab('inbox')}
-          >
-            <Text style={[styles.tabText, activeTab === 'inbox' && styles.activeTabText]}>
-              💬 {sharedItems.length > 0 ? `(${sharedItems.length})` : ''}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-            onPress={() => setActiveTab('requests')}
-          >
-            <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
-              📨 {friendRequests.length > 0 ? `(${friendRequests.length})` : ''}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
-            onPress={() => setActiveTab('friends')}
-          >
-            <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-              👥 Friends
-            </Text>
-          </TouchableOpacity>
+          {[
+            { key: 'discover', label: 'Discover', icon: 'compass' },
+            { key: 'inbox', label: 'Inbox', icon: 'chatbubbles', count: sharedItems.length },
+            { key: 'requests', label: 'Requests', icon: 'person-add', count: friendRequests.length },
+            { key: 'friends', label: 'Friends', icon: 'people' },
+          ].map(tab => {
+            const active = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, active && styles.activeTab]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={20}
+                  color={active ? '#fff' : 'rgba(255,255,255,0.6)'}
+                  style={{ marginBottom: 3 }}
+                />
+                <Text style={[styles.tabText, active && styles.activeTabText]}>
+                  {tab.label}{tab.count > 0 ? ` (${tab.count})` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Tab Content */}
@@ -931,7 +925,8 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    alignItems: 'center',
+    paddingVertical: 10,
     alignItems: 'center',
   },
   activeTab: {

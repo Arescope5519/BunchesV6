@@ -15,16 +15,17 @@ import {
   Alert,
 } from 'react-native';
 import colors from '../constants/colors';
+import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from './GroceryList';
 import CookSchedule from './CookSchedule';
 import EatSchedule from './EatSchedule';
 import FridgeView from './FridgeView';
 
 const TABS = [
-  { key: 'cook',   label: 'Cook',   icon: '🍳', premium: true },
-  { key: 'eat',    label: 'Eat',    icon: '🍽️', premium: true },
-  { key: 'shop',   label: 'Shop',   icon: '🛒', premium: false },
-  { key: 'fridge', label: 'Fridge', icon: '🥡', premium: true },
+  { key: 'cook',   label: 'Cook',   icon: 'flame',      premium: true },
+  { key: 'eat',    label: 'Eat',    icon: 'restaurant', premium: true },
+  { key: 'shop',   label: 'Shop',   icon: 'cart',       premium: false },
+  { key: 'fridge', label: 'Fridge', icon: 'snow',       premium: true },
 ];
 
 const showPremiumPrompt = () => {
@@ -147,14 +148,19 @@ const KitchenScreen = ({
               style={[styles.tab, active && styles.tabActive]}
               onPress={() => handleTabPress(tab)}
             >
-              <Text style={[styles.tabIcon, active && styles.tabIconActive]}>
-                {tab.icon}
-              </Text>
+              <Ionicons
+                name={tab.icon}
+                size={22}
+                color={active ? '#fff' : 'rgba(255,255,255,0.6)'}
+                style={{ marginBottom: 4 }}
+              />
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
                   {tab.label}
                 </Text>
-                {showLock && <Text style={{ fontSize: 10, marginLeft: 3 }}>🔒</Text>}
+                {showLock && (
+                  <Ionicons name="lock-closed" size={10} color="rgba(255,255,255,0.8)" style={{ marginLeft: 3 }} />
+                )}
               </View>
             </TouchableOpacity>
           );
