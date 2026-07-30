@@ -23,6 +23,8 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
+import { Ionicons } from '@expo/vector-icons';
+import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
 
 export const SettingsScreen = ({
   onClose,
@@ -46,6 +48,8 @@ export const SettingsScreen = ({
   isAdmin,
   onOpenAdminReports,
   onOpenBlockedUsers,
+  dietaryPrefs,
+  onUpdateDietaryPrefs,
 }) => {
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -863,6 +867,78 @@ export const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Dietary Preferences Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Dietary Preferences</Text>
+          <View style={styles.infoCard}>
+            <Text style={styles.dietaryGroupLabel}>Diets I follow</Text>
+            <Text style={styles.dietaryDescription}>
+              Recipes that don't fit get a warning marker
+            </Text>
+            <View style={styles.dietaryChipsGrid}>
+              {DIETS.map(diet => {
+                const active = (dietaryPrefs?.diets || []).includes(diet.key);
+                return (
+                  <TouchableOpacity
+                    key={diet.key}
+                    style={[styles.dietaryChip, active && styles.dietaryChipActive]}
+                    onPress={() => {
+                      const current = dietaryPrefs?.diets || [];
+                      const next = active
+                        ? current.filter(d => d !== diet.key)
+                        : [...current, diet.key];
+                      onUpdateDietaryPrefs?.({ ...dietaryPrefs, diets: next });
+                    }}
+                  >
+                    {active && (
+                      <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={[styles.dietaryChipText, active && styles.dietaryChipTextActive]}>
+                      {diet.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.dietaryGroupLabel, { marginTop: 16 }]}>Allergens to avoid</Text>
+            <Text style={styles.dietaryDescription}>
+              Matching ingredients get highlighted in recipes
+            </Text>
+            <View style={styles.dietaryChipsGrid}>
+              {ALLERGENS.map(allergen => {
+                const active = (dietaryPrefs?.avoid || []).includes(allergen.key);
+                return (
+                  <TouchableOpacity
+                    key={allergen.key}
+                    style={[styles.dietaryChip, active && styles.dietaryChipAvoidActive]}
+                    onPress={() => {
+                      const current = dietaryPrefs?.avoid || [];
+                      const next = active
+                        ? current.filter(a => a !== allergen.key)
+                        : [...current, allergen.key];
+                      onUpdateDietaryPrefs?.({ ...dietaryPrefs, avoid: next });
+                    }}
+                  >
+                    {active && (
+                      <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={[styles.dietaryChipText, active && styles.dietaryChipTextActive]}>
+                      {allergen.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.dietaryDisclaimer}>
+              Detection is based on ingredient names and may miss hidden
+              ingredients in packaged products. Always check labels if you
+              have a food allergy.
+            </Text>
+          </View>
+        </View>
+
         {/* App Info Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Information</Text>
@@ -965,6 +1041,56 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  dietaryGroupLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  dietaryDescription: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginBottom: 10,
+  },
+  dietaryChipsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dietaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  dietaryChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dietaryChipAvoidActive: {
+    backgroundColor: colors.error,
+    borderColor: colors.error,
+  },
+  dietaryChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  dietaryChipTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  dietaryDisclaimer: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+    marginTop: 14,
+    lineHeight: 15,
   },
   infoCard: {
     backgroundColor: '#fff',

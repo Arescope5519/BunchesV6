@@ -1,82 +1,49 @@
 /**
- * Predefined recipe tags with colors
- * Users can also create custom tags
+ * FILENAME: src/constants/tags.js
+ * PURPOSE: Predefined recipe tags, organized by category.
+ *
+ * NOTE: Vegetarian / Vegan / Gluten-Free / Dairy-Free are NOT in this list
+ * anymore - those are dietary facts derived automatically from ingredients
+ * (see src/utils/dietaryAnalysis.js) and shown as auto-chips. Manual tags
+ * are for things ingredients can't tell you: meal type, occasion, diets
+ * that depend on portions (Keto), etc. Users can also create custom tags.
  */
 
-// Predefined tags organized by category
-export const PREDEFINED_TAGS = [
-  // Diet types
-  { name: 'Vegetarian', color: '#4CAF50' },
-  { name: 'Vegan', color: '#8BC34A' },
-  { name: 'Gluten-Free', color: '#FF9800' },
-  { name: 'Dairy-Free', color: '#03A9F4' },
-  { name: 'Keto', color: '#9C27B0' },
-  { name: 'Low-Carb', color: '#E91E63' },
-
-  // Meal types
-  { name: 'Breakfast', color: '#FFC107' },
-  { name: 'Lunch', color: '#00BCD4' },
-  { name: 'Dinner', color: '#3F51B5' },
-  { name: 'Dessert', color: '#F06292' },
-  { name: 'Snack', color: '#FFAB40' },
-  { name: 'Appetizer', color: '#7E57C2' },
-
-  // Recipe types
-  { name: 'Soup', color: '#FF7043' },
-  { name: 'Salad', color: '#66BB6A' },
-  { name: 'Pasta', color: '#FFCA28' },
-  { name: 'Seafood', color: '#29B6F6' },
-  { name: 'Chicken', color: '#FFA726' },
-  { name: 'Beef', color: '#8D6E63' },
-  { name: 'Pork', color: '#EC407A' },
-
-  // Convenience
-  { name: 'Quick', color: '#26A69A' },
-  { name: 'Easy', color: '#42A5F5' },
-  { name: 'Meal Prep', color: '#5C6BC0' },
-  { name: 'One-Pot', color: '#AB47BC' },
-  { name: 'Slow Cooker', color: '#EF5350' },
-  { name: 'Instant Pot', color: '#7CB342' },
-
-  // Occasions
-  { name: 'Holiday', color: '#D32F2F' },
-  { name: 'Party', color: '#FF4081' },
-  { name: 'Comfort Food', color: '#795548' },
-  { name: 'Healthy', color: '#00C853' },
-  { name: 'Kid-Friendly', color: '#FFEB3B' },
+export const TAG_CATEGORIES = [
+  {
+    name: 'Diet',
+    tags: ['Keto', 'Low-Carb', 'Paleo', 'High-Protein', 'Low-Sodium', 'Low-Sugar'],
+  },
+  {
+    name: 'Meal',
+    tags: ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Appetizer'],
+  },
+  {
+    name: 'Dish Type',
+    tags: ['Soup', 'Salad', 'Pasta', 'Seafood', 'Chicken', 'Beef', 'Pork'],
+  },
+  {
+    name: 'Convenience',
+    tags: ['Quick', 'Easy', 'Meal Prep', 'One-Pot', 'Slow Cooker', 'Instant Pot'],
+  },
+  {
+    name: 'Occasion',
+    tags: ['Holiday', 'Party', 'Comfort Food', 'Healthy', 'Kid-Friendly'],
+  },
 ];
 
-// Get color for a tag (predefined or generate one for custom)
-export const getTagColor = (tagName) => {
-  const predefined = PREDEFINED_TAGS.find(
-    t => t.name.toLowerCase() === tagName.toLowerCase()
-  );
+// Flat list for backward compatibility with existing callers
+export const PREDEFINED_TAGS = TAG_CATEGORIES.flatMap(category =>
+  category.tags.map(name => ({ name, category: category.name }))
+);
 
-  if (predefined) {
-    return predefined.color;
-  }
-
-  // Generate a consistent color for custom tags based on the name
-  let hash = 0;
-  for (let i = 0; i < tagName.length; i++) {
-    hash = tagName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  const colors = [
-    '#607D8B', '#78909C', '#90A4AE', '#546E7A',
-    '#455A64', '#37474F', '#263238', '#B0BEC5',
-  ];
-
-  return colors[Math.abs(hash) % colors.length];
-};
-
-// Get predefined tag names for autocomplete
+// Get predefined tag names for autocomplete / custom-tag detection
 export const getPredefinedTagNames = () => {
   return PREDEFINED_TAGS.map(t => t.name);
 };
 
 export default {
+  TAG_CATEGORIES,
   PREDEFINED_TAGS,
-  getTagColor,
   getPredefinedTagNames,
 };

@@ -72,19 +72,25 @@ icon chrome, normalized top bars, nutrition display.
 
 ---
 
-### 🔨 PHASE 2: Dietary Filters + Recipe Tags (NEXT)
+### ✅ PHASE 2: Dietary Filters + Recipe Tags (BUILT - needs testing)
 **Goal**: Enable filtering recipes by dietary needs (matches health-focused origin).
 
 **Features:**
-- [ ] Recipe tag system (vegetarian, vegan, gluten-free, dairy-free, keto, paleo, low-sodium, low-sugar, high-protein, etc.)
-- [ ] Auto-tag recipes based on ingredient analysis
-- [ ] User dietary preferences on profile
-- [ ] Filter recipe list by dietary tags
-- [ ] Filter search results by dietary needs
-- [ ] Highlight allergens in recipes (nuts, dairy, gluten, etc.)
-- [ ] Warning when recipe conflicts with user's dietary needs
+- [x] Recipe tag system (categorized: Diet/Meal/Dish Type/Convenience/Occasion + custom)
+- [x] Auto-derive dietary tags from ingredient analysis (Vegetarian/Vegan/Gluten-Free/
+      Dairy-Free are COMPUTED at render time from src/utils/dietaryAnalysis.js -
+      never stored, so they can't drift when recipes are edited)
+- [x] User dietary preferences on profile (Settings → Dietary Preferences;
+      user_profiles.dietary_preferences jsonb)
+- [x] Filter recipe list by dietary tags (Dietary section in Tags dropdown,
+      ALL-match; manual tags stay ANY-match)
+- [x] Highlight allergens in recipes (9 allergen categories; avoided-allergen
+      ingredient lines highlighted in RecipeDetail; "May contain" summary row)
+- [x] Warning when recipe conflicts with user's dietary needs (banner in
+      RecipeDetail + alert icon on recipe cards)
+- [ ] Filter search results by dietary needs (IngredientSearch not wired yet)
 
-**Estimated time**: 1-2 sessions
+**Estimated time**: 1-2 sessions (core built July 30, 2026 - test before checking off)
 
 ---
 

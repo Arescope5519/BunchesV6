@@ -76,14 +76,29 @@
   old-table deleted_at (resurrection bug fixed)
 - All recipes migrated to user_recipes_v2 (127/127)
 
+## This Session (July 30, 2026 - branch claude/session-setup-y19h2x)
+- Recipes page redesigned like Social: green header (title only) → light icon
+  actions bar (add/link/search/cookbooks/view toggle) → sort+tags bar; cookbook
+  title shows below bars when inside a cookbook; all emoji chrome → Ionicons
+- PHASE 2 BUILT (needs testing): dietary analysis engine
+  (src/utils/dietaryAnalysis.js - keyword matching, no external service),
+  auto-derived diet chips (Vegetarian/Vegan/GF/DF computed from ingredients,
+  never stored), categorized tags (src/constants/tags.js TAG_CATEGORIES),
+  dietary prefs in Settings (user_profiles.dietary_preferences jsonb - run
+  sql/add_dietary_preferences.sql!), Dietary filter section, allergen
+  "May contain" row + avoided-line highlighting + conflict banner in
+  RecipeDetail, conflict icon on cards
+
 ## Immediate Next Steps (per ROADMAP.md)
-1. Test latest build (top bars, Cook-from-Eat flow, icons)
-2. Phase 2: Dietary filters + recipe tags
-3. Phase 3: Nutrition API (only if extracted data proves insufficient)
-4. Phase 4: Sharing/deep links/Instagram
-5. Phase 5: AI recipe scanning (flagship premium)
-6. Phase 6: Subscriptions (StoreKit/Play Billing)
-7. Phase 7: Launch prep (NAME DECISION, ToS/PP for real, store listings)
+1. RUN SQL: sql/add_dietary_preferences.sql in Supabase dashboard
+2. Test latest build (recipes page redesign + Phase 2 dietary features,
+   plus still-untested: top bars, Cook-from-Eat flow, icons)
+3. Phase 2 leftover: dietary filter in IngredientSearch
+4. Phase 3: Nutrition API (only if extracted data proves insufficient)
+5. Phase 4: Sharing/deep links/Instagram
+6. Phase 5: AI recipe scanning (flagship premium)
+7. Phase 6: Subscriptions (StoreKit/Play Billing)
+8. Phase 7: Launch prep (NAME DECISION, ToS/PP for real, store listings)
 
 ## Build (Android, Daniel's PC - project on Y:)
 ```cmd

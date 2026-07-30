@@ -58,7 +58,9 @@ import { WelcomeModal } from '../components/WelcomeModal';
 
 // Constants
 import colors from '../constants/colors';
-import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constants/tags';
+import { TAG_CATEGORIES, getPredefinedTagNames } from '../constants/tags';
+import { ALLERGENS, DIETS, dietLabel, analyzeRecipe, getConflicts } from '../utils/dietaryAnalysis';
+import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supabase/dietary';
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
@@ -133,8 +135,12 @@ export const HomeScreen = ({ user }) => {
 
   // Tag filter state
   const [selectedTags, setSelectedTags] = useState([]); // Array of tag names to filter by
+  const [selectedDiets, setSelectedDiets] = useState([]); // Array of derived diet keys to filter by
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [expandedTagsRecipeId, setExpandedTagsRecipeId] = useState(null); // Track which recipe has expanded tags
+
+  // Dietary preferences (loaded from user_profiles)
+  const [dietaryPrefs, setDietaryPrefs] = useState({ diets: [], avoid: [] });
 
   // Folder filter state
   const [folderSortAZ, setFolderSortAZ] = useState(false); // Sort folders A-Z
@@ -2105,6 +2111,36 @@ export const HomeScreen = ({ user }) => {
     return Array.from(tagSet).sort();
   }, [recipes]);
 
+  // Dietary analysis per recipe (computed from ingredients, never stored)
+  const analysisById = useMemo(() => {
+    const map = new Map();
+    recipes.forEach(recipe => {
+      map.set(recipe.id, analyzeRecipe(recipe.ingredients));
+    });
+    return map;
+  }, [recipes]);
+
+  // Load dietary preferences when the user changes
+  useEffect(() => {
+    let cancelled = false;
+    if (user?.uid) {
+      loadDietaryPreferences(user.uid).then(prefs => {
+        if (!cancelled) setDietaryPrefs(prefs);
+      });
+    } else {
+      setDietaryPrefs({ diets: [], avoid: [] });
+    }
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  // Save dietary preferences (from Settings)
+  const updateDietaryPrefs = async (prefs) => {
+    setDietaryPrefs(prefs);
+    if (user?.uid) {
+      await saveDietaryPreferences(user.uid, prefs);
+    }
+  };
+
   // Toggle tag in filter
   const toggleTagFilter = (tag) => {
     setSelectedTags(prev =>
@@ -2114,9 +2150,19 @@ export const HomeScreen = ({ user }) => {
     );
   };
 
+  // Toggle derived diet in filter
+  const toggleDietFilter = (dietKey) => {
+    setSelectedDiets(prev =>
+      prev.includes(dietKey)
+        ? prev.filter(d => d !== dietKey)
+        : [...prev, dietKey]
+    );
+  };
+
   // Clear all tag filters
   const clearTagFilters = () => {
     setSelectedTags([]);
+    setSelectedDiets([]);
   };
 
   // Sort and filter recipes based on selected sort option and tags
@@ -2128,6 +2174,15 @@ export const HomeScreen = ({ user }) => {
       recipesToSort = recipesToSort.filter(recipe => {
         if (!recipe.tags || !Array.isArray(recipe.tags)) return false;
         return selectedTags.some(tag => recipe.tags.includes(tag));
+      });
+    }
+
+    // Filter by derived diets (recipe must satisfy ALL selected diets)
+    if (selectedDiets.length > 0) {
+      recipesToSort = recipesToSort.filter(recipe => {
+        const analysis = analysisById.get(recipe.id);
+        if (!analysis || analysis.diets.length === 0) return false;
+        return selectedDiets.every(diet => analysis.diets.includes(diet));
       });
     }
 
@@ -2163,7 +2218,7 @@ export const HomeScreen = ({ user }) => {
     }
 
     return recipesToSort;
-  }, [filteredRecipes, sortBy, sortOrder, selectedTags]);
+  }, [filteredRecipes, sortBy, sortOrder, selectedTags, selectedDiets, analysisById]);
 
 
   // Render different screens based on currentScreen state
@@ -2282,15 +2337,25 @@ export const HomeScreen = ({ user }) => {
                 style={{ marginRight: 5 }}
               />
               <Text style={[styles.tagFilterButtonText, showTagFilter && styles.tagFilterButtonTextActive]}>
-                Tags {selectedTags.length > 0 ? `(${selectedTags.length})` : ''}
+                Tags {(selectedTags.length + selectedDiets.length) > 0 ? `(${selectedTags.length + selectedDiets.length})` : ''}
               </Text>
             </TouchableOpacity>
-            {selectedTags.length > 0 && (
+            {(selectedTags.length > 0 || selectedDiets.length > 0) && (
               <TouchableOpacity onPress={clearTagFilters} style={styles.clearTagsButton}>
                 <Text style={styles.clearTagsButtonText}>Clear</Text>
               </TouchableOpacity>
             )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectedTagsScroll}>
+              {selectedDiets.map(dietKey => (
+                <TouchableOpacity
+                  key={dietKey}
+                  style={styles.tagChipActive}
+                  onPress={() => toggleDietFilter(dietKey)}
+                >
+                  <Text style={styles.tagChipActiveText}>{dietLabel(dietKey)}</Text>
+                  <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              ))}
               {selectedTags.map(tag => (
                 <TouchableOpacity
                   key={tag}
@@ -2362,26 +2427,61 @@ export const HomeScreen = ({ user }) => {
           {showTagFilter && (
             <View style={styles.tagFilterDropdown}>
               <ScrollView style={styles.tagFilterScrollView} nestedScrollEnabled>
-                <Text style={styles.tagFilterSectionTitle}>Suggested Tags</Text>
+                {/* Derived dietary filters - computed from ingredients */}
+                <Text style={styles.tagFilterSectionTitle}>Dietary</Text>
                 <View style={styles.tagFilterGrid}>
-                  {PREDEFINED_TAGS.map(tag => (
+                  {DIETS.map(diet => (
                     <TouchableOpacity
-                      key={tag.name}
+                      key={diet.key}
                       style={[
                         styles.tagFilterChip,
-                        selectedTags.includes(tag.name) && styles.tagFilterChipSelected
+                        styles.dietFilterChip,
+                        selectedDiets.includes(diet.key) && styles.dietFilterChipSelected
                       ]}
-                      onPress={() => toggleTagFilter(tag.name)}
+                      onPress={() => toggleDietFilter(diet.key)}
                     >
+                      <Ionicons
+                        name="leaf"
+                        size={12}
+                        color={selectedDiets.includes(diet.key) ? '#fff' : colors.primary}
+                        style={{ marginRight: 4 }}
+                      />
                       <Text style={[
                         styles.tagFilterChipText,
-                        selectedTags.includes(tag.name) && styles.tagFilterChipTextSelected
+                        selectedDiets.includes(diet.key) ? styles.tagFilterChipTextSelected : { color: colors.primary }
                       ]}>
-                        {tag.name}
+                        {diet.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+                <Text style={styles.tagFilterHint}>
+                  Detected from ingredients - always double-check labels
+                </Text>
+                {TAG_CATEGORIES.map(category => (
+                  <View key={category.name}>
+                    <Text style={styles.tagFilterSectionTitle}>{category.name}</Text>
+                    <View style={styles.tagFilterGrid}>
+                      {category.tags.map(tagName => (
+                        <TouchableOpacity
+                          key={tagName}
+                          style={[
+                            styles.tagFilterChip,
+                            selectedTags.includes(tagName) && styles.tagFilterChipSelected
+                          ]}
+                          onPress={() => toggleTagFilter(tagName)}
+                        >
+                          <Text style={[
+                            styles.tagFilterChipText,
+                            selectedTags.includes(tagName) && styles.tagFilterChipTextSelected
+                          ]}>
+                            {tagName}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                ))}
                 {allTags.filter(t => !getPredefinedTagNames().map(n => n.toLowerCase()).includes(t.toLowerCase())).length > 0 && (
                   <>
                     <Text style={styles.tagFilterSectionTitle}>Custom Tags</Text>
@@ -2516,6 +2616,8 @@ export const HomeScreen = ({ user }) => {
           isAdmin={isAdmin}
           onOpenAdminReports={() => setShowAdminReports(true)}
           onOpenBlockedUsers={() => setShowBlockedUsers(true)}
+          dietaryPrefs={dietaryPrefs}
+          onUpdateDietaryPrefs={updateDietaryPrefs}
         />
       )}
 
@@ -2600,6 +2702,7 @@ export const HomeScreen = ({ user }) => {
             <>
               {sortedRecipes.map((recipe) => {
                 const isSelected = selectedRecipes.has(recipe.id);
+                const dietConflicts = getConflicts(analysisById.get(recipe.id), dietaryPrefs);
                 // Debug image_url
                 if (viewMode === 'photo') {
                   console.log(`📷 Recipe "${recipe.title}" image_url:`, recipe.image_url ? recipe.image_url.substring(0, 50) + '...' : 'NONE');
@@ -2652,6 +2755,14 @@ export const HomeScreen = ({ user }) => {
                     <View style={styles.recipeCardContent}>
                       <View style={styles.recipeCardHeader}>
                         <Text style={styles.recipeTitle}>{recipe.title}</Text>
+                        {dietConflicts.length > 0 && (
+                          <Ionicons
+                            name="alert-circle"
+                            size={16}
+                            color={colors.error}
+                            style={{ marginLeft: 4, marginTop: 2 }}
+                          />
+                        )}
                         {!multiselectMode && (
                           <TouchableOpacity
                             onPress={(e) => {
@@ -3133,6 +3244,7 @@ export const HomeScreen = ({ user }) => {
               )}
               <RecipeDetail
                 recipe={selectedRecipe}
+                dietaryPrefs={dietaryPrefs}
                 onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}
@@ -4412,7 +4524,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     marginRight: 6,
-    backgroundColor: '#666',
+    backgroundColor: colors.primary,
   },
   tagChipActiveText: {
     fontSize: 12,
@@ -4456,20 +4568,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#999',
+    borderColor: colors.border,
     marginBottom: 4,
   },
   tagFilterChipSelected: {
-    backgroundColor: '#666',
-    borderColor: '#666',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tagFilterChipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#666',
+    color: colors.textSecondary,
   },
   tagFilterChipTextSelected: {
     color: '#fff',
+  },
+  dietFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: colors.primary,
+  },
+  dietFilterChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  tagFilterHint: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+    marginBottom: 4,
   },
   tagFilterCloseButton: {
     marginTop: 12,

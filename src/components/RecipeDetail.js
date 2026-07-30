@@ -8,8 +8,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
-import { PREDEFINED_TAGS, getTagColor, getPredefinedTagNames } from '../constants/tags';
+import { TAG_CATEGORIES, getPredefinedTagNames } from '../constants/tags';
+import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
 import {
   parseRecipeIngredients,
   scaleRecipeIngredients,
@@ -114,6 +116,7 @@ export const RecipeDetail = ({
   onDeleteVariant, // For deleting a variant
   onShare, // For sharing with edit options
   onViewOwnerProfile, // For opening the recipe owner's profile
+  dietaryPrefs = null, // { diets: [...], avoid: [...] } from user profile
 }) => {
   const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
@@ -134,6 +137,17 @@ export const RecipeDetail = ({
     });
     return Array.from(customTagSet).sort();
   }, [allRecipes]);
+
+  // Dietary analysis - derived from ingredients at render time, never stored
+  const dietaryAnalysis = React.useMemo(
+    () => analyzeRecipe(localRecipe.ingredients),
+    [localRecipe.ingredients]
+  );
+  const dietaryConflicts = React.useMemo(
+    () => getConflicts(dietaryAnalysis, dietaryPrefs),
+    [dietaryAnalysis, dietaryPrefs]
+  );
+  const avoidedAllergens = dietaryPrefs?.avoid || [];
 
   // Scaling and conversion state
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -715,16 +729,21 @@ export const RecipeDetail = ({
       )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 
-      {/* Tags - right below title (only shows if tags exist) */}
-      {localRecipe.tags && localRecipe.tags.length > 0 && (
+      {/* Tags - right below title (auto diet chips + user tags) */}
+      {(dietaryAnalysis.displayDiets.length > 0 || (localRecipe.tags && localRecipe.tags.length > 0)) && (
         <View style={styles.tagsRow}>
           <View style={styles.tagsInlineContainer}>
-            {(tagsExpanded ? localRecipe.tags : localRecipe.tags.slice(0, 3)).map(tag => (
+            {dietaryAnalysis.displayDiets.map(dietKey => (
+              <View key={dietKey} style={styles.dietChip}>
+                <Text style={styles.dietChipText}>{dietLabel(dietKey)}</Text>
+              </View>
+            ))}
+            {(tagsExpanded ? (localRecipe.tags || []) : (localRecipe.tags || []).slice(0, 3)).map(tag => (
               <View key={tag} style={styles.tagChipSimple}>
                 <Text style={styles.tagChipSimpleText}>{tag}</Text>
               </View>
             ))}
-            {localRecipe.tags.length > 3 && (
+            {(localRecipe.tags || []).length > 3 && (
               <TouchableOpacity
                 onPress={() => setTagsExpanded(!tagsExpanded)}
                 style={styles.tagExpandButton}
@@ -743,6 +762,33 @@ export const RecipeDetail = ({
               </TouchableOpacity>
             )}
           </View>
+        </View>
+      )}
+
+      {/* Dietary conflict banner - recipe clashes with user's preferences */}
+      {dietaryConflicts.length > 0 && (
+        <View style={styles.conflictBanner}>
+          <Ionicons name="alert-circle" size={16} color={colors.error} style={{ marginRight: 6 }} />
+          <Text style={styles.conflictBannerText}>
+            {dietaryConflicts.join(' · ')}
+          </Text>
+        </View>
+      )}
+
+      {/* Detected allergens summary */}
+      {dietaryAnalysis.allergens.length > 0 && (
+        <View style={styles.containsRow}>
+          <Text style={styles.containsText}>
+            May contain:{' '}
+            {dietaryAnalysis.allergens.map((key, i) => (
+              <Text
+                key={key}
+                style={avoidedAllergens.includes(key) ? styles.containsAllergenAvoided : null}
+              >
+                {i > 0 ? ', ' : ''}{allergenLabel(key)}
+              </Text>
+            ))}
+          </Text>
         </View>
       )}
 
@@ -1010,7 +1056,8 @@ export const RecipeDetail = ({
                         swapMode?.type === 'ingredient' &&
                         swapMode?.sectionKey === section &&
                         swapMode?.index === idx && styles.highlightedItem,
-                        selectionMode && isSelected && styles.selectedIngredientItem
+                        selectionMode && isSelected && styles.selectedIngredientItem,
+                        lineAllergens(displayItem, avoidedAllergens).length > 0 && styles.allergenLine
                       ]}
                     >
                       • {displayItem}
@@ -1371,41 +1418,49 @@ export const RecipeDetail = ({
               </View>
             )}
 
-            {/* Suggested Tags */}
+            {/* Suggested Tags - grouped by category */}
             <ScrollView style={styles.predefinedTagsScroll}>
-              <Text style={styles.tagEditorSectionTitle}>Suggested Tags</Text>
-              <View style={styles.tagEditorTagsGrid}>
-                {PREDEFINED_TAGS.map(tag => {
-                  const isSelected = localRecipe.tags?.some(
-                    t => t.toLowerCase() === tag.name.toLowerCase()
-                  );
-                  return (
-                    <TouchableOpacity
-                      key={tag.name}
-                      style={[
-                        styles.tagEditorChipOutline,
-                        isSelected && styles.tagEditorChipOutlineSelected
-                      ]}
-                      onPress={() => {
-                        if (isSelected) {
-                          removeTag(tag.name);
-                        } else {
-                          addTag(tag.name);
-                        }
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.tagEditorChipOutlineText,
-                          isSelected && styles.tagEditorChipOutlineTextSelected
-                        ]}
-                      >
-                        {tag.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {TAG_CATEGORIES.map(category => (
+                <View key={category.name}>
+                  <Text style={styles.tagEditorSectionTitle}>{category.name}</Text>
+                  <View style={styles.tagEditorTagsGrid}>
+                    {category.tags.map(tagName => {
+                      const isSelected = localRecipe.tags?.some(
+                        t => t.toLowerCase() === tagName.toLowerCase()
+                      );
+                      return (
+                        <TouchableOpacity
+                          key={tagName}
+                          style={[
+                            styles.tagEditorChipOutline,
+                            isSelected && styles.tagEditorChipOutlineSelected
+                          ]}
+                          onPress={() => {
+                            if (isSelected) {
+                              removeTag(tagName);
+                            } else {
+                              addTag(tagName);
+                            }
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.tagEditorChipOutlineText,
+                              isSelected && styles.tagEditorChipOutlineTextSelected
+                            ]}
+                          >
+                            {tagName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              <Text style={styles.tagEditorHint}>
+                Vegetarian, Vegan, Gluten-Free and Dairy-Free are detected
+                automatically from ingredients
+              </Text>
             </ScrollView>
           </View>
         </View>
@@ -2344,6 +2399,58 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
+  },
+  dietChip: {
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  dietChipText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  conflictBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FBEAE8',
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  conflictBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: '600',
+  },
+  containsRow: {
+    marginBottom: 10,
+  },
+  containsText: {
+    fontSize: 12,
+    color: colors.textTertiary,
+  },
+  containsAllergenAvoided: {
+    color: colors.error,
+    fontWeight: '700',
+  },
+  allergenLine: {
+    backgroundColor: '#FBEAE8',
+    borderRadius: 4,
+  },
+  tagEditorHint: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+    marginTop: 10,
+    marginBottom: 6,
   },
   tagChipSimpleText: {
     fontSize: 12,
