@@ -1,48 +1,54 @@
 /**
  * FILENAME: src/constants/colors.js
- * PURPOSE: Centralized color definitions - Honey Gold Theme
- * CHANGES: Changed to honey gold and black color scheme
+ * PURPOSE: Centralized color definitions - Charcoal + Honey Theme
+ * CHANGES: Charcoal primary with honey pop accent; clean white surfaces
  * USED BY: All components and screens
  */
 
 export const colors = {
-  // Primary - Honey Gold
-  primary: '#DAA520',
-  primaryDark: '#B8860B',
-  primaryLight: '#FFF8DC',
+  // Primary - Charcoal
+  primary: '#2B2B2B',
+  primaryDark: '#1A1A1A',
+  primaryLight: '#F2F2F0',
 
-  // Background - Warm tones
-  background: '#FFF9F0',
+  // Accent - Honey pop
+  accent: '#FFB627',
+  accentDark: '#E09E14',
+  accentLight: '#FFF3DA',
+
+  // Background - Clean white
+  background: '#FFFFFF',
   white: '#fff',
+  surface: '#FFFFFF',
 
-  // Text - Black for readability
-  text: '#1a1a1a',
-  textSecondary: '#4a4a4a',
-  textTertiary: '#6a6a6a',
-  textLight: '#8a8a8a',
+  // Text - Near-black with gray tiers
+  text: '#1A1A1A',
+  textSecondary: '#4A4A4A',
+  textTertiary: '#6A6A6A',
+  textLight: '#8A8A8A',
 
-  // Borders - Gold tints
-  border: '#E8D4A0',
-  borderLight: '#F5E6C8',
-  borderVeryLight: '#FAF0DC',
+  // Borders - Neutral grays
+  border: '#E2E2E0',
+  borderLight: '#ECECEA',
+  borderVeryLight: '#F5F5F3',
 
   // Status
   success: '#228B22',
-  warning: '#FF8C00',
-  error: '#B22222',
-  destructive: '#B22222',
+  warning: '#FFB627',
+  error: '#C0392B',
+  destructive: '#C0392B',
 
   // Special
-  favorite: '#FFD700',
+  favorite: '#FFB627',
   shadow: '#000',
   overlay: 'rgba(26, 26, 26, 0.6)',
-  highlightYellow: '#FFE4B5',
+  highlightYellow: '#FFF3DA',
 
-  // Accent
+  // Accent extras
   purple: '#4B3F72',
-  lightBlue: '#F0E68C',
-  lightGray: '#FFF5E6',
-  darkGray: '#FFF8F0',
+  lightBlue: '#F2F2F0',
+  lightGray: '#F5F5F3',
+  darkGray: '#ECECEA',
 };
 
 export default colors;
