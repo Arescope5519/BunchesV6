@@ -43,6 +43,9 @@ import { useSocial } from '../hooks/useSocial';
 // Components
 import RecipeDetail from '../components/RecipeDetail';
 import LetterPlaceholder from '../components/LetterPlaceholder';
+import RecipeShareCard, { SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT } from '../components/RecipeShareCard';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from '../components/GroceryList';
@@ -1753,7 +1756,59 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Share-as-image state: mounting shareCardRecipe renders the card
+  // offscreen; onReady fires once its hero image loads, then we capture
+  const shareCardRef = useRef(null);
+  const shareCardCaptured = useRef(false);
+  const [shareCardRecipe, setShareCardRecipe] = useState(null);
+
+  const shareRecipeAsImage = (recipe) => {
+    shareCardCaptured.current = false;
+    setShareCardRecipe(recipe);
+  };
+
+  const handleShareCardReady = async () => {
+    if (shareCardCaptured.current) return; // onLoadEnd + onError can both fire
+    shareCardCaptured.current = true;
+    try {
+      // Give the just-loaded image a frame to commit before capturing
+      await new Promise(resolve => setTimeout(resolve, 250));
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1,
+        width: 1080,
+        height: 1920,
+      });
+      const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share Recipe',
+        });
+      } else {
+        Alert.alert('Sharing Unavailable', 'Sharing is not available on this device.');
+      }
+    } catch (err) {
+      console.error('❌ Share-as-image failed:', err);
+      Alert.alert('Error', 'Could not create the recipe image. Please try again.');
+    } finally {
+      setShareCardRecipe(null);
+    }
+  };
+
   const handleShareRecipe = (recipe) => {
+    Alert.alert(
+      'Share Recipe',
+      'How would you like to share it?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Share as Image', onPress: () => shareRecipeAsImage(recipe) },
+        { text: 'Send to Friends', onPress: () => handleShareToFriends(recipe) },
+      ]
+    );
+  };
+
+  const handleShareToFriends = (recipe) => {
     // Check if recipe has edits - if so, offer options
     if (recipe.hasEdits && recipe.originalRecipe) {
       Alert.alert(
@@ -3947,6 +4002,23 @@ export const HomeScreen = ({ user }) => {
               This can take up to 30 seconds
             </Text>
           </View>
+        </View>
+      )}
+
+      {/* Offscreen share card - mounted only while capturing a share image */}
+      {shareCardRecipe && (
+        <View
+          ref={shareCardRef}
+          collapsable={false}
+          style={{
+            position: 'absolute',
+            left: -SHARE_CARD_WIDTH * 3,
+            top: 0,
+            width: SHARE_CARD_WIDTH,
+            height: SHARE_CARD_HEIGHT,
+          }}
+        >
+          <RecipeShareCard recipe={shareCardRecipe} onReady={handleShareCardReady} />
         </View>
       )}
 

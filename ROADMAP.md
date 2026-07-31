@@ -120,10 +120,12 @@ icon chrome, normalized top bars, nutrition display.
 **Goal**: Turn users into ambassadors via easy sharing to social platforms.
 
 **Features:**
-- [ ] Beautiful shareable recipe cards (auto-generated images)
+- [x] Beautiful shareable recipe cards (auto-generated images) - RecipeShareCard,
+      1080x1920 story-sized, captured via react-native-view-shot, shared through
+      the system share sheet (works for Instagram stories, messages, anywhere)
 - [ ] Deep links: `hunii.app/r/abc123` opens specific recipe in app
 - [ ] Deep links: `hunii.app/@username` opens user profile
-- [ ] "Share to Instagram Story" button (uses shareable card image)
+- [x] Share to Instagram via system share sheet (dedicated Story deep-link button can come later)
 - [ ] "Copy link for Instagram bio" button
 - [ ] Instagram Story template with recipe preview
 - [ ] Public recipe web page (view without app - grows viral)

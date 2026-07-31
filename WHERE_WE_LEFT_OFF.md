@@ -77,6 +77,15 @@
 - All recipes migrated to user_recipes_v2 (127/127)
 
 ## This Session (July 30, 2026 - branch claude/session-setup-y19h2x)
+- PHASE 4 STARTED: share-as-image (RecipeShareCard 9:16 branded card,
+  react-native-view-shot capture -> system share sheet; NEW DEPENDENCY -
+  build now needs npm install after pull). Share button offers
+  Image / Send to Friends. APP_NAME constant in src/constants/app.js
+  ("Hunii" - swap at launch). Deep links + web pages deferred until the
+  name/domain decision.
+- Letter-avatar placeholders (solid green tile, white first letter)
+  replace "No Image" everywhere; global auto-tags on scanned AND custom
+  recipes (high-confidence only), shown instantly on save
 - Recipes page redesigned like Social: green header (title only) → light icon
   actions bar (add/link/search/cookbooks/view toggle) → sort+tags bar; cookbook
   title shows below bars when inside a cookbook; all emoji chrome → Ionicons
@@ -108,6 +117,7 @@
 Y:
 cd Y:\BunchesV6
 git pull origin master
+npm install
 taskkill /F /IM java.exe
 rmdir /s /q android
 npx expo prebuild --clean --platform android
