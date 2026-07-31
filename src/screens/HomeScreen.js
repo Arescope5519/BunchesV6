@@ -42,6 +42,7 @@ import { useSocial } from '../hooks/useSocial';
 
 // Components
 import RecipeDetail from '../components/RecipeDetail';
+import LetterPlaceholder from '../components/LetterPlaceholder';
 import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from '../components/GroceryList';
@@ -2837,9 +2838,7 @@ export const HomeScreen = ({ user }) => {
                           onLoad={() => console.log(`✅ Image loaded for "${recipe.title}"`)}
                         />
                       ) : (
-                        <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
-                          <Text style={styles.recipeImagePlaceholderText}>No Image</Text>
-                        </View>
+                        <LetterPlaceholder title={recipe.title} size={40} style={styles.recipeImage} />
                       )
                     )}
                     <View style={styles.recipeCardContent}>
@@ -4052,18 +4051,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
     backgroundColor: colors.lightGray,
-  },
-  recipeImagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.lightGray,
-    borderStyle: 'dashed',
-  },
-  recipeImagePlaceholderText: {
-    fontSize: 10,
-    color: colors.gray,
-    textAlign: 'center',
   },
   recipeCardHeader: {
     flexDirection: 'row',

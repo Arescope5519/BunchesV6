@@ -18,6 +18,7 @@ import {
   TextInput,
 } from 'react-native';
 import colors from '../constants/colors';
+import LetterPlaceholder from './LetterPlaceholder';
 import {
   getCookEvents,
   createCookEvent,
@@ -330,9 +331,7 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
                   {recipe.image_url ? (
                     <Image source={{ uri: recipe.image_url }} style={styles.pickerCardImage} />
                   ) : (
-                    <View style={[styles.pickerCardImage, styles.pickerCardImagePlaceholder]}>
-                      <Text style={{ fontSize: 32 }}>🍽️</Text>
-                    </View>
+                    <LetterPlaceholder title={recipe.title} size={32} style={styles.pickerCardImage} />
                   )}
                   <Text style={styles.pickerCardTitle} numberOfLines={2}>{recipe.title}</Text>
                 </TouchableOpacity>

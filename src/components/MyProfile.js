@@ -17,6 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 import colors from '../constants/colors';
+import LetterPlaceholder from './LetterPlaceholder';
 import { getUserProfile, updatePrivacySettings } from '../services/supabase/social';
 import { supabase } from '../services/supabase/config';
 
@@ -174,9 +175,7 @@ const MyProfile = ({
                     style={styles.recipeSelectImage}
                   />
                 ) : (
-                  <View style={[styles.recipeSelectImage, styles.imagePlaceholder]}>
-                    <Text style={styles.placeholderText}>No Image</Text>
-                  </View>
+                  <LetterPlaceholder title={recipe.title} size={22} style={styles.recipeSelectImage} />
                 )}
                 <Text style={styles.recipeSelectTitle} numberOfLines={2}>
                   {recipe.title}
@@ -216,9 +215,7 @@ const MyProfile = ({
                   style={styles.recipeSelectImage}
                 />
               ) : (
-                <View style={[styles.recipeSelectImage, styles.imagePlaceholder]}>
-                  <Text style={styles.placeholderText}>No Image</Text>
-                </View>
+                <LetterPlaceholder title={recipe.title} size={22} style={styles.recipeSelectImage} />
               )}
               <Text style={styles.recipeSelectTitle} numberOfLines={2}>
                 {recipe.title}

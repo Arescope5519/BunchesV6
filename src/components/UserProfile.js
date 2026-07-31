@@ -22,6 +22,7 @@ import {
   Alert,
 } from 'react-native';
 import colors from '../constants/colors';
+import LetterPlaceholder from './LetterPlaceholder';
 import {
   getPublicProfile,
   getUserPublicFolders,
@@ -248,9 +249,7 @@ const UserProfile = ({
           style={[styles.recipeImage, isSmall && styles.recipeImageSmall]}
         />
       ) : (
-        <View style={[styles.recipeImage, styles.recipeImagePlaceholder, isSmall && styles.recipeImageSmall]}>
-          <Text style={styles.placeholderText}>No Image</Text>
-        </View>
+        <LetterPlaceholder title={recipe.title} size={28} style={[styles.recipeImage, isSmall && styles.recipeImageSmall]} />
       )}
       <Text style={[styles.recipeCardTitle, isSmall && styles.recipeCardTitleSmall]} numberOfLines={2}>
         {recipe.title}
@@ -278,9 +277,7 @@ const UserProfile = ({
             {recipe.imageUrl ? (
               <Image source={{ uri: recipe.imageUrl }} style={styles.recipeListImage} />
             ) : (
-              <View style={[styles.recipeListImage, styles.recipeImagePlaceholder]}>
-                <Text style={styles.placeholderTextSmall}>No Image</Text>
-              </View>
+              <LetterPlaceholder title={recipe.title} size={22} style={styles.recipeListImage} />
             )}
             <View style={styles.recipeListInfo}>
               <Text style={styles.recipeListTitle} numberOfLines={2}>{recipe.title}</Text>
@@ -455,9 +452,7 @@ const UserProfile = ({
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={[styles.featuredImage, styles.featuredImagePlaceholder]}>
-                        <Text style={styles.featuredPlaceholderText}>No Image</Text>
-                      </View>
+                      <LetterPlaceholder title={recipe.title} size={56} style={styles.featuredImage} />
                     )}
                     <View style={styles.featuredOverlay}>
                       <Text style={styles.featuredTitle} numberOfLines={2}>
@@ -505,9 +500,7 @@ const UserProfile = ({
                     resizeMode="cover"
                   />
                 ) : (
-                  <View style={[styles.sampleRecipeImage, styles.sampleRecipeImagePlaceholder]}>
-                    <Text style={styles.samplePlaceholderText}>🍽️</Text>
-                  </View>
+                  <LetterPlaceholder title={recipe.title} size={20} style={styles.sampleRecipeImage} />
                 )}
                 <View style={styles.sampleRecipeInfo}>
                   <Text style={styles.sampleRecipeTitle} numberOfLines={1}>{recipe.title}</Text>
