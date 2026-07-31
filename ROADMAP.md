@@ -141,19 +141,21 @@ icon chrome, normalized top bars, nutrition display.
 
 ---
 
-### 🔨 PHASE 5: AI Recipe Scanning ⭐ (FLAGSHIP PREMIUM FEATURE)
+### ✅ PHASE 5: AI Recipe Scanning ⭐ (BUILT - needs deploy + testing)
 **Goal**: Scan any cookbook page/recipe card with camera → structured recipe in app.
 
 **Features:**
-- [ ] Camera capture UI with recipe framing guides
-- [ ] Multiple photos for multi-page recipes
-- [ ] Image preprocessing (deskew, enhance contrast)
-- [ ] Send to Vision AI via Edge Function
-- [ ] Parse response into recipe format
-- [ ] Preview UI with confidence indicators
-- [ ] User edits/confirms before saving
-- [ ] Rate limiting: Free = 3 lifetime, Premium = 30/mo, Pro = 200/mo
-- [ ] Fallback: If AI can't extract, offer manual entry with photo attached
+- [x] Camera capture UI (camera or photo library via scan button on recipes page)
+- [x] Multiple photos for multi-page recipes (up to 3 per scan)
+- [ ] Image preprocessing (deskew, enhance contrast) - not needed so far, Gemini handles it
+- [x] Send to Vision AI via Edge Function (extract-recipe, Gemini, key in secrets)
+- [x] Parse response into recipe format (strict JSON, sections preserved)
+- [x] Confidence indicators (high/medium/low + per-issue warnings alert before preview)
+- [x] User edits/confirms before saving (drops into existing SaveRecipeScreen flow;
+      auto-tags + dietary analysis apply automatically on save)
+- [x] Rate limiting: Free = 3 lifetime, Premium = 30/mo (server-side, scan_usage
+      table - sql/add_scan_usage.sql; Pro tier deferred to Phase 6)
+- [x] Fallback: scan-failed alert offers Try Again / Enter Manually
 
 **Tech stack:**
 - Google Gemini 1.5 Flash (cheapest, ~$0.002/scan)

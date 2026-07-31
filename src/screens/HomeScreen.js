@@ -46,6 +46,8 @@ import LetterPlaceholder from '../components/LetterPlaceholder';
 import RecipeShareCard, { SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT } from '../components/RecipeShareCard';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
+import { scanRecipeImages } from '../services/recipeScan';
 import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from '../components/GroceryList';
@@ -1757,6 +1759,96 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // --- AI recipe scanning (Phase 5) ---
+  const [scanning, setScanning] = useState(false);
+
+  const processScanImages = async (assets) => {
+    const base64Images = (assets || [])
+      .map(a => a?.base64)
+      .filter(Boolean)
+      .slice(0, 3);
+    if (base64Images.length === 0) return;
+
+    setScanning(true);
+    try {
+      const result = await scanRecipeImages(base64Images);
+
+      if (result.success) {
+        if (result.confidence !== 'high' || (result.warnings || []).length > 0) {
+          const details = (result.warnings || []).join('\n• ');
+          Alert.alert(
+            'Check the Results',
+            `The AI wasn't fully confident reading this recipe.${details ? `\n\n• ${details}` : ''}\n\nReview everything before saving.`
+          );
+        }
+        setExtractedRecipe(result.recipe);
+        setCurrentScreen('saveRecipe');
+        return;
+      }
+
+      if (result.error === 'limit_reached') {
+        Alert.alert('Scan Limit Reached', result.message);
+        return;
+      }
+
+      // No recipe found / AI problem - offer manual entry as fallback
+      Alert.alert(
+        'Scan Failed',
+        result.message || 'Could not read a recipe from the photo.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Try Again', onPress: () => handleScanRecipe() },
+          { text: 'Enter Manually', onPress: () => setCurrentScreen('create') },
+        ]
+      );
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleScanRecipe = () => {
+    Alert.alert(
+      'Scan a Recipe',
+      'Photograph a cookbook page, recipe card, or handwritten recipe. You can pick up to 3 photos for multi-page recipes.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Take Photo',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission Required', 'Please allow camera access to scan recipes.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              quality: 0.7,
+              base64: true,
+            });
+            if (!result.canceled) await processScanImages(result.assets);
+          },
+        },
+        {
+          text: 'Choose Photos',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission Required', 'Please allow photo access to scan recipes.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsMultipleSelection: true,
+              selectionLimit: 3,
+              quality: 0.7,
+              base64: true,
+            });
+            if (!result.canceled) await processScanImages(result.assets);
+          },
+        },
+      ]
+    );
+  };
+
   // Recipe deep links: bunches://recipe/<globalRecipeId> jumps to that
   // recipe's card - the user's own copy if saved, read-only otherwise
   const openRecipeFromLink = async (globalRecipeId) => {
@@ -2497,6 +2589,12 @@ export const HomeScreen = ({ user }) => {
               onPress={() => setCurrentScreen('create')}
             >
               <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBarButton}
+              onPress={handleScanRecipe}
+            >
+              <Ionicons name="camera" size={22} color={colors.primary} />
             </TouchableOpacity>
             {showQuickLinkButton && (
               <TouchableOpacity
@@ -4092,6 +4190,34 @@ export const HomeScreen = ({ user }) => {
             </Text>
             <Text style={{ marginTop: 4, fontSize: 12, color: colors.textSecondary, textAlign: 'center' }}>
               This can take up to 30 seconds
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* AI recipe scanning overlay */}
+      {scanning && (
+        <View style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+        }}>
+          <View style={{
+            backgroundColor: '#fff',
+            padding: 24,
+            borderRadius: 12,
+            alignItems: 'center',
+            minWidth: 200,
+          }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text }}>
+              Reading your recipe…
+            </Text>
+            <Text style={{ marginTop: 4, fontSize: 12, color: colors.textSecondary, textAlign: 'center' }}>
+              The AI is extracting it from your photo
             </Text>
           </View>
         </View>

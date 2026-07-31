@@ -77,6 +77,15 @@
 - All recipes migrated to user_recipes_v2 (127/127)
 
 ## This Session (July 30, 2026 - branch claude/session-setup-y19h2x)
+- PHASE 5 BUILT (needs deploy + testing): AI recipe scanning. Camera
+  button on recipes actions bar -> take/pick up to 3 photos ->
+  extract-recipe Edge Function (Gemini, GEMINI_API_KEY secret set) ->
+  SaveRecipeScreen preview. Rate limits server-side (scan_usage table:
+  free 3 lifetime / premium 30/mo / admin unlimited). TO DO: run
+  sql/add_scan_usage.sql + deploy extract-recipe fn (Verify JWT ON,
+  see EDGE_FUNCTIONS_SETUP.md).
+- Share card now embeds a QR code (pure-JS qrcode pkg) linking to the
+  recipe; Copy Link always offered, resolves global id on demand.
 - Recipe deep links: bunches://recipe/<globalRecipeId> opens that recipe
   card in-app (own copy if saved, read-only + import otherwise); "Copy
   Link" in the share chooser; scheme "bunches" added to app.json so

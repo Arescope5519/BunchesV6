@@ -89,3 +89,23 @@ The functions don't currently rate-limit per user. To add:
 3. Return `{ safe: true, rate_limited: true }` if user has exceeded (e.g., 100 checks/hour)
 
 Add this before public launch if abuse becomes a concern.
+
+## extract-recipe (AI Recipe Scanning - Phase 5)
+
+Turns photos of cookbook pages/recipe cards into structured recipes via
+Google Gemini.
+
+**Deploy (dashboard):**
+1. Edge Functions → Deploy new function → name: `extract-recipe`
+2. Paste `supabase/functions/extract-recipe/index.ts`
+3. **Verify JWT: ON** (same as moderate-image/moderate-text)
+
+**Secrets:**
+- `GEMINI_API_KEY` (required) - from aistudio.google.com
+- `GEMINI_MODEL` (optional) - defaults to `gemini-2.5-flash`
+
+**SQL:** run `sql/add_scan_usage.sql` first (scan_usage table, RLS on,
+no client policies - only the function's service role touches it).
+
+**Rate limits (enforced in the function):** free = 3 lifetime,
+premium = 30/calendar month, admins unlimited.
