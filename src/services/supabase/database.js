@@ -870,6 +870,29 @@ export const findGlobalRecipeByUrl = async (sourceUrl) => {
 };
 
 /**
+ * Fetch a global recipe by its id (for recipe deep links)
+ * @param {string} globalRecipeId
+ * @returns {Promise<Object|null>}
+ */
+export const getGlobalRecipeById = async (globalRecipeId) => {
+  if (!globalRecipeId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('global_recipes')
+      .select('*')
+      .eq('id', globalRecipeId)
+      .single();
+
+    if (error && error.code === 'PGRST116') return null;
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ Error fetching global recipe by id:', error);
+    return null;
+  }
+};
+
+/**
  * Create a new global recipe entry
  * @param {Object} recipe - Recipe data
  * @returns {Promise<Object|null>} The created global recipe
@@ -1127,6 +1150,7 @@ export default {
   loadTagSearchCountsFromDatabase,
   // V2 Migration exports
   findGlobalRecipeByUrl,
+  getGlobalRecipeById,
   createGlobalRecipe,
   saveToUserRecipesV2,
   saveRecipeWithDualWrite,

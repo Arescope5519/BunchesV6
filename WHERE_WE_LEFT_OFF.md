@@ -77,6 +77,11 @@
 - All recipes migrated to user_recipes_v2 (127/127)
 
 ## This Session (July 30, 2026 - branch claude/session-setup-y19h2x)
+- Recipe deep links: bunches://recipe/<globalRecipeId> opens that recipe
+  card in-app (own copy if saved, read-only + import otherwise); "Copy
+  Link" in the share chooser; scheme "bunches" added to app.json so
+  Android registers it (REQUIRES PREBUILD). https://hunii.app/r/<id>
+  already parsed for when the domain + App Links go live.
 - PHASE 4 STARTED: share-as-image (RecipeShareCard 9:16 branded card,
   react-native-view-shot capture -> system share sheet; NEW DEPENDENCY -
   build now needs npm install after pull). Share button offers

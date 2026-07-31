@@ -68,7 +68,8 @@ import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supa
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
-import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase } from '../services/supabase/database';
+import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase, getGlobalRecipeById } from '../services/supabase/database';
+import { useDeepLinks, buildRecipeLink } from '../hooks/useDeepLinks';
 import {
   getFullPublicRecipe,
   submitContentReport,
@@ -1756,6 +1757,53 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Recipe deep links: bunches://recipe/<globalRecipeId> jumps to that
+  // recipe's card - the user's own copy if saved, read-only otherwise
+  const openRecipeFromLink = async (globalRecipeId) => {
+    try {
+      const existing = recipes.find(r => r.globalRecipeId === globalRecipeId && !r.deletedAt);
+      if (existing) {
+        setCurrentScreen('recipes');
+        setSelectedRecipe(existing);
+        return;
+      }
+
+      const globalRecipe = await getGlobalRecipeById(globalRecipeId);
+      if (!globalRecipe) {
+        Alert.alert('Recipe Not Found', 'This recipe link is invalid or the recipe was removed.');
+        return;
+      }
+
+      const externalUrl = globalRecipe.source_url && !globalRecipe.source_url.startsWith('bunches://')
+        ? globalRecipe.source_url
+        : null;
+
+      setCurrentScreen('recipes');
+      setSelectedRecipe({
+        id: `global-${globalRecipe.id}`,
+        globalRecipeId: globalRecipe.id,
+        title: globalRecipe.title,
+        ingredients: globalRecipe.ingredients,
+        instructions: globalRecipe.instructions,
+        image_url: globalRecipe.image_url,
+        url: externalUrl,
+        source_url: externalUrl,
+        prep_time: globalRecipe.prep_time,
+        cook_time: globalRecipe.cook_time,
+        total_time: globalRecipe.total_time,
+        servings: globalRecipe.servings,
+        nutrition: globalRecipe.nutrition,
+        globalTags: globalRecipe.tags || [],
+        isReadOnly: true,
+      });
+    } catch (err) {
+      console.error('❌ Deep link open failed:', err);
+      Alert.alert('Error', 'Could not open the shared recipe.');
+    }
+  };
+
+  useDeepLinks(openRecipeFromLink);
+
   // Share-as-image state: mounting shareCardRecipe renders the card
   // offscreen; onReady fires once its hero image loads, then we capture
   const shareCardRef = useRef(null);
@@ -1796,16 +1844,26 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  const handleShareRecipe = (recipe) => {
+  const copyRecipeLink = (recipe) => {
+    const link = buildRecipeLink(recipe.globalRecipeId);
+    Clipboard.setString(link);
     Alert.alert(
-      'Share Recipe',
-      'How would you like to share it?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Share as Image', onPress: () => shareRecipeAsImage(recipe) },
-        { text: 'Send to Friends', onPress: () => handleShareToFriends(recipe) },
-      ]
+      'Link Copied',
+      `${link}\n\nAnyone with the app can open this link to jump straight to the recipe. Paste it anywhere - a message, a post description, a bio.`
     );
+  };
+
+  const handleShareRecipe = (recipe) => {
+    const options = [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Share as Image', onPress: () => shareRecipeAsImage(recipe) },
+      { text: 'Send to Friends', onPress: () => handleShareToFriends(recipe) },
+    ];
+    // Link sharing needs the recipe's global (shared) version
+    if (recipe.globalRecipeId) {
+      options.push({ text: 'Copy Link', onPress: () => copyRecipeLink(recipe) });
+    }
+    Alert.alert('Share Recipe', 'How would you like to share it?', options);
   };
 
   const handleShareToFriends = (recipe) => {
