@@ -68,7 +68,7 @@ import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supa
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
-import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase, getGlobalRecipeById } from '../services/supabase/database';
+import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase, getGlobalRecipeById, findGlobalRecipeByUrl } from '../services/supabase/database';
 import { useDeepLinks, buildRecipeLink } from '../hooks/useDeepLinks';
 import {
   getFullPublicRecipe,
@@ -1844,26 +1844,51 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
-  const copyRecipeLink = (recipe) => {
-    const link = buildRecipeLink(recipe.globalRecipeId);
-    Clipboard.setString(link);
-    Alert.alert(
-      'Link Copied',
-      `${link}\n\nAnyone with the app can open this link to jump straight to the recipe. Paste it anywhere - a message, a post description, a bio.`
-    );
+  const copyRecipeLink = async (recipe) => {
+    try {
+      // Local copies loaded from older storage may not carry the global
+      // id even though the global version exists - resolve it on demand
+      let globalRecipeId = recipe.globalRecipeId;
+      if (!globalRecipeId) {
+        const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url
+          || (user?.uid ? `bunches://user/${user.uid}/recipes/${recipe.id}` : null);
+        if (sourceUrl) {
+          const globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
+          globalRecipeId = globalRecipe?.id || null;
+        }
+      }
+
+      if (!globalRecipeId) {
+        Alert.alert(
+          'Link Unavailable',
+          'This recipe has not synced to the cloud yet. Make sure you are online, then try again.'
+        );
+        return;
+      }
+
+      const link = buildRecipeLink(globalRecipeId);
+      Clipboard.setString(link);
+      Alert.alert(
+        'Link Copied',
+        `${link}\n\nAnyone with the app can open this link to jump straight to the recipe. Paste it anywhere - a message, a post description, a bio.`
+      );
+    } catch (err) {
+      console.error('❌ Copy link failed:', err);
+      Alert.alert('Error', 'Could not create the recipe link.');
+    }
   };
 
   const handleShareRecipe = (recipe) => {
-    const options = [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Share as Image', onPress: () => shareRecipeAsImage(recipe) },
-      { text: 'Send to Friends', onPress: () => handleShareToFriends(recipe) },
-    ];
-    // Link sharing needs the recipe's global (shared) version
-    if (recipe.globalRecipeId) {
-      options.push({ text: 'Copy Link', onPress: () => copyRecipeLink(recipe) });
-    }
-    Alert.alert('Share Recipe', 'How would you like to share it?', options);
+    Alert.alert(
+      'Share Recipe',
+      'How would you like to share it?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Share as Image', onPress: () => shareRecipeAsImage(recipe) },
+        { text: 'Send to Friends', onPress: () => handleShareToFriends(recipe) },
+        { text: 'Copy Link', onPress: () => copyRecipeLink(recipe) },
+      ]
+    );
   };
 
   const handleShareToFriends = (recipe) => {
