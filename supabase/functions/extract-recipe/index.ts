@@ -157,31 +157,82 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Call Gemini ---
-    const model = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
+    // If GEMINI_MODEL is set, use it alone; otherwise walk a fallback
+    // chain so a retired/renamed model name never bricks scanning
+    const configuredModel = Deno.env.get('GEMINI_MODEL');
+    const candidateModels = configuredModel
+      ? [configuredModel]
+      : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
     const parts: any[] = [{ text: PROMPT }];
     for (const img of images) {
       parts.push({ inline_data: { mime_type: mimeType, data: img } });
     }
-
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            temperature: 0.1,
-            response_mime_type: 'application/json',
-          },
-        }),
+    const requestBody = JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: {
+        temperature: 0.1,
+        response_mime_type: 'application/json',
       },
-    );
+    });
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error('Gemini API error:', geminiRes.status, errText.substring(0, 500));
-      return json({ success: false, error: 'ai_error', message: 'The AI service had a problem. Please try again.' }, 502);
+    let geminiRes: Response | null = null;
+    let model = candidateModels[0];
+    let lastError = '';
+
+    for (const candidate of candidateModels) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        },
+      );
+
+      if (res.ok) {
+        geminiRes = res;
+        model = candidate;
+        break;
+      }
+
+      const errText = await res.text();
+      lastError = `${res.status}: ${errText.substring(0, 300)}`;
+      console.error(`Gemini error for model ${candidate}:`, lastError);
+
+      if (res.status === 429) {
+        return json({
+          success: false,
+          error: 'ai_busy',
+          message: 'The AI service is briefly at capacity (free-tier limit). Wait a minute and try again.',
+        }, 200);
+      }
+      if (res.status === 400 || res.status === 403) {
+        return json({
+          success: false,
+          error: 'ai_error',
+          message: 'The AI service rejected the request - the API key may be invalid or restricted.',
+          detail: lastError,
+        }, 200);
+      }
+      // 404 = model name not available for this key/API - try the next
+      if (res.status !== 404) {
+        return json({
+          success: false,
+          error: 'ai_error',
+          message: 'The AI service had a problem. Please try again.',
+          detail: lastError,
+        }, 200);
+      }
+    }
+
+    if (!geminiRes) {
+      return json({
+        success: false,
+        error: 'ai_error',
+        message: 'No available AI model accepted the request.',
+        detail: lastError,
+      }, 200);
     }
 
     const geminiData: any = await geminiRes.json();

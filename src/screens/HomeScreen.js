@@ -1832,9 +1832,10 @@ export const HomeScreen = ({ user }) => {
       }
 
       // No recipe found / AI problem - offer manual entry as fallback
+      const failDetail = result.detail ? `\n\nDetails: ${result.detail}` : '';
       Alert.alert(
         'Scan Failed',
-        result.message || 'Could not read a recipe from the photo.',
+        (result.message || 'Could not read a recipe from the photo.') + failDetail,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Try Again', onPress: () => handleScanRecipe() },
