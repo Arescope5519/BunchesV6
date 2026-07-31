@@ -7,11 +7,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { TAG_CATEGORIES, getPredefinedTagNames, combineRecipeTags } from '../constants/tags';
 import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
+import { pickAndUploadRecipePhoto } from '../services/recipePhoto';
 import {
   parseRecipeIngredients,
   scaleRecipeIngredients,
@@ -118,6 +119,7 @@ export const RecipeDetail = ({
   onViewOwnerProfile, // For opening the recipe owner's profile
   dietaryPrefs = null, // { diets: [...], avoid: [...] } from user profile
   frequentTags = [], // most-searched tags, passed down from HomeScreen
+  userId = null, // for photo uploads on custom/scanned recipes
 }) => {
   const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
@@ -173,6 +175,9 @@ export const RecipeDetail = ({
   // Add section modal state
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
+
+  // Photo upload state (add/change photo on custom & scanned recipes)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Tag editing state
   const [showTagEditor, setShowTagEditor] = useState(false);
@@ -723,15 +728,89 @@ export const RecipeDetail = ({
     : null;
   const currentVersionName = currentVariant?.name || (isViewingOriginal ? 'Original' : (hasOriginalVersion ? 'My Edits' : 'Original'));
 
+  const heroImageUrl = localRecipe.image_url || localRecipe.imageUrl || null;
+  // Photos can be added later only on recipes the user owns the content
+  // of - custom creations and AI scans (no external source URL)
+  const photoSourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
+  const canEditPhoto = !isReadOnly && !!onUpdate &&
+    (!photoSourceUrl || String(photoSourceUrl).startsWith('bunches://'));
+
+  const applyPhotoUrl = (url) => {
+    const updated = { ...localRecipe, image_url: url, imageUrl: url, image: url };
+    setLocalRecipe(updated);
+    if (onUpdate) onUpdate(updated);
+  };
+
+  const pickRecipePhoto = async (fromCamera) => {
+    setUploadingPhoto(true);
+    try {
+      const url = await pickAndUploadRecipePhoto({
+        userId,
+        recipeId: localRecipe.id,
+        fromCamera,
+      });
+      if (url) applyPhotoUrl(url);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRecipePhoto = () => {
+    Alert.alert(
+      'Recipe Photo',
+      'Add a photo of the finished dish',
+      [
+        { text: 'Take Photo', onPress: () => pickRecipePhoto(true) },
+        { text: 'Choose from Library', onPress: () => pickRecipePhoto(false) },
+        heroImageUrl
+          ? { text: 'Remove Photo', style: 'destructive', onPress: () => applyPhotoUrl(null) }
+          : null,
+        { text: 'Cancel', style: 'cancel' },
+      ].filter(Boolean)
+    );
+  };
+
   return (
     <>
       {/* Recipe photo - at the very top when one exists */}
-      {(localRecipe.image_url || localRecipe.imageUrl) && (
-        <Image
-          source={{ uri: localRecipe.image_url || localRecipe.imageUrl }}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
+      {heroImageUrl ? (
+        <View>
+          <Image
+            source={{ uri: heroImageUrl }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+          {canEditPhoto && (
+            <TouchableOpacity
+              style={styles.heroPhotoEditButton}
+              onPress={handleRecipePhoto}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="camera" size={18} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        canEditPhoto && (
+          <TouchableOpacity
+            style={styles.addPhotoButton}
+            onPress={handleRecipePhoto}
+            disabled={uploadingPhoto}
+          >
+            {uploadingPhoto ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="camera" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.addPhotoButtonText}>Add Photo</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )
       )}
 
       {/* Folder badge - shown if recipe is in a cookbook */}
@@ -1751,6 +1830,39 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 14,
     backgroundColor: colors.border,
+  },
+  heroPhotoEditButton: {
+    position: 'absolute',
+    right: 10,
+    bottom: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 14,
+    backgroundColor: colors.primaryLight,
+  },
+  addPhotoButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   folderBadge: {
     fontSize: 12,

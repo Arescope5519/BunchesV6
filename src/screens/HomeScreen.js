@@ -3662,6 +3662,7 @@ export const HomeScreen = ({ user }) => {
                 recipe={selectedRecipe}
                 dietaryPrefs={dietaryPrefs}
                 frequentTags={frequentTags}
+                userId={user?.uid}
                 onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}
