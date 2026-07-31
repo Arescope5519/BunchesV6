@@ -34,6 +34,40 @@ const MAX_BASE64_LENGTH = 5_500_000;
 
 const MAX_RECIPES = 5;
 
+// Remembered across invocations while this function instance stays warm,
+// so model discovery only runs when needed
+let cachedWorkingModel: string | null = null;
+
+/**
+ * Ask the API which models THIS key can use, newest flash first.
+ * Used when every known model name 404s (Google retires names for new
+ * users - e.g. "gemini-2.5-flash is no longer available to new users").
+ */
+async function discoverFlashModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${apiKey}`,
+    );
+    if (!res.ok) {
+      console.error('ListModels failed:', res.status);
+      return [];
+    }
+    const data: any = await res.json();
+    return (data.models || [])
+      .filter((m: any) =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent'))
+      .map((m: any) => String(m.name || '').replace(/^models\//, ''))
+      .filter((n: string) => /flash/i.test(n))
+      .filter((n: string) => !/(embedding|tts|audio|image-generation|native-audio|live|preview-image)/i.test(n))
+      .sort()
+      .reverse(); // rough newest-first (version numbers sort well enough)
+  } catch (err) {
+    console.error('ListModels error:', err);
+    return [];
+  }
+}
+
 const PROMPT = `You are a recipe extraction system. The attached photo(s) show recipe content - cookbook pages, recipe cards, handwritten notes, or screenshots. Photos may be consecutive pages of ONE recipe, or may contain SEVERAL distinct recipes (e.g. two recipes printed on one page).
 
 Extract every distinct recipe and reply with ONLY a JSON object in exactly this shape:
@@ -157,12 +191,21 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Call Gemini ---
-    // If GEMINI_MODEL is set, use it alone; otherwise walk a fallback
-    // chain so a retired/renamed model name never bricks scanning
+    // Model names come and go ("no longer available to new users"), so:
+    // 1. try GEMINI_MODEL secret if set, else the last known-working
+    //    model, else a static list of likely names
+    // 2. if every name 404s, ask the API which models THIS key can use
+    //    (ListModels) and try the best vision-capable flash model
     const configuredModel = Deno.env.get('GEMINI_MODEL');
-    const candidateModels = configuredModel
+    const staticCandidates = configuredModel
       ? [configuredModel]
-      : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      : [
+          ...(cachedWorkingModel ? [cachedWorkingModel] : []),
+          'gemini-flash-latest',
+          'gemini-3-flash',
+          'gemini-2.5-flash',
+        ];
+    const candidateModels = [...new Set(staticCandidates)];
 
     const parts: any[] = [{ text: PROMPT }];
     for (const img of images) {
@@ -176,30 +219,26 @@ Deno.serve(async (req: Request) => {
       },
     });
 
+    const callModel = (name: string) => fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+      },
+    );
+
     let geminiRes: Response | null = null;
     let model = candidateModels[0];
     let lastError = '';
 
-    for (const candidate of candidateModels) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${candidate}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: requestBody,
-        },
-      );
-
-      if (res.ok) {
-        geminiRes = res;
-        model = candidate;
-        break;
-      }
-
+    // Returns 'retry' to try the next model, otherwise a terminal Response
+    const handleFailure = async (name: string, res: Response): Promise<'retry' | Response> => {
       const errText = await res.text();
       lastError = `${res.status}: ${errText.substring(0, 300)}`;
-      console.error(`Gemini error for model ${candidate}:`, lastError);
+      console.error(`Gemini error for model ${name}:`, lastError);
 
+      if (res.status === 404) return 'retry';
       if (res.status === 429) {
         return json({
           success: false,
@@ -215,14 +254,40 @@ Deno.serve(async (req: Request) => {
           detail: lastError,
         }, 200);
       }
-      // 404 = model name not available for this key/API - try the next
-      if (res.status !== 404) {
-        return json({
-          success: false,
-          error: 'ai_error',
-          message: 'The AI service had a problem. Please try again.',
-          detail: lastError,
-        }, 200);
+      return json({
+        success: false,
+        error: 'ai_error',
+        message: 'The AI service had a problem. Please try again.',
+        detail: lastError,
+      }, 200);
+    };
+
+    for (const candidate of candidateModels) {
+      const res = await callModel(candidate);
+      if (res.ok) {
+        geminiRes = res;
+        model = candidate;
+        break;
+      }
+      const outcome = await handleFailure(candidate, res);
+      if (outcome !== 'retry') return outcome;
+    }
+
+    // Every known name 404'd - discover what this key can actually use
+    if (!geminiRes) {
+      console.log('All static model names 404d - discovering available models...');
+      const discovered = await discoverFlashModels(apiKey);
+      console.log('Discovered candidates:', discovered.join(', ') || '(none)');
+
+      for (const candidate of discovered.filter(m => !candidateModels.includes(m)).slice(0, 3)) {
+        const res = await callModel(candidate);
+        if (res.ok) {
+          geminiRes = res;
+          model = candidate;
+          break;
+        }
+        const outcome = await handleFailure(candidate, res);
+        if (outcome !== 'retry') return outcome;
       }
     }
 
@@ -230,10 +295,13 @@ Deno.serve(async (req: Request) => {
       return json({
         success: false,
         error: 'ai_error',
-        message: 'No available AI model accepted the request.',
+        message: 'No available AI model accepted the request. You can pin one by setting the GEMINI_MODEL secret.',
         detail: lastError,
       }, 200);
     }
+
+    cachedWorkingModel = model;
+    console.log('Using Gemini model:', model);
 
     const geminiData: any = await geminiRes.json();
     const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
