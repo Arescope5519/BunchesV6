@@ -1267,6 +1267,18 @@ export const RecipeDetail = ({
           );
         }
 
+        // AI-scanned recipe - honest attribution, not a claimed creation
+        if (localRecipe.source === 'scan') {
+          return (
+            <View style={styles.sourceContainer}>
+              <Text style={styles.sourceLabel}>Source:</Text>
+              <Text style={styles.creatorName}>
+                Scanned{creatorUsername ? ` by @${creatorUsername}` : ''} with AI from a printed recipe
+              </Text>
+            </View>
+          );
+        }
+
         // Manual recipe fallback
         if (localRecipe.source === 'manual' && creatorUsername) {
           return (

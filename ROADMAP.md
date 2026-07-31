@@ -197,7 +197,9 @@ icon chrome, normalized top bars, nutrition display.
 - [ ] App store screenshots (Apple + Google)
 - [ ] App store description + keywords
 - [ ] Marketing website (landing page)
-- [ ] Terms of Service (Termly template)
+- [ ] Terms of Service (Termly template) - MUST include copyright/DMCA
+      clause covering AI-scanned content (users responsible for what they
+      upload; takedown request process; admin queue already handles removal)
 - [ ] Privacy Policy (Termly template)
 - [ ] Update DisclaimerModal URLs
 - [ ] Set up support email

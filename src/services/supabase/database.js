@@ -221,6 +221,8 @@ export const loadRecipesFromDatabase = async (userId) => {
         nutrition: globalRecipe?.nutrition || localData?.nutrition || null,
         tags: row.tags || [],                       // user's own tags (editable)
         globalTags: globalRecipe?.tags || [],       // shared auto-tags (read-only)
+        source: localData?.source || null,          // 'manual' | 'scan' | null
+        createdBy: localData?.createdBy || null,
         isFavorite: row.is_favorite || false,
         createdAt: new Date(row.created_at).getTime(),
         updatedAt: new Date(row.updated_at).getTime(),
@@ -1009,6 +1011,7 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
         title: recipe.title,
         ingredients: ingredients,
         instructions: instructions,
+        source: recipe.source || null, // 'manual' | 'scan' | null
         image_url: recipe.imageUrl || recipe.image_url || recipe.image || null,
         folders: recipe.folders || (recipe.folder ? [recipe.folder] : ['All Recipes']),
         folder: recipe.folder || recipe.folders?.[0] || 'All Recipes',

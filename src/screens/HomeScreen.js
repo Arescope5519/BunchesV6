@@ -1887,7 +1887,7 @@ export const HomeScreen = ({ user }) => {
   const handleScanRecipe = () => {
     Alert.alert(
       'Scan a Recipe',
-      'Photograph a cookbook page, recipe card, or handwritten recipe. Multi-page recipes and pages with several recipes both work.',
+      'Photograph a cookbook page, recipe card, or handwritten recipe. Multi-page recipes and pages with several recipes both work.\n\nScanned recipes are for your personal cookbook. Please don\'t publicly share copyrighted recipes or claim them as your own creation.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -3225,6 +3225,14 @@ export const HomeScreen = ({ user }) => {
                           <Ionicons name="pencil" size={10} color={colors.primary} style={{ marginRight: 3 }} />
                           <Text style={styles.recipeCreator} numberOfLines={1}>
                             by {recipe.createdBy.username}
+                          </Text>
+                        </View>
+                      )}
+                      {recipe.source === 'scan' && (
+                        <View style={styles.recipeMetaRow}>
+                          <Ionicons name="camera" size={10} color={colors.textTertiary} style={{ marginRight: 3 }} />
+                          <Text style={styles.recipeSource} numberOfLines={1}>
+                            scanned{recipe.createdBy?.username ? ` by ${recipe.createdBy.username}` : ''}
                           </Text>
                         </View>
                       )}

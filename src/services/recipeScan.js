@@ -80,6 +80,7 @@ export const scanRecipeImages = async (base64Images) => {
           notes: raw.notes || '',
           image_url: '',
           source_url: '',
+          source: 'scan', // attribution: shown as "Scanned by @user"
         },
         confidence: raw.confidence,
         warnings: raw.warnings || [],
