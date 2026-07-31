@@ -1804,15 +1804,34 @@ export const HomeScreen = ({ user }) => {
 
   useDeepLinks(openRecipeFromLink);
 
-  // Share-as-image state: mounting shareCardRecipe renders the card
-  // offscreen; onReady fires once its hero image loads, then we capture
+  // Resolve a recipe's global (shared) id - local copies from older
+  // storage may not carry it even though the cloud version exists
+  const resolveRecipeGlobalId = async (recipe) => {
+    if (recipe.globalRecipeId) return recipe.globalRecipeId;
+    const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url
+      || (user?.uid ? `bunches://user/${user.uid}/recipes/${recipe.id}` : null);
+    if (!sourceUrl) return null;
+    const globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
+    return globalRecipe?.id || null;
+  };
+
+  // Share-as-image state: mounting shareCard renders the card offscreen;
+  // onReady fires once its hero image loads, then we capture
   const shareCardRef = useRef(null);
   const shareCardCaptured = useRef(false);
-  const [shareCardRecipe, setShareCardRecipe] = useState(null);
+  const [shareCard, setShareCard] = useState(null); // { recipe, link }
 
-  const shareRecipeAsImage = (recipe) => {
+  const shareRecipeAsImage = async (recipe) => {
     shareCardCaptured.current = false;
-    setShareCardRecipe(recipe);
+    // Best-effort link for the QR code - card still renders without one
+    let link = null;
+    try {
+      const globalRecipeId = await resolveRecipeGlobalId(recipe);
+      if (globalRecipeId) link = buildRecipeLink(globalRecipeId);
+    } catch (err) {
+      console.log('⚠️ No link for share card:', err?.message);
+    }
+    setShareCard({ recipe, link });
   };
 
   const handleShareCardReady = async () => {
@@ -1840,23 +1859,13 @@ export const HomeScreen = ({ user }) => {
       console.error('❌ Share-as-image failed:', err);
       Alert.alert('Error', 'Could not create the recipe image. Please try again.');
     } finally {
-      setShareCardRecipe(null);
+      setShareCard(null);
     }
   };
 
   const copyRecipeLink = async (recipe) => {
     try {
-      // Local copies loaded from older storage may not carry the global
-      // id even though the global version exists - resolve it on demand
-      let globalRecipeId = recipe.globalRecipeId;
-      if (!globalRecipeId) {
-        const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url
-          || (user?.uid ? `bunches://user/${user.uid}/recipes/${recipe.id}` : null);
-        if (sourceUrl) {
-          const globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
-          globalRecipeId = globalRecipe?.id || null;
-        }
-      }
+      const globalRecipeId = await resolveRecipeGlobalId(recipe);
 
       if (!globalRecipeId) {
         Alert.alert(
@@ -4089,7 +4098,7 @@ export const HomeScreen = ({ user }) => {
       )}
 
       {/* Offscreen share card - mounted only while capturing a share image */}
-      {shareCardRecipe && (
+      {shareCard && (
         <View
           ref={shareCardRef}
           collapsable={false}
@@ -4101,7 +4110,11 @@ export const HomeScreen = ({ user }) => {
             height: SHARE_CARD_HEIGHT,
           }}
         >
-          <RecipeShareCard recipe={shareCardRecipe} onReady={handleShareCardReady} />
+          <RecipeShareCard
+            recipe={shareCard.recipe}
+            link={shareCard.link}
+            onReady={handleShareCardReady}
+          />
         </View>
       )}
 

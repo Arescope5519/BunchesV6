@@ -17,13 +17,14 @@ import colors from '../constants/colors';
 import { APP_NAME } from '../constants/app';
 import { getIngredientLines } from '../utils/dietaryAnalysis';
 import { formatDuration, formatServings } from '../utils/recipeFormat';
+import QrCodeView from './QrCodeView';
 
 export const SHARE_CARD_WIDTH = 360;
 export const SHARE_CARD_HEIGHT = 640;
 
-const MAX_INGREDIENTS = 8;
+const MAX_INGREDIENTS = 6;
 
-export const RecipeShareCard = ({ recipe, onReady }) => {
+export const RecipeShareCard = ({ recipe, link = null, onReady }) => {
   const imageUrl = recipe?.image_url || recipe?.imageUrl || null;
 
   // No image to wait for - ready as soon as we mount
@@ -94,13 +95,32 @@ export const RecipeShareCard = ({ recipe, onReady }) => {
         )}
       </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Ionicons name="restaurant" size={16} color="#fff" style={{ marginRight: 6 }} />
-        <Text style={styles.footerText} allowFontScaling={false}>
-          Saved with {APP_NAME}
-        </Text>
-      </View>
+      {/* Footer - QR code links straight to the recipe when available */}
+      {link ? (
+        <View style={styles.footerWithQr}>
+          <View style={styles.qrBox}>
+            <QrCodeView value={link} size={56} />
+          </View>
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.footerScanText} allowFontScaling={false}>
+              Scan to open this recipe
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+              <Ionicons name="restaurant" size={13} color="rgba(255,255,255,0.85)" style={{ marginRight: 5 }} />
+              <Text style={styles.footerText} allowFontScaling={false}>
+                Saved with {APP_NAME}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.footer}>
+          <Ionicons name="restaurant" size={16} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.footerText} allowFontScaling={false}>
+            Saved with {APP_NAME}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -176,6 +196,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 14,
+  },
+  footerWithQr: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+  },
+  qrBox: {
+    backgroundColor: '#fff',
+    padding: 5,
+    borderRadius: 8,
+  },
+  footerScanText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   footerText: {
     color: '#fff',
