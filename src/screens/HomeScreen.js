@@ -744,9 +744,13 @@ export const HomeScreen = ({ user }) => {
     const saved = await saveRecipe(recipeWithFolder);
 
     if (saved) {
-      setSelectedRecipe(recipeWithFolder);
       setCurrentScreen('recipes');
-      Alert.alert('✅ Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
+      // More scanned recipes waiting? Offer the next one instead of
+      // opening the just-saved recipe
+      if (!advanceScanQueue()) {
+        setSelectedRecipe(recipeWithFolder);
+        Alert.alert('✅ Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
+      }
     } else {
       Alert.alert('Error', 'Failed to save recipe. Please try again.');
     }
@@ -761,6 +765,8 @@ export const HomeScreen = ({ user }) => {
     setExtractedRecipe(null);
     setUrl('');
     setCurrentScreen('recipes');
+    // Cancelling one scanned recipe still offers the rest
+    advanceScanQueue();
   };
 
   // Navigation handler - all tabs now render inline
@@ -1761,6 +1767,40 @@ export const HomeScreen = ({ user }) => {
 
   // --- AI recipe scanning (Phase 5) ---
   const [scanning, setScanning] = useState(false);
+  // When one scan finds several recipes, they preview one at a time
+  const scanQueueRef = useRef([]);
+
+  const previewScanResult = (item) => {
+    if (item.confidence !== 'high' || (item.warnings || []).length > 0) {
+      const details = (item.warnings || []).join('\n• ');
+      Alert.alert(
+        'Check the Results',
+        `The AI wasn't fully confident reading "${item.recipe.title}".${details ? `\n\n• ${details}` : ''}\n\nReview everything before saving.`
+      );
+    }
+    setExtractedRecipe(item.recipe);
+    setCurrentScreen('saveRecipe');
+  };
+
+  // Called after each save/cancel in the SaveRecipeScreen flow
+  const advanceScanQueue = () => {
+    if (scanQueueRef.current.length === 0) return false;
+    const [next, ...rest] = scanQueueRef.current;
+    scanQueueRef.current = rest;
+    Alert.alert(
+      'Next Scanned Recipe',
+      `"${next.recipe.title}"${rest.length > 0 ? ` (${rest.length} more after this)` : ''}`,
+      [
+        {
+          text: 'Skip All',
+          style: 'cancel',
+          onPress: () => { scanQueueRef.current = []; },
+        },
+        { text: 'Preview', onPress: () => previewScanResult(next) },
+      ]
+    );
+    return true;
+  };
 
   const processScanImages = async (assets) => {
     const base64Images = (assets || [])
@@ -1774,15 +1814,15 @@ export const HomeScreen = ({ user }) => {
       const result = await scanRecipeImages(base64Images);
 
       if (result.success) {
-        if (result.confidence !== 'high' || (result.warnings || []).length > 0) {
-          const details = (result.warnings || []).join('\n• ');
+        const [first, ...rest] = result.results;
+        scanQueueRef.current = rest;
+        if (rest.length > 0) {
           Alert.alert(
-            'Check the Results',
-            `The AI wasn't fully confident reading this recipe.${details ? `\n\n• ${details}` : ''}\n\nReview everything before saving.`
+            'Multiple Recipes Found',
+            `Found ${result.results.length} recipes in your photos. You'll preview and save them one at a time.`
           );
         }
-        setExtractedRecipe(result.recipe);
-        setCurrentScreen('saveRecipe');
+        previewScanResult(first);
         return;
       }
 
@@ -1806,10 +1846,47 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Camera flow: capture pages one at a time, up to 3
+  const captureCameraPages = async (pages = []) => {
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled) {
+      if (pages.length > 0) {
+        Alert.alert(
+          'Scan Captured Pages?',
+          `You have ${pages.length} page${pages.length > 1 ? 's' : ''} captured.`,
+          [
+            { text: 'Discard', style: 'cancel' },
+            { text: 'Scan Now', onPress: () => processScanImages(pages) },
+          ]
+        );
+      }
+      return;
+    }
+
+    const nextPages = [...pages, result.assets[0]];
+    if (nextPages.length >= 3) {
+      await processScanImages(nextPages);
+      return;
+    }
+
+    Alert.alert(
+      `Page ${nextPages.length} Captured`,
+      'Does the recipe continue on another page?',
+      [
+        { text: 'Scan Now', onPress: () => processScanImages(nextPages) },
+        { text: 'Add Another Page', onPress: () => captureCameraPages(nextPages) },
+      ]
+    );
+  };
+
   const handleScanRecipe = () => {
     Alert.alert(
       'Scan a Recipe',
-      'Photograph a cookbook page, recipe card, or handwritten recipe. You can pick up to 3 photos for multi-page recipes.',
+      'Photograph a cookbook page, recipe card, or handwritten recipe. Multi-page recipes and pages with several recipes both work.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1820,11 +1897,7 @@ export const HomeScreen = ({ user }) => {
               Alert.alert('Permission Required', 'Please allow camera access to scan recipes.');
               return;
             }
-            const result = await ImagePicker.launchCameraAsync({
-              quality: 0.7,
-              base64: true,
-            });
-            if (!result.canceled) await processScanImages(result.assets);
+            await captureCameraPages([]);
           },
         },
         {

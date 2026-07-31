@@ -32,33 +32,40 @@ const MAX_IMAGES = 3;
 // ~4MB of raw image per photo once base64 is decoded
 const MAX_BASE64_LENGTH = 5_500_000;
 
-const PROMPT = `You are a recipe extraction system. The attached photo(s) show a recipe - a cookbook page, a recipe card, a handwritten note, or a screenshot. Multiple photos are pages of the SAME recipe, in order.
+const MAX_RECIPES = 5;
 
-Extract the recipe and reply with ONLY a JSON object in exactly this shape:
+const PROMPT = `You are a recipe extraction system. The attached photo(s) show recipe content - cookbook pages, recipe cards, handwritten notes, or screenshots. Photos may be consecutive pages of ONE recipe, or may contain SEVERAL distinct recipes (e.g. two recipes printed on one page).
+
+Extract every distinct recipe and reply with ONLY a JSON object in exactly this shape:
 {
   "found": true,
-  "title": "Recipe name",
-  "ingredient_sections": [
-    { "name": "main", "items": ["1 cup flour", "2 eggs"] }
-  ],
-  "instructions": ["Step one...", "Step two..."],
-  "prep_time": "15 min",
-  "cook_time": "30 min",
-  "total_time": "45 min",
-  "servings": "4",
-  "notes": "",
-  "confidence": "high",
-  "warnings": []
+  "recipes": [
+    {
+      "title": "Recipe name",
+      "ingredient_sections": [
+        { "name": "main", "items": ["1 cup flour", "2 eggs"] }
+      ],
+      "instructions": ["Step one...", "Step two..."],
+      "prep_time": "15 min",
+      "cook_time": "30 min",
+      "total_time": "45 min",
+      "servings": "4",
+      "notes": "",
+      "confidence": "high",
+      "warnings": []
+    }
+  ]
 }
 
 Rules:
-- If the photos do not contain a recipe, reply {"found": false}.
+- If the photos do not contain any recipe, reply {"found": false}.
+- A recipe continuing across multiple photos is ONE recipe - merge its pages in order. Only output multiple entries for genuinely distinct recipes.
 - Preserve exact quantities and wording from the source. Do not invent ingredients or steps that are not visible.
 - Use ingredient section names from the source when present (e.g. "For the sauce"); otherwise use one section named "main".
 - Times/servings: only fill what is actually printed; leave "" when absent.
 - notes: any tips/variations printed with the recipe, else "".
-- confidence: "high" if everything was clearly legible, "medium" if some parts were hard to read, "low" if you had to guess significantly.
-- warnings: short strings for anything the user should double-check (e.g. "step 6 partially cut off", "quantity for butter unclear").`;
+- confidence per recipe: "high" if everything was clearly legible, "medium" if some parts were hard to read, "low" if you had to guess significantly.
+- warnings per recipe: short strings for anything the user should double-check (e.g. "step 6 partially cut off", "quantity for butter unclear"). If a recipe appears to continue onto a page that was NOT photographed, add a warning like "recipe may continue on another page".`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -188,8 +195,19 @@ Deno.serve(async (req: Request) => {
       console.error('Could not parse Gemini response:', rawText.substring(0, 300));
     }
 
+    // Normalize: recipes[] preferred; tolerate a single-recipe object
+    let rawRecipes: any[] = [];
+    if (parsed?.found) {
+      if (Array.isArray(parsed.recipes)) {
+        rawRecipes = parsed.recipes;
+      } else if (parsed.title) {
+        rawRecipes = [parsed];
+      }
+    }
+    rawRecipes = rawRecipes.filter((r: any) => r && r.title).slice(0, MAX_RECIPES);
+    const found = rawRecipes.length > 0;
+
     // Record the attempt - the AI call cost money either way
-    const found = !!parsed?.found && !!parsed?.title;
     await supabase.from('scan_usage').insert({
       user_id: user.id,
       success: found,
@@ -217,18 +235,18 @@ Deno.serve(async (req: Request) => {
 
     return json({
       success: true,
-      recipe: {
-        title: String(parsed.title || 'Untitled Recipe'),
-        ingredient_sections: Array.isArray(parsed.ingredient_sections) ? parsed.ingredient_sections : [],
-        instructions: Array.isArray(parsed.instructions) ? parsed.instructions : [],
-        prep_time: String(parsed.prep_time || ''),
-        cook_time: String(parsed.cook_time || ''),
-        total_time: String(parsed.total_time || ''),
-        servings: String(parsed.servings || ''),
-        notes: String(parsed.notes || ''),
-      },
-      confidence: ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'medium',
-      warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map(String) : [],
+      recipes: rawRecipes.map((r: any) => ({
+        title: String(r.title || 'Untitled Recipe'),
+        ingredient_sections: Array.isArray(r.ingredient_sections) ? r.ingredient_sections : [],
+        instructions: Array.isArray(r.instructions) ? r.instructions : [],
+        prep_time: String(r.prep_time || ''),
+        cook_time: String(r.cook_time || ''),
+        total_time: String(r.total_time || ''),
+        servings: String(r.servings || ''),
+        notes: String(r.notes || ''),
+        confidence: ['high', 'medium', 'low'].includes(r.confidence) ? r.confidence : 'medium',
+        warnings: Array.isArray(r.warnings) ? r.warnings.map(String) : [],
+      })),
       scansUsed,
       scanLimit,
     }, 200);

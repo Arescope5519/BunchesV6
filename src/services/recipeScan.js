@@ -10,13 +10,13 @@
 import { supabase } from './supabase/config';
 
 /**
- * Scan 1-3 photos of a recipe and get back a structured recipe.
+ * Scan 1-3 photos and get back every recipe found in them.
+ * Photos can be pages of one recipe (merged into one result) or contain
+ * several distinct recipes (each returned separately).
  * @param {string[]} base64Images - JPEG base64 strings (no data: prefix)
  * @returns {Promise<{
  *   success: boolean,
- *   recipe?: object,        // app-format recipe (ingredients as sections object)
- *   confidence?: string,    // high | medium | low
- *   warnings?: string[],
+ *   results?: Array<{ recipe: object, confidence: string, warnings: string[] }>,
  *   scansUsed?: number,
  *   scanLimit?: number,
  *   error?: string,         // limit_reached | no_recipe | ...
@@ -53,36 +53,52 @@ export const scanRecipeImages = async (base64Images) => {
       return { success: false, ...data };
     }
 
-    // Convert Edge Function shape -> app recipe shape
-    const sections = {};
-    (data.recipe.ingredient_sections || []).forEach(section => {
-      const name = (section?.name || 'main').trim() || 'main';
-      const items = Array.isArray(section?.items)
-        ? section.items.filter(i => typeof i === 'string' && i.trim())
-        : [];
-      if (items.length > 0) {
-        sections[name] = [...(sections[name] || []), ...items];
+    // Convert Edge Function shape -> app recipe shape, per recipe
+    const results = (data.recipes || []).map(raw => {
+      const sections = {};
+      (raw.ingredient_sections || []).forEach(section => {
+        const name = (section?.name || 'main').trim() || 'main';
+        const items = Array.isArray(section?.items)
+          ? section.items.filter(i => typeof i === 'string' && i.trim())
+          : [];
+        if (items.length > 0) {
+          sections[name] = [...(sections[name] || []), ...items];
+        }
+      });
+      if (Object.keys(sections).length === 0) {
+        sections.main = [];
       }
+
+      return {
+        recipe: {
+          title: raw.title,
+          ingredients: sections,
+          instructions: raw.instructions || [],
+          prepTime: raw.prep_time || '',
+          cookTime: raw.cook_time || '',
+          servings: raw.servings || '',
+          notes: raw.notes || '',
+          image_url: '',
+          source_url: '',
+        },
+        confidence: raw.confidence,
+        warnings: raw.warnings || [],
+      };
     });
-    if (Object.keys(sections).length === 0) {
-      sections.main = [];
+
+    if (results.length === 0) {
+      return {
+        success: false,
+        error: 'no_recipe',
+        message: 'No recipe was found in the photo.',
+        scansUsed: data.scansUsed,
+        scanLimit: data.scanLimit,
+      };
     }
 
     return {
       success: true,
-      recipe: {
-        title: data.recipe.title,
-        ingredients: sections,
-        instructions: data.recipe.instructions || [],
-        prepTime: data.recipe.prep_time || '',
-        cookTime: data.recipe.cook_time || '',
-        servings: data.recipe.servings || '',
-        notes: data.recipe.notes || '',
-        image_url: '',
-        source_url: '',
-      },
-      confidence: data.confidence,
-      warnings: data.warnings || [],
+      results,
       scansUsed: data.scansUsed,
       scanLimit: data.scanLimit,
     };
