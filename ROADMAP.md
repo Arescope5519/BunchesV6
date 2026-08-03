@@ -224,7 +224,7 @@ icon chrome, normalized top bars, nutrition display.
 - **Voice control** - "Hey Hunii, next step" while cooking
 - **Smart appliance integration** - Alexa, Google Home, smart ovens
 - **Community challenges** - weekly meal prep challenges
-- **Cooking timers** with recipe integration
+- **Cooking timers** with recipe integration (Cook Mode shipped; timers not yet)
 - **Advanced search** - "What can I make with these 5 ingredients?"
 - **Multi-language support**
 

@@ -13,6 +13,7 @@ import colors from '../constants/colors';
 import { TAG_CATEGORIES, getPredefinedTagNames, combineRecipeTags } from '../constants/tags';
 import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
 import { pickAndUploadRecipePhoto } from '../services/recipePhoto';
+import CookMode from './CookMode';
 import {
   parseRecipeIngredients,
   scaleRecipeIngredients,
@@ -178,6 +179,9 @@ export const RecipeDetail = ({
 
   // Photo upload state (add/change photo on custom & scanned recipes)
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Cook mode - hands-on session view with cross-off steps/ingredients
+  const [showCookMode, setShowCookMode] = useState(false);
 
   // Tag editing state
   const [showTagEditor, setShowTagEditor] = useState(false);
@@ -932,6 +936,17 @@ export const RecipeDetail = ({
         </View>
       )}
 
+      {/* Cook Mode - hands-on session with cross-off steps and ingredients */}
+      {!selectionMode && !editingItem && !swapMode && (
+        <TouchableOpacity
+          style={styles.cookModeButton}
+          onPress={() => setShowCookMode(true)}
+        >
+          <Ionicons name="flame" size={18} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={styles.cookModeButtonText}>Start Cooking</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Ingredients</Text>
         {!selectionMode && !isReadOnly && (
@@ -1657,6 +1672,15 @@ export const RecipeDetail = ({
           </View>
         </View>
       </Modal>
+
+      {/* Cook Mode - session-scoped, uses the currently scaled amounts */}
+      <CookMode
+        visible={showCookMode}
+        onClose={() => setShowCookMode(false)}
+        recipe={localRecipe}
+        ingredients={displayedIngredients || localRecipe.ingredients}
+        instructions={scaledInstructions || localRecipe.instructions}
+      />
 
       {swapMode && (
         <View style={styles.swapModeNotice}>
@@ -2718,6 +2742,20 @@ const styles = StyleSheet.create({
   variantOptionLabel: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  cookModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  cookModeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   tagEditorHint: {
     fontSize: 11,
