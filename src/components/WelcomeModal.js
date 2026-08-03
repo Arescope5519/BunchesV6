@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 export const WelcomeModal = ({ visible, onClose, onDontShowAgain }) => {
@@ -54,7 +55,7 @@ export const WelcomeModal = ({ visible, onClose, onDontShowAgain }) => {
             activeOpacity={0.7}
           >
             <View style={[styles.checkbox, dontShowAgain && styles.checkboxChecked]}>
-              {dontShowAgain && <Text style={styles.checkmark}>✓</Text>}
+              {dontShowAgain && <Ionicons name="checkmark" size={14} color="#fff" />}
             </View>
             <Text style={styles.checkboxLabel}>Don't show this again</Text>
           </TouchableOpacity>

@@ -16,6 +16,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
 import { getUserProfile, updatePrivacySettings } from '../services/supabase/social';
@@ -181,7 +182,7 @@ const MyProfile = ({
                   {recipe.title}
                 </Text>
                 <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                  {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                  {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
                 </View>
               </TouchableOpacity>
             );
@@ -283,7 +284,7 @@ const MyProfile = ({
           style={styles.actionItem}
           onPress={() => setCurrentView('featured')}
         >
-          <Text style={styles.actionIcon}>⭐</Text>
+          <Ionicons name="star" size={20} color={colors.favorite} style={styles.actionIcon} />
           <View style={styles.actionInfo}>
             <Text style={styles.actionTitle}>Featured Recipes</Text>
             <Text style={styles.actionSubtitle}>
@@ -297,7 +298,7 @@ const MyProfile = ({
           style={styles.actionItem}
           onPress={() => setCurrentView('my-recipes')}
         >
-          <Text style={styles.actionIcon}>📝</Text>
+          <Ionicons name="create-outline" size={20} color={colors.primary} style={styles.actionIcon} />
           <View style={styles.actionInfo}>
             <Text style={styles.actionTitle}>My Recipes</Text>
             <Text style={styles.actionSubtitle}>

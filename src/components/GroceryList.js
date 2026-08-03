@@ -15,6 +15,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { colors } from '../constants/colors';
+import { Ionicons } from '@expo/vector-icons';
 
 export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onAddCustomItem, onOpenMealPlan, embedded = false }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
@@ -123,7 +124,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                   onPress={() => onToggleItem(item.id)}
                 >
                   <View style={[styles.checkboxInner, styles.checkboxChecked]}>
-                    <Text style={styles.checkmark}>✓</Text>
+                    <Ionicons name="checkmark" size={14} color="#fff" />
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -184,7 +185,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                   onPress={() => onToggleItem(item.id)}
                 >
                   <View style={[styles.checkboxInner, item.checked && styles.checkboxChecked]}>
-                    {item.checked && <Text style={styles.checkmark}>✓</Text>}
+                    {item.checked && <Ionicons name="checkmark" size={14} color="#fff" />}
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -229,7 +230,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
               }}
               onPress={onOpenMealPlan}
             >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>🗓️ Meal Plan</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Meal Plan</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -242,7 +243,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
             onPress={() => setGroupBy(groupBy === 'recipe' ? 'flat' : 'recipe')}
           >
             <Text style={styles.toggleButtonText}>
-              {groupBy === 'recipe' ? '📋 List View' : '📚 Group by Recipe'}
+              {groupBy === 'recipe' ? 'List View' : 'Group by Recipe'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.clearButton} onPress={handleClearChecked}>

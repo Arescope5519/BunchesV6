@@ -1,4 +1,5 @@
 import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   Text,
@@ -85,7 +86,7 @@ const NotificationPopup = ({
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.icon}>👥</Text>
+          <Ionicons name="people" size={22} color={colors.primary} />
           <View style={styles.textContainer}>
             <Text style={styles.title}>Friend Request</Text>
             <Text style={styles.subtitle}>

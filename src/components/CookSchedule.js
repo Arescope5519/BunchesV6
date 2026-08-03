@@ -17,6 +17,7 @@ import {
   Image,
   TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
 import {
@@ -137,7 +138,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                         <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                          <Text style={{ fontSize: 16 }}>🍳</Text>
+                          <Ionicons name="flame" size={16} color={colors.primary} />
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
@@ -278,7 +279,7 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
       <View style={styles.pickerContainer}>
         <View style={styles.pickerHeader}>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.headerAction}>✕ Cancel</Text>
+            <Text style={styles.headerAction}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>
             Meal on {dateLabel}

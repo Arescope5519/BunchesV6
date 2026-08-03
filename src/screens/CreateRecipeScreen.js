@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase/config';
 import { checkImageModeration, logFlaggedContent } from '../services/moderation';
 import { checkFieldsAsync } from '../services/profanityFilter';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
@@ -311,7 +312,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} disabled={saving}>
-          <Text style={[styles.closeButton, saving && { opacity: 0.4 }]}>✕ Cancel</Text>
+          <Text style={[styles.closeButton, saving && { opacity: 0.4 }]}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Recipe</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving}>
@@ -343,7 +344,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
             style={styles.folderSelector}
             onPress={() => setShowFolderPicker(!showFolderPicker)}
           >
-            <Text style={styles.folderSelectorText}>📖 {selectedFolder}</Text>
+            <Text style={styles.folderSelectorText}>{selectedFolder}</Text>
             <Text style={styles.folderSelectorArrow}>▼</Text>
           </TouchableOpacity>
 
@@ -397,7 +398,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
               </View>
             ) : (
               <View style={styles.imagePlaceholder}>
-                <Text style={styles.imagePlaceholderIcon}>📷</Text>
+                <Ionicons name="camera" size={32} color={colors.primary} style={styles.imagePlaceholderIcon} />
                 <Text style={styles.imagePlaceholderText}>Add a photo</Text>
                 <Text style={styles.imagePlaceholderSubtext}>Take a photo or choose from library</Text>
               </View>
@@ -434,7 +435,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
                   onPress={() => removeIngredient(index)}
                   style={styles.removeButton}
                 >
-                  <Text style={styles.removeButtonText}>✕</Text>
+                  <Ionicons name="close" size={14} color="#fff" />
                 </TouchableOpacity>
               )}
             </View>
@@ -462,7 +463,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
                     onPress={() => removeInstruction(index)}
                     style={styles.removeInstructionButton}
                   >
-                    <Text style={styles.removeButtonText}>✕</Text>
+                    <Ionicons name="close" size={14} color="#fff" />
                   </TouchableOpacity>
                 )}
               </View>

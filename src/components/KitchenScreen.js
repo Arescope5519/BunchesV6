@@ -92,7 +92,7 @@ const KitchenScreen = ({
     if (!isPremium) {
       return (
         <View style={styles.premiumGate}>
-          <Text style={styles.premiumIcon}>🔒</Text>
+          <Ionicons name="lock-closed" size={48} color={colors.primary} style={{ marginBottom: 16 }} />
           <Text style={styles.premiumTitle}>Premium Feature</Text>
           <Text style={styles.premiumText}>
             Upgrade to unlock cook planning, meal tracking, and fridge inventory.

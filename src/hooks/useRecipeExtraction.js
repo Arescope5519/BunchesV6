@@ -7,6 +7,7 @@
 import { useState, useRef } from 'react';
 import { Alert } from 'react-native';
 import RecipeExtractor from '../../RecipeExtractor';
+import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Normalize URL for comparison (remove trailing slash, www, protocol variations)
@@ -151,7 +152,7 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
         return { action: 'extracted', recipe };
       } else {
         Alert.alert(
-          '❌ Extraction Failed',
+          'Extraction Failed',
           `Could not extract a recipe from that URL.\n\n${result.error || 'The site may not have structured recipe data.'}\n\nTry a different recipe URL.`,
         );
         return { action: 'failed', error: result.error };
@@ -159,7 +160,7 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
     } catch (error) {
       console.error('❌ Extraction error:', error);
       Alert.alert(
-        '❌ Extraction Error',
+        'Extraction Error',
         error.message === 'Extraction timed out after 30 seconds'
           ? 'The site took too long to respond. Check your internet or try again.'
           : `Failed to extract recipe: ${error.message}`,

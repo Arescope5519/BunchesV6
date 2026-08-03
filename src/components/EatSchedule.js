@@ -23,6 +23,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import {
   getMealEvents,
@@ -38,9 +39,9 @@ import {
 } from '../services/supabase/kitchen';
 
 const SLOTS = [
-  { key: 'breakfast', label: 'Breakfast', icon: '🍳' },
-  { key: 'lunch',     label: 'Lunch',     icon: '🥪' },
-  { key: 'dinner',    label: 'Dinner',    icon: '🍽️' },
+  { key: 'breakfast', label: 'Breakfast', icon: 'egg-outline' },
+  { key: 'lunch',     label: 'Lunch',     icon: 'fast-food-outline' },
+  { key: 'dinner',    label: 'Dinner',    icon: 'restaurant-outline' },
 ];
 
 const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
@@ -230,14 +231,14 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     const cook = knownCookEvents[m.cook_event_id];
     let title = 'Meal';
     let subtitle = `${m.servings_consumed} serving${m.servings_consumed !== 1 ? 's' : ''}`;
-    let icon = '🍽️';
+    let icon = 'restaurant';
     let recipe = null;
 
     if (cook) {
       if (cook.is_takeout) {
         title = cook.takeout_name || 'Takeout';
         subtitle += ' • takeout';
-        icon = '🥡';
+        icon = 'fast-food';
       } else if (cook.recipe_id) {
         recipe = findRecipe(cook.recipe_id);
         title = recipe?.title || '(deleted recipe)';
@@ -262,7 +263,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
           <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
         ) : (
           <View style={[styles.thumb, styles.thumbPlaceholder]}>
-            <Text style={{ fontSize: 18 }}>{icon}</Text>
+            <Ionicons name={icon} size={18} color={colors.primary} />
           </View>
         )}
         <View style={{ flex: 1 }}>
@@ -308,7 +309,10 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
               {SLOTS.map(slot => (
                 <View key={slot.key} style={styles.slot}>
                   <View style={styles.slotHeader}>
-                    <Text style={styles.slotLabel}>{slot.icon} {slot.label}</Text>
+                    <View style={styles.slotLabelRow}>
+                <Ionicons name={slot.icon} size={15} color={colors.text} style={{ marginRight: 5 }} />
+                <Text style={styles.slotLabel}>{slot.label}</Text>
+              </View>
                   </View>
                   {mealsForSlot(date, slot.key).map(renderMealItem)}
                   <TouchableOpacity
@@ -558,7 +562,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.headerAction}>✕ Cancel</Text>
+            <Text style={styles.headerAction}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{slotLabel}</Text>
           <View style={{ width: 60 }} />
@@ -576,7 +580,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 style={styles.optionCard}
                 onPress={() => setMode('fridge')}
               >
-                <Text style={styles.optionIcon}>🥡</Text>
+                <Ionicons name="fast-food" size={22} color={colors.primary} style={styles.optionIcon} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.optionTitle}>From Fridge</Text>
                   <Text style={styles.optionSubtitle}>
@@ -590,7 +594,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 style={styles.optionCard}
                 onPress={() => setMode('cook')}
               >
-                <Text style={styles.optionIcon}>🍳</Text>
+                <Ionicons name="flame" size={22} color={colors.primary} style={styles.optionIcon} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.optionTitle}>Cook a Recipe</Text>
                   <Text style={styles.optionSubtitle}>
@@ -604,7 +608,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 style={styles.optionCard}
                 onPress={() => setMode('takeout')}
               >
-                <Text style={styles.optionIcon}>🥡</Text>
+                <Ionicons name="fast-food" size={22} color={colors.primary} style={styles.optionIcon} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.optionTitle}>Take Out</Text>
                   <Text style={styles.optionSubtitle}>
@@ -649,7 +653,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                         <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                          <Text style={{ fontSize: 18 }}>🍽️</Text>
+                          <Ionicons name="restaurant" size={18} color={colors.primary} />
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
@@ -677,7 +681,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 style={styles.optionCard}
                 onPress={() => setAlreadyCooked(true)}
               >
-                <Text style={styles.optionIcon}>✅</Text>
+                <Ionicons name="checkmark-circle" size={22} color={colors.primary} style={styles.optionIcon} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.optionTitle}>Yes, it's made</Text>
                   <Text style={styles.optionSubtitle}>
@@ -689,7 +693,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 style={styles.optionCard}
                 onPress={() => setAlreadyCooked(false)}
               >
-                <Text style={styles.optionIcon}>🗓️</Text>
+                <Ionicons name="calendar" size={22} color={colors.primary} style={styles.optionIcon} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.optionTitle}>Not yet - schedule it</Text>
                   <Text style={styles.optionSubtitle}>
@@ -818,7 +822,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                         <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                          <Text style={{ fontSize: 18 }}>{cook.is_takeout ? '🥡' : '🍽️'}</Text>
+                          <Ionicons name={cook.is_takeout ? 'fast-food' : 'restaurant'} size={18} color={colors.primary} />
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
@@ -969,6 +973,10 @@ const styles = StyleSheet.create({
   dayLabel: { fontSize: 14, fontWeight: '700', color: colors.primary, marginBottom: 12 },
   slot: { marginBottom: 12 },
   slotHeader: { marginBottom: 6 },
+  slotLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   slotLabel: { fontSize: 13, fontWeight: '600', color: colors.text },
 
   mealItem: {
@@ -1031,7 +1039,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  optionIcon: { fontSize: 32, marginRight: 14 },
+  optionIcon: { marginRight: 10 },
   optionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   optionSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   optionArrow: { fontSize: 20, color: colors.textSecondary },

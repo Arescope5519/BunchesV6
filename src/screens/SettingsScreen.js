@@ -578,7 +578,8 @@ export const SettingsScreen = ({
               <View style={styles.accountHeader}>
                 <Text style={styles.accountLabel}>Signed in as</Text>
                 <View style={styles.accountBadge}>
-                  <Text style={styles.accountBadgeText}>☁️ Cloud Sync Active</Text>
+                  <Ionicons name="cloud-done" size={13} color={colors.primary} style={{ marginRight: 5 }} />
+                  <Text style={styles.accountBadgeText}>Cloud Sync Active</Text>
                 </View>
               </View>
               {user.displayName && (
@@ -611,7 +612,10 @@ export const SettingsScreen = ({
                 {isSyncing ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.syncButtonText}>🔄 Sync Now</Text>
+                  <>
+                    <Ionicons name="refresh" size={15} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.syncButtonText}>Sync Now</Text>
+                  </>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -629,7 +633,8 @@ export const SettingsScreen = ({
             <Text style={styles.sectionTitle}>Account</Text>
             <View style={styles.infoCard}>
               <View style={styles.accountBadge}>
-                <Text style={styles.localModeText}>📱 Local Mode</Text>
+                <Ionicons name="phone-portrait-outline" size={14} color={colors.textSecondary} style={{ marginRight: 5 }} />
+                <Text style={styles.localModeText}>Local Mode</Text>
               </View>
               <Text style={styles.localModeDescription}>
                 Sign in with Google to enable cloud sync and access your recipes from any device.
@@ -639,7 +644,8 @@ export const SettingsScreen = ({
                   style={styles.signInButton}
                   onPress={onSignIn}
                 >
-                  <Text style={styles.signInButtonText}>🔐 Sign In with Google</Text>
+                  <Ionicons name="log-in-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.signInButtonText}>Sign In with Google</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -655,7 +661,7 @@ export const SettingsScreen = ({
               onPress={onOpenAdminReports}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, marginRight: 12 }}>🚩</Text>
+                <Ionicons name="flag" size={22} color={colors.primary} style={{ marginRight: 12 }} />
                 <View>
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#000' }}>Moderation Queue</Text>
                   <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Review pending reports</Text>
@@ -675,7 +681,7 @@ export const SettingsScreen = ({
               onPress={onOpenBlockedUsers}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, marginRight: 12 }}>🚫</Text>
+                <Ionicons name="ban" size={22} color={colors.primary} style={{ marginRight: 12 }} />
                 <View>
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#000' }}>Blocked Users</Text>
                   <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Manage users you've blocked</Text>
@@ -713,10 +719,10 @@ export const SettingsScreen = ({
                         <ActivityIndicator size="small" color={colors.primary} />
                       )}
                       {!checkingUsername && usernameAvailable === true && (
-                        <Text style={styles.availableIcon}>✓</Text>
+                        <Ionicons name="checkmark-circle" size={16} color={colors.success} />
                       )}
                       {!checkingUsername && usernameAvailable === false && (
-                        <Text style={styles.unavailableIcon}>✗</Text>
+                        <Ionicons name="close-circle" size={16} color={colors.error} />
                       )}
                     </View>
                     {newUsername.length > 0 && newUsername.length < 3 && (
@@ -969,14 +975,18 @@ export const SettingsScreen = ({
               {isExporting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.backupButtonText}>📤 Export Backup</Text>
+                <>
+                  <Ionicons name="share-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.backupButtonText}>Export Backup</Text>
+                </>
               )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.restoreButton}
               onPress={handleRestoreBackup}
             >
-              <Text style={styles.restoreButtonText}>📥 Restore from Backup</Text>
+              <Ionicons name="download-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.restoreButtonText}>Restore from Backup</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1179,6 +1189,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   accountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -1191,6 +1204,9 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   syncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 16,
     backgroundColor: colors.primary,
     paddingVertical: 12,
@@ -1229,6 +1245,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   signInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -1437,6 +1456,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   backupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     borderRadius: 8,
     padding: 14,
@@ -1449,6 +1471,9 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
     borderRadius: 8,
     padding: 14,

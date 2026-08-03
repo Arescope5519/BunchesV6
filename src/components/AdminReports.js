@@ -19,6 +19,7 @@ import {
   RefreshControl,
   SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import {
   getPendingReports,
@@ -146,7 +147,7 @@ const AdminReports = ({ visible, onClose, onOpenRecipe, onOpenProfile }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.closeButton}>✕ Close</Text>
+            <Text style={styles.closeButton}>Close</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Moderation Queue</Text>
           <TouchableOpacity onPress={loadReports}>
@@ -158,7 +159,7 @@ const AdminReports = ({ visible, onClose, onOpenRecipe, onOpenProfile }) => {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : reports.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>✅</Text>
+            <Ionicons name="checkmark-circle" size={48} color={colors.success} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>No pending reports</Text>
             <Text style={styles.emptyText}>All caught up!</Text>
           </View>
@@ -176,7 +177,7 @@ const AdminReports = ({ visible, onClose, onOpenRecipe, onOpenProfile }) => {
               >
                 <View style={styles.reportHeader}>
                   <Text style={styles.reportType}>
-                    {report.content_type === 'recipe' ? '🍳 Recipe' : '👤 Profile'}
+                    {report.content_type === 'recipe' ? 'Recipe' : 'Profile'}
                   </Text>
                   <Text style={styles.reportDate}>{formatDate(report.created_at)}</Text>
                 </View>
@@ -245,7 +246,7 @@ const AdminReports = ({ visible, onClose, onOpenRecipe, onOpenProfile }) => {
                   onPress={() => previewContent(selectedReport)}
                   disabled={actioning}
                 >
-                  <Text style={styles.previewButtonText}>👁 Preview Content</Text>
+                  <Text style={styles.previewButtonText}>Preview Content</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.actionsHeader}>Actions</Text>

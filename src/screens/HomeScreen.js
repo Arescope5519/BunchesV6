@@ -749,7 +749,7 @@ export const HomeScreen = ({ user }) => {
       // opening the just-saved recipe
       if (!advanceScanQueue()) {
         setSelectedRecipe(recipeWithFolder);
-        Alert.alert('✅ Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
+        Alert.alert('Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
       }
     } else {
       Alert.alert('Error', 'Failed to save recipe. Please try again.');
@@ -861,7 +861,7 @@ export const HomeScreen = ({ user }) => {
 
     const saved = await saveRecipe(recipeWithCreator);
     if (saved) {
-      Alert.alert('✅ Success', `Recipe "${recipe.title}" created!`);
+      Alert.alert('Success', `Recipe "${recipe.title}" created!`);
       setCurrentScreen('recipes');
       setSelectedRecipe(recipeWithCreator);
     } else {
@@ -885,7 +885,7 @@ export const HomeScreen = ({ user }) => {
 
       await refreshRecipes();
       setCurrentScreen('recipes');
-      Alert.alert('✅ Success', 'All data has been cleared');
+      Alert.alert('Success', 'All data has been cleared');
     } catch (error) {
       console.error('Error clearing data:', error);
       Alert.alert('Error', 'Failed to clear data');
@@ -1366,7 +1366,7 @@ export const HomeScreen = ({ user }) => {
     exitMultiselectMode();
 
     if (success) {
-      Alert.alert('✅ Success', `Moved ${recipeCount} recipe${recipeCount > 1 ? 's' : ''} to ${targetFolder}`);
+      Alert.alert('Success', `Moved ${recipeCount} recipe${recipeCount > 1 ? 's' : ''} to ${targetFolder}`);
     } else {
       Alert.alert('Error', 'Failed to move recipes');
     }
@@ -1545,8 +1545,8 @@ export const HomeScreen = ({ user }) => {
     try {
       Clipboard.setString(text);
       Alert.alert(
-        '✅ Copied!',
-        `${title}\n\nThe code has been copied to your clipboard. You can now:\n\n1. Share it via any app\n2. Or paste it directly in Import (📥) to test`,
+        'Copied',
+        `${title}\n\nThe code has been copied to your clipboard. You can now:\n\n1. Share it via any app\n2. Or paste it directly into Import to test`,
         [
           { text: 'OK' },
           {
@@ -1705,7 +1705,7 @@ export const HomeScreen = ({ user }) => {
 
     const saved = await saveRecipe(cleanedRecipe);
     if (saved) {
-      Alert.alert('✅ Added', `"${cleanedRecipe.title}" added to ${targetFolder}!`);
+      Alert.alert('Added', `"${cleanedRecipe.title}" added to ${targetFolder}!`);
     } else {
       Alert.alert('Error', 'Failed to add recipe. Please try again.');
     }
@@ -2167,7 +2167,7 @@ export const HomeScreen = ({ user }) => {
       }
     } catch (error) {
       Alert.alert(
-        '❌ Import Error',
+        'Import Error',
         `Failed to import: ${error.message}\n\nPlease copy the ENTIRE code starting with BUNCHES_RECIPE: or BUNCHES_COOKBOOK:`
       );
     }
@@ -2188,7 +2188,7 @@ export const HomeScreen = ({ user }) => {
       };
 
       await saveRecipe(newRecipe);
-      Alert.alert('✅ Success', `Recipe "${newRecipe.title}" imported to ${newRecipe.folder}!`);
+      Alert.alert('Success', `Recipe "${newRecipe.title}" imported to ${newRecipe.folder}!`);
     } else if (parsed.type === 'cookbook') {
       const recipesToImport = parsed.data;
 
@@ -2211,7 +2211,7 @@ export const HomeScreen = ({ user }) => {
       // Reload to reflect changes
       await refreshRecipes();
 
-      Alert.alert('✅ Success', `Imported ${newRecipes.length} recipe${newRecipes.length > 1 ? 's' : ''} from "${parsed.name}" to ${finalFolder}`);
+      Alert.alert('Success', `Imported ${newRecipes.length} recipe${newRecipes.length > 1 ? 's' : ''} from "${parsed.name}" to ${finalFolder}`);
     } else {
       throw new Error('Unknown import type: ' + parsed.type);
     }

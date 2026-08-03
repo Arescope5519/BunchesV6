@@ -15,6 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { signInWithGoogle } from '../services/supabase/auth';
 
@@ -48,7 +49,7 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
       <View style={styles.content}>
         {/* Logo/Icon Section */}
         <View style={styles.logoSection}>
-          <Text style={styles.logoIcon}>📚</Text>
+          <Ionicons name="restaurant" size={56} color={colors.primary} style={styles.logoIcon} />
           <Text style={styles.appName}>Bunches</Text>
           <Text style={styles.tagline}>Your Recipe Collection</Text>
         </View>
@@ -56,15 +57,15 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
         {/* Features List */}
         <View style={styles.featuresSection}>
           <View style={styles.feature}>
-            <Text style={styles.featureIcon}>☁️</Text>
+            <Ionicons name="cloud-done" size={20} color={colors.primary} style={styles.featureIcon} />
             <Text style={styles.featureText}>Cloud Backup</Text>
           </View>
           <View style={styles.feature}>
-            <Text style={styles.featureIcon}>🔄</Text>
+            <Ionicons name="sync" size={20} color={colors.primary} style={styles.featureIcon} />
             <Text style={styles.featureText}>Sync Across Devices</Text>
           </View>
           <View style={styles.feature}>
-            <Text style={styles.featureIcon}>📱</Text>
+            <Ionicons name="phone-portrait" size={20} color={colors.primary} style={styles.featureIcon} />
             <Text style={styles.featureText}>Access Anywhere</Text>
           </View>
         </View>

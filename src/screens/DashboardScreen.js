@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 export const DashboardScreen = ({
@@ -23,7 +24,7 @@ export const DashboardScreen = ({
     {
       id: 'recipes',
       title: 'My Recipes',
-      icon: '📚',
+      icon: 'book',
       description: 'Browse and manage your cookbooks',
       color: colors.primary,
       badge: recipeCount,
@@ -31,28 +32,28 @@ export const DashboardScreen = ({
     {
       id: 'create',
       title: 'Create Recipe',
-      icon: '✏️',
+      icon: 'create',
       description: 'Add a recipe manually',
       color: '#10b981',
     },
     {
       id: 'import',
       title: 'Import Recipe',
-      icon: '📥',
+      icon: 'download',
       description: 'Import from URL or code',
       color: '#8b5cf6',
     },
     {
       id: 'search',
       title: 'Search Ingredients',
-      icon: '🔍',
+      icon: 'search',
       description: 'Find by ingredients',
       color: '#f59e0b',
     },
     {
       id: 'explore',
       title: 'Explore',
-      icon: '🌍',
+      icon: 'globe',
       description: 'Coming soon...',
       color: '#06b6d4',
       comingSoon: true,
@@ -60,7 +61,7 @@ export const DashboardScreen = ({
     {
       id: 'settings',
       title: 'Settings',
-      icon: '⚙️',
+      icon: 'settings',
       description: 'App preferences',
       color: '#6b7280',
     },
@@ -100,7 +101,7 @@ export const DashboardScreen = ({
           >
             <View style={styles.tileContent}>
               <View style={styles.tileTop}>
-                <Text style={styles.tileIcon}>{tile.icon}</Text>
+                <Ionicons name={tile.icon} size={30} color={colors.primary} style={styles.tileIcon} />
                 {tile.badge > 0 && (
                   <View style={styles.tileBadge}>
                     <Text style={styles.tileBadgeText}>{tile.badge}</Text>

@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 export const UsernameSetupModal = ({
@@ -135,13 +136,13 @@ export const UsernameSetupModal = ({
                 <ActivityIndicator size="small" color={colors.primary} />
               )}
               {!checking && isAvailable === true && (
-                <Text style={styles.availableIcon}>✓</Text>
+                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
               )}
               {!checking && isAvailable === false && (
-                <Text style={styles.unavailableIcon}>✗</Text>
+                <Ionicons name="close-circle" size={16} color={colors.error} />
               )}
               {!checking && isAvailable === null && username.length >= 3 && (
-                <Text style={styles.errorIcon}>⚠️</Text>
+                <Ionicons name="warning" size={16} color={colors.warning} />
               )}
             </View>
             {username.length > 0 && username.length < 3 && (

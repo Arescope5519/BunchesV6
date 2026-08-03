@@ -21,6 +21,7 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
 import {
@@ -343,7 +344,7 @@ const UserProfile = ({
             style={styles.folderListItem}
             onPress={() => loadFolderRecipes(folder.fullPath || folder.name)}
           >
-            <Text style={styles.folderIcon}>📖</Text>
+            <Ionicons name="book" size={18} color={colors.primary} style={styles.folderIcon} />
             <Text style={styles.folderListName}>{folder.displayName || folder.name}</Text>
             <Text style={styles.folderArrow}>{'>'}</Text>
           </TouchableOpacity>
@@ -354,7 +355,7 @@ const UserProfile = ({
           style={styles.folderListItem}
           onPress={loadUncategorizedRecipes}
         >
-          <Text style={styles.folderIcon}>📋</Text>
+          <Ionicons name="list" size={18} color={colors.primary} style={styles.folderIcon} />
           <Text style={styles.folderListName}>Uncategorized</Text>
           <Text style={styles.folderArrow}>{'>'}</Text>
         </TouchableOpacity>
@@ -386,7 +387,7 @@ const UserProfile = ({
     if (blockStatus.blocking) {
       return (
         <View style={styles.privateProfileContainer}>
-          <Text style={styles.privateProfileIcon}>🚫</Text>
+          <Ionicons name="ban" size={44} color={colors.textLight} style={styles.privateProfileIcon} />
           <Text style={styles.privateProfileTitle}>Blocked</Text>
           <Text style={styles.privateProfileText}>
             You have blocked this user. Their content is hidden. Tap ⋯ to unblock.
@@ -397,7 +398,7 @@ const UserProfile = ({
     if (blockStatus.blockedBy) {
       return (
         <View style={styles.privateProfileContainer}>
-          <Text style={styles.privateProfileIcon}>🚫</Text>
+          <Ionicons name="ban" size={44} color={colors.textLight} style={styles.privateProfileIcon} />
           <Text style={styles.privateProfileTitle}>Not Available</Text>
           <Text style={styles.privateProfileText}>
             This profile is not available.
@@ -408,7 +409,7 @@ const UserProfile = ({
     if (!profile?.canView) {
       return (
         <View style={styles.privateProfileContainer}>
-          <Text style={styles.privateProfileIcon}>🔒</Text>
+          <Ionicons name="lock-closed" size={44} color={colors.textLight} style={styles.privateProfileIcon} />
           <Text style={styles.privateProfileTitle}>Private Profile</Text>
           <Text style={styles.privateProfileText}>
             This user's profile is private. Send a friend request to view their recipes.
@@ -520,7 +521,7 @@ const UserProfile = ({
             style={styles.actionButton}
             onPress={() => setCurrentView('folders')}
           >
-            <Text style={styles.actionButtonIcon}>📚</Text>
+            <Ionicons name="library" size={18} color={colors.primary} style={styles.actionButtonIcon} />
             <View style={styles.actionButtonTextContainer}>
               <Text style={styles.actionButtonTitle}>{profile?.username || 'User'}'s Recipes</Text>
               <Text style={styles.actionButtonSubtitle}>Browse all cookbooks</Text>

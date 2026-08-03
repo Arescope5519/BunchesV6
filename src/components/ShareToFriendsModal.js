@@ -12,6 +12,7 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 export const ShareToFriendsModal = ({
@@ -109,7 +110,7 @@ export const ShareToFriendsModal = ({
                     >
                       <View style={styles.checkbox}>
                         {isSelected && (
-                          <Text style={styles.checkmark}>✓</Text>
+                          <Ionicons name="checkmark" size={14} color="#fff" />
                         )}
                       </View>
                       <View style={styles.friendInfo}>

@@ -19,6 +19,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { checkFieldsAsync } from '../services/profanityFilter';
 import { formatDuration, formatServings, buildNutritionItems } from '../utils/recipeFormat';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 // Helper to normalize ingredients to consistent format { section: [items] }
@@ -122,7 +123,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>No Recipe</Text>
           <TouchableOpacity onPress={onCancel}>
-            <Text style={styles.cancelButton}>✕ Cancel</Text>
+            <Text style={styles.cancelButton}>Cancel</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.content}>
@@ -149,7 +150,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Save Recipe</Text>
         <TouchableOpacity onPress={onCancel}>
-          <Text style={styles.cancelButton}>✕ Cancel</Text>
+          <Text style={styles.cancelButton}>Cancel</Text>
         </TouchableOpacity>
       </View>
 
@@ -172,7 +173,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
 
           <View style={styles.metaRow}>
             {localRecipe.source && (
-              <Text style={styles.metaText}>📍 {localRecipe.source}</Text>
+              <Text style={styles.metaText}>{localRecipe.source}</Text>
             )}
           </View>
 
@@ -229,7 +230,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
 
           {localRecipe.url && (
             <Text style={styles.urlText} numberOfLines={1}>
-              🔗 {localRecipe.url}
+              {localRecipe.url}
             </Text>
           )}
         </View>
@@ -299,7 +300,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
           return (
             <View style={styles.detailSection}>
               <View style={styles.nutritionHeader}>
-                <Text style={styles.sectionTitle}>📊 Nutrition</Text>
+                <Text style={styles.sectionTitle}>Nutrition</Text>
                 <Text style={styles.nutritionSub}>
                   {perServing ? `per ${perServing}` : 'per serving'}
                 </Text>
@@ -325,7 +326,8 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
           style={styles.saveButton}
           onPress={handleSave}
         >
-          <Text style={styles.saveButtonText}>💾 Save to {selectedFolder}</Text>
+          <Ionicons name="save" size={16} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.saveButtonText}>Save to {selectedFolder}</Text>
         </TouchableOpacity>
       </View>
 
@@ -555,6 +557,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,

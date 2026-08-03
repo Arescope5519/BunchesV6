@@ -16,6 +16,7 @@ import {
   RefreshControl,
   SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { getBlockedUsers, unblockUser } from '../services/supabase/social';
 
@@ -84,7 +85,7 @@ const BlockedUsers = ({ visible, onClose, currentUserId }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.closeButton}>✕ Close</Text>
+            <Text style={styles.closeButton}>Close</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Blocked Users</Text>
           <View style={{ width: 60 }} />
@@ -94,7 +95,7 @@ const BlockedUsers = ({ visible, onClose, currentUserId }) => {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : blocked.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>👥</Text>
+            <Ionicons name="people-outline" size={48} color={colors.textLight} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>No blocked users</Text>
             <Text style={styles.emptyText}>
               You haven't blocked anyone. Blocked users will appear here.

@@ -18,6 +18,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 const DISCLAIMER_ACCEPTED_KEY = 'disclaimer_accepted_v1';
@@ -82,7 +83,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.section}>
-            <Text style={styles.sectionIcon}>🛡️</Text>
+            <Ionicons name="shield-checkmark" size={20} color={colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Content Moderation</Text>
             <Text style={styles.sectionText}>
               To keep our community safe, we automatically check your recipe content:
@@ -102,7 +103,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionIcon}>👤</Text>
+            <Ionicons name="person" size={20} color={colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Your Data</Text>
             <Text style={styles.sectionText}>
               Your recipes, cookbooks, and profile are stored securely on Supabase. Photos are
@@ -114,7 +115,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionIcon}>📜</Text>
+            <Ionicons name="document-text" size={20} color={colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Community Rules</Text>
             <Text style={styles.sectionText}>
               By using Bunches, you agree to:
@@ -134,7 +135,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionIcon}>📄</Text>
+            <Ionicons name="newspaper" size={20} color={colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Legal</Text>
             <Text style={styles.sectionText}>
               By tapping "I Agree", you accept our:
@@ -155,7 +156,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
             disabled={accepted}
           >
             <Text style={styles.acceptButtonText}>
-              {accepted ? '✓ Accepted' : 'I Agree'}
+              {accepted ? 'Accepted' : 'I Agree'}
             </Text>
           </TouchableOpacity>
         </View>

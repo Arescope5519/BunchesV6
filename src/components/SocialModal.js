@@ -244,7 +244,7 @@ export const SocialModal = ({
         }}
       >
         <Text style={styles.addFriendsButtonText}>
-          {showAddFriends ? '✕ Close Search' : '+ Add Friends'}
+          {showAddFriends ? 'Close Search' : '+ Add Friends'}
         </Text>
       </TouchableOpacity>
 
@@ -431,7 +431,7 @@ export const SocialModal = ({
         <ScrollView style={styles.previewContent}>
           {/* Cookbook header */}
           <View style={styles.cookbookHeader}>
-            <Text style={styles.cookbookIcon}>📁</Text>
+            <Ionicons name="folder" size={18} color={colors.primary} style={styles.cookbookIcon} />
             <Text style={styles.cookbookName}>{getDisplayName(previewRecipe.name)}</Text>
             <Text style={styles.previewFrom}>Shared by @{previewRecipe.fromUsername}</Text>
             <Text style={styles.cookbookCount}>{recipes.length} recipe{recipes.length !== 1 ? 's' : ''}</Text>
@@ -479,7 +479,7 @@ export const SocialModal = ({
             }}
             style={styles.followCookbookButton}
           >
-            <Text style={styles.followCookbookIcon}>👁️</Text>
+            <Ionicons name="eye" size={16} color={colors.primary} style={styles.followCookbookIcon} />
             <View style={styles.followCookbookTextContainer}>
               <Text style={styles.followCookbookTitle}>Follow Cookbook</Text>
               <Text style={styles.followCookbookDescription}>
@@ -496,7 +496,7 @@ export const SocialModal = ({
             }}
             style={styles.copyCookbookButton}
           >
-            <Text style={styles.copyCookbookIcon}>📋</Text>
+            <Ionicons name="copy" size={16} color={colors.primary} style={styles.copyCookbookIcon} />
             <View style={styles.copyCookbookTextContainer}>
               <Text style={styles.copyCookbookTitle}>Make a Copy</Text>
               <Text style={styles.copyCookbookDescription}>
@@ -550,7 +550,7 @@ export const SocialModal = ({
 
               {recipe.image_url && (
                 <View style={styles.previewImagePlaceholder}>
-                  <Text style={styles.previewImageText}>📷 Image</Text>
+                  <Ionicons name="image" size={20} color={colors.textTertiary} />
                 </View>
               )}
 
@@ -661,7 +661,7 @@ export const SocialModal = ({
             >
               <View style={styles.threadRecipeInfo}>
                 <Text style={styles.threadRecipeType}>
-                  {item.type === 'recipe' ? '📄' : '📚'} {item.type === 'recipe' ? 'Recipe' : 'Cookbook'}
+                  {item.type === 'recipe' ? 'Recipe' : 'Cookbook'}
                 </Text>
                 <Text style={styles.threadRecipeName}>{getDisplayName(item.name)}</Text>
                 {item.type === 'cookbook' && (
@@ -834,7 +834,7 @@ export const SocialModal = ({
         {/* Tab Content */}
         {activeTab === 'discover' && (
           <View style={styles.discoverContainer}>
-            <Text style={styles.discoverIcon}>🧭</Text>
+            <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
             <Text style={styles.discoverTitle}>Discover</Text>
             <Text style={styles.discoverSubtitle}>Coming Soon</Text>
             <Text style={styles.discoverText}>

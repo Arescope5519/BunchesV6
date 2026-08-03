@@ -21,6 +21,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import {
   getFridgeInventory,
@@ -114,7 +115,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : inventory.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🥡</Text>
+          <Ionicons name="fast-food-outline" size={48} color={colors.textLight} style={{ marginBottom: 12 }} />
           <Text style={styles.emptyTitle}>Fridge is empty</Text>
           <Text style={styles.emptyText}>
             Add a meal in the Cook tab. Anything you've cooked in the last 10 days will show up here.
@@ -145,7 +146,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                     <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
                   ) : (
                     <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                      <Text style={{ fontSize: 20 }}>{cook.is_takeout ? '🥡' : '🍽️'}</Text>
+                      <Ionicons name={cook.is_takeout ? 'fast-food' : 'restaurant'} size={20} color={colors.primary} />
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
@@ -157,7 +158,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                       {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} left
                     </Text>
                     <Text style={[styles.meta, isOld && { color: colors.error || '#e74c3c' }]}>
-                      {cook.is_takeout ? 'Ordered' : 'Cooked'} {daysAgo} {isOld && '⚠️'}
+                      {cook.is_takeout ? 'Ordered' : 'Cooked'} {daysAgo}{isOld ? ' - check freshness' : ''}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -166,13 +167,15 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                     style={[styles.actionButton, styles.trashButton]}
                     onPress={() => openAction(entry, 'trash')}
                   >
-                    <Text style={styles.actionText}>🗑 Trash</Text>
+                    <Ionicons name="trash-outline" size={13} color={colors.error} style={{ marginRight: 4 }} />
+                    <Text style={styles.actionText}>Trash</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.adjustButton]}
                     onPress={() => openAction(entry, 'adjust')}
                   >
-                    <Text style={styles.actionText}>⚖️ Adjust portions</Text>
+                    <Ionicons name="options-outline" size={13} color={colors.text} style={{ marginRight: 4 }} />
+                    <Text style={styles.actionText}>Adjust portions</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -191,7 +194,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
         <View style={styles.overlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
-              {action?.mode === 'trash' ? '🗑 Throw out' : '⚖️ Adjust portions'}
+              {action?.mode === 'trash' ? 'Throw out' : 'Adjust portions'}
             </Text>
             <Text style={styles.modalSubtitle}>
               {action?.entry

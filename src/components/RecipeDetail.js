@@ -906,19 +906,28 @@ export const RecipeDetail = ({
       {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.servings) && (
         <View style={styles.metaContainer}>
           {localRecipe.prep_time && (
-            <Text style={styles.metaText}>
-              ⏱️ Prep Time: {formatDuration(localRecipe.prep_time)}
-            </Text>
+            <View style={styles.metaRow}>
+              <Ionicons name="time-outline" size={14} color={colors.textSecondary} style={styles.metaIcon} />
+              <Text style={styles.metaText}>
+                Prep Time: {formatDuration(localRecipe.prep_time)}
+              </Text>
+            </View>
           )}
           {localRecipe.cook_time && (
-            <Text style={styles.metaText}>
-              🔥 Cook Time: {formatDuration(localRecipe.cook_time)}
-            </Text>
+            <View style={styles.metaRow}>
+              <Ionicons name="flame-outline" size={14} color={colors.textSecondary} style={styles.metaIcon} />
+              <Text style={styles.metaText}>
+                Cook Time: {formatDuration(localRecipe.cook_time)}
+              </Text>
+            </View>
           )}
           {localRecipe.servings && (
-            <Text style={styles.metaText}>
-              🍽️ Serves: {formatServings(localRecipe.servings)}
-            </Text>
+            <View style={styles.metaRow}>
+              <Ionicons name="restaurant-outline" size={14} color={colors.textSecondary} style={styles.metaIcon} />
+              <Text style={styles.metaText}>
+                Serves: {formatServings(localRecipe.servings)}
+              </Text>
+            </View>
           )}
         </View>
       )}
@@ -943,7 +952,8 @@ export const RecipeDetail = ({
           style={styles.addToGroceryListMainButton}
           onPress={toggleSelectionMode}
         >
-          <Text style={styles.addToGroceryListMainButtonText}>🛒 Add Ingredients to Grocery List</Text>
+          <Ionicons name="cart" size={16} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.addToGroceryListMainButtonText}>Add Ingredients to Grocery List</Text>
         </TouchableOpacity>
       )}
 
@@ -951,10 +961,12 @@ export const RecipeDetail = ({
       {selectionMode && (
         <View style={styles.selectionControlsContainer}>
           <TouchableOpacity onPress={selectAllIngredients} style={styles.selectAllButton}>
-            <Text style={styles.selectAllButtonText}>✓ Select All</Text>
+            <Ionicons name="checkmark-done" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={styles.selectAllButtonText}>Select All</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={addSelectedToGroceryList} style={styles.addToListButton}>
-            <Text style={styles.addToListButtonText}>🛒 Add to List</Text>
+            <Ionicons name="cart" size={14} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={styles.addToListButtonText}>Add to List</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={toggleSelectionMode} style={styles.cancelSelectionButton}>
             <Text style={styles.cancelSelectionButtonText}>Cancel</Text>
@@ -996,8 +1008,9 @@ export const RecipeDetail = ({
           style={styles.unitToggle}
           onPress={() => setUseMetric(!useMetric)}
         >
+          <Ionicons name="resize-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
           <Text style={styles.unitToggleText}>
-            {useMetric ? '📏 Metric' : '📏 Imperial'}
+            {useMetric ? 'Metric' : 'Imperial'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1005,8 +1018,9 @@ export const RecipeDetail = ({
       {/* Scaling Disclaimer */}
       {scaleFactor !== 1 && (
         <View style={styles.disclaimer}>
+          <Ionicons name="warning-outline" size={14} color={colors.warning} style={{ marginRight: 6 }} />
           <Text style={styles.disclaimerText}>
-            ⚠️ Note: Cooking times may vary when modifying quantities
+            Note: Cooking times may vary when modifying quantities
           </Text>
         </View>
       )}
@@ -1053,14 +1067,14 @@ export const RecipeDetail = ({
               <View style={styles.actionButtons}>
                 {section !== 'main' && (
                   <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>❌ Delete Section</Text>
+                    <Ionicons name="trash-outline" size={13} color={colors.error} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Delete Section</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
-                  <Text style={styles.actionButtonText}>🔄 Swap Section</Text>
+                  <Ionicons name="swap-horizontal" size={13} color={colors.text} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Swap Section</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
-                  <Text style={styles.actionButtonText}>➕ Add Ingredient</Text>
+                  <Ionicons name="add" size={14} color={colors.text} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Add Ingredient</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1077,10 +1091,10 @@ export const RecipeDetail = ({
                   autoFocus
                 />
                 <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                  <Text style={styles.saveButtonText}>✓</Text>
+                  <Ionicons name="checkmark" size={16} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
-                  <Text style={styles.cancelButtonText}>✕</Text>
+                  <Ionicons name="close" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1102,7 +1116,7 @@ export const RecipeDetail = ({
                     style={styles.checkboxContainer}
                   >
                     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                      {isSelected && <Text style={styles.checkboxCheck}>✓</Text>}
+                      {isSelected && <Ionicons name="checkmark" size={13} color="#fff" />}
                     </View>
                   </TouchableOpacity>
                 )}
@@ -1132,10 +1146,10 @@ export const RecipeDetail = ({
                       />
                       <View style={styles.editButtons}>
                         <TouchableOpacity onPress={saveEdit} style={styles.saveEditButton}>
-                          <Text style={styles.saveEditButtonText}>✓ Save</Text>
+                          <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} /><Text style={styles.saveEditButtonText}>Save</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.cancelEditButton}>
-                          <Text style={styles.cancelEditButtonText}>✕ Cancel</Text>
+                          <Ionicons name="close" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} /><Text style={styles.cancelEditButtonText}>Cancel</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1162,13 +1176,13 @@ export const RecipeDetail = ({
                editingItem?.index === idx && (
                 <View style={styles.actionButtons}>
                   <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>❌ Delete</Text>
+                    <Ionicons name="trash-outline" size={13} color={colors.error} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Delete</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>🔄 Swap</Text>
+                    <Ionicons name="swap-horizontal" size={13} color={colors.text} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Swap</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
-                    <Text style={styles.actionButtonText}>➕ Add Below</Text>
+                    <Ionicons name="add" size={14} color={colors.text} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Add Below</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1186,10 +1200,10 @@ export const RecipeDetail = ({
                     onSubmitEditing={saveNewItem}
                   />
                   <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>✓</Text>
+                    <Ionicons name="checkmark" size={16} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
-                    <Text style={styles.cancelButtonText}>✕</Text>
+                    <Ionicons name="close" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1224,10 +1238,10 @@ export const RecipeDetail = ({
                   />
                   <View style={styles.editButtons}>
                     <TouchableOpacity onPress={saveEdit} style={styles.saveEditButton}>
-                      <Text style={styles.saveEditButtonText}>✓ Save</Text>
+                      <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} /><Text style={styles.saveEditButtonText}>Save</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.cancelEditButton}>
-                      <Text style={styles.cancelEditButtonText}>✕ Cancel</Text>
+                      <Ionicons name="close" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} /><Text style={styles.cancelEditButtonText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1249,13 +1263,13 @@ export const RecipeDetail = ({
           {editingItem?.type === 'instruction' && editingItem?.index === idx && (
             <View style={styles.actionButtons}>
               <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>❌ Delete</Text>
+                <Ionicons name="trash-outline" size={13} color={colors.error} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={startSwap} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>🔄 Swap</Text>
+                <Ionicons name="swap-horizontal" size={13} color={colors.text} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Swap</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={startAddBelow} style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>➕ Add Below</Text>
+                <Ionicons name="add" size={14} color={colors.text} style={{ marginRight: 4 }} /><Text style={styles.actionButtonText}>Add Below</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1272,10 +1286,10 @@ export const RecipeDetail = ({
                 multiline
               />
               <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                <Text style={styles.saveButtonText}>✓</Text>
+                <Ionicons name="checkmark" size={16} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
-                <Text style={styles.cancelButtonText}>✕</Text>
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           )}
@@ -1295,7 +1309,10 @@ export const RecipeDetail = ({
         return (
           <View style={styles.nutritionContainer}>
             <View style={styles.nutritionHeader}>
-              <Text style={styles.nutritionTitle}>📊 Nutrition</Text>
+              <View style={styles.nutritionTitleRow}>
+                <Ionicons name="stats-chart" size={15} color={colors.text} style={{ marginRight: 6 }} />
+                <Text style={styles.nutritionTitle}>Nutrition</Text>
+              </View>
               <Text style={styles.nutritionSub}>{perLabel}</Text>
             </View>
             <View style={styles.nutritionGrid}>
@@ -1381,10 +1398,16 @@ export const RecipeDetail = ({
         const effectivePrivate = localRecipe.isPrivate || isFolderPrivate;
 
         const label = isFolderPrivate
-          ? '🔒 Private (folder is private)'
+          ? 'Private (folder is private)'
           : isCustom
-            ? (localRecipe.isPrivate ? '🔒 Private Recipe' : '🌐 Public Recipe')
-            : (localRecipe.isPrivate ? '✏️ My Version: Private' : '✏️ My Version: Shared');
+            ? (localRecipe.isPrivate ? 'Private Recipe' : 'Public Recipe')
+            : (localRecipe.isPrivate ? 'My Version: Private' : 'My Version: Shared');
+
+        const labelIcon = isFolderPrivate || (isCustom && localRecipe.isPrivate)
+          ? 'lock-closed'
+          : isCustom
+            ? 'globe-outline'
+            : 'pencil';
 
         const hint = isFolderPrivate
           ? 'Recipes in private folders are always private'
@@ -1399,7 +1422,15 @@ export const RecipeDetail = ({
         return (
           <View style={styles.privacyContainer}>
             <View style={styles.privacyRow}>
-              <Text style={styles.privacyLabel}>{label}</Text>
+              <View style={styles.privacyLabelRow}>
+                <Ionicons
+                  name={labelIcon}
+                  size={14}
+                  color={effectivePrivate ? colors.textSecondary : colors.primary}
+                  style={{ marginRight: 5 }}
+                />
+                <Text style={styles.privacyLabel}>{label}</Text>
+              </View>
               <TouchableOpacity
                 style={[
                   styles.privacyToggle,
@@ -1489,7 +1520,8 @@ export const RecipeDetail = ({
                       style={styles.tagEditorChip}
                       onPress={() => removeTag(tag)}
                     >
-                      <Text style={styles.tagEditorChipText}>{tag} ✕</Text>
+                      <Text style={styles.tagEditorChipText}>{tag}</Text>
+                      <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -1628,10 +1660,11 @@ export const RecipeDetail = ({
 
       {swapMode && (
         <View style={styles.swapModeNotice}>
+          <Ionicons name="swap-horizontal" size={15} color={colors.text} style={{ marginRight: 6 }} />
           <Text style={styles.swapModeText}>
             {swapMode.type === 'ingredient'
-              ? '🔄 Swap Mode: Tap ingredient to swap, or tap section header to move'
-              : `🔄 Swap Mode: Tap another ${swapMode.type} to swap`}
+              ? 'Swap Mode: Tap ingredient to swap, or tap section header to move'
+              : `Swap Mode: Tap another ${swapMode.type} to swap`}
           </Text>
           <TouchableOpacity
             onPress={() => setSwapMode(null)}
@@ -1714,9 +1747,12 @@ export const RecipeDetail = ({
                 setShowVariantPicker(false);
               }}
             >
-              <Text style={styles.variantOptionText}>📄 Original</Text>
+              <View style={styles.variantOptionLabel}>
+                <Ionicons name="document-text-outline" size={15} color={colors.text} style={{ marginRight: 6 }} />
+                <Text style={styles.variantOptionText}>Original</Text>
+              </View>
               {!selectedVariantId && !currentVariant && isViewingOriginal && (
-                <Text style={styles.variantOptionCheck}>✓</Text>
+                <Ionicons name="checkmark" size={16} color={colors.primary} />
               )}
             </TouchableOpacity>
 
@@ -1734,9 +1770,12 @@ export const RecipeDetail = ({
                   setShowVariantPicker(false);
                 }}
               >
-                <Text style={styles.variantOptionText}>✏️ My Edits</Text>
+                <View style={styles.variantOptionLabel}>
+                  <Ionicons name="pencil" size={14} color={colors.text} style={{ marginRight: 6 }} />
+                  <Text style={styles.variantOptionText}>My Edits</Text>
+                </View>
                 {!isViewingOriginal && (
-                  <Text style={styles.variantOptionCheck}>✓</Text>
+                  <Ionicons name="checkmark" size={16} color={colors.primary} />
                 )}
               </TouchableOpacity>
             )}
@@ -1757,15 +1796,21 @@ export const RecipeDetail = ({
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.variantOptionText}>
-                    {variant.sharedBy ? '🤝' : '📝'} {variant.name}
-                  </Text>
+                  <View style={styles.variantOptionLabel}>
+                    <Ionicons
+                      name={variant.sharedBy ? 'people' : 'create-outline'}
+                      size={14}
+                      color={colors.text}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.variantOptionText}>{variant.name}</Text>
+                  </View>
                   {variant.sharedBy && (
                     <Text style={styles.variantSharedBy}>shared by @{variant.sharedBy}</Text>
                   )}
                 </View>
                 {selectedVariantId === variant.id && (
-                  <Text style={styles.variantOptionCheck}>✓</Text>
+                  <Ionicons name="checkmark" size={16} color={colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -2135,6 +2180,8 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   unitToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
@@ -2232,6 +2279,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.lightGray,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -2340,6 +2389,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   disclaimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFF9E6',
     padding: 12,
     borderRadius: 8,
@@ -2417,6 +2468,8 @@ const styles = StyleSheet.create({
   },
   // Grocery list selection styles
   addToGroceryListMainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -2438,6 +2491,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   selectAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -2451,6 +2506,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addToListButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -2518,6 +2575,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -2531,6 +2590,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cancelEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.textSecondary,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -2637,6 +2698,26 @@ const styles = StyleSheet.create({
   allergenLine: {
     backgroundColor: '#FBEAE8',
     borderRadius: 4,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaIcon: {
+    marginRight: 5,
+  },
+  nutritionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  privacyLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  variantOptionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   tagEditorHint: {
     fontSize: 11,
@@ -2768,6 +2849,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tagEditorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 16,
