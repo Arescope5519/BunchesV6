@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getHighConfidenceTags } from '../../utils/autoTag';
 
 import { log } from '../../utils/log';
-import { buildInternalRecipeUrl } from '../../constants/app';
+import { buildInternalRecipeUrl, isInternalUrl } from '../../constants/app';
 import { APP_NAME } from '../../constants/app';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
 
@@ -1088,10 +1088,13 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
     let sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
     let globalRecipeId = null;
 
-    // For manual recipes (no external URL), mint an internal source URL
-    if (!sourceUrl) {
+    // User-created recipes: either no URL at all, or one the app minted
+    // itself. addRecipe now mints it up front so the in-memory recipe is
+    // complete immediately, but older rows and offline creations still
+    // arrive without one - both take this same path.
+    if (!sourceUrl || isInternalUrl(sourceUrl)) {
       // Internal source URL for user-created recipes (see constants/app.js)
-      sourceUrl = buildInternalRecipeUrl(userId, recipe.id);
+      sourceUrl = sourceUrl || buildInternalRecipeUrl(userId, recipe.id);
 
       // Add creator info to recipe for global entry
       const recipeWithSource = {

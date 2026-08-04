@@ -1392,12 +1392,20 @@ export const RecipeDetail = ({
           );
         }
 
-        // Manual recipe fallback
+        // Manual recipe fallback - a recipe whose internal source URL has
+        // not been minted yet (offline creation, or a pre-existing row).
+        // Still links to the creator when we know who they are.
         if (localRecipe.source === 'manual' && creatorUsername) {
           return (
             <View style={styles.sourceContainer}>
               <Text style={styles.sourceLabel}>Created by:</Text>
-              <Text style={styles.creatorName}>@{creatorUsername}</Text>
+              {creatorUserId ? (
+                <TouchableOpacity onPress={() => onViewOwnerProfile?.(creatorUserId, creatorUsername)}>
+                  <Text style={styles.sourceUrl}>@{creatorUsername}</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.creatorName}>@{creatorUsername}</Text>
+              )}
             </View>
           );
         }

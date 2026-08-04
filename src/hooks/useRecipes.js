@@ -115,9 +115,24 @@ export const useRecipes = (user) => {
       recipeFolders.push(MY_CREATIONS_FOLDER);
     }
 
+    const recipeId = recipe.id || `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Custom recipes carry their internal source URL from the moment they
+    // exist, instead of waiting for the cloud write to mint one. Everything
+    // that asks "did the user create this?" keys off that URL - the
+    // "Created by" link in RecipeDetail, the custom list in MyProfile,
+    // isCustomRecipe above - so without it a brand new recipe reads as
+    // imported until the next app reload. Mirrors the url/source_url pair
+    // a reloaded recipe comes back with.
+    const existingUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+    const mintedUrl = (!existingUrl && user?.uid)
+      ? buildInternalRecipeUrl(user.uid, recipeId)
+      : null;
+
     const recipeWithTimestamp = {
       ...recipe,
-      id: recipe.id || `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: recipeId,
+      ...(mintedUrl ? { url: mintedUrl, source_url: mintedUrl } : {}),
       folders: recipeFolders,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),
