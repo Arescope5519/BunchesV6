@@ -8,6 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getHighConfidenceTags } from '../../utils/autoTag';
 
 import { log } from '../../utils/log';
+import { buildInternalRecipeUrl } from '../../constants/app';
+import { APP_NAME } from '../../constants/app';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
 
 /**
@@ -1086,16 +1088,16 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
     let sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
     let globalRecipeId = null;
 
-    // For manual recipes (no external URL), use Bunches user as source
+    // For manual recipes (no external URL), mint an internal source URL
     if (!sourceUrl) {
-      // Generate a Bunches source URL: bunches://user/{userId}/recipes/{recipeId}
-      sourceUrl = `bunches://user/${userId}/recipes/${recipe.id}`;
+      // Internal source URL for user-created recipes (see constants/app.js)
+      sourceUrl = buildInternalRecipeUrl(userId, recipe.id);
 
       // Add creator info to recipe for global entry
       const recipeWithSource = {
         ...recipe,
         source_url: sourceUrl,
-        author: recipe.createdBy?.username || 'Bunches User',
+        author: recipe.createdBy?.username || `${APP_NAME} User`,
       };
 
       // Check if this manual recipe already exists globally

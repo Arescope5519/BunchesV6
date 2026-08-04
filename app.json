@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Bunches V6",
-    "slug": "bunches-v6",
-    "scheme": "bunches",
+    "name": "Melibri",
+    "slug": "melibri",
+    "scheme": "melibri",
     "version": "0.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,19 +27,19 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Bunches to access your photos to add images to your recipes.",
-          "cameraPermission": "Allow Bunches to use your camera to take photos of your recipes."
+          "photosPermission": "Allow Melibri to access your photos to add images to your recipes.",
+          "cameraPermission": "Allow Melibri to use your camera to take photos of your recipes."
         }
       ]
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bunchesai.v6",
+      "bundleIdentifier": "app.melibri",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
-            "CFBundleURLName": "bunches-recipe-share",
-            "CFBundleURLSchemes": ["bunches"]
+            "CFBundleURLName": "melibri-recipe-share",
+            "CFBundleURLSchemes": ["melibri"]
           },
           {
             "CFBundleURLName": "google-signin",
@@ -51,7 +51,7 @@
       }
     },
     "android": {
-      "package": "com.bunchesai.v6",
+      "package": "app.melibri",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SHARE_EXTENSION_NAME = 'ShareExtension';
-const APP_GROUP_ID = 'group.com.bunchesai.v6';
+const APP_GROUP_ID = 'group.app.melibri';
 
 /**
  * Creates the ShareViewController.swift file content
@@ -50,7 +50,7 @@ class ShareViewController: UIViewController {
         containerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(containerView)
 
-        titleLabel.text = "Save to Bunches"
+        titleLabel.text = "Save to Melibri"
         titleLabel.font = .boldSystemFont(ofSize: 20)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -341,7 +341,7 @@ function getExtensionInfoPlist(bundleId, bundleDisplayName) {
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Save to Bunches</string>
+    <string>Save to Melibri</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -608,9 +608,9 @@ const withShareExtensionFiles = (config) => {
     async (config) => {
       const projectRoot = config.modRequest.projectRoot;
       const platformProjectRoot = config.modRequest.platformProjectRoot;
-      const bundleId = config.ios?.bundleIdentifier || 'com.bunchesai.v6';
-      const bundleDisplayName = config.name || 'Bunches';
-      const projectName = config.modRequest.projectName || 'BunchesV6';
+      const bundleId = config.ios?.bundleIdentifier || 'app.melibri';
+      const bundleDisplayName = config.name || 'Melibri';
+      const projectName = config.modRequest.projectName || 'Melibri';
 
       const extensionPath = path.join(platformProjectRoot, SHARE_EXTENSION_NAME);
       const mainAppPath = path.join(platformProjectRoot, projectName);
@@ -694,7 +694,7 @@ const withShareExtensionTarget = (config) => {
   console.log('========================================');
   console.log('Files have been created in ios/ShareExtension/');
   console.log('You must manually add the Share Extension target in Xcode:');
-  console.log('1. Open ios/BunchesV6.xcworkspace');
+  console.log('1. Open ios/Melibri.xcworkspace');
   console.log('2. File > New > Target > Share Extension');
   console.log('3. Name it "ShareExtension"');
   console.log('4. Delete the generated files and use the ones in ios/ShareExtension/');
@@ -718,12 +718,12 @@ const withIOSShareExtension = (config) => {
 
     // Ensure our share URL scheme is present
     const shareScheme = {
-      CFBundleURLName: 'com.bunchesai.v6.share',
-      CFBundleURLSchemes: ['bunches'],
+      CFBundleURLName: 'app.melibri.share',
+      CFBundleURLSchemes: ['melibri'],
     };
 
     const existingScheme = infoPlist.CFBundleURLTypes.find(
-      (type) => type.CFBundleURLSchemes?.includes('bunches')
+      (type) => type.CFBundleURLSchemes?.includes('melibri')
     );
 
     if (!existingScheme) {

@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
+import { APP_NAME } from '../constants/app';
 export const UsernameSetupModal = ({
   visible,
   onSetup,
@@ -113,7 +114,7 @@ export const UsernameSetupModal = ({
         style={styles.overlay}
       >
         <View style={styles.container}>
-          <Text style={styles.title}>Welcome to Bunches!</Text>
+          <Text style={styles.title}>Welcome to {APP_NAME}!</Text>
           <Text style={styles.subtitle}>
             Choose a username so friends can find and share recipes with you
           </Text>

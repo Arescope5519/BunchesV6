@@ -22,6 +22,7 @@ import LetterPlaceholder from './LetterPlaceholder';
 import { getUserProfile, updatePrivacySettings } from '../services/supabase/social';
 import { supabase } from '../services/supabase/config';
 
+import { isInternalUrl } from '../constants/app';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const MyProfile = ({
@@ -132,7 +133,7 @@ const MyProfile = ({
   const customRecipes = recipes.filter(r => {
     if (r.deletedAt) return false;
     const url = r.url || r.sourceUrl || r.source_url;
-    return !url || url.startsWith('bunches://');
+    return !url || isInternalUrl(url);
   });
 
   const handleClose = () => {

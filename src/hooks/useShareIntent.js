@@ -5,7 +5,7 @@
  *   - Removed debug alerts, enabled auto-extraction
  *   - Improved iOS support with better URL handling
  *   - Added Platform-specific logging
- *   - Added iOS Share Extension support via URL scheme (bunches://share?url=...)
+ *   - Added iOS Share Extension support via URL scheme (<scheme>://share?url=...)
  * USED BY: src/screens/HomeScreen.js
  */
 
@@ -14,6 +14,7 @@ import { Platform, AppState, DeviceEventEmitter, NativeModules, Linking } from '
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 import { log } from '../utils/log';
+import { APP_SCHEME, LEGACY_SCHEMES } from '../constants/app';
 // iOS App Groups storage module
 const { AppGroupStorage } = NativeModules;
 
@@ -108,14 +109,15 @@ export const useShareIntent = (onUrlReceived) => {
   };
 
   /**
-   * Parse URL from bunches:// scheme
+   * Parse URL from the app's custom scheme
    */
   const parseShareUrl = (url) => {
     if (!url) return null;
 
     try {
-      // Handle bunches://share?url=<encoded_url>
-      if (url.startsWith('bunches://share')) {
+      // Handle <scheme>://share?url=<encoded_url>, current or legacy
+      const shareSchemes = [APP_SCHEME, ...LEGACY_SCHEMES];
+      if (shareSchemes.some(sc => url.startsWith(`${sc}://share`))) {
         const urlObj = new URL(url);
         const sharedUrl = urlObj.searchParams.get('url');
         if (sharedUrl) {
@@ -138,7 +140,7 @@ export const useShareIntent = (onUrlReceived) => {
     }
 
     try {
-      // First try to get URL from Linking (bunches://share?url=...)
+      // First try to get URL from Linking (<scheme>://share?url=...)
       log('🍎 [iOS] Checking for shared URL via Linking...');
       const initialUrl = await Linking.getInitialURL();
 
@@ -236,7 +238,7 @@ export const useShareIntent = (onUrlReceived) => {
         processedInitialShare.current = true;
       }
 
-      // iOS: Listen for URL scheme events (bunches://share?url=...)
+      // iOS: Listen for URL scheme events (<scheme>://share?url=...)
       let linkingSubscription = null;
       if (Platform.OS === 'ios') {
         linkingSubscription = Linking.addEventListener('url', handleLinkingUrl);

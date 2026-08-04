@@ -16,12 +16,13 @@ import { MY_CREATIONS_FOLDER } from './useFolders';
 import { getHighConfidenceTags } from '../utils/autoTag';
 
 import { log } from '../utils/log';
+import { isInternalUrl, buildInternalRecipeUrl } from '../constants/app';
 /**
  * Check if a recipe is custom (created by user, not imported from URL)
  */
 const isCustomRecipe = (recipe) => {
   const url = recipe.url || recipe.sourceUrl || recipe.source_url;
-  return !url || url.startsWith('bunches://');
+  return !url || isInternalUrl(url);
 };
 
 export const useRecipes = (user) => {

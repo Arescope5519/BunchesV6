@@ -25,7 +25,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
-import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL } from '../constants/app';
+import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS } from '../constants/app';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -318,7 +318,7 @@ export const SettingsScreen = ({
       // Create filename with date and custom extension
       const date = new Date();
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      const fileName = `bunches-backup-${dateStr}.bunches`;
+      const fileName = `${APP_NAME.toLowerCase()}-backup-${dateStr}.${BACKUP_EXT}`;
 
       // Debug: Log available directories
       log('FileSystem.cacheDirectory:', FileSystem.cacheDirectory);
@@ -403,7 +403,7 @@ export const SettingsScreen = ({
       if (isAvailable) {
         await Sharing.shareAsync(filePath, {
           mimeType: 'application/octet-stream',
-          dialogTitle: 'Save Bunches Backup',
+          dialogTitle: `Save ${APP_NAME} Backup`,
           UTI: 'public.data',
         });
 
@@ -521,8 +521,9 @@ export const SettingsScreen = ({
 
       // Check file extension
       const fileName = file.name || file.uri.split('/').pop() || '';
-      if (!fileName.toLowerCase().endsWith('.bunches') && !fileName.toLowerCase().endsWith('.txt') && !fileName.toLowerCase().endsWith('.json')) {
-        Alert.alert('Invalid File Type', 'Please select a .bunches backup file created by the Bunches app.');
+      const acceptedExts = [`.${BACKUP_EXT}`, ...LEGACY_BACKUP_EXTS.map(e => `.${e}`), '.txt', '.json'];
+      if (!acceptedExts.some(ext => fileName.toLowerCase().endsWith(ext))) {
+        Alert.alert('Invalid File Type', `Please select a backup file created by the ${APP_NAME} app.`);
         return;
       }
 
@@ -572,13 +573,13 @@ export const SettingsScreen = ({
         log('Backup decoded successfully, recipes:', backupData?.recipes?.length);
       } catch (decodeError) {
         log('Decode error:', decodeError);
-        Alert.alert('Invalid File', 'This file is not a valid Bunches backup. Please select a .bunches file created by the Export Backup feature.');
+        Alert.alert('Invalid File', `This file is not a valid ${APP_NAME} backup. Please select a file created by the Export Backup feature.`);
         return;
       }
 
       // Validate backup data
       if (!backupData || !backupData.type || backupData.type !== 'bunches_backup') {
-        Alert.alert('Invalid Backup', 'This does not appear to be a valid Bunches backup file. Please select a file created by the Export Backup feature.');
+        Alert.alert('Invalid Backup', `This does not appear to be a valid ${APP_NAME} backup file. Please select a file created by the Export Backup feature.`);
         return;
       }
 
@@ -841,7 +842,7 @@ export const SettingsScreen = ({
                   const deepLink = `bunches://add-friend/${username}`;
                   try {
                     await Share.share({
-                      message: `Add me on Bunches! ${deepLink}`,
+                      message: `Add me on ${APP_NAME}! ${deepLink}`,
                     });
                   } catch (error) {
                     console.error('Share error:', error);

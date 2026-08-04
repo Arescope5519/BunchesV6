@@ -20,6 +20,7 @@ import colors from '../constants/colors';
 import { signInWithGoogle } from '../services/supabase/auth';
 
 import { log } from '../utils/log';
+import { APP_NAME } from '../constants/app';
 export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
   const [loading, setLoading] = useState(false);
 
@@ -51,7 +52,7 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
         {/* Logo/Icon Section */}
         <View style={styles.logoSection}>
           <Ionicons name="restaurant" size={56} color={colors.primary} style={styles.logoIcon} />
-          <Text style={styles.appName}>Bunches</Text>
+          <Text style={styles.appName}>{APP_NAME}</Text>
           <Text style={styles.tagline}>Your Recipe Collection</Text>
         </View>
 

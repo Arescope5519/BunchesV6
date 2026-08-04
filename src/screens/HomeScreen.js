@@ -95,6 +95,7 @@ import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, 
 import RecipeExtractor from '../../RecipeExtractor';
 
 import { log } from '../utils/log';
+import { APP_NAME } from '../constants/app';
 export const HomeScreen = ({ user }) => {
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState('recipes'); // recipes, social, settings, grocery
@@ -2652,7 +2653,7 @@ export const HomeScreen = ({ user }) => {
         <>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => setCurrentFolder('All Recipes')}>
-              <Text style={styles.headerTitle}>Bunches</Text>
+              <Text style={styles.headerTitle}>{APP_NAME}</Text>
             </TouchableOpacity>
           </View>
 

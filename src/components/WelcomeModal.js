@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
+import { APP_NAME } from '../constants/app';
 export const WelcomeModal = ({ visible, onClose, onDontShowAgain }) => {
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
@@ -33,12 +34,12 @@ export const WelcomeModal = ({ visible, onClose, onDontShowAgain }) => {
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <Text style={styles.title}>Welcome to Bunches!</Text>
+          <Text style={styles.title}>Welcome to {APP_NAME}!</Text>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Adding Recipes</Text>
             <Text style={styles.sectionText}>
-              Find a recipe on any website, tap the share button in your browser, and select "Bunches" to save it instantly. You can also enable a quick-add button in Settings to paste URLs directly.
+              Find a recipe on any website, tap the share button in your browser, and select "{APP_NAME}" to save it instantly. You can also enable a quick-add button in Settings to paste URLs directly.
             </Text>
           </View>
 

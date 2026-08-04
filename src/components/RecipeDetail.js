@@ -22,6 +22,7 @@ import {
 import { formatDuration, formatServings, buildNutritionItems } from '../utils/recipeFormat';
 
 import { log } from '../utils/log';
+import { isInternalUrl } from '../constants/app';
 // Helper to safely parse JSON if it's a string
 const tryParseJSON = (value) => {
   if (typeof value !== 'string') return value;
@@ -738,7 +739,7 @@ export const RecipeDetail = ({
   // of - custom creations and AI scans (no external source URL)
   const photoSourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
   const canEditPhoto = !isReadOnly && !!onUpdate &&
-    (!photoSourceUrl || String(photoSourceUrl).startsWith('bunches://'));
+    (!photoSourceUrl || isInternalUrl(String(photoSourceUrl)));
 
   const applyPhotoUrl = (url) => {
     const updated = { ...localRecipe, image_url: url, imageUrl: url, image: url };
@@ -1346,12 +1347,12 @@ export const RecipeDetail = ({
       {/* Source/Creator Info */}
       {(() => {
         const sourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
-        const isBunchesUrl = sourceUrl && sourceUrl.startsWith('bunches://');
+        const isAppOwnedUrl = sourceUrl && isInternalUrl(sourceUrl);
         const creatorUsername = localRecipe.ownerUsername || localRecipe.createdBy?.username;
         const creatorUserId = localRecipe.ownerUserId || localRecipe.createdBy?.id;
 
-        // Read-only or Bunches user recipe: show creator link, not the bunches URL
-        if (isBunchesUrl || (isReadOnly && creatorUsername)) {
+        // Read-only or app-created recipe: show creator link, not the internal URL
+        if (isAppOwnedUrl || (isReadOnly && creatorUsername)) {
           if (!creatorUsername) return null;
           return (
             <View style={styles.sourceContainer}>
@@ -1410,7 +1411,7 @@ export const RecipeDetail = ({
             toggle only controls whether YOUR customized version (edits/variants) is shared */}
       {onUpdate && !isReadOnly && (() => {
         const sourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
-        const isCustom = !sourceUrl || sourceUrl.startsWith('bunches://');
+        const isCustom = !sourceUrl || isInternalUrl(sourceUrl);
         const effectivePrivate = localRecipe.isPrivate || isFolderPrivate;
 
         const label = isFolderPrivate

@@ -21,8 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
-import { TERMS_URL, PRIVACY_URL } from '../constants/app';
-
+import { APP_NAME, TERMS_URL, PRIVACY_URL } from '../constants/app';
 const DISCLAIMER_ACCEPTED_KEY = 'disclaimer_accepted_v1';
 // Legal URLs live in constants/app.js so a rename is a one-file change
 const TERMS_OF_SERVICE_URL = TERMS_URL;
@@ -71,7 +70,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
     >
       <View style={[styles.container, { height: screenHeight }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome to Bunches</Text>
+          <Text style={styles.title}>Welcome to {APP_NAME}</Text>
           <Text style={styles.subtitle}>Before you start cooking...</Text>
         </View>
 
@@ -121,7 +120,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
             <Ionicons name="document-text" size={20} color={colors.primary} style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Community Rules</Text>
             <Text style={styles.sectionText}>
-              By using Bunches, you agree to:
+              By using {APP_NAME}, you agree to:
             </Text>
             <Text style={styles.bulletPoint}>
               • Only post recipes and content you have the right to share
@@ -133,7 +132,7 @@ const DisclaimerModal = ({ visible, onAccept }) => {
               • Respect other users
             </Text>
             <Text style={styles.sectionText}>
-              You must be at least 13 years old to use Bunches.
+              You must be at least 13 years old to use {APP_NAME}.
             </Text>
           </View>
 

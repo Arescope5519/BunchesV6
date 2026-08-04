@@ -1,8 +1,13 @@
 # Recipe App - Claude Notes
 
-Repo is still named BunchesV6, but **"Bunches" must NOT be used as the
-product name** (registered trademark, Class 45 social networking). Final
-name is still being chosen - see "Naming" below.
+Product name is **Melibri** (mel = honey, libri = books). Repo is still
+named BunchesV6 for now. "Bunches" must NOT be used as the product name
+(registered trademark, Class 45 social networking).
+
+Identity lives in `src/constants/app.js` - name, scheme, domain, support
+email, legal URLs, backup extension. A future rename is a one-file
+change there, EXCEPT the bundle id / Android package in app.json, which
+are permanent once published.
 
 ## Build (Android - Daniel's PC, project on Y:)
 
@@ -82,9 +87,14 @@ Recipes are stored twice on purpose:
 The app displays the union. The legacy `recipes` table is still
 dual-written.
 
-## Naming (in progress)
+## Naming (decided: Melibri)
 
-Ruled out so far: Bunches, HoneyBun, Hunii (phonetic risk vs PayPal's
+Melibri came back clean on USPTO across all classes. melibri.com is
+owned by an unrelated jewelry brand (Class 14) - we use melibri.app.
+Avoid hummingbird imagery: that brand's logo is one, and our "libri"
+means books, not colibri.
+
+Ruled out: Bunches, HoneyBun, Hunii (phonetic risk vs PayPal's
 Honey, plus VTuber SEO collision), Bunchbook, Bunchlist, Hearth (HEARTH
 registered Class 9 for software), Mella (MELLA registered Class 9 for a
 mobile app), Melora, Melva (Seinfeld "Mulva"), Meloco (VTuber collision).
