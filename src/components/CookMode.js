@@ -47,6 +47,7 @@ const ingredientText = (item) => {
 export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }) => {
   const [checkedIngredients, setCheckedIngredients] = useState({});
   const [checkedSteps, setCheckedSteps] = useState({});
+  const [hideChecked, setHideChecked] = useState(false);
 
   // Flatten sections into { key, section, text } rows, keeping section order
   const ingredientRows = useMemo(() => {
@@ -68,6 +69,16 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
   const doneIngredients = Object.values(checkedIngredients).filter(Boolean).length;
   const doneSteps = Object.values(checkedSteps).filter(Boolean).length;
   const allDone = steps.length > 0 && doneSteps === steps.length;
+  const totalChecked = doneIngredients + doneSteps;
+
+  // Rows still on screen. Steps keep their original index so numbering
+  // stays true (hiding steps 1-3 must not renumber step 4 to "1").
+  const visibleIngredients = hideChecked
+    ? ingredientRows.filter(r => !checkedIngredients[r.key])
+    : ingredientRows;
+  const visibleSteps = steps
+    .map((text, idx) => ({ text, idx }))
+    .filter(s => !hideChecked || !checkedSteps[s.idx]);
 
   const toggleIngredient = (key) =>
     setCheckedIngredients(prev => ({ ...prev, [key]: !prev[key] }));
@@ -113,6 +124,9 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
         onFinish={finish}
         doneSteps={doneSteps}
         totalSteps={steps.length}
+        hideChecked={hideChecked}
+        onToggleHide={() => setHideChecked(v => !v)}
+        totalChecked={totalChecked}
       >
         {/* Ingredients */}
         {ingredientRows.length > 0 && (
@@ -123,7 +137,10 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
                 {doneIngredients}/{ingredientRows.length}
               </Text>
             </View>
-            {ingredientRows.map(row => {
+            {hideChecked && visibleIngredients.length === 0 && (
+              <Text style={styles.allClearText}>All ingredients checked off</Text>
+            )}
+            {visibleIngredients.map(row => {
               const showHeader = row.section !== lastSection && row.section !== 'main';
               lastSection = row.section;
               const checked = !!checkedIngredients[row.key];
@@ -159,7 +176,10 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
                 {doneSteps}/{steps.length}
               </Text>
             </View>
-            {steps.map((step, idx) => {
+            {hideChecked && visibleSteps.length === 0 && (
+              <Text style={styles.allClearText}>All steps done</Text>
+            )}
+            {visibleSteps.map(({ text: step, idx }) => {
               const checked = !!checkedSteps[idx];
               return (
                 <TouchableOpacity
@@ -195,7 +215,8 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
  * content is actually mounted.
  */
 const CookModeBody = ({
-  recipe, onClose, onReset, allDone, onFinish, doneSteps, totalSteps, children,
+  recipe, onClose, onReset, allDone, onFinish, doneSteps, totalSteps,
+  hideChecked, onToggleHide, totalChecked, children,
 }) => {
   useKeepAwake();
 
@@ -226,6 +247,32 @@ const CookModeBody = ({
           <View style={[styles.progressFill, { width: `${(doneSteps / totalSteps) * 100}%` }]} />
         </View>
       )}
+
+      {/* Hide/show checked-off items */}
+      <View style={styles.toolbar}>
+        <TouchableOpacity
+          style={[styles.hideToggle, hideChecked && styles.hideToggleActive]}
+          onPress={onToggleHide}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={hideChecked ? 'eye' : 'eye-off'}
+            size={16}
+            color={hideChecked ? '#fff' : colors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.hideToggleText, hideChecked && styles.hideToggleTextActive]}>
+            {hideChecked ? 'Show all' : 'Hide done'}
+          </Text>
+          {totalChecked > 0 && (
+            <View style={[styles.hideBadge, hideChecked && styles.hideBadgeActive]}>
+              <Text style={[styles.hideBadgeText, hideChecked && styles.hideBadgeTextActive]}>
+                {totalChecked}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.content}
@@ -277,8 +324,52 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: colors.accent,
   },
+  toolbar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  hideToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  hideToggleActive: {
+    backgroundColor: colors.primary,
+  },
+  hideToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  hideToggleTextActive: { color: '#fff' },
+  hideBadge: {
+    marginLeft: 8,
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 11,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+  },
+  hideBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  hideBadgeText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  hideBadgeTextActive: { color: '#fff' },
+  allClearText: {
+    fontSize: 15,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+    paddingVertical: 10,
+  },
   content: { flex: 1 },
-  contentContainer: { padding: 20 },
+  contentContainer: { padding: 20, paddingTop: 12 },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
