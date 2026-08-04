@@ -22,9 +22,21 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
+
+// Keeping the screen awake is a convenience, not core to cooking. If the
+// native module is ever missing or version-skewed, fall back to a no-op
+// so Cook Mode still opens instead of crashing the app.
+let useKeepAwake = () => {};
+try {
+  const keepAwake = require('expo-keep-awake');
+  if (typeof keepAwake?.useKeepAwake === 'function') {
+    useKeepAwake = keepAwake.useKeepAwake;
+  }
+} catch (err) {
+  console.log('expo-keep-awake unavailable - screen may sleep while cooking');
+}
 
 // Pull display text out of whatever shape an ingredient is in
 const ingredientText = (item) => {
