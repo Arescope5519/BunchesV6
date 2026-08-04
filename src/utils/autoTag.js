@@ -25,10 +25,46 @@ const TITLE_RULES = [
   {
     tag: 'Dessert',
     re: /\b(dessert|cakes?|cookies?|brownies?|pies?|cheesecake|cupcakes?|pudding|ice cream|tarts?|muffins?|donuts?|doughnuts?|cobbler|fudge|macarons?)\b/i,
-    // Savory "pies" must not read as dessert
-    except: /\b(pot pies?|shepherd'?s pies?|cottage pies?|pizza pies?)\b/gi,
+    // Savory dishes that borrow a dessert word. Apostrophes are matched
+    // straight or curly since titles come from all over the web.
+    except: new RegExp(
+      '\\b(' + [
+        // pies
+        "(pot|shepherd[’']?s|cottage|pizza|meat|tamale|frito|cheeseburger|tomato|steak and kidney|chicken|beef|turkey) pies?",
+        // cakes
+        '(crab|fish|salmon|tuna|corn|potato|rice|hoe|johnny) ?cakes?',
+        // puddings
+        '(yorkshire|corn|black|blood) pudding',
+        // other savory baked goods
+        '(tomato|onion|savou?ry|spinach|mushroom) tarts?',
+        '(corn|english|savou?ry) muffins?',
+      ].join('|') + ')\\b',
+      'gi'
+    ),
   },
   { tag: 'Breakfast', re: /\b(breakfast|pancakes?|waffles?|oatmeal|granola|french toast|omelet(te)?s?|frittata|brunch)\b/i },
+];
+
+// Any of these means the dish is savory, so a stray dessert word in the
+// title (pie, cake, pudding) should not add a Dessert tag.
+const SAVORY_TAGS = ['Chicken', 'Beef', 'Pork', 'Seafood', 'Soup', 'Pasta', 'Salad'];
+
+// Phrases where a category word means a different food entirely. The
+// title is rewritten before any rule runs, so "chicken of the woods"
+// reads as a mushroom and "chicken-fried steak" reads as beef.
+const TITLE_NORMALIZERS = [
+  [/\bchicken[-\s]?fried steak\b/gi, ' steak '],
+  [/\bchicken of the woods\b/gi, ' mushroom '],
+  [/\blobster mushrooms?\b/gi, ' mushroom '],
+  [/\boyster mushrooms?\b/gi, ' mushroom '],
+  [/\bbeef ?steak tomato(es)?\b/gi, ' tomato '],
+  [/\bbeef tomato(es)?\b/gi, ' tomato '],
+  [/\bcrab ?apples?\b/gi, ' apple '],
+  [/\bswedish fish\b/gi, ' candy '],
+  [/\bgoldfish\b/gi, ' cracker '],
+  [/\bcrab ?grass\b/gi, ' weed '],
+  [/\bwelsh (rarebit|rabbit)\b/gi, ' cheese toast '],
+  [/\bmock (chicken|duck|meat)\b/gi, ' plant-based '],
 ];
 
 // Appliance/style tags matched against title OR instructions
@@ -83,10 +119,26 @@ export const getHighConfidenceTags = (recipe) => {
   if (!recipe) return [];
   const tags = new Set();
 
-  const title = String(recipe.title || '');
+  // Rewrite known false-friend phrases before matching anything
+  let title = String(recipe.title || '');
+  for (const [pattern, replacement] of TITLE_NORMALIZERS) {
+    title = title.replace(pattern, replacement);
+  }
+
+  // Dessert is decided last: a savory dish that happens to be called a
+  // pie or a cake should not pick it up
+  let dessertMatched = false;
   for (const rule of TITLE_RULES) {
     const text = rule.except ? title.replace(rule.except, ' ') : title;
-    if (rule.re.test(text)) tags.add(rule.tag);
+    if (!rule.re.test(text)) continue;
+    if (rule.tag === 'Dessert') {
+      dessertMatched = true;
+    } else {
+      tags.add(rule.tag);
+    }
+  }
+  if (dessertMatched && !SAVORY_TAGS.some(t => tags.has(t))) {
+    tags.add('Dessert');
   }
 
   // Instructions text for method/appliance detection
