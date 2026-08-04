@@ -3,8 +3,13 @@
 **Last updated:** July 30, 2026 (end of long feature/design session)
 
 ## Branches
-- **All work lives on `master`** (merged from `claude/copy-broken-branch-qQg4U`, which is identical).
-- New sessions: base work on `master`. Local machine (Y:\BunchesV6) can pull either branch - they match as of this update.
+- **All work lives on `master`.** The Aug 2026 session branch
+  (`claude/session-setup-y19h2x`) has been merged in; master and that
+  branch are identical.
+- New sessions: base work on `master`, merge back when done.
+- NOTE: `origin/master` was force-pushed at some point in the past, so a
+  stale local `master` on any machine may point at unrelated Nov 2025
+  history. Fix with `git fetch origin master && git branch -f master origin/master`.
 
 ## Working Name
 **Hunii** (tentative - decide before launch).
@@ -112,19 +117,27 @@
   "May contain" row + avoided-line highlighting + conflict banner in
   RecipeDetail, conflict icon on cards
 
-## Immediate Next Steps (per ROADMAP.md)
-1. RUN SQL (all three, BEFORE installing the new build):
-   sql/add_dietary_preferences.sql, sql/add_tag_search_counts.sql,
-   sql/add_global_recipe_tags.sql (global_recipes.tags is REQUIRED -
-   the recipe query selects it; backfill statement is optional)
-2. Test latest build (recipes page redesign + Phase 2 dietary features,
-   plus still-untested: top bars, Cook-from-Eat flow, icons)
-3. Phase 2 COMPLETE (dietary filter now in IngredientSearch too)
-4. Phase 3: Nutrition API (only if extracted data proves insufficient)
-5. Phase 4: Sharing/deep links/Instagram
-6. Phase 5: AI recipe scanning (flagship premium)
-7. Phase 6: Subscriptions (StoreKit/Play Billing)
-8. Phase 7: Launch prep (NAME DECISION, ToS/PP for real, store listings)
+## Immediate Next Steps
+1. **Test the backlog** - biggest outstanding item. Unverified: AI
+   scanning end-to-end, share-as-image + QR, deep links
+   (bunches://recipe/<id>), dietary filters/allergens, auto-tags,
+   letter placeholders, add-photo-later, Cook Mode hide/fade.
+2. **Pick the name** (see CLAUDE.md "Naming"). Blocks: app icon, store
+   listings, ToS/PP, and the https deep links + public web pages that
+   are the unfinished half of Phase 4.
+3. Turn on billing in the Google Cloud project before real users scan -
+   the Gemini free tier may use inputs for model training.
+4. Phase 6: Subscriptions (needs Play Console + App Store accounts).
+5. Phase 7: Launch prep. Phase 3 (nutrition API) stays parked unless
+   extracted nutrition proves insufficient.
+
+### Known tech debt (not urgent)
+- HomeScreen.js ~5.2k lines, RecipeDetail.js ~2.9k - splitting is
+  invasive, do it deliberately between features.
+- AsyncStorage is 1.23.1 where Expo SDK 54 wants 2.2.0. Working fine;
+  left alone on purpose.
+- Legacy `recipes` table is still dual-written alongside user_recipes_v2.
+
 
 ## Build (Android, Daniel's PC - project on Y:)
 ```cmd
