@@ -25,6 +25,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
+import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL } from '../constants/app';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -213,6 +214,43 @@ export const SettingsScreen = ({
       log('Could not read image:', imageUri, error);
       return null;
     }
+  };
+
+  // Open the mail app with diagnostics pre-filled, so a report arrives
+  // with enough context to actually act on
+  const handleContactSupport = async (topic = 'Support Request') => {
+    const diagnostics = [
+      '',
+      '',
+      '---',
+      'The details below help us investigate:',
+      `App: ${APP_NAME} ${APP_VERSION}`,
+      `Device: ${Platform.OS} ${Platform.Version}`,
+      `Account: ${profile?.username ? '@' + profile.username : 'not signed in'}`,
+      `ID: ${user?.uid ? String(user.uid).substring(0, 8) : 'n/a'}`,
+    ].join('\n');
+
+    const url =
+      `mailto:${SUPPORT_EMAIL}` +
+      `?subject=${encodeURIComponent(`${APP_NAME} - ${topic}`)}` +
+      `&body=${encodeURIComponent(diagnostics)}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) throw new Error('no mail app');
+      await Linking.openURL(url);
+    } catch (err) {
+      Alert.alert(
+        'No Mail App Found',
+        `Please email us at:\n\n${SUPPORT_EMAIL}`,
+      );
+    }
+  };
+
+  const openLegalLink = (url, label) => {
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Cannot Open Link', `Please visit ${url} in your browser.`)
+    );
   };
 
   // Open app settings for permissions
@@ -946,13 +984,71 @@ export const SettingsScreen = ({
           </View>
         </View>
 
+        {/* Help & Support Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Help & Support</Text>
+          <View style={styles.infoCard}>
+            <TouchableOpacity
+              style={styles.supportRow}
+              onPress={() => handleContactSupport('Support Request')}
+            >
+              <Ionicons name="mail" size={20} color={colors.primary} style={styles.supportIcon} />
+              <View style={styles.supportTextGroup}>
+                <Text style={styles.supportLabel}>Contact Support</Text>
+                <Text style={styles.supportHint}>
+                  Questions, feedback, or account help
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.supportRow}
+              onPress={() => handleContactSupport('Problem Report')}
+            >
+              <Ionicons name="bug" size={20} color={colors.primary} style={styles.supportIcon} />
+              <View style={styles.supportTextGroup}>
+                <Text style={styles.supportLabel}>Report a Problem</Text>
+                <Text style={styles.supportHint}>
+                  Includes your app version and device to help us debug
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.supportRow}
+              onPress={() => openLegalLink(TERMS_URL)}
+            >
+              <Ionicons name="document-text" size={20} color={colors.primary} style={styles.supportIcon} />
+              <View style={styles.supportTextGroup}>
+                <Text style={styles.supportLabel}>Terms of Service</Text>
+              </View>
+              <Ionicons name="open-outline" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.supportRow, styles.supportRowLast]}
+              onPress={() => openLegalLink(PRIVACY_URL)}
+            >
+              <Ionicons name="lock-closed" size={20} color={colors.primary} style={styles.supportIcon} />
+              <View style={styles.supportTextGroup}>
+                <Text style={styles.supportLabel}>Privacy Policy</Text>
+              </View>
+              <Ionicons name="open-outline" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <Text style={styles.supportEmailNote}>{SUPPORT_EMAIL}</Text>
+          </View>
+        </View>
+
         {/* App Info Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>App Information</Text>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>Alpha6.07</Text>
+              <Text style={styles.infoValue}>{APP_VERSION}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Total Recipes</Text>
@@ -1052,6 +1148,40 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  supportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderVeryLight,
+  },
+  supportRowLast: {
+    borderBottomWidth: 0,
+  },
+  supportIcon: {
+    marginRight: 12,
+    width: 22,
+    textAlign: 'center',
+  },
+  supportTextGroup: {
+    flex: 1,
+  },
+  supportLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  supportHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  supportEmailNote: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 12,
   },
   dietaryGroupLabel: {
     fontSize: 15,

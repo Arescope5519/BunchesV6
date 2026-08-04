@@ -202,7 +202,10 @@ icon chrome, normalized top bars, nutrition display.
       upload; takedown request process; admin queue already handles removal)
 - [ ] Privacy Policy (Termly template)
 - [ ] Update DisclaimerModal URLs
-- [ ] Set up support email
+- [x] Set up support email (recipebunches@gmail.com; Settings -> Help &
+      Support, constants in src/constants/app.js). NOTE: tied to the
+      current name - a rename means a new inbox + updating both stores.
+- [ ] Add in-app account deletion (required by both stores before review)
 - [ ] Sentry for error tracking
 - [ ] PostHog for analytics
 - [ ] Test on real iOS device

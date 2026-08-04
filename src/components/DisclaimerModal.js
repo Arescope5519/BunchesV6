@@ -21,9 +21,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
+import { TERMS_URL, PRIVACY_URL } from '../constants/app';
+
 const DISCLAIMER_ACCEPTED_KEY = 'disclaimer_accepted_v1';
-const TERMS_OF_SERVICE_URL = 'https://bunchesai.com/terms'; // TODO: replace with real URL
-const PRIVACY_POLICY_URL = 'https://bunchesai.com/privacy'; // TODO: replace with real URL
+// Legal URLs live in constants/app.js so a rename is a one-file change
+const TERMS_OF_SERVICE_URL = TERMS_URL;
+const PRIVACY_POLICY_URL = PRIVACY_URL;
 
 /**
  * Utility to check whether disclaimer needs showing.
