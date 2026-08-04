@@ -13,6 +13,7 @@ import { saveFolders as saveFoldersToStorage, loadFolders as loadFoldersFromStor
 import { saveFoldersToDatabase, loadFoldersFromDatabase } from '../services/supabase/database';
 import { containsProfanityAsync } from '../services/profanityFilter';
 
+import { log } from '../utils/log';
 // System folders that cannot be deleted or renamed
 export const SYSTEM_FOLDERS = ['All Recipes', 'Favorites', 'Recently Deleted', 'My Creations'];
 
@@ -54,13 +55,13 @@ export const useFolders = (user) => {
    */
   const loadFolders = async () => {
     let loaded = await loadFoldersFromStorage(user?.uid || null);
-    console.log('📂 Local folders:', loaded.map(f => f.name || f));
+    log('📂 Local folders:', loaded.map(f => f.name || f));
 
     // If user is logged in, try to sync from Supabase
     if (user?.uid) {
       try {
         const cloudFolders = await loadFoldersFromDatabase(user.uid);
-        console.log('☁️ Cloud folders:', cloudFolders?.length || 0, cloudFolders);
+        log('☁️ Cloud folders:', cloudFolders?.length || 0, cloudFolders);
 
         if (cloudFolders && cloudFolders.length > 0) {
           // Check if local only has system/default folders
@@ -79,7 +80,7 @@ export const useFolders = (user) => {
             );
             // Save to local storage
             await saveFoldersToStorage(loaded, user?.uid || null);
-            console.log('📥 Restored folders from cloud:', loaded.length);
+            log('📥 Restored folders from cloud:', loaded.length);
           }
         }
       } catch (error) {
@@ -104,7 +105,7 @@ export const useFolders = (user) => {
         loaded.push(myCreationsFolder);
       }
       needsSave = true;
-      console.log('✅ Added My Creations folder');
+      log('✅ Added My Creations folder');
     }
 
     // Save if we made changes

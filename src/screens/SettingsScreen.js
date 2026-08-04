@@ -26,6 +26,7 @@ import colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
 
+import { log } from '../utils/log';
 export const SettingsScreen = ({
   onClose,
   onClearAllData,
@@ -209,7 +210,7 @@ export const SettingsScreen = ({
 
       return `data:${mimeType};base64,${base64}`;
     } catch (error) {
-      console.log('Could not read image:', imageUri, error);
+      log('Could not read image:', imageUri, error);
       return null;
     }
   };
@@ -282,8 +283,8 @@ export const SettingsScreen = ({
       const fileName = `bunches-backup-${dateStr}.bunches`;
 
       // Debug: Log available directories
-      console.log('FileSystem.cacheDirectory:', FileSystem.cacheDirectory);
-      console.log('FileSystem.documentDirectory:', FileSystem.documentDirectory);
+      log('FileSystem.cacheDirectory:', FileSystem.cacheDirectory);
+      log('FileSystem.documentDirectory:', FileSystem.documentDirectory);
 
       // On Android, try using StorageAccessFramework to let user pick save location
       if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
@@ -313,7 +314,7 @@ export const SettingsScreen = ({
           }
           // If permission denied, fall through to sharing method
         } catch (safError) {
-          console.log('StorageAccessFramework error, falling back to share:', safError);
+          log('StorageAccessFramework error, falling back to share:', safError);
           // Fall through to sharing method
         }
       }
@@ -324,7 +325,7 @@ export const SettingsScreen = ({
 
       if (!baseDir) {
         // FileSystem not available - use Share API as fallback
-        console.log('FileSystem directories not available, using Share fallback');
+        log('FileSystem directories not available, using Share fallback');
 
         try {
           const result = await Share.share({
@@ -339,7 +340,7 @@ export const SettingsScreen = ({
             );
           }
         } catch (e) {
-          console.log('Share error:', e);
+          log('Share error:', e);
           Alert.alert('Error', 'Failed to share backup. Please try again.');
         }
 
@@ -348,18 +349,18 @@ export const SettingsScreen = ({
       }
 
       const filePath = `${baseDir}${fileName}`;
-      console.log('Writing backup to:', filePath);
+      log('Writing backup to:', filePath);
 
       // Write to file
       await FileSystem.writeAsStringAsync(filePath, encodedContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
-      console.log('File written successfully');
+      log('File written successfully');
 
       // Check if sharing is available
       const isAvailable = await Sharing.isAvailableAsync();
-      console.log('Sharing available:', isAvailable);
+      log('Sharing available:', isAvailable);
 
       if (isAvailable) {
         await Sharing.shareAsync(filePath, {
@@ -377,7 +378,7 @@ export const SettingsScreen = ({
             title: fileName,
           });
         } catch (e) {
-          console.log('Share fallback error:', e);
+          log('Share fallback error:', e);
           Alert.alert('Error', 'Unable to share backup on this device.');
         }
       }
@@ -478,7 +479,7 @@ export const SettingsScreen = ({
       }
 
       const file = result.assets[0];
-      console.log('Selected file:', file.name, file.uri);
+      log('Selected file:', file.name, file.uri);
 
       // Check file extension
       const fileName = file.name || file.uri.split('/').pop() || '';
@@ -496,9 +497,9 @@ export const SettingsScreen = ({
           fileContent = await FileSystem.readAsStringAsync(file.uri, {
             encoding: FileSystem.EncodingType.UTF8,
           });
-          console.log('File read via FileSystem');
+          log('File read via FileSystem');
         } catch (fsError) {
-          console.log('FileSystem read failed:', fsError);
+          log('FileSystem read failed:', fsError);
         }
       }
 
@@ -507,16 +508,16 @@ export const SettingsScreen = ({
         try {
           const response = await fetch(file.uri);
           fileContent = await response.text();
-          console.log('File read via fetch, length:', fileContent?.length);
+          log('File read via fetch, length:', fileContent?.length);
         } catch (fetchError) {
-          console.log('Fetch read failed:', fetchError);
+          log('Fetch read failed:', fetchError);
         }
       }
 
       // Method 3: Check if file object has content directly
       if (!fileContent && file.content) {
         fileContent = file.content;
-        console.log('File read from content property');
+        log('File read from content property');
       }
 
       if (!fileContent) {
@@ -524,15 +525,15 @@ export const SettingsScreen = ({
         return;
       }
 
-      console.log('File content preview:', fileContent.substring(0, 100));
+      log('File content preview:', fileContent.substring(0, 100));
 
       // Decode and parse the backup
       let backupData;
       try {
         backupData = decodeBackupContent(fileContent.trim());
-        console.log('Backup decoded successfully, recipes:', backupData?.recipes?.length);
+        log('Backup decoded successfully, recipes:', backupData?.recipes?.length);
       } catch (decodeError) {
-        console.log('Decode error:', decodeError);
+        log('Decode error:', decodeError);
         Alert.alert('Invalid File', 'This file is not a valid Bunches backup. Please select a .bunches file created by the Export Backup feature.');
         return;
       }
@@ -548,7 +549,7 @@ export const SettingsScreen = ({
         return;
       }
 
-      console.log('Showing restore options for', backupData.recipes.length, 'recipes');
+      log('Showing restore options for', backupData.recipes.length, 'recipes');
       showRestoreOptions(backupData);
     } catch (error) {
       console.error('Restore error:', error);

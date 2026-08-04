@@ -10,6 +10,7 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { log } from '../../utils/log';
 // Supabase credentials
 const SUPABASE_URL = 'https://azdhiunzwslogbaiwtgi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9bZ28FxZyT0G5T6_nM8GCg_qyyFVsEc';
@@ -24,6 +25,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-console.log('🔷 [SUPABASE] Client initialized');
+log('🔷 [SUPABASE] Client initialized');
 
 export { SUPABASE_URL, SUPABASE_ANON_KEY };

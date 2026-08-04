@@ -6,6 +6,7 @@
 import { supabase } from './config';
 import { Alert, Platform } from 'react-native';
 
+import { log } from '../../utils/log';
 // Lazy load GoogleSignin
 let GoogleSignin = null;
 const getGoogleSignin = () => {
@@ -13,7 +14,7 @@ const getGoogleSignin = () => {
     try {
       GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
     } catch (e) {
-      console.log('Google Sign-In not available');
+      log('Google Sign-In not available');
       return null;
     }
   }
@@ -36,7 +37,7 @@ const configureGoogleSignIn = () => {
   }
 
   try {
-    console.log('🔐 [AUTH] Configuring Google Sign-In...');
+    log('🔐 [AUTH] Configuring Google Sign-In...');
 
     const config = {
       webClientId: WEB_CLIENT_ID,
@@ -48,7 +49,7 @@ const configureGoogleSignIn = () => {
     if (gs) {
       gs.configure(config);
       googleSignInConfigured = true;
-      console.log('✅ [AUTH] Google Sign-In configured');
+      log('✅ [AUTH] Google Sign-In configured');
     }
   } catch (error) {
     console.error('❌ [AUTH] Failed to configure Google Sign-In:', error);
@@ -70,7 +71,7 @@ export const signInWithGoogle = async () => {
   }
 
   try {
-    console.log('🔐 [AUTH] Starting Google Sign-In...');
+    log('🔐 [AUTH] Starting Google Sign-In...');
     const gs = getGoogleSignin();
 
     if (!gs) {
@@ -81,12 +82,12 @@ export const signInWithGoogle = async () => {
     try {
       await gs.signOut();
     } catch (e) {
-      console.log('🔐 [AUTH] No previous state to clear');
+      log('🔐 [AUTH] No previous state to clear');
     }
 
     // Sign in with Google
     const signInResult = await gs.signIn();
-    console.log('✅ [AUTH] Google Sign-In successful');
+    log('✅ [AUTH] Google Sign-In successful');
 
     // Get ID token
     let idToken = signInResult?.idToken || signInResult?.data?.idToken;
@@ -105,7 +106,7 @@ export const signInWithGoogle = async () => {
       throw error;
     }
 
-    console.log('✅ [AUTH] Supabase sign-in successful:', data.user?.email);
+    log('✅ [AUTH] Supabase sign-in successful:', data.user?.email);
 
     return {
       uid: data.user.id,
@@ -131,19 +132,19 @@ export const signInWithGoogle = async () => {
  */
 export const signOut = async () => {
   try {
-    console.log('🔐 [AUTH] Signing out...');
+    log('🔐 [AUTH] Signing out...');
 
     const gs = getGoogleSignin();
     if (gs) {
       try {
         await gs.signOut();
       } catch (e) {
-        console.log('🔐 [AUTH] Google sign out failed (may not be signed in):', e.message);
+        log('🔐 [AUTH] Google sign out failed (may not be signed in):', e.message);
       }
     }
 
     await supabase.auth.signOut();
-    console.log('✅ [AUTH] Signed out successfully');
+    log('✅ [AUTH] Signed out successfully');
   } catch (error) {
     console.error('❌ Sign-Out Error:', error);
     throw error;
@@ -190,7 +191,7 @@ export const onAuthStateChanged = (callback) => {
 
   // Listen for auth changes
   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-    console.log('🔐 [AUTH] Auth state change:', event);
+    log('🔐 [AUTH] Auth state change:', event);
 
     if (session?.user) {
       callback({

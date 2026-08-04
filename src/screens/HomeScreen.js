@@ -52,7 +52,6 @@ import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from '../components/GroceryList';
 import { IngredientSearch } from '../components/IngredientSearch';
-import { DashboardScreen } from './DashboardScreen';
 import { CreateRecipeScreen } from './CreateRecipeScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { SaveRecipeScreen } from './SaveRecipeScreen';
@@ -65,12 +64,12 @@ import { WelcomeModal } from '../components/WelcomeModal';
 // Constants
 import colors from '../constants/colors';
 import { TAG_CATEGORIES, getPredefinedTagNames, getFrequentTags, combineRecipeTags } from '../constants/tags';
-import { ALLERGENS, DIETS, dietLabel, analyzeRecipe, getConflicts } from '../utils/dietaryAnalysis';
+import { DIETS, dietLabel, analyzeRecipe, getConflicts } from '../utils/dietaryAnalysis';
 import { loadDietaryPreferences, saveDietaryPreferences } from '../services/supabase/dietary';
 
 // Supabase auth
 import { signOut as supabaseSignOut, signInWithGoogle as supabaseSignIn } from '../services/supabase/auth';
-import { saveRecipeToDatabase, deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase, getGlobalRecipeById, findGlobalRecipeByUrl } from '../services/supabase/database';
+import { deleteRecipeFromDatabase, syncRecipes as syncRecipesWithSupabase, saveTagSearchCountsToDatabase, loadTagSearchCountsFromDatabase, getGlobalRecipeById, findGlobalRecipeByUrl } from '../services/supabase/database';
 import { useDeepLinks, buildRecipeLink } from '../hooks/useDeepLinks';
 import {
   getFullPublicRecipe,
@@ -95,6 +94,7 @@ import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, 
 // Recipe extractor for parsing shared URLs (consistent with Android)
 import RecipeExtractor from '../../RecipeExtractor';
 
+import { log } from '../utils/log';
 export const HomeScreen = ({ user }) => {
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState('recipes'); // recipes, social, settings, grocery
@@ -318,7 +318,7 @@ export const HomeScreen = ({ user }) => {
           await NavigationBar.setVisibilityAsync('hidden');
           await NavigationBar.setBehaviorAsync('overlay-swipe');
         } catch (error) {
-          console.log('Failed to hide navigation bar:', error);
+          log('Failed to hide navigation bar:', error);
         }
       }
     };
@@ -379,20 +379,20 @@ export const HomeScreen = ({ user }) => {
     const updatedCookbooks = [...followedCookbooks, cookbookData];
     setFollowedCookbooks(updatedCookbooks);
     await saveFollowedCookbooks(updatedCookbooks, user?.uid);
-    console.log('📚 Following cookbook:', cookbookData.name);
+    log('📚 Following cookbook:', cookbookData.name);
   };
 
   // Handle deep link for adding friends
   const handleDeepLink = (url) => {
     if (!url) return;
 
-    console.log('Deep link received:', url);
+    log('Deep link received:', url);
 
     // Parse bunches://add-friend/username
     const match = url.match(/bunches:\/\/add-friend\/([^\/\?]+)/);
     if (match && match[1]) {
       const username = decodeURIComponent(match[1]);
-      console.log('Friend request from deep link:', username);
+      log('Friend request from deep link:', username);
 
       if (!user) {
         Alert.alert(
@@ -547,26 +547,26 @@ export const HomeScreen = ({ user }) => {
     const extractor = new RecipeExtractor();
 
     const checkPendingRecipes = async () => {
-      console.log('[HomeScreen] checkPendingRecipes called, Platform:', Platform.OS);
+      log('[HomeScreen] checkPendingRecipes called, Platform:', Platform.OS);
 
       if (Platform.OS !== 'ios') {
-        console.log('[HomeScreen] Not iOS, skipping pending recipes check');
+        log('[HomeScreen] Not iOS, skipping pending recipes check');
         return;
       }
 
       // Prevent concurrent imports
       if (isImportingRef.current) {
-        console.log('[HomeScreen] Already importing, skipping...');
+        log('[HomeScreen] Already importing, skipping...');
         return;
       }
 
       try {
-        console.log('[HomeScreen] Fetching pending recipes...');
+        log('[HomeScreen] Fetching pending recipes...');
         const pending = await getPendingRecipes();
-        console.log('[HomeScreen] Pending recipes result:', JSON.stringify(pending, null, 2));
+        log('[HomeScreen] Pending recipes result:', JSON.stringify(pending, null, 2));
 
         if (pending && pending.length > 0) {
-          console.log(`[HomeScreen] Found ${pending.length} pending recipe(s) from Share Extension - auto-importing...`);
+          log(`[HomeScreen] Found ${pending.length} pending recipe(s) from Share Extension - auto-importing...`);
 
           // Set flag to prevent concurrent imports
           isImportingRef.current = true;
@@ -581,7 +581,7 @@ export const HomeScreen = ({ user }) => {
 
               // Check if this needs parsing (new format with URL only)
               if (item.needs_parsing && item.url) {
-                console.log(`Parsing URL with RecipeExtractor: ${item.url}`);
+                log(`Parsing URL with RecipeExtractor: ${item.url}`);
                 const result = await extractor.extract(item.url);
 
                 if (result.success && result.data) {
@@ -679,13 +679,13 @@ export const HomeScreen = ({ user }) => {
 
           // Silent import - no alerts (user already saw Share Extension confirmation)
           if (imported > 0) {
-            console.log(`✅ [iOS] Silently imported ${imported} recipe(s)`);
+            log(`✅ [iOS] Silently imported ${imported} recipe(s)`);
           }
           if (failed > 0) {
-            console.log(`⚠️ [iOS] Failed to import ${failed} recipe(s)`);
+            log(`⚠️ [iOS] Failed to import ${failed} recipe(s)`);
           }
         } else {
-          console.log('[HomeScreen] No pending recipes found');
+          log('[HomeScreen] No pending recipes found');
         }
       } catch (error) {
         console.error('[HomeScreen] Error checking pending recipes:', error);
@@ -694,7 +694,7 @@ export const HomeScreen = ({ user }) => {
     };
 
     // Check on mount
-    console.log('[HomeScreen] Mounting, will check pending recipes...');
+    log('[HomeScreen] Mounting, will check pending recipes...');
     checkPendingRecipes();
 
     // Check when app comes to foreground
@@ -771,10 +771,10 @@ export const HomeScreen = ({ user }) => {
 
   // Navigation handler - all tabs now render inline
   const handleNavigation = (screen) => {
-    console.log('[NAV] handleNavigation called with:', screen);
+    log('[NAV] handleNavigation called with:', screen);
 
     if (screen === 'recipes' || screen === 'social' || screen === 'settings' || screen === 'grocery' || screen === 'discover') {
-      console.log('[NAV] Setting currentScreen to:', screen);
+      log('[NAV] Setting currentScreen to:', screen);
       setCurrentScreen(screen);
       // Close modals when switching to main tabs
       setShowSocialModal(false);
@@ -936,7 +936,7 @@ export const HomeScreen = ({ user }) => {
 
             return filePath;
           } catch (error) {
-            console.log('Failed to save image:', error);
+            log('Failed to save image:', error);
             return null;
           }
         }
@@ -1019,7 +1019,7 @@ export const HomeScreen = ({ user }) => {
 
       await refreshRecipes();
 
-      console.log(`Restore complete: ${addedCount} added, ${skippedCount} skipped (duplicates)`);
+      log(`Restore complete: ${addedCount} added, ${skippedCount} skipped (duplicates)`);
     } catch (error) {
       console.error('Restore backup error:', error);
       throw error;
@@ -1040,14 +1040,14 @@ export const HomeScreen = ({ user }) => {
     if (!user) return;
 
     try {
-      console.log('🔄 Manual sync started...');
+      log('🔄 Manual sync started...');
       // Sync local recipes with Supabase
       const mergedRecipes = await syncRecipesWithSupabase(user.uid, recipes);
       // Save merged result to local storage
       await saveRecipesToStorage(mergedRecipes, user.uid);
       // Reload UI from storage
       await reloadFromStorage();
-      console.log('✅ Manual sync complete');
+      log('✅ Manual sync complete');
     } catch (error) {
       console.error('Manual sync failed:', error);
       throw error;
@@ -1146,10 +1146,10 @@ export const HomeScreen = ({ user }) => {
           folder: 'All Recipes',
           isFavorite: false,
         };
-        console.log('🍎 [iOS] Extracted recipe:', recipe.title);
+        log('🍎 [iOS] Extracted recipe:', recipe.title);
         return { success: true, recipe };
       }
-      console.log('🍎 [iOS] Extraction failed for:', recipeUrl);
+      log('🍎 [iOS] Extraction failed for:', recipeUrl);
       return { success: false, url: recipeUrl };
     } catch (error) {
       console.error('🍎 [iOS] Extraction error:', error);
@@ -1159,7 +1159,7 @@ export const HomeScreen = ({ user }) => {
 
   // iOS batch auto-save: Extract all recipes first, then save all at once
   const extractAndAutoSaveBatch = async (urls) => {
-    console.log(`🍎 [iOS] Processing batch of ${urls.length} recipes...`);
+    log(`🍎 [iOS] Processing batch of ${urls.length} recipes...`);
 
     // Step 1: Extract all recipes first (no saving yet)
     const extractedRecipes = [];
@@ -1182,7 +1182,7 @@ export const HomeScreen = ({ user }) => {
       const saved = await saveRecipesBatch(extractedRecipes);
       if (saved) {
         savedNames = extractedRecipes.map(r => r.name).filter(Boolean);
-        console.log(`🍎 [iOS] Batch saved ${extractedRecipes.length} recipes`);
+        log(`🍎 [iOS] Batch saved ${extractedRecipes.length} recipes`);
       } else {
         // If batch save failed, count all as failed
         failedUrls.push(...extractedRecipes.map(r => r.url));
@@ -1195,16 +1195,16 @@ export const HomeScreen = ({ user }) => {
 
     // Silent import - no alerts for iOS (Share Extension already handled user feedback)
     if (succeeded > 0) {
-      console.log(`✅ [iOS] Auto-saved ${succeeded} recipe(s): ${savedNames.join(', ')}`);
+      log(`✅ [iOS] Auto-saved ${succeeded} recipe(s): ${savedNames.join(', ')}`);
     }
     if (failed > 0) {
-      console.log(`⚠️ [iOS] Failed to extract ${failed} recipe(s)`);
+      log(`⚠️ [iOS] Failed to extract ${failed} recipe(s)`);
     }
   };
 
   // Share intent handler - iOS auto-saves, Android shows save screen
   useShareIntent((sharedUrlOrUrls, isBatch = false) => {
-    console.log('📤 [SHARE INTENT] Received:', { sharedUrlOrUrls, isBatch, platform: Platform.OS });
+    log('📤 [SHARE INTENT] Received:', { sharedUrlOrUrls, isBatch, platform: Platform.OS });
 
     if (Platform.OS === 'ios') {
       // iOS: Auto-save (Share Extension already showed preview)
@@ -1218,14 +1218,14 @@ export const HomeScreen = ({ user }) => {
     } else {
       // Android: Show save screen for confirmation
       const url = Array.isArray(sharedUrlOrUrls) ? sharedUrlOrUrls[0] : sharedUrlOrUrls;
-      console.log('📤 [SHARE INTENT] Android URL to extract:', url);
+      log('📤 [SHARE INTENT] Android URL to extract:', url);
       if (!url) {
         Alert.alert('Share Failed', 'No URL was received. The share intent came through empty.');
         return;
       }
       setUrl(url);
       extractRecipe(url).then(result => {
-        console.log('📤 [SHARE INTENT] extractRecipe returned:', result);
+        log('📤 [SHARE INTENT] extractRecipe returned:', result);
       }).catch(err => {
         console.error('📤 [SHARE INTENT] extractRecipe threw:', err);
         Alert.alert('Share Failed', `Error: ${err.message}`);
@@ -1321,7 +1321,7 @@ export const HomeScreen = ({ user }) => {
                 for (const recipeId of recipeIds) {
                   deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
                 }
-                console.log(`✅ Permanently deleted ${recipeCount} recipes from database`);
+                log(`✅ Permanently deleted ${recipeCount} recipes from database`);
               }
             } else {
               // Soft delete: mark all selected recipes with deletedAt timestamp
@@ -1339,7 +1339,7 @@ export const HomeScreen = ({ user }) => {
                 for (const recipeId of recipeIds) {
                   deleteRecipeFromDatabase(user.uid, recipeId).catch(console.error);
                 }
-                console.log(`✅ Soft-deleted ${recipeCount} recipes in database`);
+                log(`✅ Soft-deleted ${recipeCount} recipes in database`);
               }
             }
           }
@@ -1995,7 +1995,7 @@ export const HomeScreen = ({ user }) => {
       const globalRecipeId = await resolveRecipeGlobalId(recipe);
       if (globalRecipeId) link = buildRecipeLink(globalRecipeId);
     } catch (err) {
-      console.log('⚠️ No link for share card:', err?.message);
+      log('⚠️ No link for share card:', err?.message);
     }
     setShareCard({ recipe, link });
   };
@@ -3054,7 +3054,7 @@ export const HomeScreen = ({ user }) => {
           <Text style={styles.discoverDescription}>
             Find new recipes, explore trending dishes, and discover content from the community.
           </Text>
-          {console.log('[RENDER] Discover screen is being rendered')}
+          {log('[RENDER] Discover screen is being rendered')}
         </View>
       )}
 
@@ -3115,7 +3115,7 @@ export const HomeScreen = ({ user }) => {
                 const cardTags = combineRecipeTags(recipe);
                 // Debug image_url
                 if (viewMode === 'photo') {
-                  console.log(`📷 Recipe "${recipe.title}" image_url:`, recipe.image_url ? recipe.image_url.substring(0, 50) + '...' : 'NONE');
+                  log(`📷 Recipe "${recipe.title}" image_url:`, recipe.image_url ? recipe.image_url.substring(0, 50) + '...' : 'NONE');
                 }
                 return (
                   <TouchableOpacity
@@ -3153,8 +3153,8 @@ export const HomeScreen = ({ user }) => {
                           source={{ uri: recipe.image_url }}
                           style={styles.recipeImage}
                           resizeMode="cover"
-                          onError={(e) => console.log(`❌ Image failed to load for "${recipe.title}":`, e.nativeEvent.error)}
-                          onLoad={() => console.log(`✅ Image loaded for "${recipe.title}"`)}
+                          onError={(e) => log(`❌ Image failed to load for "${recipe.title}":`, e.nativeEvent.error)}
+                          onLoad={() => log(`✅ Image loaded for "${recipe.title}"`)}
                         />
                       ) : (
                         <LetterPlaceholder title={recipe.title} size={40} style={styles.recipeImage} />

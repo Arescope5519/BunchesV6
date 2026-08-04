@@ -7,6 +7,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { log } from '../utils/log';
 // Base Storage Keys (will be prefixed with userId when user is logged in)
 export const STORAGE_KEYS = {
   RECIPES: 'recipes',
@@ -39,7 +40,7 @@ export const saveRecipes = async (recipes, userId = null) => {
   try {
     const key = getUserKey(STORAGE_KEYS.RECIPES, userId);
     await AsyncStorage.setItem(key, JSON.stringify(recipes));
-    console.log(`📦 Saved ${recipes.length} recipes to key: ${key}`);
+    log(`📦 Saved ${recipes.length} recipes to key: ${key}`);
     return true;
   } catch (error) {
     console.error('Failed to save recipes:', error);
@@ -55,7 +56,7 @@ export const loadRecipes = async (userId = null) => {
   try {
     const key = getUserKey(STORAGE_KEYS.RECIPES, userId);
     const stored = await AsyncStorage.getItem(key);
-    console.log(`📦 Loading recipes from key: ${key}`);
+    log(`📦 Loading recipes from key: ${key}`);
     if (stored) {
       const recipes = JSON.parse(stored);
 
@@ -70,7 +71,7 @@ export const loadRecipes = async (userId = null) => {
       }
 
       if (deduped.length !== recipes.length) {
-        console.log(`⚠️ Removed ${recipes.length - deduped.length} duplicate recipes from local storage`);
+        log(`⚠️ Removed ${recipes.length - deduped.length} duplicate recipes from local storage`);
         // Save the deduplicated list back
         await AsyncStorage.setItem(key, JSON.stringify(deduped));
       }

@@ -1,41 +1,106 @@
-# Bunches V6 - Claude Notes
+# Recipe App - Claude Notes
 
-## Build Command (Daniel's PC)
+Repo is still named BunchesV6, but **"Bunches" must NOT be used as the
+product name** (registered trademark, Class 45 social networking). Final
+name is still being chosen - see "Naming" below.
+
+## Build (Android - Daniel's PC, project on Y:)
 
 ```cmd
-cd C:\Users\Daniel\BunchesV6
-git pull origin claude/copy-broken-branch-qQg4U
-git add -A && git commit -m "local" --allow-empty
+Y:
+cd Y:\BunchesV6
+git pull origin master
+npm install
 taskkill /F /IM java.exe
 rmdir /s /q android
-rmdir /s /q node_modules
-npm install
+set CI=1
 npx expo prebuild --clean --platform android
 cd android
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
 ```
 
-APK: `android\app\build\outputs\apk\release\app-release.apk`
+APK: `Y:\BunchesV6\android\app\build\outputs\apk\release\app-release.apk`
 
----
+Notes:
+- `npm install` matters whenever dependencies changed; `set CI=1` stops
+  Expo prompting when the working tree is dirty.
+- The build machine should never commit locally - that caused merge
+  conflicts before. If the tree gets stuck:
+  `git merge --abort && git reset --hard && git fetch origin <branch> && git checkout -B <branch> origin/<branch>`
 
-## Current Task: Fix Broken Copy Functionality
+## Working agreements
 
-### Problem
-`Clipboard` was deprecated and removed from react-native core in newer versions. The app uses react-native 0.81.4 but imports `Clipboard` from 'react-native', which no longer works.
+- **All work lives on `master`.** Session branches must be created FROM
+  master and merged back when done.
+- **Show SQL in chat**, never only in a file - Daniel runs it by hand in
+  the Supabase dashboard.
+- **Give the full build command block after every code change.**
+- iOS is dormant but intentionally preserved (ios/ folder, app.json
+  config, eas.json). Revive at launch prep; needs a Mac or EAS.
 
-### Solution
-1. Install `@react-native-clipboard/clipboard` package
-2. Update imports in all files using Clipboard:
-   - `src/screens/HomeScreen.js` (line 25, 1330-1349)
-   - Any other files using Clipboard
+## Adding dependencies
 
-### Files to Modify
-- `package.json` - add dependency
-- `src/screens/HomeScreen.js` - update Clipboard import
+Use `npx expo install <pkg>`, NOT `npm install <pkg>`. Plain npm grabs
+the latest version, which can be built for a newer Expo SDK than this
+project (SDK 54) and will crash the app at startup - this already
+happened once with expo-keep-awake. If the Expo API is unreachable, look
+the correct version up in `node_modules/expo/bundledNativeModules.json`.
 
-### Changes Made
-- [x] Install expo-clipboard (better for Expo projects)
-- [x] Update HomeScreen.js imports (use expo-clipboard)
-- [x] Update API call (setString -> setStringAsync)
-- [x] Verified no other files need updating
+## Conventions
+
+- **Icons**: Ionicons via `@expo/vector-icons` everywhere. No emoji in
+  UI (native `Alert` text is plain too).
+- **Colors**: everything from `src/constants/colors.js` (Honey + Forest
+  theme). No hardcoded hex in components.
+- **Logging**: `import { log } from '../utils/log'` for narration - it is
+  a no-op in release builds. Use `console.error` for real failures.
+- **Secrets**: never in the repo. API keys live in Supabase Edge Function
+  secrets; the app calls the function.
+- **App name**: `src/constants/app.js` (`APP_NAME`) - single-file swap
+  when the name is finalized.
+
+## Architecture quick map
+
+- `src/screens/HomeScreen.js` - main container, tab switching, most
+  modals (5k lines; splitting it is known tech debt)
+- `src/components/RecipeDetail.js` - recipe view/edit, variants, photos
+- `src/components/CookMode.js` - session cooking view (cross off
+  ingredients/steps, hide-done toggle, screen stays awake)
+- `src/services/supabase/` - database, social, kitchen, dietary, auth
+- `src/utils/dietaryAnalysis.js` - derives diet tags + allergens from
+  ingredients (keyword matching, no external service)
+- `src/utils/autoTag.js` - high-confidence tags for new global recipes
+- Edge Functions in `supabase/functions/` - moderate-image,
+  moderate-text, moderation-webhook, extract-recipe (AI scanning)
+
+### Data model
+Recipes are stored twice on purpose:
+- `global_recipes` - the shared, unchanging version (title, ingredients,
+  auto-tags). Deep links and friend imports point here.
+- `user_recipes_v2` - each user's own layer (their tags, folders, edits,
+  favorites, notes).
+The app displays the union. The legacy `recipes` table is still
+dual-written.
+
+## Naming (in progress)
+
+Ruled out so far: Bunches, HoneyBun, Hunii (phonetic risk vs PayPal's
+Honey, plus VTuber SEO collision), Bunchbook, Bunchlist, Hearth (HEARTH
+registered Class 9 for software), Mella (MELLA registered Class 9 for a
+mobile app), Melora, Melva (Seinfeld "Mulva"), Meloco (VTuber collision).
+
+Process that works: **Google first** - it kills candidates in seconds and
+two died to VTubers - then USPTO for Classes **9, 42, 45**. If a name
+contains a shorter word, search that root too (Nectary would have
+inherited Nectar's conflicts).
+
+Current shortlist: Melibri, Melibee, Melarca, Melcella, Melcori.
+Plan is to use Indie Law for a real clearance opinion - ask specifically
+for phonetic analysis against famous marks, not just a knockout search.
+
+## See also
+
+- `WHERE_WE_LEFT_OFF.md` - current state snapshot + immediate next steps
+- `ROADMAP.md` - phases and what is built
+- `SERVICES.md` - accounts, keys, Edge Function map
+- `EDGE_FUNCTIONS_SETUP.md` - deploy steps for each Edge Function

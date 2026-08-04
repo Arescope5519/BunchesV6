@@ -9,6 +9,7 @@ import { Alert } from 'react-native';
 import * as socialModule from '../services/supabase/social';
 import { supabase } from '../services/supabase/config';
 
+import { log } from '../utils/log';
 export const useSocial = (user) => {
   const [profile, setProfile] = useState(null);
   const [needsUsername, setNeedsUsername] = useState(false);
@@ -383,7 +384,7 @@ export const useSocial = (user) => {
         (payload) => {
           // Check if this request is for us (we are the recipient)
           if (payload.new?.to_user_id === user.uid) {
-            console.log('📬 New friend request received:', payload);
+            log('📬 New friend request received:', payload);
             loadFriendRequests();
             loadNotificationCounts();
           }
@@ -399,7 +400,7 @@ export const useSocial = (user) => {
         (payload) => {
           // Check if we sent this request (for when it gets accepted/declined)
           if (payload.new?.from_user_id === user.uid) {
-            console.log('📬 Our sent friend request status changed:', payload);
+            log('📬 Our sent friend request status changed:', payload);
             if (payload.new?.status === 'accepted') {
               // Our request was accepted, reload friends list
               loadFriends();
@@ -407,14 +408,14 @@ export const useSocial = (user) => {
           }
           // Also check if we received this request (for cleanup after accepting)
           if (payload.new?.to_user_id === user.uid) {
-            console.log('📬 Received friend request status changed:', payload);
+            log('📬 Received friend request status changed:', payload);
             loadFriendRequests();
             loadNotificationCounts();
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Friend requests subscription status:', status);
+        log('📡 Friend requests subscription status:', status);
       });
 
     // Subscribe to shared_items table changes (for receiving shared recipes)
@@ -430,7 +431,7 @@ export const useSocial = (user) => {
         (payload) => {
           // Check if this shared item is for us
           if (payload.new?.to_user_id === user.uid) {
-            console.log('📦 New shared item received:', payload);
+            log('📦 New shared item received:', payload);
             loadSharedItems();
             loadNotificationCounts();
           }
@@ -446,14 +447,14 @@ export const useSocial = (user) => {
         (payload) => {
           // Check if this is our shared item being updated (imported/declined)
           if (payload.new?.to_user_id === user.uid) {
-            console.log('📦 Shared item status changed:', payload);
+            log('📦 Shared item status changed:', payload);
             loadSharedItems();
             loadNotificationCounts();
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Shared items subscription status:', status);
+        log('📡 Shared items subscription status:', status);
       });
 
     // Subscribe to profile changes (for friends list updates when someone accepts our request)
@@ -469,7 +470,7 @@ export const useSocial = (user) => {
         (payload) => {
           // Check if this is our profile being updated
           if (payload.new?.user_id === user.uid) {
-            console.log('👤 Our profile updated:', payload);
+            log('👤 Our profile updated:', payload);
             // Reload friends if friends array changed
             if (payload.new?.friends) {
               loadFriends();
@@ -478,7 +479,7 @@ export const useSocial = (user) => {
         }
       )
       .subscribe((status) => {
-        console.log('📡 Profile subscription status:', status);
+        log('📡 Profile subscription status:', status);
       });
 
     // Cleanup subscriptions on unmount

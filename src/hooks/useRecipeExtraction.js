@@ -9,6 +9,7 @@ import { Alert } from 'react-native';
 import RecipeExtractor from '../../RecipeExtractor';
 import { Ionicons } from '@expo/vector-icons';
 
+import { log } from '../utils/log';
 /**
  * Normalize URL for comparison (remove trailing slash, www, protocol variations)
  */
@@ -93,7 +94,7 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
     }
 
     setLoading(true);
-    console.log('🔍 Extracting recipe from:', recipeUrl);
+    log('🔍 Extracting recipe from:', recipeUrl);
 
     try {
       // Hard timeout - the extractor has its own 15s fetch timeout,
@@ -104,7 +105,7 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
       );
       const result = await Promise.race([extractPromise, timeoutPromise]);
 
-      console.log('🔍 Extraction result:', {
+      log('🔍 Extraction result:', {
         success: result.success,
         source: result.source,
         title: result.data?.title,

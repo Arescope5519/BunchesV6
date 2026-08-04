@@ -6,6 +6,7 @@
 import { supabase } from './config';
 import { containsProfanity, containsProfanityAsync } from '../profanityFilter';
 
+import { log } from '../../utils/log';
 /**
  * Generate a random user code (6 characters)
  */
@@ -76,7 +77,7 @@ export const setupUserProfile = async (userId, username) => {
 
     if (error) throw error;
 
-    console.log(`✅ User profile created: ${normalized}, code: ${userCode}`);
+    log(`✅ User profile created: ${normalized}, code: ${userCode}`);
   } catch (error) {
     console.error('Error setting up profile:', error);
     throw error;
@@ -208,7 +209,7 @@ export const sendFriendRequest = async (fromUserId, toUserId) => {
 
     if (error) throw error;
 
-    console.log(`✅ Friend request sent: ${data.id}`);
+    log(`✅ Friend request sent: ${data.id}`);
     return data.id;
   } catch (error) {
     console.error('Error sending friend request:', error);
@@ -265,7 +266,7 @@ export const acceptFriendRequest = async (requestId, currentUserId) => {
       throw profileError;
     }
 
-    console.log('✅ Friend request accepted - sender will sync on their next refresh');
+    log('✅ Friend request accepted - sender will sync on their next refresh');
   } catch (error) {
     console.error('Error accepting friend request:', error);
     throw error;
@@ -324,7 +325,7 @@ export const syncAcceptedFriendRequests = async (userId) => {
       if (updateError) {
         console.error('Error syncing friends:', updateError);
       } else {
-        console.log(`✅ Synced ${newFriends.length} new friend(s) from accepted requests`);
+        log(`✅ Synced ${newFriends.length} new friend(s) from accepted requests`);
       }
     }
 
@@ -378,7 +379,7 @@ export const getPendingFriendRequests = async (userId) => {
             senderUsername = senderProfile.username;
           }
         } catch (e) {
-          console.log('Could not fetch sender username:', e);
+          log('Could not fetch sender username:', e);
         }
 
         return {
@@ -390,7 +391,7 @@ export const getPendingFriendRequests = async (userId) => {
       })
     );
 
-    console.log(`📬 Found ${requests.length} pending friend request(s)`);
+    log(`📬 Found ${requests.length} pending friend request(s)`);
     return requests;
   } catch (error) {
     console.error('Error getting friend requests:', error);
@@ -422,7 +423,7 @@ export const shareWithFriends = async (fromUserId, toUserIds, type, data, name) 
 
     if (error) throw error;
 
-    console.log(`✅ Shared ${type} with ${toUserIds.length} friend(s)`);
+    log(`✅ Shared ${type} with ${toUserIds.length} friend(s)`);
   } catch (error) {
     console.error('Error sharing:', error);
     throw error;
@@ -468,7 +469,7 @@ export const markSharedItemImported = async (itemId) => {
       .update({ status: 'imported', updated_at: new Date().toISOString() })
       .eq('id', itemId);
 
-    console.log('✅ Marked as imported');
+    log('✅ Marked as imported');
   } catch (error) {
     console.error('Error marking imported:', error);
     throw error;
@@ -485,7 +486,7 @@ export const declineSharedItem = async (itemId) => {
       .update({ status: 'declined', updated_at: new Date().toISOString() })
       .eq('id', itemId);
 
-    console.log('✅ Shared item declined');
+    log('✅ Shared item declined');
   } catch (error) {
     console.error('Error declining shared item:', error);
     throw error;
@@ -502,7 +503,7 @@ export const declineFriendRequest = async (requestId) => {
       .update({ status: 'declined', updated_at: new Date().toISOString() })
       .eq('id', requestId);
 
-    console.log('✅ Friend request declined');
+    log('✅ Friend request declined');
   } catch (error) {
     console.error('Error declining friend request:', error);
     throw error;
@@ -547,7 +548,7 @@ export const removeFriend = async (userId, friendId) => {
       })
       .eq('user_id', friendId);
 
-    console.log('✅ Friend removed');
+    log('✅ Friend removed');
   } catch (error) {
     console.error('Error removing friend:', error);
     throw error;
@@ -580,7 +581,7 @@ export const updatePrivacySettings = async (userId, settings) => {
 
     if (error) throw error;
 
-    console.log('✅ Privacy settings updated');
+    log('✅ Privacy settings updated');
   } catch (error) {
     console.error('Error updating privacy settings:', error);
     throw error;
@@ -615,7 +616,7 @@ export const changeUsername = async (userId, newUsername) => {
 
     if (error) throw error;
 
-    console.log(`✅ Username changed to: ${normalized}`);
+    log(`✅ Username changed to: ${normalized}`);
   } catch (error) {
     console.error('Error changing username:', error);
     throw error;
@@ -748,15 +749,15 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
       .eq('user_id', targetUserId)
       .single();
 
-    console.log('🔍 Featured IDs from profile:', profile?.featured_recipes);
+    log('🔍 Featured IDs from profile:', profile?.featured_recipes);
 
     if (profileError || !profile?.featured_recipes?.length) {
-      console.log('❌ No featured recipes found in profile');
+      log('❌ No featured recipes found in profile');
       return [];
     }
 
     const featuredIds = profile.featured_recipes;
-    console.log('📋 Looking for featured IDs:', featuredIds);
+    log('📋 Looking for featured IDs:', featuredIds);
 
     // Try V2 tables first - get all user recipes and filter by featured IDs
     const { data: v2Data, error: v2Error } = await supabase
@@ -782,7 +783,7 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
       });
 
       if (matched.length > 0) {
-        console.log('✅ Found featured in V2 table:', matched.length);
+        log('✅ Found featured in V2 table:', matched.length);
         return matched.map(row => ({
           id: row.local_recipe_data?.id || row.id,
           title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
@@ -794,7 +795,7 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
     }
 
     // Fallback to old recipes table
-    console.log('📂 Checking old recipes table...');
+    log('📂 Checking old recipes table...');
     const { data, error } = await supabase
       .from('recipes')
       .select('id, title, image_url, source_url')
@@ -807,7 +808,7 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
       throw error;
     }
 
-    console.log('✅ Found in old recipes table:', data?.length);
+    log('✅ Found in old recipes table:', data?.length);
     return (data || []).map(row => ({
       id: row.id,
       title: row.title || 'Untitled',
@@ -835,7 +836,7 @@ const isInMyCreations = (recipe) => {
  * Get another user's public/custom recipes (from My Creations folder)
  */
 export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
-  console.log('🍳 getUserPublicRecipes called:', { targetUserId, folderPath });
+  log('🍳 getUserPublicRecipes called:', { targetUserId, folderPath });
   try {
     // Try V2 tables first
     const { data: v2Data, error: v2Error } = await supabase
@@ -857,7 +858,7 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       .is('deleted_at', null)
       .limit(100);
 
-    console.log('🍳 V2 query result:', { count: v2Data?.length, error: v2Error });
+    log('🍳 V2 query result:', { count: v2Data?.length, error: v2Error });
 
     if (!v2Error && v2Data && v2Data.length > 0) {
       let filtered = v2Data;
@@ -1020,7 +1021,7 @@ export const getUserFavorites = async (targetUserId) => {
  * Get recipes from a user's public folder
  */
 export const getUserFolderRecipes = async (targetUserId, folderName) => {
-  console.log('📂 getUserFolderRecipes called:', { targetUserId, folderName });
+  log('📂 getUserFolderRecipes called:', { targetUserId, folderName });
   try {
     // Try V2 tables first
     const { data: v2Data, error: v2Error } = await supabase
@@ -1042,7 +1043,7 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
       .eq('user_id', targetUserId)
       .is('deleted_at', null);
 
-    console.log('📂 V2 query result:', { v2Data: v2Data?.length, v2Error });
+    log('📂 V2 query result:', { v2Data: v2Data?.length, v2Error });
 
     if (!v2Error && v2Data && v2Data.length > 0) {
       // Filter by folder (check both top-level folders and local_recipe_data.folders)
@@ -1050,11 +1051,11 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
         const recipeData = row.local_recipe_data || {};
         // Check top-level folders first, then fall back to local_recipe_data
         const recipeFolders = row.folders || recipeData.folders || (row.folder ? [row.folder] : (recipeData.folder ? [recipeData.folder] : ['All Recipes']));
-        console.log('📂 Recipe folders:', recipeFolders, 'looking for:', folderName);
+        log('📂 Recipe folders:', recipeFolders, 'looking for:', folderName);
         return recipeFolders.includes(folderName);
       });
 
-      console.log('📂 Filtered V2 recipes:', filtered.length);
+      log('📂 Filtered V2 recipes:', filtered.length);
       return filtered.map(row => ({
         id: row.local_recipe_data?.id || row.id,
         title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
@@ -1065,14 +1066,14 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
     }
 
     // Fallback to old table
-    console.log('📂 Trying old recipes table...');
+    log('📂 Trying old recipes table...');
     const { data, error } = await supabase
       .from('recipes')
       .select('id, title, image_url, source_url, recipe_data')
       .eq('user_id', targetUserId)
       .is('deleted_at', null);
 
-    console.log('📂 Old table result:', { data: data?.length, error });
+    log('📂 Old table result:', { data: data?.length, error });
     if (error) throw error;
 
     // Filter by folder from recipe_data
@@ -1137,7 +1138,7 @@ export const followUser = async (currentUserId, targetUserId) => {
       throw error;
     }
 
-    console.log(`✅ Now following user ${targetUserId}`);
+    log(`✅ Now following user ${targetUserId}`);
     return true;
   } catch (error) {
     console.error('Error following user:', error);
@@ -1158,7 +1159,7 @@ export const unfollowUser = async (currentUserId, targetUserId) => {
 
     if (error) throw error;
 
-    console.log(`✅ Unfollowed user ${targetUserId}`);
+    log(`✅ Unfollowed user ${targetUserId}`);
     return true;
   } catch (error) {
     console.error('Error unfollowing user:', error);
@@ -1253,7 +1254,7 @@ export const getUserFollowing = async (userId) => {
  * Returns a recipe object formatted like a local recipe (parsed ingredients/instructions)
  */
 export const getFullPublicRecipe = async (targetUserId, recipeId) => {
-  console.log('📖 getFullPublicRecipe:', { targetUserId, recipeId });
+  log('📖 getFullPublicRecipe:', { targetUserId, recipeId });
 
   // Fetch owner's username for display
   let ownerUsername = null;
@@ -1427,7 +1428,7 @@ export const submitContentReport = async ({
       .gte('created_at', oneDayAgo);
 
     if (dupCount != null && dupCount > 0) {
-      console.log('🚩 Duplicate report from same reporter');
+      log('🚩 Duplicate report from same reporter');
       return { success: false, duplicate: true };
     }
 
@@ -1447,7 +1448,7 @@ export const submitContentReport = async ({
       return { success: false };
     }
 
-    console.log('🚩 Report submitted:', { contentType, reason });
+    log('🚩 Report submitted:', { contentType, reason });
     return { success: true };
   } catch (err) {
     console.error('❌ submitContentReport error:', err);

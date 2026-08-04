@@ -15,6 +15,7 @@ import {
 import { MY_CREATIONS_FOLDER } from './useFolders';
 import { getHighConfidenceTags } from '../utils/autoTag';
 
+import { log } from '../utils/log';
 /**
  * Check if a recipe is custom (created by user, not imported from URL)
  */
@@ -36,35 +37,35 @@ export const useRecipes = (user) => {
     try {
       setLoadingRecipes(true);
       const userId = user?.uid || null;
-      console.log(`📱 Loading recipes... User: ${userId ? 'logged in' : 'not logged in'}`);
+      log(`📱 Loading recipes... User: ${userId ? 'logged in' : 'not logged in'}`);
 
       const localRecipes = await loadRecipesFromStorage(userId);
       const deletedCount = localRecipes.filter(r => r.deletedAt).length;
-      console.log(`📦 Local storage: ${localRecipes.length} recipes (${deletedCount} deleted)`);
+      log(`📦 Local storage: ${localRecipes.length} recipes (${deletedCount} deleted)`);
       // Debug image_url presence
       const recipesWithImages = localRecipes.filter(r => r.image_url && !r.deletedAt);
-      console.log(`📷 Recipes with image_url: ${recipesWithImages.length}`);
+      log(`📷 Recipes with image_url: ${recipesWithImages.length}`);
       if (recipesWithImages.length > 0) {
-        console.log(`📷 Sample image_url:`, recipesWithImages[0].image_url?.substring(0, 80));
+        log(`📷 Sample image_url:`, recipesWithImages[0].image_url?.substring(0, 80));
       }
 
       if (user && !synced) {
         // User is signed in - sync with Supabase
-        console.log('🔄 Syncing with Supabase...');
+        log('🔄 Syncing with Supabase...');
         try {
           const mergedRecipes = await syncRecipesWithSupabase(user.uid, localRecipes);
           await saveRecipesToStorage(mergedRecipes, userId);
           setRecipes(mergedRecipes);
           setSynced(true);
           const mergedDeletedCount = mergedRecipes.filter(r => r.deletedAt).length;
-          console.log(`📚 Synced: ${mergedRecipes.length} recipes (${mergedDeletedCount} deleted)`);
+          log(`📚 Synced: ${mergedRecipes.length} recipes (${mergedDeletedCount} deleted)`);
         } catch (syncError) {
           console.error('Sync failed, using local recipes:', syncError);
           setRecipes(localRecipes);
         }
       } else {
         setRecipes(localRecipes);
-        console.log(`📚 Loaded ${localRecipes.length} recipes (no sync needed)`);
+        log(`📚 Loaded ${localRecipes.length} recipes (no sync needed)`);
       }
     } catch (error) {
       console.error('Failed to load recipes:', error);
@@ -99,7 +100,7 @@ export const useRecipes = (user) => {
         return rUrl && rUrl === recipeUrl && !r.deletedAt;
       });
       if (existingByUrl) {
-        console.log(`⚠️ Recipe already exists with URL: ${recipeUrl}`);
+        log(`⚠️ Recipe already exists with URL: ${recipeUrl}`);
         return true; // Already exists, consider it a success
       }
     }
@@ -133,14 +134,14 @@ export const useRecipes = (user) => {
 
     if (success) {
       setRecipes(updatedRecipes);
-      console.log('✅ Recipe saved locally! Total recipes:', updatedRecipes.length);
+      log('✅ Recipe saved locally! Total recipes:', updatedRecipes.length);
 
       // Sync to Supabase - wait for it to complete
       if (user) {
-        console.log('🔄 Syncing recipe to Supabase:', recipeWithTimestamp.title);
+        log('🔄 Syncing recipe to Supabase:', recipeWithTimestamp.title);
         try {
           await saveRecipeWithDualWrite(user.uid, recipeWithTimestamp);
-          console.log('✅ Recipe synced to Supabase');
+          log('✅ Recipe synced to Supabase');
         } catch (err) {
           console.error('❌ Supabase sync failed:', err);
           // Still return true since local save succeeded
@@ -151,7 +152,7 @@ export const useRecipes = (user) => {
           }
         }
       } else {
-        console.log('⚠️ No user logged in - recipe only saved locally');
+        log('⚠️ No user logged in - recipe only saved locally');
       }
 
       return true;
@@ -183,14 +184,14 @@ export const useRecipes = (user) => {
     const uniqueNewRecipes = newRecipes.filter(recipe => {
       const recipeUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
       if (recipeUrl && existingUrls.has(recipeUrl)) {
-        console.log(`⚠️ Skipping duplicate recipe (URL exists): ${recipe.title || recipeUrl}`);
+        log(`⚠️ Skipping duplicate recipe (URL exists): ${recipe.title || recipeUrl}`);
         return false;
       }
       return true;
     });
 
     if (uniqueNewRecipes.length === 0) {
-      console.log('⚠️ All recipes already exist, nothing to save');
+      log('⚠️ All recipes already exist, nothing to save');
       return true; // Consider it success
     }
 
@@ -212,14 +213,14 @@ export const useRecipes = (user) => {
 
     if (success) {
       setRecipes(updatedRecipes);
-      console.log(`✅ Batch saved ${uniqueNewRecipes.length} recipes!`);
+      log(`✅ Batch saved ${uniqueNewRecipes.length} recipes!`);
 
       // Sync to Supabase in background
       if (user) {
-        console.log('🔄 Syncing batch to Supabase...');
+        log('🔄 Syncing batch to Supabase...');
         recipesWithTimestamps.forEach(recipe => {
           saveRecipeWithDualWrite(user.uid, recipe)
-            .then(() => console.log(`✅ Synced: ${recipe.title}`))
+            .then(() => log(`✅ Synced: ${recipe.title}`))
             .catch(err => console.error(`❌ Failed to sync ${recipe.title}:`, err));
         });
       }
@@ -307,7 +308,7 @@ export const useRecipes = (user) => {
    */
   const deleteRecipe = async (recipeId) => {
     const recipeToDelete = recipes.find(r => r.id === recipeId);
-    console.log(`🗑️ Deleting recipe: "${recipeToDelete?.title}" (ID: ${recipeId})`);
+    log(`🗑️ Deleting recipe: "${recipeToDelete?.title}" (ID: ${recipeId})`);
 
     const updatedRecipes = recipes.map(r =>
       r.id === recipeId ? { ...r, deletedAt: Date.now(), updatedAt: Date.now() } : r
@@ -315,22 +316,22 @@ export const useRecipes = (user) => {
     const success = await saveRecipesToStorage(updatedRecipes, user?.uid || null);
 
     if (success) {
-      console.log(`✅ Recipe marked as deleted locally`);
+      log(`✅ Recipe marked as deleted locally`);
       setRecipes(updatedRecipes);
       setSelectedRecipe(null);
 
       // Sync deletion to database
       if (user) {
-        console.log(`🔄 Syncing deletion to Supabase...`);
+        log(`🔄 Syncing deletion to Supabase...`);
         try {
           await deleteRecipeFromDatabase(user.uid, recipeId);
-          console.log(`✅ Recipe deleted from Supabase`);
+          log(`✅ Recipe deleted from Supabase`);
         } catch (dbError) {
           console.error(`❌ Failed to delete from Supabase:`, dbError);
           // Still return true since local delete succeeded
         }
       } else {
-        console.log(`⚠️ No user logged in, skipping Supabase sync`);
+        log(`⚠️ No user logged in, skipping Supabase sync`);
       }
 
       return true;
@@ -1017,7 +1018,7 @@ export const useRecipes = (user) => {
         JSON.stringify(existing.instructions) === JSON.stringify(fresh.instructions) &&
         (existing.image_url || existing.imageUrl || null) === (fresh.image_url || fresh.imageUrl || null);
       if (same) {
-        console.log('🔄 Original unchanged for', recipe.title);
+        log('🔄 Original unchanged for', recipe.title);
         return recipe;
       }
 
@@ -1033,7 +1034,7 @@ export const useRecipes = (user) => {
       await saveRecipesToStorage(updatedRecipes, user?.uid || null);
       setRecipes(updatedRecipes);
 
-      console.log('🔄 Refreshed original version from owner for:', recipe.title);
+      log('🔄 Refreshed original version from owner for:', recipe.title);
       return updated;
     } catch (err) {
       console.error('❌ Failed to refresh original from owner:', err);

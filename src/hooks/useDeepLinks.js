@@ -13,6 +13,7 @@
 import { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 
+import { log } from '../utils/log';
 export const RECIPE_LINK_PREFIX = 'bunches://recipe/';
 
 export const buildRecipeLink = (globalRecipeId) =>
@@ -43,7 +44,7 @@ export const useDeepLinks = (onRecipeLink) => {
     const handleUrl = (url) => {
       const globalRecipeId = parseRecipeLink(url);
       if (globalRecipeId && callbackRef.current) {
-        console.log('🔗 Recipe deep link:', globalRecipeId);
+        log('🔗 Recipe deep link:', globalRecipeId);
         callbackRef.current(globalRecipeId);
       }
     };

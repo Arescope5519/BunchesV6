@@ -13,6 +13,7 @@ import { useEffect, useRef } from 'react';
 import { Platform, AppState, DeviceEventEmitter, NativeModules, Linking } from 'react-native';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
+import { log } from '../utils/log';
 // iOS App Groups storage module
 const { AppGroupStorage } = NativeModules;
 
@@ -30,7 +31,7 @@ export const useShareIntent = (onUrlReceived) => {
    * Handle shared URLs from browser
    */
   const handleSharedUrl = (sharedData) => {
-    console.log(`📨 [${Platform.OS}] Received shared data from browser`, sharedData);
+    log(`📨 [${Platform.OS}] Received shared data from browser`, sharedData);
 
     let sharedUrl = null;
 
@@ -72,16 +73,16 @@ export const useShareIntent = (onUrlReceived) => {
     if (sharedUrl) {
       // Check if we already processed this URL to avoid duplicates
       if (lastProcessedUrl.current === sharedUrl) {
-        console.log(`⏭️ [${Platform.OS}] Skipping duplicate URL:`, sharedUrl);
+        log(`⏭️ [${Platform.OS}] Skipping duplicate URL:`, sharedUrl);
         return;
       }
 
-      console.log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
+      log(`✅ [${Platform.OS}] URL extracted:`, sharedUrl);
       lastProcessedUrl.current = sharedUrl;
 
       // Use the ref to get the latest callback
       if (onUrlReceivedRef.current) {
-        console.log(`✅ [${Platform.OS}] Calling onUrlReceived callback...`);
+        log(`✅ [${Platform.OS}] Calling onUrlReceived callback...`);
         onUrlReceivedRef.current(sharedUrl);
       } else {
         console.error(`❌ [${Platform.OS}] No onUrlReceived callback set!`);
@@ -122,7 +123,7 @@ export const useShareIntent = (onUrlReceived) => {
         }
       }
     } catch (error) {
-      console.log('🍎 [iOS] Error parsing share URL:', error.message);
+      log('🍎 [iOS] Error parsing share URL:', error.message);
     }
     return null;
   };
@@ -138,14 +139,14 @@ export const useShareIntent = (onUrlReceived) => {
 
     try {
       // First try to get URL from Linking (bunches://share?url=...)
-      console.log('🍎 [iOS] Checking for shared URL via Linking...');
+      log('🍎 [iOS] Checking for shared URL via Linking...');
       const initialUrl = await Linking.getInitialURL();
 
       if (initialUrl) {
-        console.log('🍎 [iOS] Got initial URL:', initialUrl);
+        log('🍎 [iOS] Got initial URL:', initialUrl);
         const sharedUrl = parseShareUrl(initialUrl);
         if (sharedUrl) {
-          console.log('🍎 [iOS] Extracted shared URL:', sharedUrl);
+          log('🍎 [iOS] Extracted shared URL:', sharedUrl);
           handleSharedUrl(sharedUrl);
           return;
         }
@@ -153,7 +154,7 @@ export const useShareIntent = (onUrlReceived) => {
 
       // Check App Groups for queued URLs
       if (AppGroupStorage) {
-        console.log('🍎 [iOS] Checking Share Extension via App Groups...');
+        log('🍎 [iOS] Checking Share Extension via App Groups...');
 
         // Try to get all URLs (new method)
         let sharedURLs = [];
@@ -170,7 +171,7 @@ export const useShareIntent = (onUrlReceived) => {
         }
 
         if (sharedURLs && sharedURLs.length > 0) {
-          console.log(`🍎 [iOS] Found ${sharedURLs.length} shared URL(s) from extension`);
+          log(`🍎 [iOS] Found ${sharedURLs.length} shared URL(s) from extension`);
 
           // Pass all URLs at once for batch processing (callback receives array)
           // This allows the caller to process all and show one summary alert
@@ -180,15 +181,15 @@ export const useShareIntent = (onUrlReceived) => {
 
           // Clear all URLs after processing
           await AppGroupStorage.clearSharedURL();
-          console.log('🍎 [iOS] Cleared all shared URLs from App Groups');
+          log('🍎 [iOS] Cleared all shared URLs from App Groups');
         } else {
-          console.log('🍎 [iOS] No shared URLs found in App Groups');
+          log('🍎 [iOS] No shared URLs found in App Groups');
         }
       } else {
-        console.log('🍎 [iOS] AppGroupStorage not available');
+        log('🍎 [iOS] AppGroupStorage not available');
       }
     } catch (error) {
-      console.log('🍎 [iOS] Error checking for shared URLs:', error.message);
+      log('🍎 [iOS] Error checking for shared URLs:', error.message);
     }
   };
 
@@ -206,17 +207,17 @@ export const useShareIntent = (onUrlReceived) => {
     // Android: Share intents are handled by DeviceEventEmitter listener for 'newShareIntent'
     // The native onNewIntent handler in MainActivity updates the intent
     // AppState listener triggers re-check when app becomes active
-    console.log(`🔍 [Android] Share content handled via native onNewIntent`);
+    log(`🔍 [Android] Share content handled via native onNewIntent`);
   };
 
   /**
    * Handle URL event from Linking (iOS)
    */
   const handleLinkingUrl = (event) => {
-    console.log('🍎 [iOS] Received Linking URL event:', event.url);
+    log('🍎 [iOS] Received Linking URL event:', event.url);
     const sharedUrl = parseShareUrl(event.url);
     if (sharedUrl) {
-      console.log('🍎 [iOS] Extracted shared URL from event:', sharedUrl);
+      log('🍎 [iOS] Extracted shared URL from event:', sharedUrl);
       lastProcessedUrl.current = null; // Reset to allow processing
       handleSharedUrl(sharedUrl);
     }
@@ -226,7 +227,7 @@ export const useShareIntent = (onUrlReceived) => {
    * Setup share intent listener
    */
   useEffect(() => {
-    console.log(`🔧 [${Platform.OS}] Setting up share intent listener`);
+    log(`🔧 [${Platform.OS}] Setting up share intent listener`);
 
     try {
       // Check for shares when app starts
@@ -239,12 +240,12 @@ export const useShareIntent = (onUrlReceived) => {
       let linkingSubscription = null;
       if (Platform.OS === 'ios') {
         linkingSubscription = Linking.addEventListener('url', handleLinkingUrl);
-        console.log('🍎 [iOS] Added Linking URL listener');
+        log('🍎 [iOS] Added Linking URL listener');
       }
 
       // Listen for native newShareIntent event (emitted directly from onNewIntent - Android)
       const nativeShareSubscription = DeviceEventEmitter.addListener('newShareIntent', (sharedText) => {
-        console.log(`📥 [${Platform.OS}] Received native newShareIntent event:`, sharedText);
+        log(`📥 [${Platform.OS}] Received native newShareIntent event:`, sharedText);
         if (sharedText) {
           lastProcessedUrl.current = null; // Reset to allow processing
           handleSharedUrl(sharedText);
@@ -253,11 +254,11 @@ export const useShareIntent = (onUrlReceived) => {
 
       // Listen for app state changes to check for new shares when app comes to foreground
       const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-        console.log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
+        log(`📱 [${Platform.OS}] App state changed to:`, nextAppState);
         if (nextAppState === 'active') {
           // When app becomes active, check for new shares
           // Reset lastProcessedUrl so same URL can be shared again after app was backgrounded
-          console.log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
+          log(`🔄 [${Platform.OS}] App became active, resetting state and checking for new shares`);
           lastProcessedUrl.current = null;
 
           // Check for shared content
@@ -274,7 +275,7 @@ export const useShareIntent = (onUrlReceived) => {
 
       // Cleanup
       return () => {
-        console.log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
+        log(`🧹 [${Platform.OS}] Cleaning up share intent listener`);
         if (linkingSubscription && typeof linkingSubscription.remove === 'function') {
           linkingSubscription.remove();
         }

@@ -10,6 +10,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import colors from './src/constants/colors';
 
+import { log } from './src/utils/log';
 // Error Boundary to catch crashes
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -68,16 +69,16 @@ function MainApp() {
   const [initError, setInitError] = useState(null);
 
   useEffect(() => {
-    console.log('[APP] Setting up auth state listener...');
+    log('[APP] Setting up auth state listener...');
     try {
       const { unsubscribe } = onAuthStateChanged((userData) => {
-        console.log('[APP] Auth state changed:', userData ? 'Signed in' : 'Signed out');
+        log('[APP] Auth state changed:', userData ? 'Signed in' : 'Signed out');
         setUser(userData);
         setLoading(false);
       });
 
       return () => {
-        console.log('[APP] Cleaning up auth state listener');
+        log('[APP] Cleaning up auth state listener');
         unsubscribe();
       };
     } catch (error) {
@@ -88,7 +89,7 @@ function MainApp() {
   }, []);
 
   const handleSignIn = (userData) => {
-    console.log('[APP] User signed in:', userData.email);
+    log('[APP] User signed in:', userData.email);
     setUser(userData);
   };
 
@@ -134,7 +135,7 @@ function MainApp() {
 }
 
 export default function App() {
-  console.log('[APP] App component mounting...');
+  log('[APP] App component mounting...');
   return (
     <ErrorBoundary>
       <MainApp />

@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { signInWithGoogle } from '../services/supabase/auth';
 
+import { log } from '../utils/log';
 export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +27,7 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
     setLoading(true);
     try {
       const user = await signInWithGoogle();
-      console.log('✅ User signed in:', user.email);
+      log('✅ User signed in:', user.email);
       if (onSignIn) {
         onSignIn(user);
       }

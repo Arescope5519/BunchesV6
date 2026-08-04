@@ -21,6 +21,7 @@ import {
 } from '../utils/IngredientParser';
 import { formatDuration, formatServings, buildNutritionItems } from '../utils/recipeFormat';
 
+import { log } from '../utils/log';
 // Helper to safely parse JSON if it's a string
 const tryParseJSON = (value) => {
   if (typeof value !== 'string') return value;
@@ -195,11 +196,11 @@ export const RecipeDetail = ({
 
   // Update local recipe when prop changes
   useEffect(() => {
-    console.log('🍳 [RecipeDetail] Recipe prop received');
+    log('🍳 [RecipeDetail] Recipe prop received');
 
     const normalizedRecipe = normalizeRecipe(recipe);
-    console.log('🍳 [RecipeDetail] Normalized - ingredients sections:', Object.keys(normalizedRecipe.ingredients || {}));
-    console.log('🍳 [RecipeDetail] Normalized - instructions count:', (normalizedRecipe.instructions || []).length);
+    log('🍳 [RecipeDetail] Normalized - ingredients sections:', Object.keys(normalizedRecipe.ingredients || {}));
+    log('🍳 [RecipeDetail] Normalized - instructions count:', (normalizedRecipe.instructions || []).length);
 
     setLocalRecipe(normalizedRecipe);
 
@@ -292,7 +293,7 @@ export const RecipeDetail = ({
    */
   const handleLongPress = (type, sectionKey, index, value) => {
     if (isReadOnly) return;
-    console.log('Long press:', type, sectionKey, index, value);
+    log('Long press:', type, sectionKey, index, value);
     setEditingItem({ type, sectionKey, index, value });
     setSwapMode(null);
     setAddingBelow(null);
@@ -336,11 +337,11 @@ export const RecipeDetail = ({
    */
   const handleDelete = () => {
     if (!editingItem) {
-      console.log('No editing item to delete');
+      log('No editing item to delete');
       return;
     }
 
-    console.log('Delete button pressed for:', editingItem);
+    log('Delete button pressed for:', editingItem);
 
     Alert.alert(
       'Delete Item?',
@@ -349,13 +350,13 @@ export const RecipeDetail = ({
         {
           text: 'Cancel',
           style: 'cancel',
-          onPress: () => console.log('Delete cancelled')
+          onPress: () => log('Delete cancelled')
         },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            console.log('Delete confirmed');
+            log('Delete confirmed');
 
             const { type, sectionKey, index } = editingItem;
             let updated = { ...localRecipe };
@@ -383,7 +384,7 @@ export const RecipeDetail = ({
               updated.ingredients = ingredients;
             }
 
-            console.log('Updating recipe after delete');
+            log('Updating recipe after delete');
             setLocalRecipe(updated);
             if (onUpdate) onUpdate(updated);
             setEditingItem(null);
@@ -399,7 +400,7 @@ export const RecipeDetail = ({
    */
   const startSwap = () => {
     if (!editingItem) return;
-    console.log('Starting swap mode for:', editingItem);
+    log('Starting swap mode for:', editingItem);
     setSwapMode({ ...editingItem });
     setEditingItem(null); // Clear editing to allow tapping other items
   };
@@ -408,24 +409,24 @@ export const RecipeDetail = ({
    * Handle swap selection or move ingredient to different section
    */
   const handleSwapWith = (type, sectionKey, index) => {
-    console.log('📍 handleSwapWith called:', { type, sectionKey, index });
-    console.log('📍 Current swapMode:', swapMode);
+    log('📍 handleSwapWith called:', { type, sectionKey, index });
+    log('📍 Current swapMode:', swapMode);
 
     if (!swapMode) {
-      console.log('❌ No swap mode active');
+      log('❌ No swap mode active');
       return;
     }
 
-    console.log('✅ Swap mode is active, proceeding...');
-    console.log('  swapMode.type:', swapMode.type);
-    console.log('  incoming type:', type);
+    log('✅ Swap mode is active, proceeding...');
+    log('  swapMode.type:', swapMode.type);
+    log('  incoming type:', type);
 
     const { sectionKey: sourceSectionKey, index: sourceIndex } = swapMode;
 
     // Special case: Moving ingredient to a different section
-    console.log('🔍 Checking if ingredient->section move:', swapMode.type === 'ingredient', '&&', type === 'section');
+    log('🔍 Checking if ingredient->section move:', swapMode.type === 'ingredient', '&&', type === 'section');
     if (swapMode.type === 'ingredient' && type === 'section') {
-      console.log('✅ YES! Moving ingredient to different section:', sourceSectionKey, '->', sectionKey);
+      log('✅ YES! Moving ingredient to different section:', sourceSectionKey, '->', sectionKey);
       let updated = { ...localRecipe };
 
       // Get the ingredient to move
@@ -472,12 +473,12 @@ export const RecipeDetail = ({
       }
 
       const items = [...updated.ingredients[sectionKey]];
-      console.log('Swapping ingredients:', sourceIndex, '<->', index);
+      log('Swapping ingredients:', sourceIndex, '<->', index);
       [items[sourceIndex], items[index]] = [items[index], items[sourceIndex]];
       updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
     } else if (type === 'section') {
       // Swap section order
-      console.log('Swapping sections:', sourceSectionKey, '<->', sectionKey);
+      log('Swapping sections:', sourceSectionKey, '<->', sectionKey);
 
       // Get all section keys in order
       const sectionKeys = Object.keys(updated.ingredients);
@@ -501,7 +502,7 @@ export const RecipeDetail = ({
       updated.ingredients = reorderedIngredients;
     } else if (type === 'instruction') {
       const items = [...updated.instructions];
-      console.log('Swapping instructions:', sourceIndex, '<->', index);
+      log('Swapping instructions:', sourceIndex, '<->', index);
       [items[sourceIndex], items[index]] = [items[index], items[sourceIndex]];
       updated.instructions = items;
     }
@@ -516,7 +517,7 @@ export const RecipeDetail = ({
    */
   const startAddBelow = () => {
     if (!editingItem) return;
-    console.log('Starting add below for:', editingItem);
+    log('Starting add below for:', editingItem);
     setAddingBelow({ ...editingItem });
     setNewItemValue('');
   };
@@ -526,13 +527,13 @@ export const RecipeDetail = ({
    */
   const saveNewItem = () => {
     if (!addingBelow || !newItemValue.trim()) {
-      console.log('Cannot save - no addingBelow or empty value');
+      log('Cannot save - no addingBelow or empty value');
       return;
     }
 
     const { type, sectionKey, index } = addingBelow;
 
-    console.log('Saving new item below:', type, sectionKey, index, newItemValue);
+    log('Saving new item below:', type, sectionKey, index, newItemValue);
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
@@ -1049,9 +1050,9 @@ export const RecipeDetail = ({
             <TouchableOpacity
               onLongPress={() => handleLongPress('section', section, 0, section)}
               onPress={() => {
-                console.log('🎯 Section header tapped:', section, 'swapMode:', swapMode);
+                log('🎯 Section header tapped:', section, 'swapMode:', swapMode);
                 if (swapMode) {
-                  console.log('  → Calling handleSwapWith with section');
+                  log('  → Calling handleSwapWith with section');
                   handleSwapWith('section', section, 0);
                 }
               }}

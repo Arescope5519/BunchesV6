@@ -299,20 +299,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  closeButton: {
-    padding: 5,
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: colors.primary,
-  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
-  },
-  headerRight: {
-    width: 60,
   },
   actionBar: {
     flexDirection: 'row',
@@ -439,11 +429,6 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-  },
-  checkmark: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   itemContent: {
     flex: 1,

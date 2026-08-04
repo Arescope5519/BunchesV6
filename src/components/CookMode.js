@@ -26,6 +26,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
+import { log } from '../utils/log';
 // Keeping the screen awake is a convenience, not core to cooking. If the
 // native module is ever missing or version-skewed, fall back to a no-op
 // so Cook Mode still opens instead of crashing the app.
@@ -36,7 +37,7 @@ try {
     useKeepAwake = keepAwake.useKeepAwake;
   }
 } catch (err) {
-  console.log('expo-keep-awake unavailable - screen may sleep while cooking');
+  log('expo-keep-awake unavailable - screen may sleep while cooking');
 }
 
 // Pull display text out of whatever shape an ingredient is in

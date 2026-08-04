@@ -21,6 +21,7 @@ import colors from '../constants/colors';
 import { normalizeIngredient, matchesCanonical } from '../utils/IngredientNormalizer';
 import { DIETS, analyzeRecipe } from '../utils/dietaryAnalysis';
 
+import { log } from '../utils/log';
 /**
  * Helper to extract ingredients array from various formats
  */
@@ -119,7 +120,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
     });
 
     const result = Array.from(ingredientSet).sort();
-    console.log(`🔍 IngredientSearch: Found ${result.length} unique ingredients from ${recipes.length} recipes`);
+    log(`🔍 IngredientSearch: Found ${result.length} unique ingredients from ${recipes.length} recipes`);
     return result;
   }, [recipes]);
 

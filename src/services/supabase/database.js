@@ -7,6 +7,7 @@ import { supabase } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getHighConfidenceTags } from '../../utils/autoTag';
 
+import { log } from '../../utils/log';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
 
 /**
@@ -60,7 +61,7 @@ export const saveRecipesToDatabase = async (userId, recipes) => {
     const validRecipes = recipesToUpsert.filter(r => r.id);
 
     if (validRecipes.length === 0) {
-      console.log('⚠️ No valid recipes to save (all missing IDs)');
+      log('⚠️ No valid recipes to save (all missing IDs)');
       return;
     }
 
@@ -73,7 +74,7 @@ export const saveRecipesToDatabase = async (userId, recipes) => {
       throw error;
     }
 
-    console.log(`✅ Saved ${validRecipes.length} recipes to Supabase`);
+    log(`✅ Saved ${validRecipes.length} recipes to Supabase`);
   } catch (error) {
     console.error('❌ Error saving recipes:', error);
     throw error;
@@ -126,13 +127,6 @@ export const loadRecipesFromDatabase = async (userId) => {
       .is('deleted_at', null);
 
     if (error) throw error;
-
-    // DEBUG: Log raw data from database
-    console.log(`🔍 DEBUG: Raw user_recipes_v2 entries: ${data.length}`);
-    data.forEach((row, i) => {
-      const title = row.global_recipes?.title || row.local_recipe_data?.title || 'Unknown';
-      console.log(`  ${i + 1}. ID: ${row.id.substring(0, 20)}..., GlobalID: ${row.global_recipe_id || 'none'}, Folder: ${row.folder}, Title: "${title.substring(0, 30)}"`);
-    });
 
     const recipes = data.map(row => {
       // Get base recipe data from global_recipes or local_recipe_data
@@ -257,7 +251,7 @@ export const loadRecipesFromDatabase = async (userId) => {
           const mergedFolders = [...new Set([...existingFolders, ...newFolders])];
           existing.folders = mergedFolders;
           existing.folder = mergedFolders.find(f => f !== 'All Recipes') || mergedFolders[0];
-          console.log(`🔄 Merged duplicate recipe "${recipe.title}" - folders: ${mergedFolders.join(', ')}`);
+          log(`🔄 Merged duplicate recipe "${recipe.title}" - folders: ${mergedFolders.join(', ')}`);
         } else {
           seenGlobalIds.set(recipe.globalRecipeId, deduped.length);
           deduped.push(recipe);
@@ -272,21 +266,15 @@ export const loadRecipesFromDatabase = async (userId) => {
     }
 
     if (deduped.length !== recipes.length) {
-      console.log(`⚠️ [V2] Merged ${recipes.length - deduped.length} duplicate entries`);
+      log(`⚠️ [V2] Merged ${recipes.length - deduped.length} duplicate entries`);
     }
 
-    // DEBUG: Log final deduped recipes
-    console.log(`📚 [V2] Loaded ${deduped.length} recipes from new tables`);
-    console.log(`🔍 DEBUG: Final recipes after dedupe:`);
-    deduped.forEach((r, i) => {
-      console.log(`  ${i + 1}. "${r.title?.substring(0, 30)}" - GlobalID: ${r.globalRecipeId || 'none'}, Folders: ${JSON.stringify(r.folders)}`);
-    });
-
+    log(`📚 [V2] Loaded ${deduped.length} recipes from new tables`);
     return deduped;
   } catch (error) {
     console.error('❌ [V2] Error loading recipes:', error);
     // Fallback to old table if V2 fails
-    console.log('⚠️ Falling back to old recipes table...');
+    log('⚠️ Falling back to old recipes table...');
     return await loadRecipesFromDatabaseLegacy(userId);
   }
 };
@@ -372,7 +360,7 @@ export const loadRecipesFromDatabaseLegacy = async (userId) => {
       };
     });
 
-    console.log(`📚 [Legacy] Loaded ${recipes.length} recipes from old table`);
+    log(`📚 [Legacy] Loaded ${recipes.length} recipes from old table`);
     return recipes;
   } catch (error) {
     console.error('❌ [Legacy] Error loading recipes:', error);
@@ -422,7 +410,7 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
       updatedAt: recipe.updatedAt,
     };
 
-    console.log('📸 Saving recipe:', recipe.title, 'image_url:', imageUrl, 'folders:', recipeData.folders);
+    log('📸 Saving recipe:', recipe.title, 'image_url:', imageUrl, 'folders:', recipeData.folders);
 
     const { error } = await supabase
       .from('recipes')
@@ -456,7 +444,7 @@ export const saveRecipeToDatabase = async (userId, recipe) => {
 
     if (error) throw error;
 
-    console.log(`✅ Saved recipe "${recipe.title}" with folders:`, recipeData.folders);
+    log(`✅ Saved recipe "${recipe.title}" with folders:`, recipeData.folders);
   } catch (error) {
     console.error('❌ Error saving recipe:', error);
     throw error;
@@ -483,7 +471,7 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
     if (error) {
       console.error('❌ Delete from recipes failed:', error);
     } else {
-      console.log(`✅ Marked deleted in recipes table: ${recipeId}`);
+      log(`✅ Marked deleted in recipes table: ${recipeId}`);
       anySuccess = true;
     }
   } catch (err) {
@@ -500,7 +488,7 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
       .eq('user_id', userId);
 
     if (!idErr && (idCount || 0) > 0) {
-      console.log(`✅ Marked deleted in user_recipes_v2 by id: ${recipeId} (${idCount} rows)`);
+      log(`✅ Marked deleted in user_recipes_v2 by id: ${recipeId} (${idCount} rows)`);
       anySuccess = true;
     } else {
       // Recipe id might be a local recipe id, not the cloud row id
@@ -523,7 +511,7 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
             .in('id', matchingIds);
 
           if (!v2Err) {
-            console.log(`✅ Marked deleted in user_recipes_v2 by local id: ${recipeId} (${matchingIds.length} rows)`);
+            log(`✅ Marked deleted in user_recipes_v2 by local id: ${recipeId} (${matchingIds.length} rows)`);
             anySuccess = true;
           }
         }
@@ -546,18 +534,18 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
  */
 export const syncRecipes = async (userId, localRecipes) => {
   try {
-    console.log('🔄 Starting recipe sync...');
-    console.log(`📦 Local recipes to sync: ${localRecipes.length}`);
+    log('🔄 Starting recipe sync...');
+    log(`📦 Local recipes to sync: ${localRecipes.length}`);
 
     // Debug: Log deleted recipes
     const deletedLocal = localRecipes.filter(r => r.deletedAt);
-    console.log(`🗑️ Locally deleted recipes: ${deletedLocal.length}`);
-    deletedLocal.forEach(r => console.log(`  - "${r.title}" (deletedAt: ${r.deletedAt})`));
+    log(`🗑️ Locally deleted recipes: ${deletedLocal.length}`);
+    deletedLocal.forEach(r => log(`  - "${r.title}" (deletedAt: ${r.deletedAt})`));
 
     // Ensure all local recipes have IDs (for pre-migration data)
     const localRecipesWithIds = localRecipes.map(recipe => {
       if (!recipe.id) {
-        console.log(`⚠️ Recipe "${recipe.title}" missing ID, generating one...`);
+        log(`⚠️ Recipe "${recipe.title}" missing ID, generating one...`);
         return {
           ...recipe,
           id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -580,7 +568,7 @@ export const syncRecipes = async (userId, localRecipes) => {
 
     // Load non-deleted from database for merge
     const dbRecipes = await loadRecipesFromDatabase(userId);
-    console.log(`☁️ Database recipes: ${dbRecipes.length}`);
+    log(`☁️ Database recipes: ${dbRecipes.length}`);
 
     // Create maps for quick lookup
     const dbMap = new Map(dbRecipes.map(r => [r.id, r]));
@@ -604,7 +592,7 @@ export const syncRecipes = async (userId, localRecipes) => {
         // Recipe is deleted locally - ALWAYS keep local deleted version
         if (!dbDeletedAt) {
           // But not deleted in database - sync the deletion
-          console.log(`🗑️ Syncing deletion for: "${localRecipe.title}"`);
+          log(`🗑️ Syncing deletion for: "${localRecipe.title}"`);
           recipesToDelete.push(localRecipe.id);
         }
         // Keep in merged for "Recently Deleted" functionality
@@ -615,7 +603,7 @@ export const syncRecipes = async (userId, localRecipes) => {
       if (!dbRecipe) {
         // Not in V2 - check if it was deleted in old table before we upload
         if (dbDeletedAt) {
-          console.log(`🗑️ Recipe "${localRecipe.title}" was deleted in DB (old table), propagating deletion to local`);
+          log(`🗑️ Recipe "${localRecipe.title}" was deleted in DB (old table), propagating deletion to local`);
           mergedRecipes.push({
             ...localRecipe,
             deletedAt: new Date(dbDeletedAt).getTime(),
@@ -624,7 +612,7 @@ export const syncRecipes = async (userId, localRecipes) => {
           return;
         }
         // Only in local - upload it
-        console.log(`📤 Uploading local recipe: "${localRecipe.title}"`);
+        log(`📤 Uploading local recipe: "${localRecipe.title}"`);
         recipesToUpload.push(localRecipe);
         mergedRecipes.push(localRecipe);
       } else {
@@ -658,15 +646,15 @@ export const syncRecipes = async (userId, localRecipes) => {
 
     // Upload local changes
     if (recipesToUpload.length > 0) {
-      console.log(`📤 Uploading ${recipesToUpload.length} recipes to database...`);
+      log(`📤 Uploading ${recipesToUpload.length} recipes to database...`);
       await saveRecipesToDatabase(userId, recipesToUpload);
     } else {
-      console.log('✓ No new recipes to upload');
+      log('✓ No new recipes to upload');
     }
 
     // Sync deletions to database
     if (recipesToDelete.length > 0) {
-      console.log(`🗑️ Syncing ${recipesToDelete.length} deletions to database...`);
+      log(`🗑️ Syncing ${recipesToDelete.length} deletions to database...`);
       for (const recipeId of recipesToDelete) {
         await deleteRecipeFromDatabase(userId, recipeId);
       }
@@ -677,8 +665,8 @@ export const syncRecipes = async (userId, localRecipes) => {
     // Debug: Log merged results
     const deletedInMerged = mergedRecipes.filter(r => r.deletedAt);
     const activeInMerged = mergedRecipes.filter(r => !r.deletedAt);
-    console.log(`✅ Sync complete. ${mergedRecipes.length} total recipes`);
-    console.log(`   - Active: ${activeInMerged.length}, Deleted: ${deletedInMerged.length}`);
+    log(`✅ Sync complete. ${mergedRecipes.length} total recipes`);
+    log(`   - Active: ${activeInMerged.length}, Deleted: ${deletedInMerged.length}`);
 
     // Deduplicate by globalRecipeId and ID (merge folders, keep newest)
     const deduped = [];
@@ -713,7 +701,7 @@ export const syncRecipes = async (userId, localRecipes) => {
     }
 
     if (deduped.length !== mergedRecipes.length) {
-      console.log(`⚠️ Merged ${mergedRecipes.length - deduped.length} duplicate recipes`);
+      log(`⚠️ Merged ${mergedRecipes.length - deduped.length} duplicate recipes`);
     }
 
     return deduped;
@@ -740,7 +728,7 @@ export const saveFoldersToDatabase = async (userId, folders) => {
 
     if (error) throw error;
 
-    console.log(`✅ Saved ${folders.length} folders`);
+    log(`✅ Saved ${folders.length} folders`);
   } catch (error) {
     console.error('❌ Error saving folders:', error);
     throw error;
@@ -763,7 +751,7 @@ export const loadFoldersFromDatabase = async (userId) => {
     if (error && error.code !== 'PGRST116') throw error;
 
     const folders = data?.folders || [];
-    console.log(`✅ Loaded ${folders.length} folders`);
+    log(`✅ Loaded ${folders.length} folders`);
     return folders;
   } catch (error) {
     console.error('❌ Error loading folders:', error);
@@ -830,7 +818,7 @@ export const deleteAllRecipesFromDatabase = async (userId) => {
 
     if (error) throw error;
 
-    console.log(`✅ Deleted all recipes for user ${userId} from database`);
+    log(`✅ Deleted all recipes for user ${userId} from database`);
     return true;
   } catch (error) {
     console.error('❌ Error deleting all recipes:', error);
@@ -960,13 +948,13 @@ export const createGlobalRecipe = async (recipe) => {
     if (error) {
       // If duplicate key error, recipe already exists - fetch it
       if (error.code === '23505') {
-        console.log('🔄 Global recipe already exists, fetching...');
+        log('🔄 Global recipe already exists, fetching...');
         return await findGlobalRecipeByUrl(sourceUrl);
       }
       throw error;
     }
 
-    console.log(`✅ Created global recipe: ${recipe.title}`);
+    log(`✅ Created global recipe: ${recipe.title}`);
     return data;
   } catch (error) {
     console.error('❌ Error creating global recipe:', error);
@@ -1075,7 +1063,7 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
 
     if (error) throw error;
 
-    console.log(`✅ [V2] Saved to user_recipes_v2: ${recipe.title}`);
+    log(`✅ [V2] Saved to user_recipes_v2: ${recipe.title}`);
     return true;
   } catch (error) {
     console.error('❌ [V2] Error saving to user_recipes_v2:', error);
@@ -1124,7 +1112,7 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
             .from('global_recipes')
             .update({ image_url: currentImage })
             .eq('id', globalRecipe.id);
-          console.log('🖼️ Updated global recipe photo');
+          log('🖼️ Updated global recipe photo');
         }
       }
 
@@ -1144,7 +1132,7 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
     // Save to user_recipes_v2
     await saveToUserRecipesV2(userId, recipe, globalRecipeId);
 
-    console.log(`✅ [DUAL] Recipe saved to both tables: ${recipe.title}`);
+    log(`✅ [DUAL] Recipe saved to both tables: ${recipe.title}`);
   } catch (error) {
     // Log but don't fail - old table write succeeded
     console.error('⚠️ [DUAL] V2 write failed (old table succeeded):', error);

@@ -24,6 +24,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
+import { log } from '../utils/log';
 import {
   getPublicProfile,
   getUserPublicFolders,
@@ -102,8 +103,8 @@ const UserProfile = ({
           getUserPublicFolders(targetUserId),
           getUserPublicRecipes(targetUserId),
         ]);
-        console.log('📷 Featured recipes loaded:', featured?.length, featured);
-        console.log('📁 Public folders loaded:', folders?.length);
+        log('📷 Featured recipes loaded:', featured?.length, featured);
+        log('📁 Public folders loaded:', folders?.length);
         setFeaturedRecipes(featured || []);
         setPublicFolders(folders || []);
 

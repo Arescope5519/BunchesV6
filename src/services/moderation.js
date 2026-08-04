@@ -9,6 +9,7 @@
 
 import { supabase } from './supabase/config';
 
+import { log } from '../utils/log';
 /**
  * Read a file URI as base64 (needed to send image data to Edge Function)
  */
@@ -37,7 +38,7 @@ const uriToBase64 = async (uri) => {
  */
 export const checkImageModeration = async (imageUri, imageBase64 = null) => {
   try {
-    console.log('🛡️ [MODERATION] Checking image:', imageUri);
+    log('🛡️ [MODERATION] Checking image:', imageUri);
 
     // Get base64: either provided by caller or read from URI
     let base64 = imageBase64;
@@ -60,7 +61,7 @@ export const checkImageModeration = async (imageUri, imageBase64 = null) => {
       return { safe: true, reason: null, scores: null };
     }
 
-    console.log('🛡️ [MODERATION] Result:', JSON.stringify(data));
+    log('🛡️ [MODERATION] Result:', JSON.stringify(data));
     return {
       safe: !!data?.safe,
       reason: data?.reason || null,

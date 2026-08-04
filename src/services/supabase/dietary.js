@@ -9,6 +9,7 @@
 
 import { supabase } from './config';
 
+import { log } from '../../utils/log';
 const EMPTY_PREFS = { diets: [], avoid: [] };
 
 export const loadDietaryPreferences = async (userId) => {
@@ -49,7 +50,7 @@ export const saveDietaryPreferences = async (userId, prefs) => {
 
     if (error) throw error;
 
-    console.log('✅ Saved dietary preferences');
+    log('✅ Saved dietary preferences');
     return true;
   } catch (error) {
     console.error('❌ Error saving dietary preferences:', error);
