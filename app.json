@@ -3,7 +3,7 @@
     "name": "Melibri",
     "slug": "melibri",
     "scheme": "melibri",
-    "version": "0.0.2",
+    "version": "0.9.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -39,23 +39,29 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "melibri-recipe-share",
-            "CFBundleURLSchemes": ["melibri"]
+            "CFBundleURLSchemes": [
+              "melibri"
+            ]
           },
           {
             "CFBundleURLName": "google-signin",
-            "CFBundleURLSchemes": ["com.googleusercontent.apps.307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1"]
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1"
+            ]
           }
         ],
         "GIDClientID": "307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1.apps.googleusercontent.com",
         "NSUserTrackingUsageDescription": "This app does not track you."
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "app.melibri",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2D6A4F"
-      }
+      },
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

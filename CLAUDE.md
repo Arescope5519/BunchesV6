@@ -43,6 +43,20 @@ Notes:
 - iOS is dormant but intentionally preserved (ios/ folder, app.json
   config, eas.json). Revive at launch prep; needs a Mac or EAS.
 
+## Versioning
+
+`app.json` is the single source of truth; `src/constants/app.js` reads
+it via expo-constants, so never hardcode a version anywhere else.
+
+- `version` ("0.9.0") - marketing version, shown in the stores. Bump for
+  a release worth naming. **1.0.0 is reserved for the public launch.**
+- `android.versionCode` (integer) and `ios.buildNumber` (string) - the
+  upload counters. **Bump BOTH by 1 for every single upload to Play or
+  App Store Connect**, even a re-upload of identical code. Neither store
+  accepts a repeated value, and neither lets you go backwards.
+
+Local test APKs that never reach a store do not need a bump.
+
 ## Adding dependencies
 
 Use `npx expo install <pkg>`, NOT `npm install <pkg>`. Plain npm grabs

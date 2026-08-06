@@ -25,7 +25,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
-import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS, buildFriendLink } from '../constants/app';
+import { APP_NAME, APP_VERSION_LABEL, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS, buildFriendLink } from '../constants/app';
 import { requestAccountDeletion } from '../services/supabase/account';
 
 import { log } from '../utils/log';
@@ -277,7 +277,7 @@ export const SettingsScreen = ({
       '',
       '---',
       'The details below help us investigate:',
-      `App: ${APP_NAME} ${APP_VERSION}`,
+      `App: ${APP_NAME} ${APP_VERSION_LABEL}`,
       `Device: ${Platform.OS} ${Platform.Version}`,
       `Account: ${profile?.username ? '@' + profile.username : 'not signed in'}`,
       `ID: ${user?.uid ? String(user.uid).substring(0, 8) : 'n/a'}`,
@@ -1102,7 +1102,7 @@ export const SettingsScreen = ({
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
-              <Text style={styles.infoValue}>{APP_VERSION}</Text>
+              <Text style={styles.infoValue}>{APP_VERSION_LABEL}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Total Recipes</Text>

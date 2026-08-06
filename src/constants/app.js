@@ -14,9 +14,33 @@
  * Only remove a legacy scheme after migrating stored data.
  */
 
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 export const APP_NAME = 'Melibri';
 export const APP_TAGLINE = 'my recipe kitchen';
-export const APP_VERSION = 'Alpha6.07';
+
+/**
+ * Version comes from app.json, never a second hardcoded copy - that is
+ * the value the stores show, and a separate constant drifts from it the
+ * first time either is bumped alone.
+ *
+ * APP_VERSION  - marketing version (CFBundleShortVersionString /
+ *                versionName), e.g. "0.9.0"
+ * APP_BUILD    - the upload counter (ios.buildNumber /
+ *                android.versionCode). Must increase on EVERY store
+ *                upload; neither store accepts a repeat.
+ */
+const expoConfig = Constants?.expoConfig || {};
+export const APP_VERSION = expoConfig.version || '0.0.0';
+export const APP_BUILD = String(
+  (Platform.OS === 'ios'
+    ? expoConfig.ios?.buildNumber
+    : expoConfig.android?.versionCode) ?? '0'
+);
+
+/** What to show a human, e.g. "0.9.0 (1)". */
+export const APP_VERSION_LABEL = `${APP_VERSION} (${APP_BUILD})`;
 
 // Custom URL scheme, e.g. melibri://recipe/<id>
 export const APP_SCHEME = 'melibri';
@@ -82,6 +106,8 @@ export const parseFriendLink = (url) => {
 
 export default {
   APP_NAME,
+  APP_BUILD,
+  APP_VERSION_LABEL,
   BACKUP_EXT,
   LEGACY_BACKUP_EXTS,
   APP_TAGLINE,
