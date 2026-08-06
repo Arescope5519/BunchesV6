@@ -1,67 +1,47 @@
-# App Icon Setup Instructions
+# App Icon
 
-I've created a stylized "B" icon in `icon-source.svg` with:
-- Elegant script font style
-- Honey gold (#DAA520) gradient
-- Black (#1a1a1a) background
-- Decorative flourishes
+The mark is a white **M** on the Honey + Forest primary green
+(`#2D6A4F`, `colors.primary`), set in YoungSerif. It deliberately matches
+`src/components/LetterPlaceholder.js` so the launcher icon and the
+in-app letter tiles for photo-less recipes read as the same family.
 
-## Option 1: Online Conversion (Easiest)
+This is a placeholder mark, not final artwork - it exists so the app
+stops shipping the old "B". Replace it before launch.
 
-1. Go to https://cloudconvert.com/svg-to-png
-2. Upload `assets/icon-source.svg`
-3. Set dimensions to **1024x1024**
-4. Convert and download as `icon.png`
-5. Copy the downloaded file to replace `assets/icon.png`
-6. Copy it again as `assets/adaptive-icon.png`
-7. Create a 48x48 version for `assets/favicon.png`
+## Regenerating
 
-## Option 2: Using ImageMagick (Command Line)
+Everything is generated from one script, so the mark can never drift
+between the four assets:
 
 ```bash
-cd /home/user/BunchesV6/assets
-
-# Convert to 1024x1024 PNG
-magick icon-source.svg -resize 1024x1024 icon.png
-cp icon.png adaptive-icon.png
-
-# Create favicon
-magick icon-source.svg -resize 48x48 favicon.png
+pip3 install pillow
+python3 assets/generate-icons.py
 ```
 
-## Option 3: Using Inkscape
+It writes:
 
-```bash
-cd /home/user/BunchesV6/assets
+| File | Size | Notes |
+|---|---|---|
+| `icon.png` | 1024x1024 | iOS + legacy Android. Flat square, **no alpha** - iOS rejects icons with an alpha channel, and the OS applies its own rounding. |
+| `adaptive-icon.png` | 1024x1024 | Android foreground layer only, transparent. The green comes from `android.adaptiveIcon.backgroundColor` in `app.json`. |
+| `splash.png` | 1024x1024 | Rounded green tile on transparent, sits on the white splash background. |
+| `favicon.png` | 48x48 | Web. |
 
-# Export as PNG
-inkscape icon-source.svg --export-filename=icon.png --export-width=1024 --export-height=1024
-cp icon.png adaptive-icon.png
+## Android safe zone
 
-# Create favicon
-inkscape icon-source.svg --export-filename=favicon.png --export-width=48 --export-height=48
+Android crops the adaptive icon to the centre **66.7%** before applying
+its mask (circle, squircle, teardrop, ...), so the glyph is drawn at 38%
+of the canvas height rather than the 56% used for iOS. Those two numbers
+look different but land in the same place optically once the crop is
+applied. If you change one, re-check the other.
+
+## After changing any icon
+
+Android caches launcher icons aggressively. A rebuild alone often is not
+enough - uninstall the old APK first, or the old icon can persist.
+
+```cmd
+adb uninstall app.melibri
 ```
 
-## After Conversion
-
-1. **Clear cache and rebuild**:
-   ```bash
-   cd /home/user/BunchesV6
-   expo start -c
-   ```
-
-2. **For Android**: The app icon will update on next build
-3. **For iOS**: You may need to rebuild the app
-
-## Files to Replace
-
-- `assets/icon.png` (1024x1024) - Main app icon
-- `assets/adaptive-icon.png` (1024x1024) - Android adaptive icon
-- `assets/favicon.png` (48x48) - Web favicon
-
-The icon features:
-- Honey gold script "B" with gradient (light gold → honey gold → dark gold)
-- Black rounded rectangle background
-- Decorative flourishes at top and bottom
-- Subtle shadow and shine effects
-- Matches your app's honey gold theme!
+Then rebuild as normal.

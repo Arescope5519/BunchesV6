@@ -54,7 +54,7 @@
       "package": "app.melibri",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#2D6A4F"
       }
     },
     "web": {
