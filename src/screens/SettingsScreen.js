@@ -25,7 +25,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
-import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS } from '../constants/app';
+import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS, buildFriendLink } from '../constants/app';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -839,7 +839,7 @@ export const SettingsScreen = ({
                     Alert.alert('Error', 'Please set up your username first');
                     return;
                   }
-                  const deepLink = `bunches://add-friend/${username}`;
+                  const deepLink = buildFriendLink(username);
                   try {
                     await Share.share({
                       message: `Add me on ${APP_NAME}! ${deepLink}`,

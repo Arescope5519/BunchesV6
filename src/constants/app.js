@@ -51,9 +51,34 @@ export const isInternalUrl = (url) => {
   return [APP_SCHEME, ...LEGACY_SCHEMES].some(s => url.startsWith(`${s}://`));
 };
 
+/** Every scheme the app answers to - current first, then legacy. */
+export const ALL_SCHEMES = [APP_SCHEME, ...LEGACY_SCHEMES];
+
 /** Build the internal source URL stored for a user-created recipe. */
 export const buildInternalRecipeUrl = (userId, recipeId) =>
   `${APP_SCHEME}://user/${userId}/recipes/${recipeId}`;
+
+/**
+ * Every internal source URL a given recipe could have been stored under,
+ * newest scheme first. For LOOKUPS against rows written before a rename -
+ * building one URL and querying it would miss legacy rows entirely.
+ */
+export const internalRecipeUrlCandidates = (userId, recipeId) =>
+  ALL_SCHEMES.map(s => `${s}://user/${userId}/recipes/${recipeId}`);
+
+/** Friend invite link, e.g. melibri://add-friend/daniel */
+export const buildFriendLink = (username) =>
+  `${APP_SCHEME}://add-friend/${username}`;
+
+/** Username from a friend invite link, accepting legacy schemes. */
+export const parseFriendLink = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  for (const s of ALL_SCHEMES) {
+    const m = url.match(new RegExp(`^${s}://add-friend/([^/?]+)`, 'i'));
+    if (m) return decodeURIComponent(m[1]);
+  }
+  return null;
+};
 
 export default {
   APP_NAME,
@@ -63,10 +88,14 @@ export default {
   APP_VERSION,
   APP_SCHEME,
   LEGACY_SCHEMES,
+  ALL_SCHEMES,
   APP_DOMAIN,
   SUPPORT_EMAIL,
   TERMS_URL,
   PRIVACY_URL,
   isInternalUrl,
   buildInternalRecipeUrl,
+  internalRecipeUrlCandidates,
+  buildFriendLink,
+  parseFriendLink,
 };

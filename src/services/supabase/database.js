@@ -1109,7 +1109,7 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
       if (!globalRecipe) {
         globalRecipe = await createGlobalRecipe(recipeWithSource);
       } else {
-        // Owner-controlled global entry (bunches:// source): keep its
+        // Owner-controlled global entry (internal source URL): keep its
         // photo in sync when the user adds/changes/removes one later
         const currentImage = recipe.imageUrl || recipe.image_url || recipe.image || null;
         if ((globalRecipe.image_url || null) !== currentImage) {

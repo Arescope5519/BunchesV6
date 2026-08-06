@@ -22,7 +22,7 @@ class ShareViewController: UIViewController {
     private var sharedURL: String?
 
     // App Group identifier - must match your app group
-    private let appGroupIdentifier = "group.com.bunchesai.v6"
+    private let appGroupIdentifier = "group.app.melibri"
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,7 +41,7 @@ class ShareViewController: UIViewController {
         view.addSubview(containerView)
 
         // Title
-        titleLabel.text = "Save to Bunches"
+        titleLabel.text = "Save to Melibri"
         titleLabel.font = .boldSystemFont(ofSize: 20)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -101,7 +101,7 @@ class ShareViewController: UIViewController {
         // Save button
         saveButton.setTitle("Save Recipe", for: .normal)
         saveButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
-        saveButton.backgroundColor = UIColor(red: 0.36, green: 0.68, blue: 0.49, alpha: 1.0) // Bunches green
+        saveButton.backgroundColor = UIColor(red: 0.176, green: 0.416, blue: 0.310, alpha: 1.0) // colors.primary, Forest green
         saveButton.setTitleColor(.white, for: .normal)
         saveButton.layer.cornerRadius = 10
         saveButton.isEnabled = false

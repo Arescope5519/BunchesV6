@@ -95,7 +95,12 @@ import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, 
 import RecipeExtractor from '../../RecipeExtractor';
 
 import { log } from '../utils/log';
-import { APP_NAME } from '../constants/app';
+import {
+  APP_NAME,
+  isInternalUrl,
+  internalRecipeUrlCandidates,
+  parseFriendLink,
+} from '../constants/app';
 export const HomeScreen = ({ user }) => {
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState('recipes'); // recipes, social, settings, grocery
@@ -232,7 +237,7 @@ export const HomeScreen = ({ user }) => {
   const isCustomRecipe = (recipe) => {
     if (!recipe) return false;
     const url = recipe.url || recipe.sourceUrl || recipe.source_url;
-    return !url || url.startsWith('bunches://');
+    return !url || isInternalUrl(url);
   };
 
   // Get folders available for a recipe (My Creations only for custom recipes)
@@ -389,10 +394,9 @@ export const HomeScreen = ({ user }) => {
 
     log('Deep link received:', url);
 
-    // Parse bunches://add-friend/username
-    const match = url.match(/bunches:\/\/add-friend\/([^\/\?]+)/);
-    if (match && match[1]) {
-      const username = decodeURIComponent(match[1]);
+    // Parse <scheme>://add-friend/username, legacy schemes included
+    const username = parseFriendLink(url);
+    if (username) {
       log('Friend request from deep link:', username);
 
       if (!user) {
@@ -1924,7 +1928,7 @@ export const HomeScreen = ({ user }) => {
     );
   };
 
-  // Recipe deep links: bunches://recipe/<globalRecipeId> jumps to that
+  // Recipe deep links: <scheme>://recipe/<globalRecipeId> jumps to that
   // recipe's card - the user's own copy if saved, read-only otherwise
   const openRecipeFromLink = async (globalRecipeId) => {
     try {
@@ -1941,7 +1945,7 @@ export const HomeScreen = ({ user }) => {
         return;
       }
 
-      const externalUrl = globalRecipe.source_url && !globalRecipe.source_url.startsWith('bunches://')
+      const externalUrl = globalRecipe.source_url && !isInternalUrl(globalRecipe.source_url)
         ? globalRecipe.source_url
         : null;
 
@@ -1975,11 +1979,18 @@ export const HomeScreen = ({ user }) => {
   // storage may not carry it even though the cloud version exists
   const resolveRecipeGlobalId = async (recipe) => {
     if (recipe.globalRecipeId) return recipe.globalRecipeId;
-    const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url
-      || (user?.uid ? `bunches://user/${user.uid}/recipes/${recipe.id}` : null);
-    if (!sourceUrl) return null;
-    const globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
-    return globalRecipe?.id || null;
+    const storedUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
+    // With no stored URL this is an older local recipe whose global entry
+    // may have been minted under any scheme the app has used, so try each
+    // rather than assuming the current one.
+    const candidates = storedUrl
+      ? [storedUrl]
+      : (user?.uid ? internalRecipeUrlCandidates(user.uid, recipe.id) : []);
+    for (const url of candidates) {
+      const globalRecipe = await findGlobalRecipeByUrl(url);
+      if (globalRecipe?.id) return globalRecipe.id;
+    }
+    return null;
   };
 
   // Share-as-image state: mounting shareCard renders the card offscreen;

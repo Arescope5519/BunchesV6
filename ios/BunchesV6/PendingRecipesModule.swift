@@ -3,7 +3,7 @@ import Foundation
 @objc(PendingRecipesModule)
 class PendingRecipesModule: NSObject {
 
-  private let appGroupIdentifier = "group.com.bunchesai.v6"
+  private let appGroupIdentifier = "group.app.melibri"
 
   @objc
   static func requiresMainQueueSetup() -> Bool {

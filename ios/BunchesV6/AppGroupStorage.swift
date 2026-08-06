@@ -2,7 +2,7 @@ import Foundation
 
 @objc(AppGroupStorage)
 class AppGroupStorage: NSObject {
-  private let appGroupId = "group.com.bunchesai.v6"
+  private let appGroupId = "group.app.melibri"
   private let sharedURLsKey = "sharedURLs"
   private let legacySharedURLKey = "sharedURL"
 
