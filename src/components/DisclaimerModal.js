@@ -112,7 +112,9 @@ const DisclaimerModal = ({ visible, onAccept }) => {
               stored in Supabase Storage. We use Google Sign-In for authentication.
             </Text>
             <Text style={styles.sectionText}>
-              You can delete your account at any time from Settings.
+              You can delete your account at any time from Settings. Your
+              account is deactivated straight away and permanently deleted
+              after 30 days - sign back in during that window to restore it.
             </Text>
           </View>
 

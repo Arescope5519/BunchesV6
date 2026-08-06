@@ -26,6 +26,7 @@ import colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
 import { APP_NAME, APP_VERSION, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS, buildFriendLink } from '../constants/app';
+import { requestAccountDeletion } from '../services/supabase/account';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -54,6 +55,7 @@ export const SettingsScreen = ({
   onUpdateDietaryPrefs,
 }) => {
   const [editingUsername, setEditingUsername] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
@@ -88,6 +90,57 @@ export const SettingsScreen = ({
         },
       ]
     );
+  };
+
+  /**
+   * Two-step deletion. The first alert explains what happens; the second
+   * is a bare confirmation, so a stray tap on a destructive button in a
+   * section the user was only browsing cannot delete their account.
+   */
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete My Account',
+      `This deactivates your ${APP_NAME} account now and permanently deletes it, along with every recipe, cookbook, photo and friend connection, after 30 days.\n\nRecipes you shared stay available to people who saved them.\n\nYou can restore your account any time in the next 30 days by signing back in.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              'You will be signed out. Sign back in within 30 days to restore your account.',
+              [
+                { text: 'Keep My Account', style: 'cancel' },
+                {
+                  text: 'Delete Account',
+                  style: 'destructive',
+                  onPress: confirmDeleteAccount,
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await requestAccountDeletion();
+      // Sign out rather than showing a success dialog - the account is
+      // deactivated, so there is nothing left in here to look at. The
+      // grace-period screen takes over on the next sign-in.
+      onSignOut?.();
+    } catch (err) {
+      console.error('Account deletion request failed:', err);
+      Alert.alert(
+        'Could Not Delete Account',
+        `Something went wrong and your account was not deleted. Please try again, or contact ${SUPPORT_EMAIL}.`
+      );
+      setDeletingAccount(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -1099,6 +1152,30 @@ export const SettingsScreen = ({
           >
             <Text style={styles.dangerButtonText}>Clear All Data</Text>
           </TouchableOpacity>
+
+          {/* Deleting the account is only meaningful when there is a
+              cloud account to delete - local mode has nothing server
+              side. Both app stores require this to be reachable in-app. */}
+          {user && !user.isLocalMode && (
+            <>
+              <TouchableOpacity
+                style={[styles.dangerButton, styles.deleteAccountButton]}
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.dangerButtonText}>Delete My Account</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.dangerNote}>
+                Your account is deactivated straight away and permanently
+                deleted after 30 days. Sign back in during that window to
+                restore it.
+              </Text>
+            </>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -1294,6 +1371,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  deleteAccountButton: {
+    marginTop: 12,
+  },
+  dangerNote: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
   },
   cleanupButton: {
     backgroundColor: '#FF9800',

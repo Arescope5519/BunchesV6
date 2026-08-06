@@ -5,9 +5,11 @@
 
 import React, { useState, useEffect, Component } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, ScrollView } from 'react-native';
-import { onAuthStateChanged } from './src/services/supabase/auth';
+import { onAuthStateChanged, signOut } from './src/services/supabase/auth';
+import { getDeletionStatus } from './src/services/supabase/account';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import PendingDeletionScreen from './src/components/PendingDeletionScreen';
 import colors from './src/constants/colors';
 
 import { log } from './src/utils/log';
@@ -67,6 +69,23 @@ function MainApp() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initError, setInitError] = useState(null);
+  // null = not checked yet for this user
+  const [pendingDeletion, setPendingDeletion] = useState(null);
+
+  // An account in its 30-day grace period is blocked from the app until
+  // the user restores it or signs out. Local mode has no cloud account,
+  // so it never applies.
+  useEffect(() => {
+    if (!user || user.isLocalMode) {
+      setPendingDeletion(null);
+      return;
+    }
+    let cancelled = false;
+    getDeletionStatus(user.uid || user.id).then(status => {
+      if (!cancelled) setPendingDeletion(status);
+    });
+    return () => { cancelled = true; };
+  }, [user?.uid, user?.id, user?.isLocalMode]);
 
   useEffect(() => {
     log('[APP] Setting up auth state listener...');
@@ -126,6 +145,24 @@ function MainApp() {
             isLocalMode: true,
           };
           setUser(localUser);
+        }}
+      />
+    );
+  }
+
+  if (pendingDeletion?.pending) {
+    return (
+      <PendingDeletionScreen
+        purgeAfter={pendingDeletion.purgeAfter}
+        onRestored={() => setPendingDeletion({ pending: false, purgeAfter: null })}
+        onSignOut={async () => {
+          try {
+            await signOut();
+          } catch (err) {
+            console.error('[APP] Sign out failed:', err);
+          }
+          setUser(null);
+          setPendingDeletion(null);
         }}
       />
     );
