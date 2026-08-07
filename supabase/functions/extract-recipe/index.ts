@@ -8,13 +8,15 @@
  * Supabase secrets (GEMINI_API_KEY), never in the app.
  *
  * Rate limits (enforced here, not in the app):
- *   Free    - 3 scans lifetime
- *   Premium - 100 scans per calendar month. The cap exists to stop
- *             abuse, not to ration a paid feature: scanning costs
- *             fractions of a cent, and people digitise cookbooks in
- *             bursts rather than one a day. Set it where only abuse
- *             reaches it.
+ *   Free    - 3 SUCCESSFUL scans lifetime (8 attempts)
+ *   Premium - 100 SUCCESSFUL scans per calendar month (150 attempts)
  *   Admin   - unlimited
+ *
+ * Only scans that actually returned a recipe spend the allowance;
+ * attempts are capped separately so failures being free cannot be
+ * farmed. The caps exist to stop abuse, not to ration a paid feature -
+ * a scan costs fractions of a cent and people digitise cookbooks in
+ * bursts, so set them where only abuse reaches them.
  * Usage is recorded in the scan_usage table (see sql/add_scan_usage.sql).
  *
  * Deploy (dashboard): create function "extract-recipe", Verify JWT ON.
@@ -32,6 +34,14 @@ const CORS_HEADERS = {
 
 const FREE_LIFETIME_LIMIT = 3;
 const PREMIUM_MONTHLY_LIMIT = 100;
+
+// Ceilings on TOTAL attempts, successful or not. Failed scans do not
+// spend the allowance above, so these are what stop that generosity
+// being farmed with deliberately unreadable images.
+const FREE_ATTEMPT_CEILING = 8;
+const PREMIUM_MONTHLY_ATTEMPT_CEILING = 150;
+
+const SUPPORT_EMAIL = 'hello@melibri.app';
 const MAX_IMAGES = 3;
 // ~4MB of raw image per photo once base64 is decoded
 const MAX_BASE64_LENGTH = 5_500_000;
@@ -144,24 +154,39 @@ Deno.serve(async (req: Request) => {
     let scanLimit = FREE_LIFETIME_LIMIT;
 
     if (!isAdmin) {
+      // Only scans that actually produced a recipe count against the
+      // allowance - a blurry photo the AI could not read is our failure,
+      // not the user's, and burning one of three on it is how someone
+      // decides the feature is broken and stops trying.
+      //
+      // Attempts are counted separately against a higher ceiling, so
+      // "failures are free" cannot be turned into unlimited free calls
+      // by feeding it garbage on purpose.
+      let attemptCeiling = FREE_ATTEMPT_CEILING;
+      let windowStart: string | null = null;
+
       if (premiumActive) {
         scanLimit = PREMIUM_MONTHLY_LIMIT;
+        attemptCeiling = PREMIUM_MONTHLY_ATTEMPT_CEILING;
         const monthStart = new Date();
         monthStart.setUTCDate(1);
         monthStart.setUTCHours(0, 0, 0, 0);
-        const { count } = await supabase
-          .from('scan_usage')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gte('created_at', monthStart.toISOString());
-        scansUsed = count || 0;
-      } else {
-        const { count } = await supabase
+        windowStart = monthStart.toISOString();
+      }
+
+      const countUsage = async (successOnly: boolean) => {
+        let q = supabase
           .from('scan_usage')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id);
-        scansUsed = count || 0;
-      }
+        if (successOnly) q = q.eq('success', true);
+        if (windowStart) q = q.gte('created_at', windowStart);
+        const { count } = await q;
+        return count || 0;
+      };
+
+      const attempts = await countUsage(false);
+      scansUsed = await countUsage(true);
 
       if (scansUsed >= scanLimit) {
         return json({
@@ -170,6 +195,19 @@ Deno.serve(async (req: Request) => {
           message: premiumActive
             ? `You've used all ${scanLimit} scans for this month.`
             : `You've used all ${scanLimit} free scans. Premium includes ${PREMIUM_MONTHLY_LIMIT} scans every month.`,
+          scansUsed,
+          scanLimit,
+          premium: premiumActive,
+        }, 429);
+      }
+
+      if (attempts >= attemptCeiling) {
+        return json({
+          success: false,
+          error: 'attempt_limit',
+          message: premiumActive
+            ? 'Too many scan attempts this month. This resets on the 1st.'
+            : `Scanning is paused on this account after ${attemptCeiling} attempts. Email ${SUPPORT_EMAIL} if that seems wrong.`,
           scansUsed,
           scanLimit,
           premium: premiumActive,
@@ -336,7 +374,7 @@ Deno.serve(async (req: Request) => {
       success: found,
       model,
     });
-    scansUsed += 1;
+    if (found) scansUsed += 1;
 
     if (!parsed) {
       return json({
