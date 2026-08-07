@@ -9,7 +9,11 @@
  *
  * Rate limits (enforced here, not in the app):
  *   Free    - 3 scans lifetime
- *   Premium - 30 scans per calendar month
+ *   Premium - 100 scans per calendar month. The cap exists to stop
+ *             abuse, not to ration a paid feature: scanning costs
+ *             fractions of a cent, and people digitise cookbooks in
+ *             bursts rather than one a day. Set it where only abuse
+ *             reaches it.
  *   Admin   - unlimited
  * Usage is recorded in the scan_usage table (see sql/add_scan_usage.sql).
  *
@@ -27,7 +31,7 @@ const CORS_HEADERS = {
 };
 
 const FREE_LIFETIME_LIMIT = 3;
-const PREMIUM_MONTHLY_LIMIT = 30;
+const PREMIUM_MONTHLY_LIMIT = 100;
 const MAX_IMAGES = 3;
 // ~4MB of raw image per photo once base64 is decoded
 const MAX_BASE64_LENGTH = 5_500_000;
