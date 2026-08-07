@@ -1,0 +1,21 @@
+/**
+ * Cloudflare Workers config for the melibri.app public site.
+ *
+ * This deploys the static pages in site/ - nothing to do with the mobile
+ * app, which is built with Expo and never touches Cloudflare.
+ *
+ * There is no "main" script on purpose: with only "assets" set, the
+ * Worker serves those files directly and no JavaScript runs per request.
+ *
+ * "name" must match the Worker service the GitHub connection was created
+ * against, or `wrangler deploy` would publish to a different Worker than
+ * the dashboard is showing.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bunchesv6",
+  "compatibility_date": "2026-08-07",
+  "assets": {
+    "directory": "./site"
+  }
+}
