@@ -99,3 +99,34 @@ save_rgb(
     tile(48, radius_frac=0.22, height_frac=0.58),
     os.path.join(HERE, "favicon.png"),
 )
+
+
+# ---------------------------------------------------------------------
+# Web assets for site/ (melibri.app)
+#
+# Generated from the same mark as the app icons so the website and the
+# launcher icon can never drift apart.
+# ---------------------------------------------------------------------
+
+SITE = os.path.join(os.path.dirname(HERE), "site")
+
+# Browser tab icon. 32px is what tabs actually render.
+save_rgb(tile(32, radius_frac=0.22, height_frac=0.60), os.path.join(SITE, "favicon.png"))
+
+# Home-screen icon when someone saves the site on iOS. Apple applies its
+# own rounding, so this one is a flat square.
+save_rgb(tile(180, radius_frac=0, height_frac=0.56), os.path.join(SITE, "apple-touch-icon.png"))
+
+# Open Graph card - what renders when the domain is pasted into a social
+# post or a chat. 1200x630 is the size every platform crops toward.
+og = Image.new("RGBA", (1200, 630), GREEN + (255,))
+_f = fit_font(300)
+_x0, _y0, _x1, _y1 = _f.getbbox(LETTER)
+ImageDraw.Draw(og).text(
+    ((1200 - (_x1 - _x0)) / 2 - _x0, (630 - (_y1 - _y0)) / 2 - _y0 - 40),
+    LETTER, font=_f, fill=WHITE + (255,),
+)
+_sub = ImageFont.truetype(FONT_PATH, 46)
+_w = ImageDraw.Draw(og).textlength("Melibri", font=_sub)
+ImageDraw.Draw(og).text(((1200 - _w) / 2, 440), "Melibri", font=_sub, fill=WHITE + (255,))
+save_rgb(og, os.path.join(SITE, "og.png"), bg=GREEN)

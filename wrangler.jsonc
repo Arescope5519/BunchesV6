@@ -16,6 +16,8 @@
   "name": "bunchesv6",
   "compatibility_date": "2026-08-07",
   "assets": {
-    "directory": "./site"
+    "directory": "./site",
+    // Serve our own 404 page instead of Cloudflare's generic error.
+    "not_found_handling": "404-page"
   }
 }
