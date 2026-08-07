@@ -33,6 +33,37 @@ Notes:
   conflicts before. If the tree gets stuck:
   `git merge --abort && git reset --hard && git fetch origin <branch> && git checkout -B <branch> origin/<branch>`
 
+## Release signing (Play uploads)
+
+Expo signs release builds with the DEBUG keystore, which Play rejects.
+`plugins/android-release-signing.js` re-applies a real signing config on
+every prebuild (writing it into android/ by hand does not survive
+`--clean`).
+
+Credentials live in the user-level Gradle file, never in this repo -
+`C:\Users\<you>\.gradle\gradle.properties`:
+
+```properties
+MELIBRI_UPLOAD_STORE_FILE=C:\\keys\\melibri-upload.keystore
+MELIBRI_UPLOAD_STORE_PASSWORD=...
+MELIBRI_UPLOAD_KEY_ALIAS=melibri
+MELIBRI_UPLOAD_KEY_PASSWORD=...
+```
+
+Backslashes must be doubled. With those absent the build falls back to
+debug signing, so a local test APK still builds on a machine without the
+keystore.
+
+- Play wants an **app bundle**: `gradlew.bat bundleRelease` ->
+  `android\app\build\outputs\bundle\release\app-release.aab`.
+  Keep `assembleRelease` for installing on your own device.
+- **Play re-signs with its own key.** After the first upload, copy the
+  SHA-1 from Play Console -> Setup -> App signing and add it as another
+  Android OAuth client (package `app.melibri`), or Google Sign-In fails
+  for every tester while working perfectly on your machine.
+- Losing the upload keystore is recoverable through Google, but slow.
+  Back it up somewhere that is not this repo.
+
 ## Working agreements
 
 - **All work lives on `master`.** Session branches must be created FROM

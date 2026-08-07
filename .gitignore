@@ -42,3 +42,4 @@ src/services/secrets.js
 # generated native folders
 /ios
 /android
+*.keystore
