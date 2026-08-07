@@ -1,21 +1,46 @@
 # Where We Left Off
 
-**Last updated:** July 30, 2026 (end of long feature/design session)
+**Last updated:** August 7, 2026
 
 ## Branches
-- **All work lives on `master`.** The Aug 2026 session branch
-  (`claude/session-setup-y19h2x`) has been merged in; master and that
-  branch are identical.
+- **All work lives on `master`.** The session branch
+  `claude/session-setup-y19h2x` is pushed to both and they are identical.
 - New sessions: base work on `master`, merge back when done.
 - NOTE: `origin/master` was force-pushed at some point in the past, so a
   stale local `master` on any machine may point at unrelated Nov 2025
   history. Fix with `git fetch origin master && git branch -f master origin/master`.
 
-## Working Name
-**Hunii** (tentative - decide before launch).
-- "Bunches" is OFF the table: registered trademark (Bunches, Inc., Class 45 social networking).
-- "HoneyBun" also blocked (Society Inc., Classes 9 + 45).
-- "Hunii" is USPTO-clear but collides practically with a VTuber (@huniibunchesofoats on TikTok, ironically). Accepted tradeoff for now; final call at launch prep.
+## Name and identity: DECIDED
+
+**Melibri** (mel = honey, libri = books). Clean on USPTO across all
+classes. The repo is still called BunchesV6; that is cosmetic.
+
+- Domain **melibri.app** owned, on Cloudflare (registered personally -
+  move the registrant to the LLC if one is formed).
+- Bundle id / Android package: `app.melibri`. **Permanent once
+  published**, even if the name changes again later.
+- URL scheme `melibri://`, with `bunches://` still accepted on READ -
+  see the note at the top of `src/constants/app.js`. Old recipes have
+  `bunches://` source URLs persisted in the database.
+- Email routing live via Cloudflare: `hello@`, `daniel@`, `privacy@`,
+  `abuse@` all forward to `melibriapp@gmail.com`. Receiving only -
+  **there is no way to send AS these addresses yet.**
+- Avoid hummingbird imagery (see CLAUDE.md).
+
+## Live infrastructure
+
+- **melibri.app** serves `site/` via a Cloudflare Worker named
+  `bunchesv6`. Terms and Privacy are up at `/terms` and `/privacy`,
+  which is exactly what `TERMS_URL` / `PRIVACY_URL` point at.
+  - Deploy is automatic on push to `master`.
+  - **Retrying a build replays its pinned commit.** Only a new push
+    builds new code. This cost an hour once.
+  - The build runs `npm ci`, so `package.json` and `package-lock.json`
+    must stay in sync or the site build fails. Always commit the lockfile
+    with any dependency change.
+- **Account deletion** is live end to end: `account_deletions` table,
+  `purge_user_rows()`, the `delete-account` Edge Function, and a daily
+  pg_cron job. **The purge path has never been run** - see next steps.
 
 ## Current App State (all built, on master)
 
@@ -26,118 +51,106 @@
   nutrition grid at bottom (scaled by recipe multiplier), version picker
 - Preview (SaveRecipeScreen) and saved card share formatters via src/utils/recipeFormat.js
 - Versions/variants: first content edit auto-snapshots "Original"; picker offers
-  Original / My Edits / friends' shared versions (attributed "shared by @user");
-  "+ Create New Variant" removed
+  Original / My Edits / friends' shared versions (attributed "shared by @user")
 - Custom recipe creation with photo (moderated), profanity-filtered fields
+- Cook Mode: cross off ingredients/steps, hide-done toggle, fade-with-undo,
+  screen stays awake
+- AI recipe scanning (Gemini via `extract-recipe`), up to 5 recipes per scan,
+  rate limited server-side (free 3 lifetime / premium 30 per month / admin unlimited)
+- Photos can be added to custom and scanned recipes after creation
 
 ### Kitchen (bottom nav tab, 4 sub-tabs)
 - **Cook** (premium): weekly cook plan, recipe picker w/ cookbook browse, batch multiplier
-  (base servings x 0.5/1/2...)
-- **Eat** (premium): weekly meal slots (breakfast/lunch/dinner). Add meal from:
-  Fridge (capped servings), Cook a Recipe (already-made → cook logged on eat day;
-  not-yet → day chips schedule onto Cook plan), Take Out (leftovers → fridge).
-  Tap meal = open recipe; long-press = edit servings/delete.
-- **Shop** (free): grocery list (existing feature, embedded)
-- **Fridge** (premium): computed inventory (cooked minus eaten minus adjustments),
-  days-old warnings at 5+, Trash + Adjust portions actions, takeout badges
-- Tables: cook_events (is_takeout/takeout_name), meal_events, fridge_adjustments
+- **Eat** (premium): weekly meal slots. Add meal from Fridge, Cook a Recipe, or Take Out
+- **Shop** (free): grocery list
+- **Fridge** (premium): computed inventory, days-old warnings at 5+, Trash + Adjust
+- Tables: cook_events, meal_events, fridge_adjustments
 - Premium gating via user_profiles.is_premium (+premium_until); admins auto-premium
 
 ### Social
-- Friends, requests, inbox (threaded), Discover placeholder (default tab)
+- Friends, requests, inbox (threaded), Discover placeholder
 - Profiles: featured carousel, sample recipes, cookbooks + Uncategorized
-- Public recipe read-only view (import 📥 excludes My Creations, report 🚩)
-- Share recipes with edits → attributed variant; recipient dedupe by URL
-  (existing recipe gains the variant, no duplicate)
-- Blocking (⋯ menu on profiles; Settings → Privacy → Blocked Users)
-- Original-recipe sync for user-imported recipes (silent refresh on open)
+- Public recipe read-only view, import, report
+- Share recipes with edits -> attributed variant; recipient dedupe by URL
+- Blocking (profile menu; Settings -> Privacy -> Blocked Users)
+- Friend invite links via `buildFriendLink()` / `parseFriendLink()`
+
+### Tags and dietary
+- `src/utils/dietaryAnalysis.js` - keyword matching, no external service.
+  Diet chips are **computed at render time, never stored**, so they cannot drift.
+- `src/utils/autoTag.js` - high-confidence tags for global recipes, stored once.
+  Reads the TITLE only (plus instructions for appliance tags). Savory dishes
+  suppress Dessert, so shepherd's pie no longer reads as pudding.
+- Frequently Used tags ranked by how often you SEARCH a tag, not how many
+  recipes carry it. Counts sync to Supabase.
 
 ### Moderation & Safety
-- Image moderation: Sightengine via Edge Function `moderate-image`
-  (nudity/offensive/gore/weapons + FACE DETECTION - no people in recipe photos)
-- Text moderation: local wordlist + phrases ("kill yourself" etc.) then OpenAI
-  omni-moderation via Edge Function `moderate-text`
-- Keys live in Supabase env vars (NOT in app). supabase/functions/* in repo.
-- Reports: modal w/ reason + 500-char details; rate-limited (10/hr, 24h dedupe)
-- Admin: Settings → Moderation Queue (dismiss/delete recipe/ban user + preview)
-- Discord webhook notifications via `moderation-webhook` fn + pg trigger
-- First-launch disclaimer modal (placeholder ToS/PP URLs - REAL DOCS STILL NEEDED)
+- Image moderation: Sightengine via `moderate-image` (incl. face detection)
+- Text moderation: local wordlist then OpenAI omni-moderation via `moderate-text`
+- Reports: modal w/ reason + details; rate-limited (10/hr, 24h dedupe)
+- Admin: Settings -> Moderation Queue
+- Discord webhook via `moderation-webhook` + pg trigger
+- First-launch disclaimer modal - **now points at real, live documents**
 
-### Design (current)
+### Design
 - Theme: **Honey + Forest** - forest green #2D6A4F primary, honey #E9B44C accent,
-  off-white bg. All in src/constants/colors.js (single-file swap).
-- All 4 top bars standardized: height 100, paddingTop 38, paddingBottom 8.
-  Social header = "Social" + profile chip centered on ONE line; Social sub-tabs
-  are a LIGHT row (not green) so green thickness matches everywhere.
-- Bottom nav: silvery frost bar (navBar tokens), Ionicons vector icons
-  (green active / gray inactive)
-- Vector icons (Ionicons) throughout chrome: header buttons in white circles,
-  modal actions, Kitchen + Social tabs. Grocery buttons follow theme color.
+  off-white bg. All in `src/constants/colors.js`.
+- App icon: white M on forest green (YoungSerif), generated by
+  `assets/generate-icons.py` along with the web favicon and OG card, so the
+  launcher icon and website cannot drift apart. **Placeholder quality** -
+  commission real artwork before launch.
+- Ionicons throughout. No emoji in UI.
 
 ### Known fixes to remember
-- Android modal scroll: KAV behavior must be undefined on Android (not "height");
-  recipe modal also remounts ScrollView via onShow tick (dead-scroll fix)
-- Recipe deletion syncs BOTH recipes + user_recipes_v2 tables; sync respects
-  old-table deleted_at (resurrection bug fixed)
-- All recipes migrated to user_recipes_v2 (127/127)
-
-## This Session (July 30, 2026 - branch claude/session-setup-y19h2x)
-- PHASE 5 BUILT (needs deploy + testing): AI recipe scanning. Camera
-  button on recipes actions bar -> take/pick up to 3 photos ->
-  extract-recipe Edge Function (Gemini, GEMINI_API_KEY secret set) ->
-  SaveRecipeScreen preview. Rate limits server-side (scan_usage table:
-  free 3 lifetime / premium 30/mo / admin unlimited). TO DO: run
-  sql/add_scan_usage.sql + deploy extract-recipe fn (Verify JWT ON,
-  see EDGE_FUNCTIONS_SETUP.md).
-- Share card now embeds a QR code (pure-JS qrcode pkg) linking to the
-  recipe; Copy Link always offered, resolves global id on demand.
-- Recipe deep links: bunches://recipe/<globalRecipeId> opens that recipe
-  card in-app (own copy if saved, read-only + import otherwise); "Copy
-  Link" in the share chooser; scheme "bunches" added to app.json so
-  Android registers it (REQUIRES PREBUILD). https://hunii.app/r/<id>
-  already parsed for when the domain + App Links go live.
-- PHASE 4 STARTED: share-as-image (RecipeShareCard 9:16 branded card,
-  react-native-view-shot capture -> system share sheet; NEW DEPENDENCY -
-  build now needs npm install after pull). Share button offers
-  Image / Send to Friends. APP_NAME constant in src/constants/app.js
-  ("Hunii" - swap at launch). Deep links + web pages deferred until the
-  name/domain decision.
-- Letter-avatar placeholders (solid green tile, white first letter)
-  replace "No Image" everywhere; global auto-tags on scanned AND custom
-  recipes (high-confidence only), shown instantly on save
-- Recipes page redesigned like Social: green header (title only) → light icon
-  actions bar (add/link/search/cookbooks/view toggle) → sort+tags bar; cookbook
-  title shows below bars when inside a cookbook; all emoji chrome → Ionicons
-- PHASE 2 BUILT (needs testing): dietary analysis engine
-  (src/utils/dietaryAnalysis.js - keyword matching, no external service),
-  auto-derived diet chips (Vegetarian/Vegan/GF/DF computed from ingredients,
-  never stored), categorized tags (src/constants/tags.js TAG_CATEGORIES),
-  dietary prefs in Settings (user_profiles.dietary_preferences jsonb - run
-  sql/add_dietary_preferences.sql!), Dietary filter section, allergen
-  "May contain" row + avoided-line highlighting + conflict banner in
-  RecipeDetail, conflict icon on cards
+- Android modal scroll: KAV behavior must be undefined on Android
+- Recipe deletion syncs BOTH recipes + user_recipes_v2 tables
+- Custom recipes get their internal source URL minted at creation, not after
+  the cloud write. Everything that asks "did the user make this?" keys off
+  that URL, so minting it late made new recipes read as imported until reload.
 
 ## Immediate Next Steps
-1. **Test the backlog** - biggest outstanding item. Unverified: AI
-   scanning end-to-end, share-as-image + QR, deep links
-   (bunches://recipe/<id>), dietary filters/allergens, auto-tags,
-   letter placeholders, add-photo-later, Cook Mode hide/fade.
-2. **Pick the name** (see CLAUDE.md "Naming"). Blocks: app icon, store
-   listings, ToS/PP, and the https deep links + public web pages that
-   are the unfinished half of Phase 4.
-3. Turn on billing in the Google Cloud project before real users scan -
-   the Gemini free tier may use inputs for model training.
-4. Phase 6: Subscriptions (needs Play Console + App Store accounts).
-5. Phase 7: Launch prep. Phase 3 (nutrition API) stays parked unless
-   extracted nutrition proves insufficient.
 
-### Known tech debt (not urgent)
-- HomeScreen.js ~5.2k lines, RecipeDetail.js ~2.9k - splitting is
-  invasive, do it deliberately between features.
-- AsyncStorage is 1.23.1 where Expo SDK 54 wants 2.2.0. Working fine;
-  left alone on purpose.
-- Legacy `recipes` table is still dual-written alongside user_recipes_v2.
+1. **Test the account purge.** Backdate `purge_after` on a throwaway
+   account and fire the function. Deletion is the one feature where
+   "probably works" is not good enough, and this path has never run.
+   ```sql
+   UPDATE account_deletions SET purge_after = now() - interval '1 day'
+   WHERE user_id = 'TEST_USER_UUID';
+   ```
+2. **Store developer accounts** - $25 Play (one-off), $99/yr Apple. Register
+   under `melibriapp@gmail.com`. This is also the decision point for whether
+   to form the LLC first.
+3. **Turn on Gemini billing** before real users scan. The free tier's terms
+   allow Google to train on inputs.
+4. **Test the feature backlog** - still unverified end to end: dietary
+   filters and allergen warnings, share-as-image + QR, letter placeholders,
+   Frequently Used tags, Cook Mode.
+5. Phase 6: Subscriptions (needs the store accounts above).
 
+## Known tech debt
+
+- `BUNCHES_RECIPE:` / `BUNCHES_BKP_V2:` are still the wire format for shared
+  codes and backups, including a user-visible placeholder in the import box.
+  Fix the same way as `BACKUP_EXT`: write the new prefix, read both.
+- `ios/BunchesV6/` is named for the old project. Nine hand-written native
+  files are force-tracked there while `/ios` is gitignored. Prebuild now
+  emits `ios/Melibri/`, so **rename this as step one of the iOS revival**,
+  once you can see what prebuild actually produces.
+- HomeScreen.js ~5.2k lines, RecipeDetail.js ~2.9k. Splitting is invasive;
+  do it deliberately between features.
+- Legacy `recipes` table is still dual-written alongside `user_recipes_v2`.
+- 23 npm audit warnings, all in the React Native tree. **Do not run
+  `npm audit fix --force`** - it will upgrade past what SDK 54 supports and
+  break the build, exactly like the expo-keep-awake incident.
+
+## iOS (dormant, intentionally preserved)
+
+Needs a Mac or EAS. When reviving:
+1. Rename `ios/BunchesV6/` to match what prebuild emits, and the bridging header with it.
+2. Create an iOS OAuth client for bundle id `app.melibri`; put its client id in
+   `src/services/supabase/auth.js` (IOS_CLIENT_ID) and both spots in `app.json`.
+3. The share-extension app group is already correct (`group.app.melibri`) in
+   both the plugin and the tracked native files.
 
 ## Build (Android, Daniel's PC - project on Y:)
 ```cmd
@@ -153,13 +166,18 @@ cd android
 set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.16.8-hotspot" && gradlew.bat assembleRelease
 ```
 APK: `Y:\BunchesV6\android\app\build\outputs\apk\release\`
-(If a session pushes to a different branch, swap the pull accordingly.)
+
+Uninstall first (`adb uninstall app.melibri`) whenever the icon changes -
+Android caches launcher icons hard enough to survive an upgrade install.
 
 ## Accounts / Services
-- Supabase project ref: azdhiunzwslogbaiwtgi (see SERVICES.md for full map)
+- Supabase project ref: `azdhiunzwslogbaiwtgi` (see SERVICES.md for the full map).
+  The ref is permanent but contains no branding, so there is nothing to migrate.
+- Google Cloud project 307694075211. **OAuth clients are bound to package name
+  + SHA-1**, which is why sign-in broke on the rename. The Android client for
+  `app.melibri` exists; the iOS one does not yet.
+- Cloudflare: domain, DNS, email routing, and the site Worker.
 - Test users: angrychef (admin), socci
-- secrets.js is gitignored; keys ALSO stored in Supabase env vars + Google
-  Password Manager backup. Edge functions: moderate-image, moderate-text,
-  moderation-webhook (Verify JWT ON for first two, OFF for webhook).
-- SQL history: tables recipes/user_recipes_v2/cook_events/meal_events/
-  fridge_adjustments/moderation_flags/content_reports/user_blocks/meal_plans(dropped)
+- Edge functions: `moderate-image`, `moderate-text`, `moderation-webhook`,
+  `extract-recipe`, `delete-account`. Verify JWT ON except the webhook.
+- Secrets live in Supabase env vars, never in the repo.
