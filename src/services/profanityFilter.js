@@ -188,6 +188,60 @@ export const findProfanity = (text) => {
 };
 
 /**
+ * Terms severe enough to block even when buried inside a longer string.
+ *
+ * Usernames have no spaces, so tokenising cannot pull a word out of
+ * "shitcook" - it is one token, and the wordlist check is exact-match.
+ * Substring matching fixes that, but it is dangerous by default (the
+ * Scunthorpe problem), so this list is deliberately short: only terms
+ * that are severe AND rarely appear inside innocent words.
+ *
+ * Deliberately NOT here, because a recipe app would trip over them:
+ * ass (assam, assorted), cock (cocktail), tit (title), rape (grape),
+ * spic (spicy), rapist (therapist).
+ */
+const IDENTIFIER_SUBSTRINGS = [
+  'fuck', 'bitch', 'cunt', 'whore', 'slut', 'porn',
+  'penis', 'vagina', 'dildo', 'blowjob', 'handjob', 'rimjob',
+  'nigger', 'nigga', 'faggot', 'kike', 'gook', 'wetback', 'tranny',
+  'molest', 'pedo', 'paedo', 'shit',
+];
+
+/**
+ * Innocent words that contain one of the above. Removed before the
+ * substring scan so a real place or ingredient name is not blocked.
+ */
+const IDENTIFIER_ALLOWED = ['scunthorpe', 'penistone'];
+
+/**
+ * Profanity check for identifiers - usernames and anything else with no
+ * separators to tokenise on. Returns the matched term, or null.
+ */
+export const findIdentifierProfanity = (text) => {
+  if (!text) return null;
+  let t = normalizeToken(String(text));
+  for (const allowed of IDENTIFIER_ALLOWED) {
+    t = t.split(allowed).join('');
+  }
+  for (const bad of IDENTIFIER_SUBSTRINGS) {
+    if (t.includes(bad)) return bad;
+  }
+  return null;
+};
+
+/**
+ * Full username check: the substring pass above, then the normal
+ * two-stage wordlist + OpenAI check.
+ * @param {string} username
+ * @returns {Promise<{safe: boolean, reason: string|null}>}
+ */
+export const checkUsernameAsync = async (username) => {
+  const hit = findIdentifierProfanity(username);
+  if (hit) return { safe: false, reason: `local:identifier:${hit}` };
+  return containsProfanityAsync(username);
+};
+
+/**
  * Censor profanity in text (replace with asterisks)
  * @param {string} text
  * @returns {string}

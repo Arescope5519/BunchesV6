@@ -4,7 +4,7 @@
  */
 
 import { supabase } from './config';
-import { containsProfanity, containsProfanityAsync } from '../profanityFilter';
+import { containsProfanity, containsProfanityAsync, checkUsernameAsync } from '../profanityFilter';
 
 import { log } from '../../utils/log';
 /**
@@ -53,7 +53,7 @@ export const setupUserProfile = async (userId, username) => {
   try {
     const normalized = username.toLowerCase().trim();
 
-    const check = await containsProfanityAsync(normalized);
+    const check = await checkUsernameAsync(normalized);
     if (!check.safe) {
       throw new Error('Username contains inappropriate language');
     }
@@ -605,7 +605,7 @@ export const changeUsername = async (userId, newUsername) => {
   try {
     const normalized = newUsername.toLowerCase().trim();
 
-    const check = await containsProfanityAsync(normalized);
+    const check = await checkUsernameAsync(normalized);
     if (!check.safe) {
       throw new Error('Username contains inappropriate language');
     }
