@@ -130,3 +130,33 @@ _sub = ImageFont.truetype(FONT_PATH, 46)
 _w = ImageDraw.Draw(og).textlength("Melibri", font=_sub)
 ImageDraw.Draw(og).text(((1200 - _w) / 2, 440), "Melibri", font=_sub, fill=WHITE + (255,))
 save_rgb(og, os.path.join(SITE, "og.png"), bg=GREEN)
+
+
+# ---------------------------------------------------------------------
+# Play Store listing assets (store/play/)
+#
+# Same mark again, so the launcher icon, the website and the store
+# listing cannot drift apart.
+# ---------------------------------------------------------------------
+
+PLAY = os.path.join(os.path.dirname(HERE), "store", "play")
+os.makedirs(PLAY, exist_ok=True)
+
+# Play's app icon: 512x512, 32-bit PNG, no transparency, no rounding
+# (Play applies its own mask).
+save_rgb(tile(512, radius_frac=0, height_frac=0.56), os.path.join(PLAY, "icon-512.png"))
+
+# Feature graphic: 1024x500, sits at the top of the listing. Play crops
+# it on some surfaces, so nothing important goes near the edges.
+fg = Image.new("RGBA", (1024, 500), GREEN + (255,))
+_d = ImageDraw.Draw(fg)
+
+_mark = tile(300, radius_frac=0.22, height_frac=0.56, bg=None, fg=WHITE)
+fg.paste(_mark, (150, 100), _mark)
+
+_name = ImageFont.truetype(FONT_PATH, 82)
+_tag = ImageFont.truetype(FONT_PATH, 34)
+_d.text((470, 195), "Melibri", font=_name, fill=WHITE + (255,))
+_d.text((476, 292), "my recipe kitchen", font=_tag, fill=(233, 180, 76, 255))
+
+save_rgb(fg, os.path.join(PLAY, "feature-graphic.png"), bg=GREEN)
