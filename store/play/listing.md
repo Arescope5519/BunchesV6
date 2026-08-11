@@ -11,11 +11,11 @@ Melibri
 ## Short description (80 char max)
 
 ```
-Save, scan and cook the recipes you actually use. No ads, no tracking.
+Your recipes, one home. Save, scan and cook - no ads, no tracking.
 ```
 
-69 characters. This is the line shown in search results, so it leads with
-what the app does and closes on the thing that genuinely sets it apart.
+65 characters. Opens on the tagline, then says what the app does and
+closes on the thing that genuinely sets it apart.
 
 ## Full description (4000 char max)
 

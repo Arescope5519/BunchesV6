@@ -18,7 +18,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 export const APP_NAME = 'Melibri';
-export const APP_TAGLINE = 'my recipe kitchen';
+export const APP_TAGLINE = 'Your recipes, one home';
 
 /**
  * Version comes from app.json, never a second hardcoded copy - that is

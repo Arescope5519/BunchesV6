@@ -21,6 +21,7 @@ FONT_PATH = "/mnt/skills/examples/canvas-design/canvas-fonts/YoungSerif-Regular.
 
 # from src/constants/colors.js
 GREEN = (45, 106, 79)      # colors.primary  #2D6A4F
+HONEY = (233, 180, 76)     # colors.accent   #E9B44C
 WHITE = (255, 255, 255)
 
 LETTER = "M"
@@ -146,8 +147,13 @@ def wordmark(draw, centre_x, baseline_y, cap_px, fg=WHITE):
     return total
 
 
+TAGLINE = "Your recipes, one home"
+
 og = Image.new("RGBA", (1200, 630), GREEN + (255,))
-wordmark(ImageDraw.Draw(og), 600, 380, 250)
+_od = ImageDraw.Draw(og)
+wordmark(_od, 600, 350, 240)
+_ot = ImageFont.truetype(FONT_PATH, 46)
+_od.text((600, 440), TAGLINE, font=_ot, fill=HONEY + (255,), anchor="ma")
 save_rgb(og, os.path.join(SITE, "og.png"), bg=GREEN)
 
 
@@ -165,5 +171,8 @@ save_rgb(tile(512, radius_frac=0, height_frac=0.56), os.path.join(PLAY, "icon-51
 # Feature graphic: 1024x500, top of the listing. Play crops it on some
 # surfaces, so the wordmark stays well inside the edges.
 fg_img = Image.new("RGBA", (1024, 500), GREEN + (255,))
-wordmark(ImageDraw.Draw(fg_img), 512, 315, 200)
+_fd = ImageDraw.Draw(fg_img)
+wordmark(_fd, 512, 285, 185)
+_ft = ImageFont.truetype(FONT_PATH, 40)
+_fd.text((512, 355), TAGLINE, font=_ft, fill=HONEY + (255,), anchor="ma")
 save_rgb(fg_img, os.path.join(PLAY, "feature-graphic.png"), bg=GREEN)
