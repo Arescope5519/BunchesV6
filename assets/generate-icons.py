@@ -119,24 +119,40 @@ save_rgb(tile(180, radius_frac=0, height_frac=0.56), os.path.join(SITE, "apple-t
 
 # Open Graph card - what renders when the domain is pasted into a social
 # post or a chat. 1200x630 is the size every platform crops toward.
+
+
+def wordmark(draw, centre_x, baseline_y, cap_px, fg=WHITE):
+    """
+    "Melibri" set so the oversized M IS the app icon's M - one word with
+    a drop-cap initial, rather than a logo sitting beside its own name.
+
+    cap_px is the cap height of the big M; the rest of the word is set at
+    a fraction of it and shares the same baseline.
+    """
+    big = fit_font(cap_px)
+    small = fit_font(cap_px * 0.52)
+
+    w_big = draw.textlength("M", font=big)
+    w_rest = draw.textlength("elibri", font=small)
+    # Tighten the join slightly - the M's right serif already reaches
+    # toward the following letter, so metric spacing reads as a gap.
+    kern = -cap_px * 0.035
+    total = w_big + kern + w_rest
+
+    x = centre_x - total / 2
+    draw.text((x, baseline_y), "M", font=big, fill=fg + (255,), anchor="ls")
+    draw.text((x + w_big + kern, baseline_y), "elibri", font=small,
+              fill=fg + (255,), anchor="ls")
+    return total
+
+
 og = Image.new("RGBA", (1200, 630), GREEN + (255,))
-_f = fit_font(300)
-_x0, _y0, _x1, _y1 = _f.getbbox(LETTER)
-ImageDraw.Draw(og).text(
-    ((1200 - (_x1 - _x0)) / 2 - _x0, (630 - (_y1 - _y0)) / 2 - _y0 - 40),
-    LETTER, font=_f, fill=WHITE + (255,),
-)
-_sub = ImageFont.truetype(FONT_PATH, 46)
-_w = ImageDraw.Draw(og).textlength("Melibri", font=_sub)
-ImageDraw.Draw(og).text(((1200 - _w) / 2, 440), "Melibri", font=_sub, fill=WHITE + (255,))
+wordmark(ImageDraw.Draw(og), 600, 380, 250)
 save_rgb(og, os.path.join(SITE, "og.png"), bg=GREEN)
 
 
 # ---------------------------------------------------------------------
 # Play Store listing assets (store/play/)
-#
-# Same mark again, so the launcher icon, the website and the store
-# listing cannot drift apart.
 # ---------------------------------------------------------------------
 
 PLAY = os.path.join(os.path.dirname(HERE), "store", "play")
@@ -146,17 +162,8 @@ os.makedirs(PLAY, exist_ok=True)
 # (Play applies its own mask).
 save_rgb(tile(512, radius_frac=0, height_frac=0.56), os.path.join(PLAY, "icon-512.png"))
 
-# Feature graphic: 1024x500, sits at the top of the listing. Play crops
-# it on some surfaces, so nothing important goes near the edges.
-fg = Image.new("RGBA", (1024, 500), GREEN + (255,))
-_d = ImageDraw.Draw(fg)
-
-_mark = tile(300, radius_frac=0.22, height_frac=0.56, bg=None, fg=WHITE)
-fg.paste(_mark, (150, 100), _mark)
-
-_name = ImageFont.truetype(FONT_PATH, 82)
-_tag = ImageFont.truetype(FONT_PATH, 34)
-_d.text((470, 195), "Melibri", font=_name, fill=WHITE + (255,))
-_d.text((476, 292), "my recipe kitchen", font=_tag, fill=(233, 180, 76, 255))
-
-save_rgb(fg, os.path.join(PLAY, "feature-graphic.png"), bg=GREEN)
+# Feature graphic: 1024x500, top of the listing. Play crops it on some
+# surfaces, so the wordmark stays well inside the edges.
+fg_img = Image.new("RGBA", (1024, 500), GREEN + (255,))
+wordmark(ImageDraw.Draw(fg_img), 512, 315, 200)
+save_rgb(fg_img, os.path.join(PLAY, "feature-graphic.png"), bg=GREEN)
