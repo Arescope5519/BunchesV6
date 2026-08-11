@@ -19,27 +19,31 @@ const generateUserCode = () => {
   return code;
 };
 
+/** Postgres unique-violation. */
+const UNIQUE_VIOLATION = '23505';
+
 /**
- * Check if a username is available
+ * Check if a username is available.
+ *
+ * Goes through the username_available() function rather than selecting
+ * from user_profiles: RLS hides other users' rows, so a direct query
+ * finds nothing for a taken name and reports it free - right up until
+ * the insert hits the unique index. See sql/add_username_available.sql.
+ *
+ * Throws if the check cannot be made. Never guess "available" here; that
+ * guess is the entire bug this replaced.
  */
 export const isUsernameAvailable = async (username) => {
-  try {
-    const normalized = username.toLowerCase().trim();
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('username', normalized)
-      .single();
+  const normalized = username.toLowerCase().trim();
+  const { data, error } = await supabase.rpc('username_available', {
+    p_username: normalized,
+  });
 
-    if (error && error.code === 'PGRST116') {
-      return true; // Not found = available
-    }
-
-    return !data;
-  } catch (error) {
+  if (error) {
     console.error('Error checking username:', error);
-    throw error;
+    throw new Error('Could not check that username. Please try again.');
   }
+  return data === true;
 };
 
 /**
@@ -75,6 +79,12 @@ export const setupUserProfile = async (userId, username) => {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
+    // Even a correct availability check races with another signup, so
+    // the constraint is the real authority - translate it rather than
+    // showing the raw Postgres error.
+    if (error?.code === UNIQUE_VIOLATION) {
+      throw new Error('That username was just taken. Please pick another.');
+    }
     if (error) throw error;
 
     log(`✅ User profile created: ${normalized}, code: ${userCode}`);
@@ -614,6 +624,9 @@ export const changeUsername = async (userId, newUsername) => {
       })
       .eq('user_id', userId);
 
+    if (error?.code === UNIQUE_VIOLATION) {
+      throw new Error('That username was just taken. Please pick another.');
+    }
     if (error) throw error;
 
     log(`✅ Username changed to: ${normalized}`);
