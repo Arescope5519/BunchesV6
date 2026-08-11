@@ -19,6 +19,32 @@ import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 import { APP_NAME } from '../constants/app';
+
+/**
+ * Shared props for username fields.
+ *
+ * The field rewrites what you type (lowercasing, stripping anything
+ * outside a-z0-9_), so React pushes a different string back into the
+ * input than the keyboard just sent. On Android, if the IME has an
+ * active composing region at that moment, the two disagree and
+ * characters get duplicated - which is what typing a capital letter
+ * did, since every capital gets rewritten.
+ *
+ * autoCapitalize is only a hint and is overridden the moment somebody
+ * presses Shift, so the fix is to stop the IME composing at all.
+ * visible-password is the reliable way to do that on Android; it also
+ * removes the suggestion strip, which a username field never wants.
+ */
+export const USERNAME_INPUT_PROPS = {
+  autoCapitalize: 'none',
+  autoCorrect: false,
+  spellCheck: false,
+  autoComplete: 'off',
+  importantForAutofill: 'no',
+  textContentType: 'none',
+  maxLength: 20,
+  ...(Platform.OS === 'android' ? { keyboardType: 'visible-password' } : {}),
+};
 export const UsernameSetupModal = ({
   visible,
   onSetup,
@@ -129,9 +155,7 @@ export const UsernameSetupModal = ({
                 onChangeText={handleUsernameChange}
                 placeholder="yourname"
                 placeholderTextColor={colors.textSecondary}
-                autoCapitalize="none"
-                autoCorrect={false}
-                maxLength={20}
+                {...USERNAME_INPUT_PROPS}
               />
               {checking && (
                 <ActivityIndicator size="small" color={colors.primary} />

@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
 import { APP_NAME, APP_VERSION_LABEL, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS, buildFriendLink } from '../constants/app';
 import { requestAccountDeletion } from '../services/supabase/account';
+import { USERNAME_INPUT_PROPS } from '../components/UsernameSetupModal';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -803,9 +804,7 @@ export const SettingsScreen = ({
                         onChangeText={(text) => setNewUsername(validateUsername(text))}
                         placeholder="newusername"
                         placeholderTextColor={colors.textSecondary}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        maxLength={20}
+                        {...USERNAME_INPUT_PROPS}
                         autoFocus
                       />
                       {checkingUsername && (
