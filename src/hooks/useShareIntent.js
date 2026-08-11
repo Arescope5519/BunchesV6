@@ -205,21 +205,42 @@ export const useShareIntent = (onUrlReceived) => {
       checkIOSShareExtension();
       return;
     }
+    checkAndroidShareLink();
+  };
 
-    // Android: Share intents are handled by DeviceEventEmitter listener for 'newShareIntent'
-    // The native onNewIntent handler in MainActivity updates the intent
-    // AppState listener triggers re-check when app becomes active
-    log(`🔍 [Android] Share content handled via native onNewIntent`);
+  /**
+   * Android: read the share as a deep link.
+   *
+   * MainActivity rewrites an incoming ACTION_SEND into
+   * "<scheme>://share?url=...", so getInitialURL() returns it. That
+   * matters on a COLD start - when the share launches the app there is
+   * no JS runtime to receive the 'newShareIntent' event, and anything
+   * emitted before the bundle loads is lost. Pulling the URL when JS is
+   * ready cannot miss it.
+   */
+  const checkAndroidShareLink = async () => {
+    try {
+      const initialUrl = await Linking.getInitialURL();
+      if (!initialUrl) return;
+
+      const sharedUrl = parseShareUrl(initialUrl);
+      if (sharedUrl) {
+        log('🤖 [Android] Extracted shared URL from launch intent:', sharedUrl);
+        handleSharedUrl(sharedUrl);
+      }
+    } catch (error) {
+      console.error('[Android] Failed to read launch intent:', error);
+    }
   };
 
   /**
    * Handle URL event from Linking (iOS)
    */
   const handleLinkingUrl = (event) => {
-    log('🍎 [iOS] Received Linking URL event:', event.url);
+    log(`🔗 [${Platform.OS}] Received Linking URL event:`, event.url);
     const sharedUrl = parseShareUrl(event.url);
     if (sharedUrl) {
-      log('🍎 [iOS] Extracted shared URL from event:', sharedUrl);
+      log(`🔗 [${Platform.OS}] Extracted shared URL from event:`, sharedUrl);
       lastProcessedUrl.current = null; // Reset to allow processing
       handleSharedUrl(sharedUrl);
     }
@@ -238,12 +259,9 @@ export const useShareIntent = (onUrlReceived) => {
         processedInitialShare.current = true;
       }
 
-      // iOS: Listen for URL scheme events (<scheme>://share?url=...)
-      let linkingSubscription = null;
-      if (Platform.OS === 'ios') {
-        linkingSubscription = Linking.addEventListener('url', handleLinkingUrl);
-        log('🍎 [iOS] Added Linking URL listener');
-      }
+      // Both platforms: share arrives as <scheme>://share?url=...
+      const linkingSubscription = Linking.addEventListener('url', handleLinkingUrl);
+      log(`🔗 [${Platform.OS}] Added Linking URL listener`);
 
       // Listen for native newShareIntent event (emitted directly from onNewIntent - Android)
       const nativeShareSubscription = DeviceEventEmitter.addListener('newShareIntent', (sharedText) => {

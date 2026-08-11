@@ -1,13 +1,27 @@
 const { withMainActivity } = require('@expo/config-plugins');
 
 /**
- * Android onNewIntent Handler
+ * Android share intent handler
  *
- * This plugin modifies MainActivity.kt to handle share intents when the app
- * is already running AND when launched fresh via share. It extracts shared
- * text/URLs and emits them to JavaScript via DeviceEventEmitter.
+ * A shared URL has to reach JavaScript in two very different situations:
+ *
+ *   warm - the app is already running. The React context exists, so
+ *          emitting 'newShareIntent' works immediately.
+ *   cold - the share LAUNCHED the app. There is no JS runtime yet, so an
+ *          emitted event goes nowhere and the share is silently lost.
+ *
+ * The cold case is handled by rewriting the ACTION_SEND intent into a
+ * "<scheme>://share?url=..." ACTION_VIEW intent. React Native's own
+ * Linking module then delivers it through getInitialURL(), which JS
+ * PULLS when it is ready - so it cannot be missed the way a pushed
+ * event can. iOS already worked this way; this makes Android match.
  */
 const withAndroidOnNewIntent = (config) => {
+  const scheme = Array.isArray(config.scheme) ? config.scheme[0] : config.scheme;
+  if (!scheme) {
+    throw new Error('[android-on-new-intent] expo.scheme is required for share intents');
+  }
+
   return withMainActivity(config, (config) => {
     const mainActivity = config.modResults;
     const isKotlin = mainActivity.language === 'kt' || mainActivity.path?.endsWith('.kt');
@@ -15,23 +29,31 @@ const withAndroidOnNewIntent = (config) => {
     // Add required imports
     const requiredImports = [
       'import android.content.Intent',
+      'import android.net.Uri',
       'import com.facebook.react.bridge.Arguments',
       'import com.facebook.react.modules.core.DeviceEventManagerModule',
     ];
 
+    // Imports are inserted after android.os.Bundle. If Expo ever stops
+    // emitting that line the anchor disappears, and silently skipping
+    // the imports would surface as an unrelated Kotlin compile error
+    // much later - so fail here instead.
+    const anchor = isKotlin ? 'import android.os.Bundle' : 'import android.os.Bundle;';
+    if (!mainActivity.contents.includes(anchor)) {
+      throw new Error(
+        `[android-on-new-intent] cannot find "${anchor}" in MainActivity - ` +
+        'the import anchor changed, so share intents would not compile.'
+      );
+    }
+
     for (const importStatement of requiredImports) {
       if (!mainActivity.contents.includes(importStatement)) {
-        if (isKotlin) {
-          mainActivity.contents = mainActivity.contents.replace(
-            'import android.os.Bundle',
-            `import android.os.Bundle\n${importStatement}`
-          );
-        } else {
-          mainActivity.contents = mainActivity.contents.replace(
-            'import android.os.Bundle;',
-            `import android.os.Bundle;\n${importStatement.replace('import ', 'import ')};`
-          );
-        }
+        mainActivity.contents = mainActivity.contents.replace(
+          anchor,
+          isKotlin
+            ? `${anchor}\n${importStatement}`
+            : `${anchor}\n${importStatement};`
+        );
       }
     }
     console.log('✅ Added required imports to MainActivity');
@@ -66,8 +88,18 @@ const withAndroidOnNewIntent = (config) => {
     if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
       val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
       if (sharedText != null) {
-        // Clear the intent action so we don't process it again
-        intent.action = null
+        // Rewrite into a deep link React Native's Linking module can
+        // hand to JS via getInitialURL(). This is what makes a cold
+        // start work: JS pulls the URL when it is ready, instead of us
+        // pushing an event into a runtime that does not exist yet.
+        // It also stops the intent being reprocessed, since the action
+        // is no longer ACTION_SEND.
+        intent.action = Intent.ACTION_VIEW
+        intent.data = Uri.parse("${scheme}://share?url=" + Uri.encode(sharedText))
+        intent.removeExtra(Intent.EXTRA_TEXT)
+
+        // Warm path: if JS is already running, this arrives immediately
+        // rather than waiting for the next Linking event.
         emitShareIntent(sharedText)
       }
     }
@@ -113,6 +145,9 @@ const withAndroidOnNewIntent = (config) => {
     if (intent != null && Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType())) {
       String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
       if (sharedText != null) {
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setData(Uri.parse("${scheme}://share?url=" + Uri.encode(sharedText)));
+        intent.removeExtra(Intent.EXTRA_TEXT);
         intent.setAction(null);
         emitShareIntent(sharedText);
       }
