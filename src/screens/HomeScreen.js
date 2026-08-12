@@ -36,7 +36,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useRecipes } from '../hooks/useRecipes';
 import { useFolders, MY_CREATIONS_FOLDER } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
-import { resolveShareUrl } from '../utils/urlExtractor';
+import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 import { useGroceryList } from '../hooks/useGroceryList';
 import { useSocial } from '../hooks/useSocial';
@@ -1233,7 +1233,8 @@ export const HomeScreen = ({ user }) => {
       // Chrome hands over a share.google wrapper rather than the page,
       // and mints a new one every time - so resolve it BEFORE the
       // duplicate check, or the same recipe never looks like a match.
-      resolveShareUrl(url).then(resolvedUrl => handleSharedRecipeUrl(resolvedUrl));
+      resolveShareUrl(url).then(resolvedUrl =>
+        handleSharedRecipeUrl(normalizeRecipeUrl(resolvedUrl)));
     }
   });
 
@@ -4039,7 +4040,7 @@ export const HomeScreen = ({ user }) => {
                     if (importText.trim().startsWith('http')) {
                       // Already saved? Say so rather than extracting a
                       // recipe the save step would then discard.
-                      const pasted = await resolveShareUrl(importText.trim());
+                      const pasted = normalizeRecipeUrl(await resolveShareUrl(importText.trim()));
                       const already = findRecipeByUrl(pasted);
                       if (already) {
                         setImportText('');

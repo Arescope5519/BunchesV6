@@ -17,6 +17,7 @@ import { getHighConfidenceTags } from '../utils/autoTag';
 
 import { log } from '../utils/log';
 import { isInternalUrl, buildInternalRecipeUrl } from '../constants/app';
+import { normalizeRecipeUrl } from '../utils/urlExtractor';
 /**
  * Check if a recipe is custom (created by user, not imported from URL)
  */
@@ -85,9 +86,14 @@ export const useRecipes = (user) => {
    */
   const findRecipeByUrl = (url) => {
     if (!url) return null;
+    // Compare normalised forms. Two links to the same recipe routinely
+    // differ by tracking parameters, a trailing slash, "www.", or a
+    // fragment - exact matching calls those a new recipe every time,
+    // which is what let the same page be saved twice.
+    const target = normalizeRecipeUrl(url);
     return recipes.find(r => {
       const rUrl = r.url || r.sourceUrl || r.source_url;
-      return rUrl && rUrl === url && !r.deletedAt;
+      return rUrl && normalizeRecipeUrl(rUrl) === target && !r.deletedAt;
     }) || null;
   };
 
