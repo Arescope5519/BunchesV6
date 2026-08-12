@@ -77,6 +77,21 @@ export const useRecipes = (user) => {
   };
 
   /**
+   * The saved recipe with this source URL, or null.
+   *
+   * Used both to guard imports before extraction and by saveRecipe to
+   * discard a duplicate, so the check the user is shown and the check
+   * that actually runs cannot disagree.
+   */
+  const findRecipeByUrl = (url) => {
+    if (!url) return null;
+    return recipes.find(r => {
+      const rUrl = r.url || r.sourceUrl || r.source_url;
+      return rUrl && rUrl === url && !r.deletedAt;
+    }) || null;
+  };
+
+  /**
    * Quick reload from local storage only
    */
   const reloadFromStorage = async () => {
@@ -96,10 +111,7 @@ export const useRecipes = (user) => {
     // Check for duplicate by URL first (more reliable than ID for imported recipes)
     const recipeUrl = recipe.url || recipe.sourceUrl || recipe.source_url;
     if (recipeUrl) {
-      const existingByUrl = recipes.find(r => {
-        const rUrl = r.url || r.sourceUrl || r.source_url;
-        return rUrl && rUrl === recipeUrl && !r.deletedAt;
-      });
+      const existingByUrl = findRecipeByUrl(recipeUrl);
       if (existingByUrl) {
         log(`⚠️ Recipe already exists with URL: ${recipeUrl}`);
         return true; // Already exists, consider it a success
@@ -1066,6 +1078,7 @@ export const useRecipes = (user) => {
 
   return {
     recipes,
+    findRecipeByUrl,
     loadingRecipes,
     selectedRecipe,
     setSelectedRecipe,

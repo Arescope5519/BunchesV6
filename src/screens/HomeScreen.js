@@ -190,6 +190,7 @@ export const HomeScreen = ({ user }) => {
   // Hooks - Pass user to useRecipes for Supabase sync
   const {
     recipes,
+    findRecipeByUrl,
     loadingRecipes,
     selectedRecipe,
     setSelectedRecipe,
@@ -1228,6 +1229,26 @@ export const HomeScreen = ({ user }) => {
         Alert.alert('Share Failed', 'No URL was received. The share intent came through empty.');
         return;
       }
+      // Already saved? Say so instead of extracting it again. addRecipe
+      // would silently discard the duplicate at the end, so without this
+      // the user waits through extraction and a preview for a save that
+      // does nothing.
+      const existing = findRecipeByUrl(url);
+      if (existing) {
+        Alert.alert(
+          'Already Saved',
+          `"${existing.title}" is already in your recipes.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'View Recipe', onPress: () => {
+              setCurrentScreen('recipes');
+              setSelectedRecipe(existing);
+            } },
+          ]
+        );
+        return;
+      }
+
       setUrl(url);
       extractRecipe(url).then(result => {
         log('📤 [SHARE INTENT] extractRecipe returned:', result);
@@ -4009,6 +4030,25 @@ export const HomeScreen = ({ user }) => {
                   if (importText.trim()) {
                     // Check if it's a URL or code
                     if (importText.trim().startsWith('http')) {
+                      // Already saved? Say so rather than extracting a
+                      // recipe the save step would then discard.
+                      const already = findRecipeByUrl(importText.trim());
+                      if (already) {
+                        setImportText('');
+                        setShowImport(false);
+                        Alert.alert(
+                          'Already Saved',
+                          `"${already.title}" is already in your recipes.`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'View Recipe', onPress: () => {
+                              setCurrentScreen('recipes');
+                              setSelectedRecipe(already);
+                            } },
+                          ]
+                        );
+                        return;
+                      }
                       // It's a URL, use extraction
                       await extractRecipe(importText.trim());
                       setImportText('');
