@@ -65,8 +65,6 @@ const withAndroidOnNewIntent = (config) => {
       let methods;
       if (isKotlin) {
         methods = `
-  private var pendingShareText: String? = null
-
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
@@ -75,12 +73,7 @@ const withAndroidOnNewIntent = (config) => {
 
   override fun onResume() {
     super.onResume()
-    // Check for pending share from cold start
-    pendingShareText?.let { text ->
-      pendingShareText = null
-      emitShareIntent(text)
-    }
-    // Also check current intent on resume
+    // Rewrites a launch share into a deep link before JS asks for it.
     handleShareIntent(intent)
   }
 
@@ -107,14 +100,13 @@ const withAndroidOnNewIntent = (config) => {
 
   private fun emitShareIntent(sharedText: String) {
     try {
-      val reactContext = reactInstanceManager?.currentReactContext
-      if (reactContext != null) {
-        reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-          ?.emit("newShareIntent", sharedText)
-      } else {
-        // React context not ready yet, save for later
-        pendingShareText = sharedText
-      }
+      // A null context means the share LAUNCHED the app. Do not queue it
+      // here - the rewritten intent reaches JS through
+      // Linking.getInitialURL() instead, and delivering by both routes
+      // imports the same recipe twice.
+      reactInstanceManager?.currentReactContext
+        ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+        ?.emit("newShareIntent", sharedText)
     } catch (e: Exception) {
       e.printStackTrace()
     }

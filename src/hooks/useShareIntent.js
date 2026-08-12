@@ -11,12 +11,41 @@
 
 import { useEffect, useRef } from 'react';
 import { Platform, AppState, DeviceEventEmitter, NativeModules, Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 import { log } from '../utils/log';
 import { APP_SCHEME, LEGACY_SCHEMES } from '../constants/app';
 // iOS App Groups storage module
 const { AppGroupStorage } = NativeModules;
+
+/**
+ * The launch intent sticks around for the life of the Activity, so
+ * getInitialURL() keeps returning the same share every time the app is
+ * opened - including from the launcher, days later. Remembering the last
+ * one consumed is what stops a share being re-imported forever.
+ *
+ * Only the LAUNCH path is guarded. A share that arrives while the app is
+ * running comes through the Linking 'url' event instead, so deliberately
+ * sharing the same recipe twice still works.
+ */
+const LAST_LAUNCH_SHARE_KEY = '@melibri:last_launch_share_url';
+
+const consumeLaunchUrl = async () => {
+  const initialUrl = await Linking.getInitialURL();
+  if (!initialUrl) return null;
+
+  try {
+    const previous = await AsyncStorage.getItem(LAST_LAUNCH_SHARE_KEY);
+    if (previous === initialUrl) return null;
+    await AsyncStorage.setItem(LAST_LAUNCH_SHARE_KEY, initialUrl);
+  } catch (error) {
+    // Storage failing must not swallow the share - importing twice is
+    // recoverable, losing it is not.
+    console.error('Could not record launch share URL:', error);
+  }
+  return initialUrl;
+};
 
 export const useShareIntent = (onUrlReceived) => {
   const processedInitialShare = useRef(false);
@@ -142,7 +171,7 @@ export const useShareIntent = (onUrlReceived) => {
     try {
       // First try to get URL from Linking (<scheme>://share?url=...)
       log('🍎 [iOS] Checking for shared URL via Linking...');
-      const initialUrl = await Linking.getInitialURL();
+      const initialUrl = await consumeLaunchUrl();
 
       if (initialUrl) {
         log('🍎 [iOS] Got initial URL:', initialUrl);
@@ -220,7 +249,7 @@ export const useShareIntent = (onUrlReceived) => {
    */
   const checkAndroidShareLink = async () => {
     try {
-      const initialUrl = await Linking.getInitialURL();
+      const initialUrl = await consumeLaunchUrl();
       if (!initialUrl) return;
 
       const sharedUrl = parseShareUrl(initialUrl);
