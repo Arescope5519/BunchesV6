@@ -1127,8 +1127,16 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
       let globalRecipe = await findGlobalRecipeByUrl(sourceUrl);
 
       if (!globalRecipe) {
-        // Create new global recipe
-        globalRecipe = await createGlobalRecipe(recipe);
+        // The global entry is the SHARED copy handed to everyone who
+        // imports this URL later, so it must be what the site
+        // published. Whoever imports first would otherwise bake their
+        // own edits into it - a retitled recipe would arrive retitled
+        // for every future user. Their edits stay on their own row in
+        // user_recipes_v2.
+        const published = recipe.originalRecipe
+          ? { ...recipe, ...recipe.originalRecipe, url: sourceUrl, source_url: sourceUrl }
+          : recipe;
+        globalRecipe = await createGlobalRecipe(published);
       }
 
       globalRecipeId = globalRecipe?.id || null;

@@ -36,6 +36,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useRecipes } from '../hooks/useRecipes';
 import { useFolders, MY_CREATIONS_FOLDER } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
+import { resolveShareUrl } from '../utils/urlExtractor';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
 import { useGroceryList } from '../hooks/useGroceryList';
 import { useSocial } from '../hooks/useSocial';
@@ -1229,35 +1230,41 @@ export const HomeScreen = ({ user }) => {
         Alert.alert('Share Failed', 'No URL was received. The share intent came through empty.');
         return;
       }
-      // Already saved? Say so instead of extracting it again. addRecipe
-      // would silently discard the duplicate at the end, so without this
-      // the user waits through extraction and a preview for a save that
-      // does nothing.
-      const existing = findRecipeByUrl(url);
-      if (existing) {
-        Alert.alert(
-          'Already Saved',
-          `"${existing.title}" is already in your recipes.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'View Recipe', onPress: () => {
-              setCurrentScreen('recipes');
-              setSelectedRecipe(existing);
-            } },
-          ]
-        );
-        return;
-      }
-
-      setUrl(url);
-      extractRecipe(url).then(result => {
-        log('📤 [SHARE INTENT] extractRecipe returned:', result);
-      }).catch(err => {
-        console.error('📤 [SHARE INTENT] extractRecipe threw:', err);
-        Alert.alert('Share Failed', `Error: ${err.message}`);
-      });
+      // Chrome hands over a share.google wrapper rather than the page,
+      // and mints a new one every time - so resolve it BEFORE the
+      // duplicate check, or the same recipe never looks like a match.
+      resolveShareUrl(url).then(resolvedUrl => handleSharedRecipeUrl(resolvedUrl));
     }
   });
+
+  /**
+   * Import a shared recipe URL, unless it is already saved.
+   */
+  const handleSharedRecipeUrl = (url) => {
+    const existing = findRecipeByUrl(url);
+    if (existing) {
+      Alert.alert(
+        'Already Saved',
+        `"${existing.title}" is already in your recipes.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Recipe', onPress: () => {
+            setCurrentScreen('recipes');
+            setSelectedRecipe(existing);
+          } },
+        ]
+      );
+      return;
+    }
+
+    setUrl(url);
+    extractRecipe(url).then(result => {
+      log('📤 [SHARE INTENT] extractRecipe returned:', result);
+    }).catch(err => {
+      console.error('📤 [SHARE INTENT] extractRecipe threw:', err);
+      Alert.alert('Share Failed', `Error: ${err.message}`);
+    });
+  };
 
   // Grocery list handlers
   const handleAddToGroceryList = async (selectedItems) => {
@@ -4032,7 +4039,8 @@ export const HomeScreen = ({ user }) => {
                     if (importText.trim().startsWith('http')) {
                       // Already saved? Say so rather than extracting a
                       // recipe the save step would then discard.
-                      const already = findRecipeByUrl(importText.trim());
+                      const pasted = await resolveShareUrl(importText.trim());
+                      const already = findRecipeByUrl(pasted);
                       if (already) {
                         setImportText('');
                         setShowImport(false);
@@ -4050,7 +4058,7 @@ export const HomeScreen = ({ user }) => {
                         return;
                       }
                       // It's a URL, use extraction
-                      await extractRecipe(importText.trim());
+                      await extractRecipe(pasted);
                       setImportText('');
                       setShowImport(false);
                     } else {

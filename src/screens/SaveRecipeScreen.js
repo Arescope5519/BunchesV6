@@ -83,7 +83,34 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
     }
 
     if (onSave) {
-      onSave(selectedFolder, localRecipe); // Pass modified recipe
+      // Keep the extracted version alongside any edits made here. The
+      // global recipe - the shared copy every future importer of this
+      // URL receives - has to be what the site published, not one
+      // user's tweaks. It also gives the version picker a real
+      // "Original" to switch back to.
+      const edited =
+        localRecipe.title !== recipe.title ||
+        localRecipe.prep_time !== recipe.prep_time ||
+        localRecipe.cook_time !== recipe.cook_time ||
+        localRecipe.total_time !== recipe.total_time ||
+        localRecipe.servings !== recipe.servings;
+
+      onSave(selectedFolder, edited
+        ? {
+            ...localRecipe,
+            originalRecipe: localRecipe.originalRecipe || {
+              title: recipe.title,
+              ingredients: recipe.ingredients,
+              instructions: recipe.instructions,
+              prep_time: recipe.prep_time,
+              cook_time: recipe.cook_time,
+              total_time: recipe.total_time,
+              servings: recipe.servings,
+              nutrition: recipe.nutrition,
+              image_url: recipe.image_url,
+            },
+          }
+        : localRecipe);
     }
   };
 
