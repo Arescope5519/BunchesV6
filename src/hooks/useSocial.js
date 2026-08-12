@@ -367,8 +367,22 @@ export const useSocial = (user) => {
   }, [profile, refreshSocialData]);
 
   // Real-time subscriptions for friend requests, shared items, and profile changes
+  // The realtime effect must run ONCE per signed-in user. Channel topics
+  // are keyed on the user id, so re-running it builds a second channel
+  // with a topic that is still subscribed - and adding postgres_changes
+  // callbacks to an already-subscribed channel throws. Reading the
+  // loaders through a ref keeps their identities out of the dependency
+  // list without the handlers going stale.
+  const socialLoaders = useRef({});
+  socialLoaders.current = {
+    loadFriendRequests,
+    loadSharedItems,
+    loadNotificationCounts,
+    loadFriends,
+  };
+
   useEffect(() => {
-    if (!user || !profile) return;
+    if (!user?.uid) return;
 
     // Subscribe to friend_requests table changes (INSERT and UPDATE)
     // Using broader subscription without filters for better reliability
@@ -385,8 +399,8 @@ export const useSocial = (user) => {
           // Check if this request is for us (we are the recipient)
           if (payload.new?.to_user_id === user.uid) {
             log('📬 New friend request received:', payload);
-            loadFriendRequests();
-            loadNotificationCounts();
+            socialLoaders.current.loadFriendRequests();
+            socialLoaders.current.loadNotificationCounts();
           }
         }
       )
@@ -403,14 +417,14 @@ export const useSocial = (user) => {
             log('📬 Our sent friend request status changed:', payload);
             if (payload.new?.status === 'accepted') {
               // Our request was accepted, reload friends list
-              loadFriends();
+              socialLoaders.current.loadFriends();
             }
           }
           // Also check if we received this request (for cleanup after accepting)
           if (payload.new?.to_user_id === user.uid) {
             log('📬 Received friend request status changed:', payload);
-            loadFriendRequests();
-            loadNotificationCounts();
+            socialLoaders.current.loadFriendRequests();
+            socialLoaders.current.loadNotificationCounts();
           }
         }
       )
@@ -432,8 +446,8 @@ export const useSocial = (user) => {
           // Check if this shared item is for us
           if (payload.new?.to_user_id === user.uid) {
             log('📦 New shared item received:', payload);
-            loadSharedItems();
-            loadNotificationCounts();
+            socialLoaders.current.loadSharedItems();
+            socialLoaders.current.loadNotificationCounts();
           }
         }
       )
@@ -448,8 +462,8 @@ export const useSocial = (user) => {
           // Check if this is our shared item being updated (imported/declined)
           if (payload.new?.to_user_id === user.uid) {
             log('📦 Shared item status changed:', payload);
-            loadSharedItems();
-            loadNotificationCounts();
+            socialLoaders.current.loadSharedItems();
+            socialLoaders.current.loadNotificationCounts();
           }
         }
       )
@@ -473,7 +487,7 @@ export const useSocial = (user) => {
             log('👤 Our profile updated:', payload);
             // Reload friends if friends array changed
             if (payload.new?.friends) {
-              loadFriends();
+              socialLoaders.current.loadFriends();
             }
           }
         }
@@ -488,20 +502,21 @@ export const useSocial = (user) => {
       supabase.removeChannel(sharedItemsChannel);
       supabase.removeChannel(profileChannel);
     };
-  }, [user, profile, loadFriendRequests, loadSharedItems, loadNotificationCounts, loadFriends]);
+  }, [user?.uid]);
 
-  // Poll for notifications and friend requests every 10 seconds (fallback for real-time)
+  // Poll as a fallback for realtime. Same dependency reasoning as above -
+  // including the loaders here restarted the timer on every render.
   useEffect(() => {
-    if (!user || !profile) return;
+    if (!user?.uid) return;
 
     const interval = setInterval(() => {
-      loadNotificationCounts();
-      loadFriendRequests();
-      loadFriends();
+      socialLoaders.current.loadNotificationCounts();
+      socialLoaders.current.loadFriendRequests();
+      socialLoaders.current.loadFriends();
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [user, profile, loadNotificationCounts, loadFriendRequests, loadFriends]);
+  }, [user?.uid]);
 
   return {
     profile,
