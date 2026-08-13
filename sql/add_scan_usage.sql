@@ -1,5 +1,6 @@
 -- Phase 5: AI recipe scanning - usage tracking for rate limits.
--- Free = 3 scans lifetime, Premium = 30/month, admins unlimited.
+-- Free = 3 scans lifetime, Premium = 100/month, admins unlimited.
+-- The live numbers are in supabase/functions/extract-recipe/index.ts.
 -- Only the extract-recipe Edge Function (service role) reads/writes this
 -- table, so RLS is enabled with NO client policies.
 
