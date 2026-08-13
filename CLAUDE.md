@@ -88,6 +88,30 @@ it via expo-constants, so never hardcode a version anywhere else.
 
 Local test APKs that never reach a store do not need a bump.
 
+## Store declarations that go stale
+
+Play Console holds declarations that were true when they were filled in
+and quietly stop being true as the app changes. Google treats a stale
+declaration as a compliance problem, not a paperwork one, so when a
+change below lands, update the listing in the same sitting.
+
+The Privacy Policy and Terms are part of this - they live in `site/` and
+describe the app in detail, so they go wrong the same way.
+
+| Change | What also has to change |
+|---|---|
+| Ship subscriptions / any IAP | In-app purchases declaration; content rating "purchase digital goods" -> Yes; Data safety (financial info); **the developer address becomes public on the listing**, which is the real deadline on forming the LLC |
+| Add analytics, crash reporting or any tracking SDK | Data safety form; Privacy Policy "no analytics SDK" paragraph becomes FALSE; store listing short description says "no tracking" |
+| Add an ad network | Ads declaration -> Yes ("Contains ads" label appears); same listing/policy copy as above |
+| Collect location, contacts, or a new permission | Data safety; Privacy Policy "what we collect"; content rating location question |
+| Add a new third-party service that receives user data | Privacy Policy processors table |
+| Add chat or direct messages | Content rating UGC + chat moderation answers |
+| Curate an Explore/Recommended shelf | Curated content is not user-generated, so the age-restriction answers stop being covered by the UGC exclusion. Alcohol content sits badly with the 13+ target audience - see the naming/rating notes |
+| Change the account deletion window | Privacy Policy, Terms section 8, and the in-app copy in DisclaimerModal + SettingsScreen |
+| Change the age floor | Target audience, content rating, Terms section 1 |
+
+Content rating can be re-taken any time from the Content rating page.
+
 ## Adding dependencies
 
 Use `npx expo install <pkg>`, NOT `npm install <pkg>`. Plain npm grabs
