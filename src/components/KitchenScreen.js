@@ -31,7 +31,7 @@ const TABS = [
 const showPremiumPrompt = () => {
   Alert.alert(
     'Premium Feature',
-    'Cook planning, meal tracking, and fridge inventory are premium features. Upgrade to plan your week and reduce food waste.',
+    'Cook planning, leftover tracking, and fridge inventory are premium features. Upgrade to plan your week and reduce food waste.',
     [
       { text: 'Not Now', style: 'cancel' },
       { text: 'Learn More', onPress: () => Alert.alert('Coming Soon', 'Subscriptions launch soon. Stay tuned!') },
@@ -95,7 +95,7 @@ const KitchenScreen = ({
           <Ionicons name="lock-closed" size={48} color={colors.primary} style={{ marginBottom: 16 }} />
           <Text style={styles.premiumTitle}>Premium Feature</Text>
           <Text style={styles.premiumText}>
-            Upgrade to unlock cook planning, meal tracking, and fridge inventory.
+            Upgrade to unlock cook planning, leftover tracking, and fridge inventory.
           </Text>
           <TouchableOpacity style={styles.premiumButton} onPress={showPremiumPrompt}>
             <Text style={styles.premiumButtonText}>Learn More</Text>

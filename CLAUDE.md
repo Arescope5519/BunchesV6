@@ -109,8 +109,49 @@ describe the app in detail, so they go wrong the same way.
 | Curate an Explore/Recommended shelf | Curated content is not user-generated, so the age-restriction answers stop being covered by the UGC exclusion. Alcohol content sits badly with the 13+ target audience - see the naming/rating notes |
 | Change the account deletion window | Privacy Policy, Terms section 8, and the in-app copy in DisclaimerModal + SettingsScreen |
 | Change the age floor | Target audience, content rating, Terms section 1 |
+| **Anything nutritional** - see the section below | Health features declaration -> "Nutrition and weight management", which routes the app into Google's health policy review |
 
 Content rating can be re-taken any time from the Content rating page.
+
+### The health-features line (planned work sits right on it)
+
+Play asks separately whether the app has health features. Today the
+answer is **No**, and the reasoning is narrow enough to be worth writing
+down, because the app is already closer to the line than it looks:
+
+- `RecipeDetail` **displays** a nutrition panel (`recipeFormat.js`
+  `NUTRIENT_KEYS` - calories, fat, carbs, protein...), but only passes
+  through whatever the source recipe supplied. Nothing is computed.
+- The Kitchen `Eat` tab **does log consumption** - `meal_events` records
+  what was eaten and `servings_consumed`. That is real meal logging, but
+  the servings are arithmetic against fridge inventory
+  (`remaining = produced - consumed - adjustments`), for food waste. No
+  nutrition is read, summed or shown anywhere in the Kitchen tab.
+
+So: the app tracks *servings of food*, never *nutrition*. That
+distinction is the entire basis of the "No" answer.
+
+Ticking "Nutrition and weight management" is not free - it pulls the app
+into Google's health policy review with its own requirements. But
+declaring late is worse than declaring early. Any of these flips the
+answer to Yes, and it should be flipped in the same sitting:
+
+- Daily/weekly nutrition totals, or summing nutrition across meal events
+- Calorie, macro, or weight goals and targets
+- Nutrition-driven recommendations ("recipes under 500 calories")
+- **Computing** nutrition from ingredients rather than passing through
+  what the source gave us - that turns a quotation into a health claim
+- Anything about body weight at all
+
+Related: Data safety already declares **Health info** (the allergen
+settings in `dietary_preferences`). That is a separate question - what
+data is *collected* vs what the app *does* - so the two answers can
+legitimately differ, and a reviewer seeing Health info declared is not
+evidence the health-features answer is wrong.
+
+Keep user-facing copy honest about this too. The Kitchen upsell used to
+say "meal tracking", which oversells a leftovers ledger and reads to a
+reviewer like diet tracking; it says "leftover tracking" now.
 
 ## Adding dependencies
 
