@@ -131,24 +131,24 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
     }
   };
 
+  // Collage tile: edge-to-edge square image, quiet title underneath.
+  // No card chrome - the images ARE the design, Instagram-explore style.
   const renderCard = ({ item }) => (
     <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.8}
+      style={styles.tile}
+      activeOpacity={0.85}
       onPress={() => {
         log('🧭 Discover card opened:', item.title);
         onOpenRecipe(item);
       }}
     >
       {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.cardImage} resizeMode="cover" />
+        <Image source={{ uri: item.imageUrl }} style={styles.tileImage} resizeMode="cover" />
       ) : (
-        <LetterPlaceholder title={item.title} size={40} style={styles.cardImage} />
+        <LetterPlaceholder title={item.title} size={36} style={styles.tileImage} />
       )}
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.cardOwner} numberOfLines={1}>@{item.ownerUsername}</Text>
-      </View>
+      <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
+      <Text style={styles.tileOwner} numberOfLines={1}>@{item.ownerUsername}</Text>
     </TouchableOpacity>
   );
 
@@ -193,7 +193,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
           data={items}
           keyExtractor={(item) => `${item.ownerUserId}:${item.id}`}
           renderItem={renderCard}
-          numColumns={2}
+          numColumns={3}
           columnWrapperStyle={styles.column}
           contentContainerStyle={items.length ? styles.listContent : styles.centerFill}
           refreshControl={
@@ -267,39 +267,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContent: {
-    paddingHorizontal: 12,
     paddingBottom: 24,
   },
   column: {
-    gap: 12,
-    paddingHorizontal: 4,
-    marginBottom: 12,
+    gap: 2,
+    marginBottom: 14,
   },
-  card: {
+  tile: {
     flex: 1,
-    maxWidth: '48.5%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
+    maxWidth: '33%',
   },
-  cardImage: {
+  tileImage: {
     width: '100%',
-    height: 120,
+    aspectRatio: 1,
   },
-  cardBody: {
-    padding: 10,
-  },
-  cardTitle: {
-    fontSize: 14,
+  tileTitle: {
+    fontSize: 12,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    lineHeight: 15,
+    marginTop: 5,
+    paddingHorizontal: 4,
   },
-  cardOwner: {
-    fontSize: 12,
+  tileOwner: {
+    fontSize: 10,
     color: colors.textTertiary,
+    marginTop: 1,
+    paddingHorizontal: 4,
   },
   emptyState: {
     alignItems: 'center',
