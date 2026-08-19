@@ -3643,7 +3643,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="download" size={20} color="#fff" />
+                    <Ionicons name="save" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openReportDialog(selectedRecipe)}
