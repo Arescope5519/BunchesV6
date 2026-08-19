@@ -77,10 +77,12 @@ import {
   submitContentReport,
   isUserAdmin,
   isUserPremium,
+  getFeatureFlags,
   blockUser,
   unblockUser,
   getBlockStatus,
 } from '../services/supabase/social';
+import DiscoverFeed from '../components/DiscoverFeed';
 import AdminReports from '../components/AdminReports';
 import BlockedUsers from '../components/BlockedUsers';
 import DisclaimerModal, { shouldShowDisclaimer } from '../components/DisclaimerModal';
@@ -123,6 +125,7 @@ export const HomeScreen = ({ user }) => {
   const [reportDetails, setReportDetails] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [discoverEnabled, setDiscoverEnabled] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [showAdminReports, setShowAdminReports] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
@@ -351,17 +354,22 @@ export const HomeScreen = ({ user }) => {
       const cookbooks = await loadFollowedCookbooks(user?.uid);
       setFollowedCookbooks(cookbooks);
 
-      // Check admin and premium status
+      // Check admin and premium status + feature flags
       if (user?.uid) {
-        const [adminStatus, premiumStatus] = await Promise.all([
+        const [adminStatus, premiumStatus, flags] = await Promise.all([
           isUserAdmin(user.uid),
           isUserPremium(user.uid),
+          getFeatureFlags(user.uid),
         ]);
         setIsAdmin(adminStatus);
         setIsPremium(premiumStatus);
+        // Discover ships dark: admins always see it, everyone else needs
+        // the per-user flag (sql/add_feature_flags.sql)
+        setDiscoverEnabled(adminStatus || flags.discover === true);
       } else {
         setIsAdmin(false);
         setIsPremium(false);
+        setDiscoverEnabled(false);
       }
     };
     loadSettings();
@@ -3088,15 +3096,35 @@ export const HomeScreen = ({ user }) => {
       )}
 
       {currentScreen === 'discover' && (
-        <View style={styles.discoverContainer}>
-          <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
-          <Text style={styles.discoverTitle}>Discover</Text>
-          <Text style={styles.discoverSubtitle}>Coming Soon</Text>
-          <Text style={styles.discoverDescription}>
-            Find new recipes, explore trending dishes, and discover content from the community.
-          </Text>
-          {log('[RENDER] Discover screen is being rendered')}
-        </View>
+        discoverEnabled ? (
+          <DiscoverFeed
+            userId={user?.uid}
+            onOpenRecipe={async (card) => {
+              try {
+                const full = await getFullPublicRecipe(card.ownerUserId, card.id);
+                if (full) {
+                  setCurrentScreen('recipes');
+                  setSelectedRecipe(full);
+                } else {
+                  Alert.alert('Recipe Not Available', 'This recipe could not be loaded.');
+                }
+              } catch (err) {
+                console.error('Failed to load discover recipe:', err);
+                Alert.alert('Error', 'Failed to load recipe details.');
+              }
+            }}
+          />
+        ) : (
+          <View style={styles.discoverContainer}>
+            <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
+            <Text style={styles.discoverTitle}>Discover</Text>
+            <Text style={styles.discoverSubtitle}>Coming Soon</Text>
+            <Text style={styles.discoverDescription}>
+              Find new recipes, explore trending dishes, and discover content from the community.
+            </Text>
+            {log('[RENDER] Discover screen is being rendered')}
+          </View>
+        )
       )}
 
       {/* Recipe List - shown when currentScreen === 'recipes' */}

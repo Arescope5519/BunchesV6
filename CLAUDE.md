@@ -160,6 +160,7 @@ describe the app in detail, so they go wrong the same way.
 | Add a new third-party service that receives user data | Privacy Policy processors table |
 | Add chat or direct messages | Content rating UGC + chat moderation answers |
 | Curate an Explore/Recommended shelf | Curated content is not user-generated, so the age-restriction answers stop being covered by the UGC exclusion. Alcohol content sits badly with the 13+ target audience - see the naming/rating notes |
+| Enable Discover for all users | Re-check the content-rating UGC answers (browse/discovery of other users' content). A raw newest-first feed of public-profile recipes stays inside the UGC exclusion; ranking it algorithmically or adding any editorial shelf hits the "curated" row above |
 | Change the account deletion window | Privacy Policy, Terms section 8, and the in-app copy in DisclaimerModal + SettingsScreen |
 | Change the age floor | Target audience, content rating, Terms section 1 |
 | **Anything nutritional** - see the section below | Health features declaration -> "Nutrition and weight management", which routes the app into Google's health policy review |
@@ -205,6 +206,29 @@ evidence the health-features answer is wrong.
 Keep user-facing copy honest about this too. The Kitchen upsell used to
 say "meal tracking", which oversells a leftovers ledger and reads to a
 reviewer like diet tracking; it says "leftover tracking" now.
+
+## Feature flags (shipping features dark)
+
+`user_profiles.feature_flags` (jsonb, `sql/add_feature_flags.sql`) gates
+unreleased features per-account. Admins see flagged features
+automatically; everyone else needs the flag set by hand in the dashboard:
+
+```sql
+UPDATE user_profiles
+SET feature_flags = feature_flags || '{"discover": true}'::jsonb
+WHERE username = 'their_username';
+```
+
+Current flags:
+
+- `discover` - the Discover feed (`src/components/DiscoverFeed.js`,
+  `src/services/supabase/discover.js`). Everyone else sees the Coming
+  Soon panel. **Privacy rule: the feed must never query `global_recipes`
+  directly** - every private recipe has a global counterpart (dual-write),
+  so feeds must start from `is_public = true` profiles and read
+  `user_recipes_v2`, like the profile viewer does. Launching it for
+  everyone = flip the flag default in HomeScreen + the declarations row
+  above.
 
 ## Adding dependencies
 

@@ -1591,6 +1591,28 @@ export const getBlockedUsers = async (currentUserId) => {
 };
 
 /**
+ * Read the current user's feature flags ({"discover": true}, ...).
+ * Absent key = feature off. Flags are set by hand in the dashboard
+ * (sql/add_feature_flags.sql) so features can ship dark and be enabled
+ * per-account for testing.
+ */
+export const getFeatureFlags = async (userId) => {
+  try {
+    if (!userId) return {};
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('feature_flags')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) return {};
+    return data?.feature_flags || {};
+  } catch {
+    return {};
+  }
+};
+
+/**
  * Check if a user is an admin
  */
 export const isUserAdmin = async (userId) => {
@@ -1854,6 +1876,7 @@ export default {
   unblockUser,
   getBlockStatus,
   getBlockedUsers,
+  getFeatureFlags,
   isUserAdmin,
   isUserPremium,
   getPendingReports,
