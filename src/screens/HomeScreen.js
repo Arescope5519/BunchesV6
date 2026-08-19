@@ -3021,6 +3021,8 @@ export const HomeScreen = ({ user }) => {
           checkUsernameAvailable={checkUsernameAvailable}
           onRefresh={refreshSocialData}
           currentUserId={user?.uid}
+          discoverEnabled={discoverEnabled}
+          discoverFlagError={discoverFlagError}
           onRecipePress={async (recipe) => {
             setCurrentScreen('recipes');
             try {

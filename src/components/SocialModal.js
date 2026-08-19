@@ -20,6 +20,7 @@ import colors from '../constants/colors';
 import { UserAvatar } from './UserAvatar';
 import UserProfile from './UserProfile';
 import MyProfile from './MyProfile';
+import DiscoverFeed from './DiscoverFeed';
 
 export const SocialModal = ({
   visible,
@@ -46,6 +47,8 @@ export const SocialModal = ({
   onProfileUpdated,
   onReportProfile,
   onAddVariantToRecipe,
+  discoverEnabled = false,
+  discoverFlagError = null,
 }) => {
   const [activeTab, setActiveTab] = useState('discover');
   const [refreshing, setRefreshing] = useState(false);
@@ -833,14 +836,26 @@ export const SocialModal = ({
 
         {/* Tab Content */}
         {activeTab === 'discover' && (
-          <View style={styles.discoverContainer}>
-            <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
-            <Text style={styles.discoverTitle}>Discover</Text>
-            <Text style={styles.discoverSubtitle}>Coming Soon</Text>
-            <Text style={styles.discoverText}>
-              Find new recipes, explore trending dishes, and discover content from the community.
-            </Text>
-          </View>
+          discoverEnabled ? (
+            <DiscoverFeed
+              userId={currentUserId}
+              onOpenRecipe={(card) => onRecipePress?.(card)}
+            />
+          ) : (
+            <View style={styles.discoverContainer}>
+              <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
+              <Text style={styles.discoverTitle}>Discover</Text>
+              <Text style={styles.discoverSubtitle}>Coming Soon</Text>
+              <Text style={styles.discoverText}>
+                Find new recipes, explore trending dishes, and discover content from the community.
+              </Text>
+              {discoverFlagError ? (
+                <Text style={styles.discoverDebugText}>
+                  Flag check failed: {discoverFlagError}
+                </Text>
+              ) : null}
+            </View>
+          )
         )}
         {activeTab === 'friends' && renderFriendsTab()}
         {activeTab === 'requests' && renderRequestsTab()}
@@ -954,6 +969,7 @@ const styles = StyleSheet.create({
   discoverTitle: { fontSize: 26, fontWeight: '700', color: colors.text, marginBottom: 4 },
   discoverSubtitle: { fontSize: 14, color: colors.primary, marginBottom: 20, fontWeight: '600' },
   discoverText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  discoverDebugText: { marginTop: 20, fontSize: 12, color: colors.error, textAlign: 'center', paddingHorizontal: 20 },
   tabContent: {
     flex: 1,
     padding: 16,
