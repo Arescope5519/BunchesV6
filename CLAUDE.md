@@ -266,6 +266,18 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
   moderate-text, moderation-webhook, extract-recipe (AI scanning)
 
 ### Data model
+
+**Social graph** (`sql/unify_follow_graph.sql`): `user_followers` is the
+single source of truth - **mutual follow IS friendship**, Instagram
+style. A friend request asks for mutuality; accepting creates both
+directions via the `accept_follow_request` RPC. One-way follows exist
+only toward `is_public` profiles. `user_profiles.friends[]` is a CACHE
+of mutuals maintained by a database trigger - never write it from app
+code (RLS silently eats cross-user writes; that bug is why the trigger
+exists). Removing a friend or blocking severs both directions through
+the `sever_follow_pair` RPC. Unfollowing a mutual ends the friendship -
+the UI warns before doing it.
+
 Recipes are stored twice on purpose:
 - `global_recipes` - the shared, unchanging version (title, ingredients,
   auto-tags). Deep links and friend imports point here.

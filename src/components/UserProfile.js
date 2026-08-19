@@ -121,24 +121,49 @@ const UserProfile = ({
     }
   };
 
-  const handleFollowToggle = async () => {
+  const performUnfollow = async () => {
     setFollowLoading(true);
     try {
-      if (isFollowing) {
-        await unfollowUser(currentUserId, targetUserId);
-        setIsFollowing(false);
-        setProfile(prev => ({
-          ...prev,
-          followerCount: Math.max((prev.followerCount || 1) - 1, 0),
-        }));
+      await unfollowUser(currentUserId, targetUserId);
+      setIsFollowing(false);
+      setProfile(prev => ({
+        ...prev,
+        followerCount: Math.max((prev.followerCount || 1) - 1, 0),
+        // Mutual follow IS friendship, so breaking either direction
+        // ends it (the database trigger updates both friends[] caches)
+        isFriend: false,
+      }));
+    } catch (error) {
+      console.error('Error unfollowing:', error);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (isFollowing) {
+      if (profile?.isFriend) {
+        Alert.alert(
+          'Remove Friend?',
+          `You and @${profile?.username} are friends. Unfollowing ends the friendship - they will no longer see your private recipes, and you will need a new friend request to reconnect.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Unfollow', style: 'destructive', onPress: performUnfollow },
+          ]
+        );
       } else {
-        await followUser(currentUserId, targetUserId);
-        setIsFollowing(true);
-        setProfile(prev => ({
-          ...prev,
-          followerCount: (prev.followerCount || 0) + 1,
-        }));
+        performUnfollow();
       }
+      return;
+    }
+    setFollowLoading(true);
+    try {
+      await followUser(currentUserId, targetUserId);
+      setIsFollowing(true);
+      setProfile(prev => ({
+        ...prev,
+        followerCount: (prev.followerCount || 0) + 1,
+      }));
     } catch (error) {
       console.error('Error toggling follow:', error);
     } finally {
@@ -594,8 +619,10 @@ const UserProfile = ({
                   )}
                 </View>
               </View>
-              {/* Follow Button */}
-              {currentUserId !== targetUserId && !blockStatus.blocking && (
+              {/* Follow Button - public profiles only. Private users are
+                  reached through friend requests; friendship with them is
+                  managed from the Friends tab, not this toggle */}
+              {currentUserId !== targetUserId && !blockStatus.blocking && (profile.isPublic || isFollowing) && (
                 <TouchableOpacity
                   style={[
                     styles.followButton,
