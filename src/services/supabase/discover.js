@@ -21,6 +21,24 @@ import { log } from '../../utils/log';
 export const DISCOVER_PAGE_SIZE = 24;
 
 /**
+ * Flatten an ingredients value (object of sections, array, or JSON/text
+ * string) into a plain list of lines for the feed preview.
+ */
+const flattenIngredients = (raw) => {
+  if (!raw) return [];
+  let val = raw;
+  if (typeof val === 'string') {
+    try { val = JSON.parse(val); }
+    catch { return val.split('\n').map(l => l.trim()).filter(Boolean); }
+  }
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === 'object') {
+    return Object.values(val).flat().map(String);
+  }
+  return [];
+};
+
+/**
  * Map a user_recipes_v2 row (joined with global_recipes) to a feed card.
  * Mirrors the id/title/image resolution in getUserPublicRecipes so
  * getFullPublicRecipe(ownerUserId, id) finds the same recipe.
@@ -35,6 +53,7 @@ const mapRowToCard = (row, profileMap) => {
     ownerAvatarUrl: profile.avatar_url || null,
     title: local.title || row.global_recipes?.title || 'Untitled',
     imageUrl: local.image_url || local.imageUrl || row.global_recipes?.image_url || null,
+    ingredientLines: flattenIngredients(local.ingredients || row.global_recipes?.ingredients),
     globalRecipeId: row.global_recipe_id || null,
     createdAt: row.created_at,
   };
@@ -58,7 +77,8 @@ const fetchRecipesForUsers = async (userIds, profileMap, offset, limit) => {
         id,
         title,
         image_url,
-        source_url
+        source_url,
+        ingredients
       )
     `)
     .in('user_id', userIds)
@@ -148,8 +168,59 @@ export const getDiscoverPublicFeed = async (userId, { offset = 0, limit = DISCOV
   }
 };
 
+// ============================================================
+// Likes (sql/add_recipe_likes.sql) - keyed by global recipe id so one
+// recipe accumulates one count across everyone who saved it
+// ============================================================
+
+/**
+ * Like status for a page of feed cards in one query.
+ * @returns {{ counts: Object<string, number>, likedByMe: Set<string> }}
+ */
+export const getLikesForRecipes = async (userId, globalRecipeIds) => {
+  const ids = (globalRecipeIds || []).filter(Boolean);
+  if (!ids.length) return { counts: {}, likedByMe: new Set() };
+
+  const { data, error } = await supabase
+    .from('recipe_likes')
+    .select('global_recipe_id, user_id')
+    .in('global_recipe_id', ids);
+
+  if (error) throw error;
+
+  const counts = {};
+  const likedByMe = new Set();
+  (data || []).forEach(row => {
+    counts[row.global_recipe_id] = (counts[row.global_recipe_id] || 0) + 1;
+    if (row.user_id === userId) likedByMe.add(row.global_recipe_id);
+  });
+  return { counts, likedByMe };
+};
+
+export const likeRecipe = async (userId, globalRecipeId) => {
+  const { error } = await supabase
+    .from('recipe_likes')
+    .insert({ user_id: userId, global_recipe_id: globalRecipeId });
+  // 23505 = already liked (double-tap race) - fine
+  if (error && error.code !== '23505') throw error;
+  return true;
+};
+
+export const unlikeRecipe = async (userId, globalRecipeId) => {
+  const { error } = await supabase
+    .from('recipe_likes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('global_recipe_id', globalRecipeId);
+  if (error) throw error;
+  return true;
+};
+
 export default {
   DISCOVER_PAGE_SIZE,
   getDiscoverFollowingFeed,
   getDiscoverPublicFeed,
+  getLikesForRecipes,
+  likeRecipe,
+  unlikeRecipe,
 };

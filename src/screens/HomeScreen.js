@@ -83,6 +83,7 @@ import {
   getBlockStatus,
 } from '../services/supabase/social';
 import DiscoverFeed from '../components/DiscoverFeed';
+import { getLikesForRecipes, likeRecipe, unlikeRecipe } from '../services/supabase/discover';
 import AdminReports from '../components/AdminReports';
 import BlockedUsers from '../components/BlockedUsers';
 import DisclaimerModal, { shouldShowDisclaimer } from '../components/DisclaimerModal';
@@ -127,6 +128,7 @@ export const HomeScreen = ({ user }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [discoverEnabled, setDiscoverEnabled] = useState(false);
   const [discoverFlagError, setDiscoverFlagError] = useState(null);
+  const [readOnlyLike, setReadOnlyLike] = useState({ liked: false, count: 0 });
   const [isPremium, setIsPremium] = useState(false);
   const [showAdminReports, setShowAdminReports] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
@@ -1679,6 +1681,9 @@ export const HomeScreen = ({ user }) => {
         deletedAt, id, folder, folders,
         variants, selectedVariantId, editHistory, editedVersion,
         hasEdits, viewingOriginal, originalRecipe, isFavorite, isPrivate,
+        // Read-only viewer fields (sharing FROM the feed) - the
+        // recipient's copy is their own, never read-only
+        isReadOnly, ownerUserId, ownerUsername, globalRecipeId,
         ...cleanRecipe
       } = recipeToShare;
       setShareItem({
@@ -2119,6 +2124,98 @@ export const HomeScreen = ({ user }) => {
         { text: 'Copy Link', onPress: () => copyRecipeLink(recipe) },
       ]
     );
+  };
+
+  // Like state for the read-only recipe viewer (likes key off the
+  // global recipe id - see sql/add_recipe_likes.sql)
+  useEffect(() => {
+    const gid = selectedRecipe?.isReadOnly ? selectedRecipe?.globalRecipeId : null;
+    if (!gid || !user?.uid) {
+      setReadOnlyLike({ liked: false, count: 0 });
+      return;
+    }
+    let cancelled = false;
+    getLikesForRecipes(user.uid, [gid])
+      .then(({ counts, likedByMe }) => {
+        if (!cancelled) {
+          setReadOnlyLike({ liked: likedByMe.has(gid), count: counts[gid] || 0 });
+        }
+      })
+      .catch(err => console.error('Like status load failed:', err));
+    return () => { cancelled = true; };
+  }, [selectedRecipe?.globalRecipeId, selectedRecipe?.isReadOnly, user?.uid]);
+
+  const toggleReadOnlyLike = async () => {
+    const gid = selectedRecipe?.globalRecipeId;
+    if (!gid || !user?.uid) return;
+    const wasLiked = readOnlyLike.liked;
+    setReadOnlyLike(prev => ({
+      liked: !wasLiked,
+      count: Math.max(prev.count + (wasLiked ? -1 : 1), 0),
+    }));
+    try {
+      if (wasLiked) await unlikeRecipe(user.uid, gid);
+      else await likeRecipe(user.uid, gid);
+    } catch (err) {
+      console.error('Like toggle failed:', err);
+      setReadOnlyLike(prev => ({
+        liked: wasLiked,
+        count: Math.max(prev.count + (wasLiked ? 1 : -1), 0),
+      }));
+    }
+  };
+
+  // Start the save-to-cookbook flow for someone else's recipe (used by
+  // the read-only recipe header and the Feed's save button)
+  const startImportFlow = (recipe) => {
+    const importableFolders = getCustomFolders()
+      .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+    if (importableFolders.length === 0) {
+      Alert.alert('No Cookbooks', 'Create a cookbook first to add this recipe.', [
+        { text: 'OK' },
+        {
+          text: 'Create Cookbook',
+          onPress: () => {
+            setSelectedRecipe(null);
+            setShowFolderManager(true);
+            setTimeout(() => setShowAddFolder(true), 300);
+          }
+        }
+      ]);
+      return;
+    }
+    setImportingRecipe(recipe);
+    setShowImportFolderPicker(true);
+  };
+
+  // Feed action handlers - cards carry only preview data, so fetch the
+  // full recipe before saving or sharing
+  const saveFeedRecipe = async (card) => {
+    try {
+      const full = await getFullPublicRecipe(card.ownerUserId, card.id);
+      if (!full) {
+        Alert.alert('Recipe Not Available', 'This recipe could not be loaded.');
+        return;
+      }
+      startImportFlow(full);
+    } catch (err) {
+      console.error('Feed save failed:', err);
+      Alert.alert('Error', 'Could not load this recipe.');
+    }
+  };
+
+  const shareFeedRecipe = async (card) => {
+    try {
+      const full = await getFullPublicRecipe(card.ownerUserId, card.id);
+      if (!full) {
+        Alert.alert('Recipe Not Available', 'This recipe could not be loaded.');
+        return;
+      }
+      shareRecipe(full);
+    } catch (err) {
+      console.error('Feed share failed:', err);
+      Alert.alert('Error', 'Could not load this recipe.');
+    }
   };
 
   const handleShareToFriends = (recipe) => {
@@ -3023,6 +3120,8 @@ export const HomeScreen = ({ user }) => {
           currentUserId={user?.uid}
           discoverEnabled={discoverEnabled}
           discoverFlagError={discoverFlagError}
+          onSaveFeedRecipe={saveFeedRecipe}
+          onShareFeedRecipe={shareFeedRecipe}
           onRecipePress={async (recipe) => {
             // RecipeDetail is a Modal and overlays the current screen -
             // do NOT switch screens here, or closing the recipe dumps
@@ -3109,6 +3208,8 @@ export const HomeScreen = ({ user }) => {
         discoverEnabled ? (
           <DiscoverFeed
             userId={user?.uid}
+            onSaveRecipe={saveFeedRecipe}
+            onShareRecipe={shareFeedRecipe}
             onOpenRecipe={async (card) => {
               try {
                 const full = await getFullPublicRecipe(card.ownerUserId, card.id);
@@ -3617,33 +3718,35 @@ export const HomeScreen = ({ user }) => {
                   </TouchableOpacity>
                 </View>
               ) : selectedRecipe.isReadOnly ? (
-                // Read-only actions for viewing another user's recipe
+                // Read-only actions for viewing another user's recipe:
+                // like, save to cookbook, share to a mutual, report
                 <View style={styles.modalActions}>
+                  {selectedRecipe.globalRecipeId ? (
+                    <TouchableOpacity
+                      onPress={toggleReadOnlyLike}
+                      style={styles.iconButton}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name={readOnlyLike.liked ? 'heart' : 'heart-outline'}
+                        size={20}
+                        color={readOnlyLike.liked ? colors.accent : '#fff'}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
                   <TouchableOpacity
-                    onPress={() => {
-                      const importableFolders = getCustomFolders()
-                        .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
-                      if (importableFolders.length === 0) {
-                        Alert.alert('No Cookbooks', 'Create a cookbook first to add this recipe.', [
-                          { text: 'OK' },
-                          {
-                            text: 'Create Cookbook',
-                            onPress: () => {
-                              setSelectedRecipe(null);
-                              setShowFolderManager(true);
-                              setTimeout(() => setShowAddFolder(true), 300);
-                            }
-                          }
-                        ]);
-                        return;
-                      }
-                      setImportingRecipe(selectedRecipe);
-                      setShowImportFolderPicker(true);
-                    }}
+                    onPress={() => startImportFlow(selectedRecipe)}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons name="save" size={20} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => shareRecipe(selectedRecipe)}
+                    style={styles.iconButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="paper-plane-outline" size={20} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openReportDialog(selectedRecipe)}

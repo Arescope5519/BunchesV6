@@ -49,6 +49,8 @@ export const SocialModal = ({
   onAddVariantToRecipe,
   discoverEnabled = false,
   discoverFlagError = null,
+  onSaveFeedRecipe,
+  onShareFeedRecipe,
 }) => {
   const [activeTab, setActiveTab] = useState('discover');
   const [refreshing, setRefreshing] = useState(false);
@@ -840,6 +842,8 @@ export const SocialModal = ({
             <DiscoverFeed
               userId={currentUserId}
               onOpenRecipe={(card) => onRecipePress?.(card)}
+              onSaveRecipe={onSaveFeedRecipe}
+              onShareRecipe={onShareFeedRecipe}
             />
           ) : (
             <View style={styles.discoverContainer}>

@@ -1,14 +1,15 @@
 /**
  * FILENAME: src/components/DiscoverFeed.js
- * PURPOSE: The Discover screen - browse recipes from people you follow
- * and from public profiles. Feature-flagged: HomeScreen renders this only
- * when the "discover" flag (or admin) is set; everyone else still sees
- * the Coming Soon panel.
+ * PURPOSE: The Feed - two very different presentations of other users'
+ * recipes. Following is an Instagram-style full-width feed (big image,
+ * fixed title + ingredients block, like/save/share actions) because it's
+ * your friends and each recipe deserves real estate. Discover is a
+ * 3-column collage for volume browsing. Feature-flagged via HomeScreen.
  *
- * v1 is deliberately simple: two tabs (Following / Everyone), newest
- * first, tap a card to open the recipe read-only via the same
- * getFullPublicRecipe path the profile viewer uses. Ranking comes later
- * inside the discover service without touching this component.
+ * Likes key off the GLOBAL recipe id (sql/add_recipe_likes.sql), so the
+ * same shared recipe carries one count everywhere. Save and share
+ * delegate to HomeScreen via props - they reuse the cookbook import
+ * picker and the mutuals share sheet.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -28,6 +29,9 @@ import { LetterPlaceholder } from './LetterPlaceholder';
 import {
   getDiscoverFollowingFeed,
   getDiscoverPublicFeed,
+  getLikesForRecipes,
+  likeRecipe,
+  unlikeRecipe,
   DISCOVER_PAGE_SIZE,
 } from '../services/supabase/discover';
 import { getBlockedUsers } from '../services/supabase/social';
@@ -51,7 +55,9 @@ const EMPTY_COPY = {
   },
 };
 
-const DiscoverFeed = ({ userId, onOpenRecipe }) => {
+const INGREDIENT_PREVIEW_LINES = 3;
+
+const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => {
   const [activeTab, setActiveTab] = useState('following');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +65,8 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [feedError, setFeedError] = useState(null);
+  const [likeCounts, setLikeCounts] = useState({});
+  const [likedSet, setLikedSet] = useState(new Set());
   const blockedIdsRef = useRef(null);
 
   const getBlockedIds = useCallback(async () => {
@@ -70,6 +78,24 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
       blockedIdsRef.current = new Set();
     }
     return blockedIdsRef.current;
+  }, [userId]);
+
+  const mergeLikeData = useCallback(async (cards) => {
+    try {
+      const ids = cards.map(c => c.globalRecipeId).filter(Boolean);
+      if (!ids.length) return;
+      const { counts, likedByMe } = await getLikesForRecipes(userId, ids);
+      setLikeCounts(prev => ({ ...prev, ...counts }));
+      setLikedSet(prev => {
+        const next = new Set(prev);
+        likedByMe.forEach(id => next.add(id));
+        return next;
+      });
+    } catch (err) {
+      // Likes are decoration on the feed - a failed fetch shouldn't
+      // block the content
+      console.error('❌ Like fetch failed:', err);
+    }
   }, [userId]);
 
   const fetchPage = useCallback(async (tab, offset) => {
@@ -98,6 +124,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
       const cards = await fetchPage(tab, 0);
       setItems(cards);
       setHasMore(cards.length >= DISCOVER_PAGE_SIZE);
+      mergeLikeData(cards);
     } catch (err) {
       setItems([]);
       setFeedError(err?.message || String(err));
@@ -105,7 +132,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [fetchPage]);
+  }, [fetchPage, mergeLikeData]);
 
   useEffect(() => {
     if (!userId) return;
@@ -117,11 +144,11 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
     setLoadingMore(true);
     try {
       const cards = await fetchPage(activeTab, items.length);
-      // Filter anything already on screen (dedup keys reset per page)
       const existing = new Set(items.map(c => c.globalRecipeId || `${c.ownerUserId}:${c.id}`));
       const fresh = cards.filter(c => !existing.has(c.globalRecipeId || `${c.ownerUserId}:${c.id}`));
       setItems(prev => [...prev, ...fresh]);
       setHasMore(cards.length >= DISCOVER_PAGE_SIZE);
+      mergeLikeData(fresh);
     } catch (err) {
       // Keep what's on screen; stop paging so this doesn't retry-loop
       console.error('❌ Discover loadMore error:', err);
@@ -131,9 +158,102 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
     }
   };
 
-  // Collage tile: edge-to-edge square image, quiet title underneath.
-  // No card chrome - the images ARE the design, Instagram-explore style.
-  const renderCard = ({ item }) => (
+  const toggleLike = async (card) => {
+    const gid = card.globalRecipeId;
+    if (!gid) return;
+    const wasLiked = likedSet.has(gid);
+
+    // Optimistic flip; revert on failure
+    setLikedSet(prev => {
+      const next = new Set(prev);
+      if (wasLiked) next.delete(gid); else next.add(gid);
+      return next;
+    });
+    setLikeCounts(prev => ({
+      ...prev,
+      [gid]: Math.max((prev[gid] || 0) + (wasLiked ? -1 : 1), 0),
+    }));
+
+    try {
+      if (wasLiked) await unlikeRecipe(userId, gid);
+      else await likeRecipe(userId, gid);
+    } catch (err) {
+      console.error('❌ Like toggle failed:', err);
+      setLikedSet(prev => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(gid); else next.delete(gid);
+        return next;
+      });
+      setLikeCounts(prev => ({
+        ...prev,
+        [gid]: Math.max((prev[gid] || 0) + (wasLiked ? 1 : -1), 0),
+      }));
+    }
+  };
+
+  // --- Following: full-width feed card ---
+  const renderFeedCard = ({ item }) => {
+    const gid = item.globalRecipeId;
+    const liked = gid ? likedSet.has(gid) : false;
+    const count = gid ? (likeCounts[gid] || 0) : 0;
+    return (
+      <View style={styles.feedCard}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            log('🧭 Feed card opened:', item.title);
+            onOpenRecipe(item);
+          }}
+        >
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.feedImage} resizeMode="cover" />
+          ) : (
+            <LetterPlaceholder title={item.title} size={64} style={styles.feedImage} />
+          )}
+          <View style={styles.feedBody}>
+            <Text style={styles.feedOwner} numberOfLines={1}>@{item.ownerUsername}</Text>
+            <Text style={styles.feedTitle} numberOfLines={2}>{item.title}</Text>
+            <Text style={styles.feedIngredients} numberOfLines={INGREDIENT_PREVIEW_LINES}>
+              {(item.ingredientLines || []).join(' · ')}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          {gid ? (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => toggleLike(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={liked ? 'heart' : 'heart-outline'}
+                size={24}
+                color={liked ? colors.error : colors.text}
+              />
+              {count > 0 && <Text style={styles.actionCount}>{count}</Text>}
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => onSaveRecipe?.(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="save-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => onShareRecipe?.(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="paper-plane-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // --- Discover: collage tile ---
+  const renderTile = ({ item }) => (
     <TouchableOpacity
       style={styles.tile}
       activeOpacity={0.85}
@@ -153,6 +273,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
   );
 
   const empty = EMPTY_COPY[activeTab];
+  const isFollowing = activeTab === 'following';
 
   return (
     <View style={styles.container}>
@@ -180,7 +301,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
         <View style={styles.centerFill}>
           <View style={styles.emptyState}>
             <Ionicons name="cloud-offline-outline" size={64} color={colors.textLight} />
-            <Text style={styles.emptyTitle}>Couldn't load Discover</Text>
+            <Text style={styles.emptyTitle}>Couldn't load the feed</Text>
             <Text style={styles.errorDetail}>{feedError}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={() => load(activeTab)}>
               <Text style={styles.retryLabel}>Try Again</Text>
@@ -189,11 +310,13 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
         </View>
       ) : (
         <FlatList
+          // numColumns can't change on a live list - remount per tab
+          key={isFollowing ? 'feed' : 'grid'}
           data={items}
           keyExtractor={(item) => `${item.ownerUserId}:${item.id}`}
-          renderItem={renderCard}
-          numColumns={3}
-          columnWrapperStyle={styles.column}
+          renderItem={isFollowing ? renderFeedCard : renderTile}
+          numColumns={isFollowing ? 1 : 3}
+          columnWrapperStyle={isFollowing ? undefined : styles.column}
           contentContainerStyle={items.length ? styles.listContent : styles.centerFill}
           refreshControl={
             <RefreshControl
@@ -262,6 +385,59 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
   },
+
+  // Following feed
+  feedCard: {
+    marginBottom: 22,
+  },
+  feedImage: {
+    width: '100%',
+    aspectRatio: 1,
+  },
+  feedBody: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+  },
+  feedOwner: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textTertiary,
+    marginBottom: 3,
+  },
+  feedTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  feedIngredients: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    // Fixed-height block so every card's actions line up whether the
+    // recipe has 2 ingredients or 20
+    minHeight: 18 * INGREDIENT_PREVIEW_LINES,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 22,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  actionCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+
+  // Discover collage
   column: {
     gap: 2,
     marginBottom: 14,
@@ -288,6 +464,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
     paddingHorizontal: 4,
   },
+
   emptyState: {
     alignItems: 'center',
     paddingHorizontal: 40,
@@ -305,9 +482,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  footerSpinner: {
-    marginVertical: 16,
-  },
   errorDetail: {
     fontSize: 12,
     color: colors.error,
@@ -324,6 +498,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  footerSpinner: {
+    marginVertical: 16,
   },
 });
 

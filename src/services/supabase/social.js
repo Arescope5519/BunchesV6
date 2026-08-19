@@ -1264,6 +1264,7 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
           createdBy: local.createdBy || { id: targetUserId, username: ownerUsername },
           ownerUserId: targetUserId,
           ownerUsername,
+          globalRecipeId: global.id || null,
           isReadOnly: true,
         };
       }
@@ -1300,6 +1301,7 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
       createdBy: rd.createdBy || { id: targetUserId, username: ownerUsername },
       ownerUserId: targetUserId,
       ownerUsername,
+      globalRecipeId: null, // legacy table rows carry no global link
       isReadOnly: true,
     };
   } catch (error) {
