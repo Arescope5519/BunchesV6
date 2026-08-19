@@ -35,7 +35,7 @@ import { log } from '../utils/log';
 
 const TABS = [
   { key: 'following', label: 'Following' },
-  { key: 'everyone', label: 'Everyone' },
+  { key: 'everyone', label: 'Discover' },
 ];
 
 const EMPTY_COPY = {
@@ -157,7 +157,6 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover</Text>
         <View style={styles.tabRow}>
           {TABS.map(tab => (
             <TouchableOpacity
@@ -233,12 +232,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
   },
   tabRow: {
     flexDirection: 'row',

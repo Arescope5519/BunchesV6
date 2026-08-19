@@ -3024,7 +3024,9 @@ export const HomeScreen = ({ user }) => {
           discoverEnabled={discoverEnabled}
           discoverFlagError={discoverFlagError}
           onRecipePress={async (recipe) => {
-            setCurrentScreen('recipes');
+            // RecipeDetail is a Modal and overlays the current screen -
+            // do NOT switch screens here, or closing the recipe dumps
+            // the user in Recipes and loses their place in the Feed
             try {
               const ownerId = recipe.ownerUserId;
               if (!ownerId) {
@@ -3111,7 +3113,6 @@ export const HomeScreen = ({ user }) => {
               try {
                 const full = await getFullPublicRecipe(card.ownerUserId, card.id);
                 if (full) {
-                  setCurrentScreen('recipes');
                   setSelectedRecipe(full);
                 } else {
                   Alert.alert('Recipe Not Available', 'This recipe could not be loaded.');

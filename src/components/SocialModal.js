@@ -808,7 +808,7 @@ export const SocialModal = ({
         {/* Tabs */}
         <View style={styles.tabs}>
           {[
-            { key: 'discover', label: 'Discover', icon: 'compass' },
+            { key: 'discover', label: 'Feed', icon: 'compass' },
             { key: 'inbox', label: 'Inbox', icon: 'chatbubbles', count: sharedItems.length },
             { key: 'requests', label: 'Requests', icon: 'person-add', count: friendRequests.length },
             { key: 'friends', label: 'Friends', icon: 'people' },
@@ -844,7 +844,7 @@ export const SocialModal = ({
           ) : (
             <View style={styles.discoverContainer}>
               <Ionicons name="compass" size={80} color={colors.primary} style={{ marginBottom: 20 }} />
-              <Text style={styles.discoverTitle}>Discover</Text>
+              <Text style={styles.discoverTitle}>Feed</Text>
               <Text style={styles.discoverSubtitle}>Coming Soon</Text>
               <Text style={styles.discoverText}>
                 Find new recipes, explore trending dishes, and discover content from the community.
