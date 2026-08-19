@@ -64,6 +64,59 @@ keystore.
 - Losing the upload keystore is recoverable through Google, but slow.
   Back it up somewhere that is not this repo.
 
+## Google Sign-In DEVELOPER_ERROR - urgent fix playbook
+
+DEVELOPER_ERROR (status 10) is thrown on-device by Play Services when
+the running app's (package name + signing SHA-1) matches no Android
+OAuth client in Cloud project `307694075211`. It is ALWAYS console
+config, never app code - the app never references an Android client ID.
+
+**Four keys sign this app**, and each needs its own Android OAuth client
+(package `app.melibri`). "It worked earlier with no changes" almost
+always means a different install (= different key) is now on the device:
+
+| Key | Where it signs | Where to read its SHA-1 |
+|---|---|---|
+| Debug | `expo run:android` dev builds | signingReport, debug variant |
+| Upload | sideloaded `assembleRelease` APKs | signingReport, release variant |
+| Play app signing | every Play Store install | Play Console -> App signing (see below) |
+| (rotated/previous) | old installs after a key rotation | "Previous app signing keys" on same page |
+
+Debugging steps, in order - trust the device, not the console:
+
+1. **Identify what is actually installed.** Play installs have
+   `split_config.*.apk` files; sideloads are a single base.apk.
+   `adb -s <device> shell pm path --user 0 app.melibri`
+2. **Read the real signature off the installed APK:**
+   `adb pull <base.apk path> installed.apk` then
+   `build-tools\<ver>\apksigner.bat verify --print-certs installed.apk`
+   (`keytool -printcert -jarfile` says "Not a signed jar file" on modern
+   v2/v3-signed APKs - use apksigner.)
+3. **Match that SHA-1 against the OAuth clients.** No match = the bug.
+   Create a new Android client with that exact fingerprint. ADD clients,
+   never edit existing ones - each install path needs its own.
+4. Clear Google Play Services cache on the device, reboot, wait 5 min to
+   a few hours for propagation.
+
+Traps that burned real time:
+
+- The Play Console App signing page shows the **upload** cert prominently;
+  the app-signing cert may be behind Copy buttons (classical vs
+  post-quantum: OAuth wants the **classical** key). Cross-check with the
+  **Digital Asset Links JSON** on that page - its SHA-256 must equal
+  apksigner's SHA-256 for the cert you think is live.
+- **Key rotation silently breaks sign-in** (e.g. enrolling in the
+  Quantum-ready beta rotated the app signing key on 13 Aug 2026). After
+  any rotation, repeat this playbook - the OAuth client must follow the
+  new key.
+- Old pre-rename installs (`com.bunchesai.v6`) and Samsung Secure Folder
+  copies look identical on the launcher. Check `pm list packages` for
+  duplicates before debugging config.
+- Do NOT debug sign-in on BlueStacks/emulators - nonstandard Play
+  Services and missing Play Protect certification fail sign-in for
+  reasons unrelated to config. Verify on a real phone's Play install:
+  that is the exact tester path.
+
 ## Working agreements
 
 - **All work lives on `master`.** Session branches must be created FROM
