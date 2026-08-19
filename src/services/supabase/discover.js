@@ -111,8 +111,10 @@ export const getDiscoverFollowingFeed = async (userId, { offset = 0, limit = DIS
     log(`🧭 Discover following feed: ${cards.length} recipes from ${publicIds.length} followed users`);
     return cards;
   } catch (err) {
+    // Rethrow so the UI can show the reason - a silent [] here is
+    // indistinguishable from a legitimately empty feed
     console.error('❌ getDiscoverFollowingFeed error:', err);
-    return [];
+    throw err;
   }
 };
 
@@ -142,7 +144,7 @@ export const getDiscoverPublicFeed = async (userId, { offset = 0, limit = DISCOV
     return cards;
   } catch (err) {
     console.error('❌ getDiscoverPublicFeed error:', err);
-    return [];
+    throw err;
   }
 };
 

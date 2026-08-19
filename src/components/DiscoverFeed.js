@@ -58,6 +58,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [feedError, setFeedError] = useState(null);
   const blockedIdsRef = useRef(null);
 
   const getBlockedIds = useCallback(async () => {
@@ -92,10 +93,14 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
 
   const load = useCallback(async (tab, { refresh = false } = {}) => {
     if (refresh) setRefreshing(true); else setLoading(true);
+    setFeedError(null);
     try {
       const cards = await fetchPage(tab, 0);
       setItems(cards);
       setHasMore(cards.length >= DISCOVER_PAGE_SIZE);
+    } catch (err) {
+      setItems([]);
+      setFeedError(err?.message || String(err));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -117,6 +122,10 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
       const fresh = cards.filter(c => !existing.has(c.globalRecipeId || `${c.ownerUserId}:${c.id}`));
       setItems(prev => [...prev, ...fresh]);
       setHasMore(cards.length >= DISCOVER_PAGE_SIZE);
+    } catch (err) {
+      // Keep what's on screen; stop paging so this doesn't retry-loop
+      console.error('❌ Discover loadMore error:', err);
+      setHasMore(false);
     } finally {
       setLoadingMore(false);
     }
@@ -167,6 +176,17 @@ const DiscoverFeed = ({ userId, onOpenRecipe }) => {
       {loading ? (
         <View style={styles.centerFill}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : feedError ? (
+        <View style={styles.centerFill}>
+          <View style={styles.emptyState}>
+            <Ionicons name="cloud-offline-outline" size={64} color={colors.textLight} />
+            <Text style={styles.emptyTitle}>Couldn't load Discover</Text>
+            <Text style={styles.errorDetail}>{feedError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => load(activeTab)}>
+              <Text style={styles.retryLabel}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -300,6 +320,23 @@ const styles = StyleSheet.create({
   },
   footerSpinner: {
     marginVertical: 16,
+  },
+  errorDetail: {
+    fontSize: 12,
+    color: colors.error,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+  },
+  retryLabel: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

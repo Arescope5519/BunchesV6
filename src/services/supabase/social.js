@@ -1597,18 +1597,22 @@ export const getBlockedUsers = async (currentUserId) => {
  * per-account for testing.
  */
 export const getFeatureFlags = async (userId) => {
+  if (!userId) return { flags: {}, error: null };
   try {
-    if (!userId) return {};
     const { data, error } = await supabase
       .from('user_profiles')
       .select('feature_flags')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error) return {};
-    return data?.feature_flags || {};
-  } catch {
-    return {};
+    // Surface the reason instead of swallowing it - a missing column
+    // (migration not run) or RLS refusal would otherwise be
+    // indistinguishable from "flag not set"
+    if (error) return { flags: {}, error: error.message };
+    if (!data) return { flags: {}, error: 'no profile row for this account' };
+    return { flags: data.feature_flags || {}, error: null };
+  } catch (err) {
+    return { flags: {}, error: err?.message || String(err) };
   }
 };
 

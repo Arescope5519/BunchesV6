@@ -126,6 +126,7 @@ export const HomeScreen = ({ user }) => {
   const [submittingReport, setSubmittingReport] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [discoverEnabled, setDiscoverEnabled] = useState(false);
+  const [discoverFlagError, setDiscoverFlagError] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
   const [showAdminReports, setShowAdminReports] = useState(false);
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
@@ -356,7 +357,7 @@ export const HomeScreen = ({ user }) => {
 
       // Check admin and premium status + feature flags
       if (user?.uid) {
-        const [adminStatus, premiumStatus, flags] = await Promise.all([
+        const [adminStatus, premiumStatus, flagResult] = await Promise.all([
           isUserAdmin(user.uid),
           isUserPremium(user.uid),
           getFeatureFlags(user.uid),
@@ -365,11 +366,16 @@ export const HomeScreen = ({ user }) => {
         setIsPremium(premiumStatus);
         // Discover ships dark: admins always see it, everyone else needs
         // the per-user flag (sql/add_feature_flags.sql)
-        setDiscoverEnabled(adminStatus || flags.discover === true);
+        setDiscoverEnabled(adminStatus || flagResult.flags.discover === true);
+        setDiscoverFlagError(flagResult.error);
+        if (flagResult.error) {
+          console.error('❌ Discover flag check failed:', flagResult.error);
+        }
       } else {
         setIsAdmin(false);
         setIsPremium(false);
         setDiscoverEnabled(false);
+        setDiscoverFlagError(null);
       }
     };
     loadSettings();
@@ -3122,6 +3128,11 @@ export const HomeScreen = ({ user }) => {
             <Text style={styles.discoverDescription}>
               Find new recipes, explore trending dishes, and discover content from the community.
             </Text>
+            {discoverFlagError ? (
+              <Text style={styles.discoverDebugText}>
+                Flag check failed: {discoverFlagError}
+              </Text>
+            ) : null}
             {log('[RENDER] Discover screen is being rendered')}
           </View>
         )
@@ -5359,6 +5370,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  discoverDebugText: {
+    marginTop: 20,
+    fontSize: 12,
+    color: colors.error,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });
 
