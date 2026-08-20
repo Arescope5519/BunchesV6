@@ -127,11 +127,21 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
       setItems(cards);
       setHasMore(cards.length >= DISCOVER_PAGE_SIZE);
       mergeLikeData(cards);
-      // Shelves interleave into the Following feed only; they never
-      // block the main content
-      if (tab === 'following') {
-        getFeedShelves(userId).then(setShelves);
-      }
+      // Shelves interleave into both tabs; they load after the main
+      // content and never block it. Blocked users are filtered out of
+      // shelf cards the same as the feed, and a shelf that gets too
+      // thin after filtering is dropped entirely.
+      getFeedShelves(userId).then(async (loaded) => {
+        const blockedIds = await getBlockedIds();
+        setShelves(
+          (loaded || [])
+            .map(shelf => ({
+              ...shelf,
+              cards: shelf.cards.filter(c => !blockedIds.has(c.ownerUserId)),
+            }))
+            .filter(shelf => shelf.cards.length >= 3)
+        );
+      });
     } catch (err) {
       setItems([]);
       setFeedError(err?.message || String(err));
@@ -198,17 +208,40 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
     }
   };
 
-  // Slot shelves between the big cards: first shelf after the 2nd
-  // recipe, second after the 5th; leftovers go to the end of the list
-  const followingData = useMemo(() => {
-    if (activeTab !== 'following' || !shelves.length) return items;
-    const out = [...items];
-    const positions = [2, 5];
-    shelves.forEach((shelf, i) => {
-      const at = positions[i] != null ? Math.min(positions[i] + i, out.length) : out.length;
-      out.splice(at, 0, { __shelf: true, ...shelf });
-    });
-    return out;
+  // Build the list the FlatList actually renders. Following: big cards
+  // with shelves after the 2nd and 5th recipe. Discover: tiles chunked
+  // into rows of three (a numColumns grid can't host a full-width row),
+  // with shelves after the 2nd and 5th row - a couple of scrolls in.
+  const displayData = useMemo(() => {
+    if (activeTab === 'following') {
+      if (!shelves.length) return items;
+      const out = [...items];
+      const positions = [2, 5];
+      shelves.forEach((shelf, i) => {
+        const at = positions[i] != null ? Math.min(positions[i] + i, out.length) : out.length;
+        out.splice(at, 0, { __shelf: true, ...shelf });
+      });
+      return out;
+    }
+
+    // Discover collage: chunk into rows of 3
+    const rows = [];
+    for (let i = 0; i < items.length; i += 3) {
+      const tiles = items.slice(i, i + 3);
+      rows.push({
+        __row: true,
+        key: `row:${tiles.map(t => `${t.ownerUserId}:${t.id}`).join('|')}`,
+        tiles,
+      });
+    }
+    if (shelves.length) {
+      const positions = [2, 5];
+      shelves.forEach((shelf, i) => {
+        const at = positions[i] != null ? Math.min(positions[i] + i, rows.length) : rows.length;
+        rows.splice(at, 0, { __shelf: true, ...shelf });
+      });
+    }
+    return rows;
   }, [activeTab, items, shelves]);
 
   // --- Shelf: horizontal rail of small photo+title cubes ---
@@ -308,25 +341,43 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
     );
   };
 
-  // --- Discover: collage tile ---
-  const renderTile = ({ item }) => (
+  // --- Discover: collage tile + row of three ---
+  const renderTileCard = (card) => (
     <TouchableOpacity
-      style={styles.tile}
+      key={`${card.ownerUserId}:${card.id}`}
+      style={styles.tileCell}
       activeOpacity={0.85}
       onPress={() => {
-        log('🧭 Discover card opened:', item.title);
-        onOpenRecipe(item);
+        log('🧭 Discover card opened:', card.title);
+        onOpenRecipe(card);
       }}
     >
-      {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.tileImage} resizeMode="cover" />
+      {card.imageUrl ? (
+        <Image source={{ uri: card.imageUrl }} style={styles.tileImage} resizeMode="cover" />
       ) : (
-        <LetterPlaceholder title={item.title} size={36} style={styles.tileImage} />
+        <LetterPlaceholder title={card.title} size={36} style={styles.tileImage} />
       )}
-      <Text style={styles.tileTitle} numberOfLines={2}>{item.title}</Text>
-      <Text style={styles.tileOwner} numberOfLines={1}>@{item.ownerUsername}</Text>
+      <Text style={styles.tileTitle} numberOfLines={2}>{card.title}</Text>
+      <Text style={styles.tileOwner} numberOfLines={1}>@{card.ownerUsername}</Text>
     </TouchableOpacity>
   );
+
+  const renderTileRow = (row) => (
+    <View style={styles.tileRow}>
+      {row.tiles.map(renderTileCard)}
+      {/* Pad short rows so 1-2 tiles keep single-cell width */}
+      {row.tiles.length < 3 &&
+        Array.from({ length: 3 - row.tiles.length }).map((_, i) => (
+          <View key={`pad-${i}`} style={styles.tileCell} />
+        ))}
+    </View>
+  );
+
+  const renderListItem = ({ item }) => {
+    if (item.__shelf) return renderShelf(item);
+    if (item.__row) return renderTileRow(item);
+    return renderFeedCard({ item });
+  };
 
   const empty = EMPTY_COPY[activeTab];
   const isFollowing = activeTab === 'following';
@@ -366,13 +417,14 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
         </View>
       ) : (
         <FlatList
-          // numColumns can't change on a live list - remount per tab
+          // Both tabs are single-column lists now: Discover packs its
+          // tiles into row items so shelves can sit full-width anywhere
           key={isFollowing ? 'feed' : 'grid'}
-          data={isFollowing ? followingData : items}
-          keyExtractor={(item) => item.__shelf ? item.key : `${item.ownerUserId}:${item.id}`}
-          renderItem={isFollowing ? renderFeedCard : renderTile}
-          numColumns={isFollowing ? 1 : 3}
-          columnWrapperStyle={isFollowing ? undefined : styles.column}
+          data={displayData}
+          keyExtractor={(item) =>
+            item.__shelf || item.__row ? item.key : `${item.ownerUserId}:${item.id}`
+          }
+          renderItem={renderListItem}
           contentContainerStyle={items.length ? styles.listContent : styles.centerFill}
           refreshControl={
             <RefreshControl
@@ -533,13 +585,13 @@ const styles = StyleSheet.create({
   },
 
   // Discover collage
-  column: {
+  tileRow: {
+    flexDirection: 'row',
     gap: 2,
     marginBottom: 14,
   },
-  tile: {
+  tileCell: {
     flex: 1,
-    maxWidth: '33%',
   },
   tileImage: {
     width: '100%',
