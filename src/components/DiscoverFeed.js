@@ -501,7 +501,8 @@ const styles = StyleSheet.create({
   },
   feedImage: {
     width: '100%',
-    aspectRatio: 1,
+    // 4:3 landscape - a square at full width ate most of the screen
+    aspectRatio: 4 / 3,
     borderRadius: 14,
   },
   feedBody: {
