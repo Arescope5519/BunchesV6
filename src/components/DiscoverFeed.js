@@ -55,7 +55,7 @@ const EMPTY_COPY = {
   },
 };
 
-const INGREDIENT_PREVIEW_LINES = 3;
+const INGREDIENT_PREVIEW_LINES = 6;
 
 const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => {
   const [activeTab, setActiveTab] = useState('following');
@@ -214,7 +214,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
             <Text style={styles.feedOwner} numberOfLines={1}>@{item.ownerUsername}</Text>
             <Text style={styles.feedTitle} numberOfLines={2}>{item.title}</Text>
             <Text style={styles.feedIngredients} numberOfLines={INGREDIENT_PREVIEW_LINES}>
-              {(item.ingredientLines || []).join(' · ')}
+              {(item.ingredientLines || []).slice(0, INGREDIENT_PREVIEW_LINES).join('\n')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -388,42 +388,44 @@ const styles = StyleSheet.create({
 
   // Following feed
   feedCard: {
-    marginBottom: 22,
+    marginBottom: 26,
+    paddingHorizontal: 16,
   },
   feedImage: {
     width: '100%',
     aspectRatio: 1,
+    borderRadius: 14,
   },
   feedBody: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
+    paddingHorizontal: 2,
+    paddingTop: 12,
   },
   feedOwner: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.textTertiary,
-    marginBottom: 3,
-  },
-  feedTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 22,
     marginBottom: 4,
   },
+  feedTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    lineHeight: 25,
+    marginBottom: 6,
+  },
   feedIngredients: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
     // Fixed-height block so every card's actions line up whether the
     // recipe has 2 ingredients or 20
-    minHeight: 18 * INGREDIENT_PREVIEW_LINES,
+    minHeight: 20 * INGREDIENT_PREVIEW_LINES,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 22,
-    paddingHorizontal: 14,
+    paddingHorizontal: 2,
     paddingTop: 10,
   },
   actionButton: {
