@@ -19,7 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
-import { getUserProfile, updatePrivacySettings } from '../services/supabase/social';
+import { getUserProfile, updatePrivacySettings, getUserFollowers, getUserFollowing } from '../services/supabase/social';
 import { supabase } from '../services/supabase/config';
 
 import { isInternalUrl } from '../constants/app';
@@ -31,25 +31,51 @@ const MyProfile = ({
   userId,
   recipes,
   profile: initialProfile,
-  onProfileUpdated
+  onProfileUpdated,
+  // Embedded mode: rendered inside the Social hub's Account tab rather
+  // than as its own modal - no Modal wrapper, no Close header
+  embedded = false,
+  onViewUser,
+  onPreviewProfile,
+  children,
 }) => {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState(initialProfile);
-  const [currentView, setCurrentView] = useState('main'); // 'main', 'featured', 'public-settings'
+  const [currentView, setCurrentView] = useState('main'); // 'main', 'featured', 'my-recipes', 'followers', 'following'
   const [featuredRecipeIds, setFeaturedRecipeIds] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [followList, setFollowList] = useState([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
+
+  const isActive = embedded || visible;
 
   useEffect(() => {
-    if (visible && userId) {
+    if (isActive && userId) {
       loadProfile();
     }
-  }, [visible, userId]);
+  }, [isActive, userId]);
 
   useEffect(() => {
-    if (!visible) {
+    if (!isActive) {
       setCurrentView('main');
     }
-  }, [visible]);
+  }, [isActive]);
+
+  const openFollowList = async (type) => {
+    setCurrentView(type);
+    setFollowList([]);
+    setFollowListLoading(true);
+    try {
+      const users = type === 'followers'
+        ? await getUserFollowers(userId)
+        : await getUserFollowing(userId);
+      setFollowList(users || []);
+    } catch (err) {
+      console.error(`Error loading ${type}:`, err);
+    } finally {
+      setFollowListLoading(false);
+    }
+  };
 
   const loadProfile = async () => {
     setLoading(true);
@@ -229,6 +255,56 @@ const MyProfile = ({
     </View>
   );
 
+  const renderFollowListView = (type) => (
+    <View style={styles.subView}>
+      <View style={styles.subViewHeader}>
+        <TouchableOpacity onPress={() => setCurrentView('main')} style={styles.backButton}>
+          <Text style={styles.backButtonText}>{'<'} Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.subViewTitle}>{type === 'followers' ? 'Followers' : 'Following'}</Text>
+        <View style={{ width: 50 }} />
+      </View>
+
+      {followListLoading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+      ) : (
+        <ScrollView style={styles.recipeSelectList}>
+          {followList.length === 0 ? (
+            <Text style={styles.emptyText}>
+              {type === 'followers'
+                ? 'No followers yet. Share your profile with friends!'
+                : 'Not following anyone yet. Find people in the Feed.'}
+            </Text>
+          ) : (
+            followList.map(u => {
+              const isFriend = (profile?.friends || []).includes(u.id);
+              return (
+                <TouchableOpacity
+                  key={u.id}
+                  style={styles.followListItem}
+                  onPress={() => onViewUser?.(u.id)}
+                >
+                  <View style={styles.followAvatar}>
+                    <Text style={styles.followAvatarText}>
+                      {u.username?.charAt(0).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                  <Text style={styles.followUsername} numberOfLines={1}>@{u.username}</Text>
+                  {isFriend && (
+                    <View style={styles.friendChip}>
+                      <Text style={styles.friendChipText}>Friend</Text>
+                    </View>
+                  )}
+                  <Text style={styles.actionArrow}>{'>'}</Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+
   const renderMainView = () => (
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       {/* Profile Header */}
@@ -247,17 +323,22 @@ const MyProfile = ({
         </View>
       </View>
 
-      {/* Stats Row */}
+      {/* Stats Row - each opens its list */}
       <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{profile?.friendCount || 0}</Text>
-          <Text style={styles.statLabel}>Friends</Text>
-        </View>
+        <TouchableOpacity style={styles.statItem} onPress={() => openFollowList('following')}>
+          <Text style={styles.statNumber}>{profile?.followingCount || 0}</Text>
+          <Text style={styles.statLabel}>Following</Text>
+        </TouchableOpacity>
         <View style={styles.statDivider} />
-        <View style={styles.statItem}>
+        <TouchableOpacity style={styles.statItem} onPress={() => openFollowList('followers')}>
+          <Text style={styles.statNumber}>{profile?.followerCount || 0}</Text>
+          <Text style={styles.statLabel}>Followers</Text>
+        </TouchableOpacity>
+        <View style={styles.statDivider} />
+        <TouchableOpacity style={styles.statItem} onPress={() => setCurrentView('my-recipes')}>
           <Text style={styles.statNumber}>{customRecipes.length}</Text>
           <Text style={styles.statLabel}>Recipes</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Settings Section */}
@@ -318,9 +399,40 @@ const MyProfile = ({
             ? 'Your profile is public. Anyone can see your featured recipes and public cookbooks.'
             : 'Your profile is private. Only friends can see your recipes.'}
         </Text>
+        {onPreviewProfile && (
+          <TouchableOpacity style={styles.actionItem} onPress={onPreviewProfile}>
+            <Ionicons name="eye-outline" size={20} color={colors.primary} style={styles.actionIcon} />
+            <View style={styles.actionInfo}>
+              <Text style={styles.actionTitle}>Preview Your Profile</Text>
+              <Text style={styles.actionSubtitle}>
+                See your profile exactly as others do
+              </Text>
+            </View>
+            <Text style={styles.actionArrow}>{'>'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {children}
     </ScrollView>
   );
+
+  const body = loading ? (
+    <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+  ) : currentView === 'featured' ? (
+    renderFeaturedEditor()
+  ) : currentView === 'my-recipes' ? (
+    renderMyRecipesView()
+  ) : currentView === 'followers' || currentView === 'following' ? (
+    renderFollowListView(currentView)
+  ) : (
+    renderMainView()
+  );
+
+  // Embedded in the Social hub's Account tab: no Modal, no Close header
+  if (embedded) {
+    return <View style={styles.container}>{body}</View>;
+  }
 
   return (
     <Modal
@@ -339,15 +451,7 @@ const MyProfile = ({
           <View style={styles.headerSpacer} />
         </View>
 
-        {loading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-        ) : currentView === 'featured' ? (
-          renderFeaturedEditor()
-        ) : currentView === 'my-recipes' ? (
-          renderMyRecipesView()
-        ) : (
-          renderMainView()
-        )}
+        {body}
       </View>
     </Modal>
   );
@@ -436,6 +540,43 @@ const styles = StyleSheet.create({
   },
 
   // Stats
+  followListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  followAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  followAvatarText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  followUsername: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  friendChip: {
+    backgroundColor: colors.accentLight,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  friendChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.accentDark,
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',

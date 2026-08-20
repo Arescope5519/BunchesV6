@@ -119,6 +119,8 @@ export const getUserProfile = async (userId) => {
       acceptingFriendRequests: data.accepting_friend_requests,
       friends: data.friends || [],
       friendCount: data.friend_count || 0,
+      followerCount: data.follower_count || 0,
+      followingCount: data.following_count || 0,
     };
   } catch (error) {
     console.error('Error getting profile:', error);

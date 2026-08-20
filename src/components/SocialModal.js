@@ -55,7 +55,6 @@ export const SocialModal = ({
   const [activeTab, setActiveTab] = useState('discover');
   const [refreshing, setRefreshing] = useState(false);
   const [viewingProfileId, setViewingProfileId] = useState(null);
-  const [showMyProfile, setShowMyProfile] = useState(false);
 
   // Refresh data when modal opens
   useEffect(() => {
@@ -235,8 +234,10 @@ export const SocialModal = ({
     }
   };
 
-  const renderFriendsTab = () => (
-    <ScrollView style={styles.tabContent}>
+  // Friends management - rendered inside the Account tab, below the
+  // profile card (as children of the embedded MyProfile scroll view)
+  const renderFriendsContent = () => (
+    <View style={styles.friendsSection}>
       {/* Add Friends Button */}
       <TouchableOpacity
         style={styles.addFriendsButton}
@@ -366,7 +367,7 @@ export const SocialModal = ({
           ))}
         </View>
       )}
-    </ScrollView>
+    </View>
   );
 
   const renderRequestsTab = () => (
@@ -798,11 +799,10 @@ export const SocialModal = ({
         {profile && (
           <TouchableOpacity
             style={styles.myProfileButton}
-            onPress={() => setShowMyProfile(true)}
+            onPress={() => setActiveTab('account')}
           >
             <UserAvatar username={profile.username} size={22} />
             <Text style={styles.myUsername}>@{profile.username}</Text>
-            <Text style={styles.editProfileHint}>Edit</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -813,7 +813,7 @@ export const SocialModal = ({
             { key: 'discover', label: 'Feed', icon: 'compass' },
             { key: 'inbox', label: 'Inbox', icon: 'chatbubbles', count: sharedItems.length },
             { key: 'requests', label: 'Requests', icon: 'person-add', count: friendRequests.length },
-            { key: 'friends', label: 'Friends', icon: 'people' },
+            { key: 'account', label: 'Account', icon: 'person-circle' },
           ].map(tab => {
             const active = activeTab === tab.key;
             return (
@@ -861,7 +861,22 @@ export const SocialModal = ({
             </View>
           )
         )}
-        {activeTab === 'friends' && renderFriendsTab()}
+        {activeTab === 'account' && (
+          <MyProfile
+            embedded
+            userId={currentUserId}
+            recipes={recipes || []}
+            profile={profile}
+            onProfileUpdated={() => {
+              onProfileUpdated?.();
+              onRefresh?.();
+            }}
+            onViewUser={(id) => setViewingProfileId(id)}
+            onPreviewProfile={() => setViewingProfileId(currentUserId)}
+          >
+            {renderFriendsContent()}
+          </MyProfile>
+        )}
         {activeTab === 'requests' && renderRequestsTab()}
         {activeTab === 'inbox' && renderInboxTab()}
 
@@ -881,18 +896,6 @@ export const SocialModal = ({
           }}
         />
 
-        {/* My Profile Modal */}
-        <MyProfile
-          visible={showMyProfile}
-          onClose={() => setShowMyProfile(false)}
-          userId={currentUserId}
-          recipes={recipes || []}
-          profile={profile}
-          onProfileUpdated={() => {
-            onProfileUpdated?.();
-            onRefresh?.();
-          }}
-        />
     </View>
   );
 };
@@ -974,6 +977,11 @@ const styles = StyleSheet.create({
   discoverSubtitle: { fontSize: 14, color: colors.primary, marginBottom: 20, fontWeight: '600' },
   discoverText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   discoverDebugText: { marginTop: 20, fontSize: 12, color: colors.error, textAlign: 'center', paddingHorizontal: 20 },
+  friendsSection: {
+    padding: 16,
+    borderTopWidth: 8,
+    borderTopColor: colors.primaryLight,
+  },
   tabContent: {
     flex: 1,
     padding: 16,
