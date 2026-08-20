@@ -54,6 +54,7 @@ const mapRowToCard = (row, profileMap) => {
     title: local.title || row.global_recipes?.title || 'Untitled',
     imageUrl: local.image_url || local.imageUrl || row.global_recipes?.image_url || null,
     ingredientLines: flattenIngredients(local.ingredients || row.global_recipes?.ingredients),
+    tags: Array.isArray(row.global_recipes?.tags) ? row.global_recipes.tags : [],
     globalRecipeId: row.global_recipe_id || null,
     createdAt: row.created_at,
   };
@@ -78,7 +79,8 @@ const fetchRecipesForUsers = async (userIds, profileMap, offset, limit) => {
         title,
         image_url,
         source_url,
-        ingredients
+        ingredients,
+        tags
       )
     `)
     .in('user_id', userIds)
@@ -169,6 +171,77 @@ export const getDiscoverPublicFeed = async (userId, { offset = 0, limit = DISCOV
 };
 
 // ============================================================
+// Shelves - Grubhub-style horizontal rails slotted between the big
+// Following cards. v1 picks subjects with a plain heuristic (the most
+// active public user, the most common tag in a recent sample); the
+// future algorithm replaces THIS function only - the card shape and UI
+// stay put.
+//
+// Compliance note (CLAUDE.md "declarations that go stale"): shelves
+// are curated content. Fine behind the discover flag; re-check the
+// content-rating answers before launching them to everyone.
+// ============================================================
+
+const SHELF_SIZE = 10;
+const SHELF_MIN = 3;
+
+/**
+ * Build one user shelf and one tag shelf from a single sample of recent
+ * public recipes. Either can be null when the data is too thin.
+ * @returns {Promise<Array<{type, key, title, cards}>>}
+ */
+export const getFeedShelves = async (userId) => {
+  try {
+    const sample = await getDiscoverPublicFeed(userId, { offset: 0, limit: 60 });
+    const shelves = [];
+
+    // User shelf: whoever has the most recipes in the sample
+    const byOwner = {};
+    sample.forEach(c => {
+      (byOwner[c.ownerUserId] = byOwner[c.ownerUserId] || []).push(c);
+    });
+    const topOwner = Object.values(byOwner)
+      .sort((a, b) => b.length - a.length)[0];
+    if (topOwner && topOwner.length >= SHELF_MIN) {
+      shelves.push({
+        type: 'user',
+        key: `user:${topOwner[0].ownerUserId}`,
+        title: `More from @${topOwner[0].ownerUsername}`,
+        cards: topOwner.slice(0, SHELF_SIZE),
+      });
+    }
+
+    // Tag shelf: the most common tag, skipping the user shelf's owner
+    // dominating it with the same rows where possible
+    const byTag = {};
+    sample.forEach(c => {
+      (c.tags || []).forEach(tag => {
+        (byTag[tag] = byTag[tag] || []).push(c);
+      });
+    });
+    const topTagEntry = Object.entries(byTag)
+      .sort((a, b) => b[1].length - a[1].length)[0];
+    if (topTagEntry && topTagEntry[1].length >= SHELF_MIN) {
+      const [tag, cards] = topTagEntry;
+      const label = tag.charAt(0).toUpperCase() + tag.slice(1);
+      shelves.push({
+        type: 'tag',
+        key: `tag:${tag}`,
+        title: label,
+        cards: cards.slice(0, SHELF_SIZE),
+      });
+    }
+
+    log(`🧭 Feed shelves: ${shelves.map(s => s.key).join(', ') || 'none'}`);
+    return shelves;
+  } catch (err) {
+    // Shelves are garnish - a failure should never take down the feed
+    console.error('❌ getFeedShelves error:', err);
+    return [];
+  }
+};
+
+// ============================================================
 // Likes (sql/add_recipe_likes.sql) - keyed by global recipe id so one
 // recipe accumulates one count across everyone who saved it
 // ============================================================
@@ -220,6 +293,7 @@ export default {
   DISCOVER_PAGE_SIZE,
   getDiscoverFollowingFeed,
   getDiscoverPublicFeed,
+  getFeedShelves,
   getLikesForRecipes,
   likeRecipe,
   unlikeRecipe,

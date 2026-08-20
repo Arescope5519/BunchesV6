@@ -12,7 +12,7 @@
  * picker and the mutuals share sheet.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import { LetterPlaceholder } from './LetterPlaceholder';
 import {
   getDiscoverFollowingFeed,
   getDiscoverPublicFeed,
+  getFeedShelves,
   getLikesForRecipes,
   likeRecipe,
   unlikeRecipe,
@@ -67,6 +68,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
   const [feedError, setFeedError] = useState(null);
   const [likeCounts, setLikeCounts] = useState({});
   const [likedSet, setLikedSet] = useState(new Set());
+  const [shelves, setShelves] = useState([]);
   const blockedIdsRef = useRef(null);
 
   const getBlockedIds = useCallback(async () => {
@@ -125,6 +127,11 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
       setItems(cards);
       setHasMore(cards.length >= DISCOVER_PAGE_SIZE);
       mergeLikeData(cards);
+      // Shelves interleave into the Following feed only; they never
+      // block the main content
+      if (tab === 'following') {
+        getFeedShelves(userId).then(setShelves);
+      }
     } catch (err) {
       setItems([]);
       setFeedError(err?.message || String(err));
@@ -191,8 +198,57 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
     }
   };
 
+  // Slot shelves between the big cards: first shelf after the 2nd
+  // recipe, second after the 5th; leftovers go to the end of the list
+  const followingData = useMemo(() => {
+    if (activeTab !== 'following' || !shelves.length) return items;
+    const out = [...items];
+    const positions = [2, 5];
+    shelves.forEach((shelf, i) => {
+      const at = positions[i] != null ? Math.min(positions[i] + i, out.length) : out.length;
+      out.splice(at, 0, { __shelf: true, ...shelf });
+    });
+    return out;
+  }, [activeTab, items, shelves]);
+
+  // --- Shelf: horizontal rail of small photo+title cubes ---
+  const renderShelf = (shelf) => (
+    <View style={styles.shelf}>
+      <View style={styles.shelfHeader}>
+        <Ionicons
+          name={shelf.type === 'user' ? 'person-circle-outline' : 'pricetag-outline'}
+          size={18}
+          color={colors.primaryDark}
+        />
+        <Text style={styles.shelfTitle} numberOfLines={1}>{shelf.title}</Text>
+      </View>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={shelf.cards}
+        keyExtractor={(c) => `${shelf.key}:${c.ownerUserId}:${c.id}`}
+        contentContainerStyle={styles.shelfContent}
+        renderItem={({ item: card }) => (
+          <TouchableOpacity
+            style={styles.shelfCard}
+            activeOpacity={0.85}
+            onPress={() => onOpenRecipe(card)}
+          >
+            {card.imageUrl ? (
+              <Image source={{ uri: card.imageUrl }} style={styles.shelfImage} resizeMode="cover" />
+            ) : (
+              <LetterPlaceholder title={card.title} size={30} style={styles.shelfImage} />
+            )}
+            <Text style={styles.shelfCardTitle} numberOfLines={2}>{card.title}</Text>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  );
+
   // --- Following: full-width feed card ---
   const renderFeedCard = ({ item }) => {
+    if (item.__shelf) return renderShelf(item);
     const gid = item.globalRecipeId;
     const liked = gid ? likedSet.has(gid) : false;
     const count = gid ? (likeCounts[gid] || 0) : 0;
@@ -312,8 +368,8 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
         <FlatList
           // numColumns can't change on a live list - remount per tab
           key={isFollowing ? 'feed' : 'grid'}
-          data={items}
-          keyExtractor={(item) => `${item.ownerUserId}:${item.id}`}
+          data={isFollowing ? followingData : items}
+          keyExtractor={(item) => item.__shelf ? item.key : `${item.ownerUserId}:${item.id}`}
           renderItem={isFollowing ? renderFeedCard : renderTile}
           numColumns={isFollowing ? 1 : 3}
           columnWrapperStyle={isFollowing ? undefined : styles.column}
@@ -437,6 +493,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+
+  // Shelves (horizontal rails between feed cards)
+  shelf: {
+    marginBottom: 26,
+  },
+  shelfHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  shelfTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  shelfContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  shelfCard: {
+    width: 128,
+  },
+  shelfImage: {
+    width: 128,
+    height: 128,
+    borderRadius: 12,
+  },
+  shelfCardTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    lineHeight: 15,
+    marginTop: 6,
   },
 
   // Discover collage
