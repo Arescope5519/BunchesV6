@@ -22,7 +22,7 @@ import LetterPlaceholder from './LetterPlaceholder';
 import { getUserProfile, updatePrivacySettings, getUserFollowers, getUserFollowing } from '../services/supabase/social';
 import { supabase } from '../services/supabase/config';
 
-import { isInternalUrl } from '../constants/app';
+import { isOwnInternalRecipeUrl } from '../constants/app';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const MyProfile = ({
@@ -156,10 +156,14 @@ const MyProfile = ({
   };
 
   // Get user's custom recipes (not from external URLs)
+  // Own creations only: no URL, or an internal URL that references THIS
+  // user. A friend's shared recipe keeps the sender's internal URL, so
+  // a plain isInternalUrl check would let you feature someone else's
+  // recipe as your own.
   const customRecipes = recipes.filter(r => {
     if (r.deletedAt) return false;
     const url = r.url || r.sourceUrl || r.source_url;
-    return !url || isInternalUrl(url);
+    return !url || isOwnInternalRecipeUrl(url, userId);
   });
 
   const handleClose = () => {

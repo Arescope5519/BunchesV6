@@ -549,7 +549,7 @@ const UserProfile = ({
           >
             <Ionicons name="library" size={18} color={colors.primary} style={styles.actionButtonIcon} />
             <View style={styles.actionButtonTextContainer}>
-              <Text style={styles.actionButtonTitle}>{profile?.username || 'User'}'s Recipes</Text>
+              <Text style={styles.actionButtonTitle}>{profile?.username || 'User'}'s Cookbooks</Text>
               <Text style={styles.actionButtonSubtitle}>Browse all cookbooks</Text>
             </View>
             <Text style={styles.actionButtonArrow}>{'>'}</Text>

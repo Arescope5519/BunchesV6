@@ -78,6 +78,17 @@ export const isInternalUrl = (url) => {
 /** Every scheme the app answers to - current first, then legacy. */
 export const ALL_SCHEMES = [APP_SCHEME, ...LEGACY_SCHEMES];
 
+/**
+ * True only for internal URLs that belong to THIS user's own creations.
+ * A recipe imported from a friend's share keeps the SENDER's internal
+ * URL, so isInternalUrl() alone cannot distinguish "mine" from "a
+ * friend's that I saved" - this can.
+ */
+export const isOwnInternalRecipeUrl = (url, userId) => {
+  if (!url || typeof url !== 'string' || !userId) return false;
+  return ALL_SCHEMES.some(s => url.startsWith(`${s}://user/${userId}/`));
+};
+
 /** Build the internal source URL stored for a user-created recipe. */
 export const buildInternalRecipeUrl = (userId, recipeId) =>
   `${APP_SCHEME}://user/${userId}/recipes/${recipeId}`;
@@ -120,6 +131,7 @@ export default {
   TERMS_URL,
   PRIVACY_URL,
   isInternalUrl,
+  isOwnInternalRecipeUrl,
   buildInternalRecipeUrl,
   internalRecipeUrlCandidates,
   buildFriendLink,
