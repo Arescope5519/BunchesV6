@@ -845,11 +845,15 @@ export const getUserPublicFolders = async (targetUserId) => {
 
     const folders = data?.folders || [];
 
-    // Return My Creations subfolders (paths that start with "My Creations/")
+    // Return My Creations subfolders (paths that start with "My Creations/").
+    // Private folders never appear on someone else's profile - their
+    // contents are also blocked by RLS (sql/enforce_recipe_privacy.sql),
+    // but there is no reason to even show the name.
     return folders
       .filter(f => {
         const name = typeof f === 'string' ? f : f.name;
-        return name.startsWith(MY_CREATIONS_FOLDER + '/');
+        const isPrivate = typeof f === 'object' ? !!f.isPrivate : false;
+        return !isPrivate && name.startsWith(MY_CREATIONS_FOLDER + '/');
       })
       .map(f => {
         const name = typeof f === 'string' ? f : f.name;

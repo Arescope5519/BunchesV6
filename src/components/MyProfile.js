@@ -353,7 +353,7 @@ const MyProfile = ({
           <View style={styles.settingInfo}>
             <Text style={styles.settingTitle}>Public Profile</Text>
             <Text style={styles.settingSubtitle}>
-              Anyone can view your featured recipes
+              Anyone can view your public recipes
             </Text>
           </View>
           <View style={[styles.toggle, profile?.isPublic && styles.toggleActive]}>
@@ -400,8 +400,8 @@ const MyProfile = ({
         <Text style={styles.sectionTitle}>How Others See You</Text>
         <Text style={styles.previewText}>
           {profile?.isPublic
-            ? 'Your profile is public. Anyone can see your featured recipes and public cookbooks.'
-            : 'Your profile is private. Only friends can see your recipes.'}
+            ? 'Your profile is public. Anyone can see your public recipes and cookbooks. Recipes and folders you mark private stay hidden.'
+            : 'Your profile is private. Only friends can see your public recipes - private ones stay hidden even from them.'}
         </Text>
         {onPreviewProfile && (
           <TouchableOpacity style={styles.actionItem} onPress={onPreviewProfile}>

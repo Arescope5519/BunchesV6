@@ -1012,6 +1012,7 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
         nutrition: recipe.nutrition || null,
         createdBy: recipe.createdBy || null,
         createdAt: recipe.createdAt || Date.now(),
+        isPrivate: recipe.isPrivate || false,
       };
     }
 
@@ -1055,6 +1056,10 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
         folder: recipe.folder || recipe.folders?.[0] || 'All Recipes',
         tags: recipe.tags || [],
         is_favorite: recipe.isFavorite || false,
+        // The enforcement bit: RLS on user_recipes_v2 refuses this row
+        // to other users when true (sql/enforce_recipe_privacy.sql).
+        // Folder privacy is computed live inside the policy, not here.
+        is_private: recipe.isPrivate || false,
         notes: recipe.notes || null,
         imported_from: recipe.importedFrom || null,
         imported_at: recipe.importedAt ? new Date(recipe.importedAt).toISOString() : null,

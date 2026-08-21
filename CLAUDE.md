@@ -278,6 +278,17 @@ exists). Removing a friend or blocking severs both directions through
 the `sever_follow_pair` RPC. Unfollowing a mutual ends the friendship -
 the UI warns before doing it.
 
+**Recipe privacy** (`sql/enforce_recipe_privacy.sql`): enforced by RLS,
+not by app filters. `user_recipes_v2.is_private` is written on every
+save; folder privacy is computed LIVE inside the SELECT policy via the
+`private_folder_names()` SECURITY DEFINER helper reading
+`user_settings.folders` - so a folder privacy toggle changes visibility
+instantly with no bulk updates. Cross-user readers (profile viewer,
+feeds, shelves, favorites) need no privacy filters of their own: rows
+the viewer may not see do not come back. Admins can read everything
+(moderation of reported content). The legacy `recipes` table carries
+the same policies.
+
 Recipes are stored twice on purpose:
 - `global_recipes` - the shared, unchanging version (title, ingredients,
   auto-tags). Deep links and friend imports point here.
