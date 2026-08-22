@@ -53,7 +53,8 @@
           }
         ],
         "GIDClientID": "307694075211-r3fgaejh8i9auqv2dj5tj3bposcgb7vh.apps.googleusercontent.com",
-        "NSUserTrackingUsageDescription": "This app does not track you."
+        "NSUserTrackingUsageDescription": "This app does not track you.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "usesAppleSignIn": true,
       "buildNumber": "1"
