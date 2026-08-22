@@ -24,6 +24,7 @@
       "./plugins/android-on-new-intent.js",
       "expo-file-system",
       "expo-document-picker",
+      "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
       [
         "expo-image-picker",
@@ -47,13 +48,14 @@
           {
             "CFBundleURLName": "google-signin",
             "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1"
+              "com.googleusercontent.apps.307694075211-r3fgaejh8i9auqv2dj5tj3bposcgb7vh"
             ]
           }
         ],
-        "GIDClientID": "307694075211-20jdrtjddj9tqa3klhkgnj7hocbhjkm1.apps.googleusercontent.com",
+        "GIDClientID": "307694075211-r3fgaejh8i9auqv2dj5tj3bposcgb7vh.apps.googleusercontent.com",
         "NSUserTrackingUsageDescription": "This app does not track you."
       },
+      "usesAppleSignIn": true,
       "buildNumber": "1"
     },
     "android": {

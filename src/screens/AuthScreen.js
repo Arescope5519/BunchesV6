@@ -3,7 +3,7 @@
  * PURPOSE: Authentication screen with Google Sign-In
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,16 +13,28 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import colors from '../constants/colors';
-import { signInWithGoogle } from '../services/supabase/auth';
+import { signInWithGoogle, signInWithApple } from '../services/supabase/auth';
 
 import { log } from '../utils/log';
 import { APP_NAME } from '../constants/app';
 export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
   const [loading, setLoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  // Sign in with Apple only exists on real iOS devices (13+); the
+  // module is a safe no-op elsewhere
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleAvailable)
+      .catch(() => setAppleAvailable(false));
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -39,6 +51,23 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
         error.message || 'Could not sign in with Google. Please try again.',
         [{ text: 'OK' }]
       );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    try {
+      const user = await signInWithApple();
+      if (!user) return; // canceled the Apple sheet - not an error
+      log('✅ User signed in via Apple');
+      if (onSignIn) {
+        onSignIn(user);
+      }
+    } catch (error) {
+      console.error('❌ Apple sign-in error:', error);
+      // signInWithApple already alerted
     } finally {
       setLoading(false);
     }
@@ -91,6 +120,18 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
               </>
             )}
           </TouchableOpacity>
+
+          {/* Sign in with Apple - App Store Guideline 4.8 requires it
+              alongside any third-party sign-in. Official Apple button. */}
+          {appleAvailable && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={12}
+              style={styles.appleButton}
+              onPress={loading ? () => {} : handleAppleSignIn}
+            />
+          )}
 
           <Text style={styles.disclaimer}>
             Sign in to save your recipes to the cloud{'\n'}and sync across all your devices
@@ -176,6 +217,11 @@ const styles = StyleSheet.create({
   buttonSection: {
     width: '100%',
     alignItems: 'center',
+  },
+  appleButton: {
+    width: '100%',
+    height: 52,
+    marginTop: 12,
   },
   googleButton: {
     flexDirection: 'row',
