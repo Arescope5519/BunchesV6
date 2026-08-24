@@ -684,23 +684,132 @@ const withShareExtensionFiles = (config) => {
 };
 
 /**
- * Plugin to log instructions for Share Extension setup
- * NOTE: Xcode project modifications removed due to compatibility issues
- * The Share Extension target must be created manually in Xcode
+ * Plugin to add the Share Extension target to the Xcode project.
+ *
+ * This is the step that used to be done by hand in Xcode ("File > New >
+ * Target > Share Extension") - which meant every EAS cloud build
+ * silently shipped WITHOUT the extension, because nobody was there to
+ * click. It now happens programmatically on every prebuild:
+ *
+ *   1. ShareExtension target (app_extension) with its Swift file,
+ *      Info.plist and entitlements; node-xcode's addTarget also embeds
+ *      the .appex into the main app and wires the target dependency
+ *   2. The main app's native modules (AppGroupStorage,
+ *      PendingRecipesModule) added to the MAIN target's Sources phase -
+ *      also previously a manual Xcode step
  */
+const EXTENSION_SOURCE = 'ShareViewController.swift';
+const MAIN_APP_MODULE_FILES = [
+  'AppGroupStorage.swift',
+  'AppGroupStorage.m',
+  'PendingRecipesModule.swift',
+  'PendingRecipesModule.m',
+];
+
 const withShareExtensionTarget = (config) => {
-  console.log('\n========================================');
-  console.log('SHARE EXTENSION SETUP REQUIRED');
-  console.log('========================================');
-  console.log('Files have been created in ios/ShareExtension/');
-  console.log('You must manually add the Share Extension target in Xcode:');
-  console.log('1. Open ios/Melibri.xcworkspace');
-  console.log('2. File > New > Target > Share Extension');
-  console.log('3. Name it "ShareExtension"');
-  console.log('4. Delete the generated files and use the ones in ios/ShareExtension/');
-  console.log('5. Add App Groups capability to both targets');
-  console.log('========================================\n');
-  return config;
+  return withXcodeProject(config, (config) => {
+    const proj = config.modResults;
+    const projectName = config.modRequest.projectName;
+    const mainBundleId = config.ios?.bundleIdentifier || 'app.melibri';
+    const extBundleId = `${mainBundleId}.${SHARE_EXTENSION_NAME}`;
+    const appVersion = config.version || '1.0.0';
+    const buildNumber = config.ios?.buildNumber || '1';
+
+    // Idempotency: prebuild can run mods more than once
+    if (proj.pbxTargetByName(SHARE_EXTENSION_NAME)) {
+      console.log('ShareExtension target already present - skipping');
+      return config;
+    }
+
+    // --- 1. File group for the extension sources ---
+    const extGroup = proj.addPbxGroup(
+      [EXTENSION_SOURCE, 'Info.plist', `${SHARE_EXTENSION_NAME}.entitlements`],
+      SHARE_EXTENSION_NAME,
+      SHARE_EXTENSION_NAME
+    );
+
+    // Attach the new group to the project's root group (the one with
+    // neither name nor path)
+    const groups = proj.hash.project.objects['PBXGroup'];
+    Object.keys(groups).forEach((key) => {
+      if (
+        !key.endsWith('_comment') &&
+        groups[key].name === undefined &&
+        groups[key].path === undefined
+      ) {
+        proj.addToPbxGroup(extGroup.uuid, key);
+      }
+    });
+
+    // node-xcode quirk: addTarget crashes when these sections are
+    // missing from a freshly generated project
+    const objects = proj.hash.project.objects;
+    objects['PBXTargetDependency'] = objects['PBXTargetDependency'] || {};
+    objects['PBXContainerItemProxy'] = objects['PBXContainerItemProxy'] || {};
+
+    // --- 2. The target itself. For app_extension node-xcode also adds
+    // the target dependency and embeds the .appex in the main app ---
+    const target = proj.addTarget(
+      SHARE_EXTENSION_NAME,
+      'app_extension',
+      SHARE_EXTENSION_NAME,
+      extBundleId
+    );
+
+    // --- 3. Build phases for the extension ---
+    proj.addBuildPhase([EXTENSION_SOURCE], 'PBXSourcesBuildPhase', 'Sources', target.uuid);
+    proj.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target.uuid);
+    proj.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
+
+    // --- 4. Build settings for the extension's configurations ---
+    const configurations = proj.pbxXCBuildConfigurationSection();
+    for (const key in configurations) {
+      const cfg = configurations[key];
+      if (typeof cfg === 'object' && cfg.buildSettings) {
+        const product = String(cfg.buildSettings.PRODUCT_NAME || '');
+        if (product === `"${SHARE_EXTENSION_NAME}"` || product === SHARE_EXTENSION_NAME) {
+          cfg.buildSettings = {
+            ...cfg.buildSettings,
+            INFOPLIST_FILE: `${SHARE_EXTENSION_NAME}/Info.plist`,
+            CODE_SIGN_ENTITLEMENTS: `${SHARE_EXTENSION_NAME}/${SHARE_EXTENSION_NAME}.entitlements`,
+            PRODUCT_BUNDLE_IDENTIFIER: extBundleId,
+            SWIFT_VERSION: '5.0',
+            IPHONEOS_DEPLOYMENT_TARGET: '15.1',
+            TARGETED_DEVICE_FAMILY: '"1,2"',
+            MARKETING_VERSION: appVersion,
+            CURRENT_PROJECT_VERSION: buildNumber,
+            SWIFT_EMIT_LOC_STRINGS: 'YES',
+          };
+        }
+      }
+    }
+
+    // --- 5. Main app native modules into the MAIN target's Sources ---
+    const firstTarget = proj.getFirstTarget();
+    let mainGroupKey = null;
+    Object.keys(groups).forEach((key) => {
+      if (!key.endsWith('_comment') && (groups[key].name === projectName || groups[key].path === projectName)) {
+        mainGroupKey = mainGroupKey || key;
+      }
+    });
+
+    MAIN_APP_MODULE_FILES.forEach((file) => {
+      try {
+        proj.addSourceFile(
+          `${projectName}/${file}`,
+          { target: firstTarget.uuid },
+          mainGroupKey
+        );
+      } catch (e) {
+        console.warn(`Could not add ${file} to main target:`, e.message);
+      }
+    });
+
+    console.log(
+      `✅ ShareExtension target added (${extBundleId}), main-app modules wired`
+    );
+    return config;
+  });
 };
 
 /**
