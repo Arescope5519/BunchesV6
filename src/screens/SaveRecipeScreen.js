@@ -57,6 +57,13 @@ const normalizeIngredients = (ingredients) => {
 export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   const [selectedFolder, setSelectedFolder] = useState('All Recipes');
 
+  // Preview editing is for SCANS: OCR misreads happen and should be
+  // fixable before the recipe is saved. Web imports are read-only here -
+  // the site's version is canonical (it becomes the shared global copy),
+  // and personal tweaks belong to the post-save variants flow.
+  const importUrl = recipe?.url || recipe?.sourceUrl || recipe?.source_url;
+  const canEditPreview = !importUrl;
+
   // Local editable copy of recipe data with normalized ingredients
   const [localRecipe, setLocalRecipe] = useState(() => ({
     ...recipe,
@@ -115,6 +122,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   };
 
   const handleLongPress = (field, currentValue) => {
+    if (!canEditPreview) return;
     setEditField(field);
     setEditValue(currentValue || '');
     setShowEditModal(true);
@@ -195,7 +203,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
             delayLongPress={500}
           >
             <Text style={styles.recipeTitle}>{localRecipe.title}</Text>
-            <Text style={styles.editHint}>Long press to edit</Text>
+            {canEditPreview && <Text style={styles.editHint}>Long press to edit</Text>}
           </TouchableOpacity>
 
           <View style={styles.metaRow}>
