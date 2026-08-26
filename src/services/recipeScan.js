@@ -23,11 +23,30 @@ import { supabase } from './supabase/config';
  *   message?: string,
  * }>}
  */
+// Generous ceiling: upload + Gemini on 3 pages. Without it, a stalled
+// connection left the scanning spinner running forever.
+const SCAN_TIMEOUT_MS = 90000;
+
 export const scanRecipeImages = async (base64Images) => {
   try {
-    const { data, error } = await supabase.functions.invoke('extract-recipe', {
-      body: { images: base64Images, mimeType: 'image/jpeg' },
-    });
+    const raced = await Promise.race([
+      supabase.functions.invoke('extract-recipe', {
+        body: { images: base64Images, mimeType: 'image/jpeg' },
+      }),
+      new Promise(resolve =>
+        setTimeout(() => resolve({ __timeout: true }), SCAN_TIMEOUT_MS)
+      ),
+    ]);
+
+    if (raced.__timeout) {
+      return {
+        success: false,
+        error: 'timeout',
+        message: 'The scan is taking too long. Check your connection and try again.',
+      };
+    }
+
+    const { data, error } = raced;
 
     if (error) {
       // Non-2xx responses land here - the body still has our shape

@@ -48,6 +48,7 @@ import RecipeShareCard, { SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT } from '../compone
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { scanRecipeImages } from '../services/recipeScan';
 import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
@@ -1855,15 +1856,46 @@ export const HomeScreen = ({ user }) => {
     return true;
   };
 
+  // Downscale a captured page before upload. Gemini reads a ~1500px
+  // photo as well as a 48MP one, and full-resolution pages made request
+  // bodies so large (10-30MB base64) they often never reached the Edge
+  // Function at all - the stuck-on-scanning bug. ~1536px at 0.6 puts a
+  // page around 200-400KB.
+  const prepareScanImage = async (asset) => {
+    try {
+      const landscape = (asset.width || 0) >= (asset.height || 0);
+      const needsResize = Math.max(asset.width || 0, asset.height || 0) > 1600;
+      const actions = needsResize
+        ? [landscape ? { resize: { width: 1536 } } : { resize: { height: 1536 } }]
+        : [];
+      const out = await ImageManipulator.manipulateAsync(asset.uri, actions, {
+        compress: 0.6,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: true,
+      });
+      return out.base64 || null;
+    } catch (e) {
+      console.error('📷 Scan downscale failed, using original:', e);
+      return asset.base64 || null;
+    }
+  };
+
   const processScanImages = async (assets) => {
-    const base64Images = (assets || [])
-      .map(a => a?.base64)
-      .filter(Boolean)
-      .slice(0, 3);
-    if (base64Images.length === 0) return;
+    const pages = (assets || []).filter(a => a?.uri || a?.base64).slice(0, 3);
+    if (pages.length === 0) return;
 
     setScanning(true);
     try {
+      const base64Images = [];
+      for (const page of pages) {
+        const b64 = await prepareScanImage(page);
+        if (b64) base64Images.push(b64);
+      }
+      if (base64Images.length === 0) {
+        Alert.alert('Scan Failed', 'Could not read the captured photos. Please try again.');
+        return;
+      }
+
       const result = await scanRecipeImages(base64Images);
 
       if (result.success) {
