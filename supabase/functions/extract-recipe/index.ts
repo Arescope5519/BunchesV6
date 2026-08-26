@@ -106,7 +106,13 @@ Extract every distinct recipe and reply with ONLY a JSON object in exactly this 
 }
 
 Rules:
-- If the photos do not contain any recipe, reply {"found": false}.
+- Reply {"found": false} ONLY when the photos contain no recipe content at all.
+- A PARTIAL recipe still counts as found. If only part of a recipe is
+  visible (page cut off, instructions missing, only an ingredient list),
+  extract exactly what IS visible, set confidence to "low", and add a
+  warning that starts with "Partial recipe:" describing what is missing
+  (e.g. "Partial recipe: instructions not visible in the photo"). Never
+  invent the missing parts.
 - A recipe continuing across multiple photos is ONE recipe - merge its pages in order. Only output multiple entries for genuinely distinct recipes.
 - Preserve exact quantities and wording from the source. Do not invent ingredients or steps that are not visible.
 - Use ingredient section names from the source when present (e.g. "For the sauce"); otherwise use one section named "main".

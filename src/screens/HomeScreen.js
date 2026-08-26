@@ -1825,8 +1825,18 @@ export const HomeScreen = ({ user }) => {
   const scanQueueRef = useRef([]);
 
   const previewScanResult = (item) => {
-    if (item.confidence !== 'high' || (item.warnings || []).length > 0) {
-      const details = (item.warnings || []).join('\n• ');
+    const warnings = item.warnings || [];
+    const isPartial = warnings.some(w =>
+      /partial|cut off|not visible|missing|continue/i.test(w)
+    );
+    if (isPartial) {
+      const details = warnings.join('\n• ');
+      Alert.alert(
+        'Partial Recipe Detected',
+        `Only part of "${item.recipe.title}" was visible, so the parts the AI could read are filled in.\n\n• ${details}\n\nAdd the missing parts yourself, or rescan with the whole recipe in frame.`
+      );
+    } else if (item.confidence !== 'high' || warnings.length > 0) {
+      const details = warnings.join('\n• ');
       Alert.alert(
         'Check the Results',
         `The AI wasn't fully confident reading "${item.recipe.title}".${details ? `\n\n• ${details}` : ''}\n\nReview everything before saving.`
