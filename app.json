@@ -57,6 +57,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "usesAppleSignIn": true,
+      "appleTeamId": "7GR63UZM2Y",
       "buildNumber": "3"
     },
     "android": {

@@ -779,6 +779,15 @@ const withShareExtensionTarget = (config) => {
             MARKETING_VERSION: appVersion,
             CURRENT_PROJECT_VERSION: buildNumber,
             SWIFT_EMIT_LOC_STRINGS: 'YES',
+            // Local Xcode builds (expo run:ios) need the extension
+            // signable without manual Signing & Capabilities clicking -
+            // prebuild wipes any hand-set team on every --clean
+            ...(config.ios?.appleTeamId
+              ? {
+                  DEVELOPMENT_TEAM: config.ios.appleTeamId,
+                  CODE_SIGN_STYLE: 'Automatic',
+                }
+              : {}),
           };
         }
       }
