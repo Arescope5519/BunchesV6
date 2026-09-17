@@ -4,7 +4,17 @@
  */
 
 import React, { useState, useEffect, Component } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, ScrollView } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, ScrollView, TextInput } from 'react-native';
+
+// Cap how far app text follows the system font-size setting. iOS
+// Dynamic Type at large settings scales text 1.3x+ and pushes fixed-row
+// layouts (settings switches, dietary chips) off the screen edge. 1.2
+// keeps accessibility scaling meaningful while layouts stay intact.
+if (Text.defaultProps == null) Text.defaultProps = {};
+Text.defaultProps.maxFontSizeMultiplier = 1.2;
+if (TextInput.defaultProps == null) TextInput.defaultProps = {};
+TextInput.defaultProps.maxFontSizeMultiplier = 1.2;
+
 import { onAuthStateChanged, signOut } from './src/services/supabase/auth';
 import { getDeletionStatus } from './src/services/supabase/account';
 import AuthScreen from './src/screens/AuthScreen';
