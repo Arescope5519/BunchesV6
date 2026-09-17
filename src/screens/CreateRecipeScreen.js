@@ -324,7 +324,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Title */}
         <View style={styles.section}>
           <Text style={styles.label}>Recipe Title *</Text>
@@ -521,6 +521,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 20,
   },
   section: {

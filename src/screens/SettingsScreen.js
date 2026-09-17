@@ -663,7 +663,7 @@ export const SettingsScreen = ({
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Account Section */}
         {user && (
           <View style={styles.section}>
@@ -1213,6 +1213,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  // Padding lives on the CONTENT container, not the ScrollView itself -
+  // iOS mishandles horizontal padding on a ScrollView's own style,
+  // shifting children right and clipping switches at the screen edge
+  contentContainer: {
     padding: 20,
   },
   section: {
