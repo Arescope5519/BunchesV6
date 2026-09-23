@@ -341,6 +341,27 @@ export const HomeScreen = ({ user }) => {
     hideNavigationBar();
   }, []);
 
+  // Discover ships dark: admins always see it, everyone else needs the
+  // per-user flag (sql/add_feature_flags.sql). Re-runnable on demand: a
+  // brand new account's first check races profile creation ("no profile
+  // row for this account") and must self-heal the next time the Feed is
+  // opened, and a flag flipped in the dashboard should land without an
+  // app restart.
+  const checkDiscoverAccess = async () => {
+    if (!user?.uid) return false;
+    const [adminStatus, flagResult] = await Promise.all([
+      isUserAdmin(user.uid),
+      getFeatureFlags(user.uid),
+    ]);
+    setIsAdmin(adminStatus);
+    setDiscoverEnabled(adminStatus || flagResult.flags.discover === true);
+    setDiscoverFlagError(flagResult.error);
+    if (flagResult.error) {
+      console.error('❌ Discover flag check failed:', flagResult.error);
+    }
+    return adminStatus;
+  };
+
   // Load app settings on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -360,20 +381,11 @@ export const HomeScreen = ({ user }) => {
 
       // Check admin and premium status + feature flags
       if (user?.uid) {
-        const [adminStatus, premiumStatus, flagResult] = await Promise.all([
-          isUserAdmin(user.uid),
+        const [premiumStatus] = await Promise.all([
           isUserPremium(user.uid),
-          getFeatureFlags(user.uid),
+          checkDiscoverAccess(),
         ]);
-        setIsAdmin(adminStatus);
         setIsPremium(premiumStatus);
-        // Discover ships dark: admins always see it, everyone else needs
-        // the per-user flag (sql/add_feature_flags.sql)
-        setDiscoverEnabled(adminStatus || flagResult.flags.discover === true);
-        setDiscoverFlagError(flagResult.error);
-        if (flagResult.error) {
-          console.error('❌ Discover flag check failed:', flagResult.error);
-        }
       } else {
         setIsAdmin(false);
         setIsPremium(false);
@@ -803,6 +815,14 @@ export const HomeScreen = ({ user }) => {
       // Close modals when switching to main tabs
       setShowSocialModal(false);
       setShowGroceryList(false);
+      // Feed access can change after sign-in (profile row created
+      // moments after a new account's first check, or a flag flipped in
+      // the dashboard) - re-check on entry while it still reads "off"
+      if ((screen === 'discover' || screen === 'social') && !discoverEnabled) {
+        checkDiscoverAccess().catch(err =>
+          console.error('❌ Discover flag re-check failed:', err)
+        );
+      }
     } else if (screen === 'create') {
       setCurrentScreen('create');
     } else if (screen === 'import') {
