@@ -920,6 +920,7 @@ export const SettingsScreen = ({
                   </Text>
                 </View>
                 <Switch
+                  style={styles.switchControl}
                   value={profile.isPrivate || false}
                   onValueChange={handlePrivateToggle}
                   trackColor={{ false: '#D1D5DB', true: colors.primary }}
@@ -934,6 +935,7 @@ export const SettingsScreen = ({
                   </Text>
                 </View>
                 <Switch
+                  style={styles.switchControl}
                   value={profile.acceptingFriendRequests || false}
                   onValueChange={handleAcceptingRequestsToggle}
                   trackColor={{ false: '#D1D5DB', true: colors.primary }}
@@ -956,6 +958,7 @@ export const SettingsScreen = ({
                 </Text>
               </View>
               <Switch
+                style={styles.switchControl}
                 value={showQuickLinkButton || false}
                 onValueChange={onToggleQuickLinkButton}
                 trackColor={{ false: '#D1D5DB', true: colors.primary }}
@@ -1533,6 +1536,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginBottom: 4,
+  },
+  // Explicit size: iOS can measure the native UISwitch as zero-width
+  // in flex rows, placing it past the row edge and half off-screen.
+  // Reserving its real footprint fixes the layout on both platforms.
+  switchControl: {
+    width: 51,
+    height: 31,
   },
   settingDescription: {
     fontSize: 13,
