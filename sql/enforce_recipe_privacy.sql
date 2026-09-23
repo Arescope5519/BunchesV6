@@ -86,7 +86,10 @@ BEGIN
   WHERE a.attrelid = 'user_recipes_v2'::regclass AND a.attname = 'folders';
 
   IF ftype = 'text[]' OR ftype = 'character varying[]' THEN
-    folder_clause := 'NOT (user_recipes_v2.folders && private_folder_names(user_recipes_v2.user_id))';
+    -- COALESCE matters: NULL && array is NULL, and a NULL policy clause
+    -- HIDES the row - recipes in no folder would vanish from everyone
+    -- else's view
+    folder_clause := 'NOT (COALESCE(user_recipes_v2.folders, ''{}''::text[]) && private_folder_names(user_recipes_v2.user_id))';
   ELSIF ftype = 'jsonb' THEN
     folder_clause := 'NOT (ARRAY(SELECT jsonb_array_elements_text(COALESCE(user_recipes_v2.folders, ''[]''::jsonb))) && private_folder_names(user_recipes_v2.user_id))';
   ELSE
