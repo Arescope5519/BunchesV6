@@ -15,6 +15,12 @@ import { APP_NAME, isInternalUrl } from '../constants/app';
 export const DEFAULT_PRINT_FONT_SIZE = 14;
 export const PRINT_FONT_SIZES = [12, 14, 16, 18];
 
+// QR code for https://melibri.app/get - that page detects the phone and
+// forwards to the right store listing (site/get.html), so printed pages
+// never go stale. Generated once (qrcode npm package, EC level M) and
+// embedded so printing works offline. REGENERATE if the URL ever changes.
+const GET_APP_QR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h25v25H0z"/><path stroke="#000000" d="M0 0.5h7m8 0h1m2 0h7M0 1.5h1m5 0h1m1 0h1m2 0h3m1 0h2m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m3 0h3m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m3 0h1m1 0h1m1 0h2m2 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h2m1 0h2m2 0h1m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m3 0h2m1 0h1m1 0h1m2 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 7.5h1m1 0h2m2 0h1M0 8.5h1m1 0h1m1 0h1m1 0h1m3 0h1m1 0h5m3 0h1m2 0h1M0 9.5h1m2 0h2m2 0h1m1 0h2m6 0h2m5 0h1M0 10.5h4m2 0h2m1 0h5m3 0h4m1 0h3M0 11.5h1m1 0h1m1 0h2m1 0h4m2 0h3m4 0h1m2 0h1M0 12.5h2m2 0h5m1 0h1m1 0h2m1 0h4m2 0h1m1 0h2M2 13.5h3m5 0h4m2 0h3m2 0h1m2 0h1M0 14.5h1m2 0h5m1 0h1m1 0h3m2 0h2m1 0h1m2 0h3M1 15.5h4m2 0h2m3 0h3m2 0h1m2 0h1m2 0h1M0 16.5h1m1 0h6m1 0h3m1 0h1m2 0h6M8 17.5h1m1 0h2m1 0h1m2 0h1m3 0h2m1 0h2M0 18.5h7m2 0h1m5 0h2m1 0h1m1 0h2m1 0h2M0 19.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h2m2 0h1M0 20.5h1m1 0h3m1 0h1m1 0h2m2 0h2m2 0h6m1 0h2M0 21.5h1m1 0h3m1 0h1m2 0h8m2 0h4M0 22.5h1m1 0h3m1 0h1m1 0h2m1 0h2m3 0h1m3 0h1m3 0h1M0 23.5h1m5 0h1m2 0h2m1 0h2m1 0h4m1 0h2m1 0h1M0 24.5h7m1 0h1m1 0h3m1 0h6m3 0h2"/></svg>';
+
 const esc = (value) =>
   String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -26,8 +32,12 @@ const esc = (value) =>
  * RecipeDetail works with: ingredients as {section: [lines]},
  * instructions as an array of steps.
  */
-export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE) => {
+export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE, { includeImage = false } = {}) => {
   const fs = Number(fontSize) || DEFAULT_PRINT_FONT_SIZE;
+
+  const imageUrl = includeImage
+    ? (recipe.imageUrl || recipe.image_url || recipe.image || null)
+    : null;
 
   const sections =
     recipe.ingredients && typeof recipe.ingredients === 'object' && !Array.isArray(recipe.ingredients)
@@ -109,18 +119,35 @@ export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE) => {
   ul, ol { margin: 0 0 6pt 0; padding-left: 20pt; }
   li { margin-bottom: ${Math.max(Math.round(fs * 0.4), 4)}pt; }
   ol li { padding-left: 4pt; }
+  .photo {
+    float: right;
+    width: 2.4in;
+    height: 1.8in;
+    object-fit: cover;
+    border-radius: 6pt;
+    margin: 0 0 10pt 14pt;
+  }
   .footer {
     margin-top: 18pt;
-    padding-top: 6pt;
+    padding-top: 10pt;
     border-top: 1pt solid #999999;
     font-size: ${Math.max(Math.round(fs * 0.75), 9)}pt;
     color: #777777;
+    display: flex;
+    align-items: center;
+  }
+  .footer svg {
+    width: 0.7in;
+    height: 0.7in;
+    margin-right: 10pt;
+    flex-shrink: 0;
   }
   /* Keep a step from being sliced across two pages */
   li { page-break-inside: avoid; }
 </style>
 </head>
 <body>
+  ${imageUrl ? `<img class="photo" src="${esc(imageUrl)}" />` : ''}
   <h1>${esc(recipe.title || 'Untitled Recipe')}</h1>
   ${metaParts.length ? `<p class="meta">${metaParts.join(' &nbsp;·&nbsp; ')}</p>` : ''}
   ${sourceLine ? `<p class="meta">${sourceLine}</p>` : ''}
@@ -129,7 +156,10 @@ export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE) => {
   ${ingredientsHTML || '<p>No ingredients listed.</p>'}
   <h2>Directions</h2>
   ${instructionsHTML ? `<ol>${instructionsHTML}</ol>` : '<p>No directions listed.</p>'}
-  <div class="footer">Printed from ${esc(APP_NAME)}</div>
+  <div class="footer">
+    ${GET_APP_QR_SVG}
+    <div>Printed from ${esc(APP_NAME)}<br />Scan to get the app: melibri.app/get</div>
+  </div>
 </body>
 </html>`;
 };
@@ -139,7 +169,7 @@ export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE) => {
  * open; on iOS, dismissing the dialog also rejects ("did not complete"),
  * which callers should treat as a cancel, not an error.
  */
-export const printRecipe = async (recipe, { userId = null } = {}) => {
+export const printRecipe = async (recipe, { userId = null, includeImage = false } = {}) => {
   let fontSize = DEFAULT_PRINT_FONT_SIZE;
   try {
     const settings = await loadAppSettings(userId);
@@ -147,7 +177,7 @@ export const printRecipe = async (recipe, { userId = null } = {}) => {
   } catch {
     // Settings are a nicety - print at the default size without them
   }
-  await Print.printAsync({ html: buildRecipeHTML(recipe, fontSize) });
+  await Print.printAsync({ html: buildRecipeHTML(recipe, fontSize, { includeImage }) });
 };
 
 export default printRecipe;

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get Melibri</title>
+<meta name="description" content="Get the Melibri app - your recipes, one home.">
+
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#2d6a4f">
+
+<link rel="stylesheet" href="/style.css">
+
+<script>
+// This page is the target of the QR code on printed recipes, so it can
+// never move. At launch, fill in the two store URLs below and the page
+// starts forwarding phones to their store automatically.
+var PLAY_STORE_URL = '';       // e.g. https://play.google.com/store/apps/details?id=app.melibri
+var APP_STORE_URL = '';        // e.g. https://apps.apple.com/app/id<APPLE_ID>
+
+(function () {
+  var ua = navigator.userAgent || '';
+  var target = '';
+  if (/android/i.test(ua)) target = PLAY_STORE_URL;
+  else if (/iPad|iPhone|iPod/.test(ua)) target = APP_STORE_URL;
+  if (target) window.location.replace(target);
+})();
+</script>
+</head>
+<body>
+
+<header class="site">
+  <div class="inner">
+    <a class="brand" href="/">Melibri</a>
+    <div class="tagline">Your recipes, one home</div>
+  </div>
+</header>
+
+<main>
+
+<h1>Get Melibri</h1>
+
+<p>Melibri collects the recipes you actually cook - saved from the web,
+scanned out of a cookbook, or written from scratch - and keeps them
+organised, tagged and ready to cook from.</p>
+
+<p>Melibri is currently in private testing with a small group. The app
+will appear here on Google Play and the App Store when it launches -
+check back soon, or hold on to that printed recipe.</p>
+
+<p><a href="/">More about Melibri</a></p>
+
+</main>
+
+</body>
+</html>

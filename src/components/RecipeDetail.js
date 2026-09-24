@@ -952,16 +952,28 @@ export const RecipeDetail = ({
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.printButton}
-            onPress={async () => {
-              try {
-                await printRecipe(localRecipe, { userId });
-              } catch (err) {
-                // iOS rejects with "did not complete" when the dialog
-                // is dismissed - a cancel, not a failure
-                const msg = err?.message || '';
-                if (!/did not complete|cancel/i.test(msg)) {
-                  Alert.alert('Print Failed', msg || 'Could not open the print dialog.');
+            onPress={() => {
+              const doPrint = async (includeImage) => {
+                try {
+                  await printRecipe(localRecipe, { userId, includeImage });
+                } catch (err) {
+                  // iOS rejects with "did not complete" when the dialog
+                  // is dismissed - a cancel, not a failure
+                  const msg = err?.message || '';
+                  if (!/did not complete|cancel/i.test(msg)) {
+                    Alert.alert('Print Failed', msg || 'Could not open the print dialog.');
+                  }
                 }
+              };
+              const hasImage = localRecipe.imageUrl || localRecipe.image_url || localRecipe.image;
+              if (hasImage) {
+                Alert.alert('Print Recipe', 'Include the photo?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Without Photo', onPress: () => doPrint(false) },
+                  { text: 'With Photo', onPress: () => doPrint(true) },
+                ]);
+              } else {
+                doPrint(false);
               }
             }}
           >

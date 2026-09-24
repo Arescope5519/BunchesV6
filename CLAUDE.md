@@ -164,6 +164,7 @@ describe the app in detail, so they go wrong the same way.
 | Change the account deletion window | Privacy Policy, Terms section 8, and the in-app copy in DisclaimerModal + SettingsScreen |
 | Change the age floor | Target audience, content rating, Terms section 1 |
 | **Anything nutritional** - see the section below | Health features declaration -> "Nutrition and weight management", which routes the app into Google's health policy review |
+| Store listings go live (launch) | Fill `PLAY_STORE_URL` / `APP_STORE_URL` in `site/get.html` and redeploy the site - the QR on every printed recipe points at melibri.app/get, which forwards phones to the right store once those are set |
 
 Content rating can be re-taken any time from the Content rating page.
 
