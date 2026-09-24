@@ -3370,34 +3370,41 @@ export const HomeScreen = ({ user }) => {
             {/* Sticky multiselect toolbar - outside ScrollView */}
             {multiselectMode && (
               <View style={styles.multiselectToolbar}>
-                <TouchableOpacity onPress={exitMultiselectMode} style={styles.toolbarButton}>
-                  <Text style={styles.toolbarButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={styles.toolbarTitle}>
-                  {selectedRecipes.size} selected
-                </Text>
-                <View style={styles.toolbarActions}>
-                  <TouchableOpacity
-                    onPress={moveSelectedRecipesToFolder}
-                    style={[styles.toolbarButton, styles.folderButton]}
-                    disabled={selectedRecipes.size === 0}
-                  >
-                    <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
-                      Move
-                    </Text>
+                {/* Row 1: selection state */}
+                <View style={styles.toolbarTopRow}>
+                  <TouchableOpacity onPress={exitMultiselectMode} style={styles.toolbarButton}>
+                    <Text style={styles.toolbarButtonText}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={shareSelectedRecipes}
-                    style={[styles.toolbarButton, styles.shareSelectedButton]}
-                    disabled={selectedRecipes.size === 0}
-                  >
-                    <Ionicons name="share-social" size={14} color="#fff" style={{ marginRight: 4 }} />
-                    <Text style={[styles.toolbarButtonText, styles.shareSelectedButtonText]}>
-                      Share
-                    </Text>
-                  </TouchableOpacity>
-                  {/* Deliberate gap before Delete (deleteButton marginLeft)
-                      so a Share tap can't land on it */}
+                  <Text style={styles.toolbarTitle}>
+                    {selectedRecipes.size} selected
+                  </Text>
+                </View>
+                {/* Row 2: actions. Delete sits alone on the far right, a
+                    full row-width away from Share, so a mis-tap can't
+                    land on it */}
+                <View style={styles.toolbarActionsRow}>
+                  <View style={styles.toolbarActions}>
+                    <TouchableOpacity
+                      onPress={moveSelectedRecipesToFolder}
+                      style={[styles.toolbarButton, styles.folderButton]}
+                      disabled={selectedRecipes.size === 0}
+                    >
+                      <Ionicons name="folder-open" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
+                        Move
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={shareSelectedRecipes}
+                      style={[styles.toolbarButton, styles.shareSelectedButton]}
+                      disabled={selectedRecipes.size === 0}
+                    >
+                      <Ionicons name="share-social" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Text style={[styles.toolbarButtonText, styles.shareSelectedButtonText]}>
+                        Share
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity
                     onPress={deleteSelectedRecipes}
                     style={[styles.toolbarButton, styles.deleteButton]}
@@ -4809,13 +4816,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   multiselectToolbar: {
+    backgroundColor: colors.primary,
+    padding: 12,
+    paddingTop: 6,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  toolbarTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 6,
+  },
+  toolbarActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   toolbarButton: {
     paddingVertical: 6,
@@ -4836,8 +4852,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   folderButton: {
-    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
     borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   folderButtonText: {
     color: '#fff',
@@ -4857,8 +4876,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    // Kept apart from Share so a mis-tap can't delete
-    marginLeft: 16,
   },
   deleteButtonText: {
     color: '#fff',
