@@ -1147,14 +1147,14 @@ export const HomeScreen = ({ user }) => {
         return;
       }
 
-      // Show error and continue in local mode
+      // Show error - recipes stay on the device and sync retries later
       Alert.alert(
         'Sign-In Failed',
-        'Error: ' + errorMessage + '\n\nError Code: ' + errorCode + '\n\nContinuing in Local Mode (no cloud sync)',
+        'Error: ' + errorMessage + '\n\nError Code: ' + errorCode + '\n\nYour recipes are still saved on this device.',
         [{ text: 'OK' }]
       );
 
-      // Don't throw - stay in local mode
+      // Don't throw
     }
   };
 

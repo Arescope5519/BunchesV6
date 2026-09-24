@@ -23,7 +23,7 @@ import { signInWithGoogle, signInWithApple } from '../services/supabase/auth';
 
 import { log } from '../utils/log';
 import { APP_NAME } from '../constants/app';
-export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
+export const AuthScreen = ({ onSignIn }) => {
   const [loading, setLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
 
@@ -134,22 +134,9 @@ export const AuthScreen = ({ onSignIn, onSkipToLocalMode }) => {
           )}
 
           <Text style={styles.disclaimer}>
-            Sign in to save your recipes to the cloud{'\n'}and sync across all your devices
+            Sign in to save your recipes to the cloud{'\n'}and sync across all your devices.{'\n'}
+            Your recipes stay available offline.
           </Text>
-
-          {/* Local Mode Button */}
-          {onSkipToLocalMode && (
-            <TouchableOpacity
-              style={styles.localModeButton}
-              onPress={onSkipToLocalMode}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.localModeButtonText}>Continue in Local Mode</Text>
-              <Text style={styles.localModeSubtext}>
-                Use the app without cloud sync
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
@@ -263,27 +250,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     lineHeight: 20,
-  },
-  localModeButton: {
-    width: '100%',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  localModeButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  localModeSubtext: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
   },
   footer: {
     paddingHorizontal: 30,

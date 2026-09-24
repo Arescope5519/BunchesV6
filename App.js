@@ -91,10 +91,9 @@ function MainApp() {
   const [pendingDeletion, setPendingDeletion] = useState(null);
 
   // An account in its 30-day grace period is blocked from the app until
-  // the user restores it or signs out. Local mode has no cloud account,
-  // so it never applies.
+  // the user restores it or signs out.
   useEffect(() => {
-    if (!user || user.isLocalMode) {
+    if (!user) {
       setPendingDeletion(null);
       return;
     }
@@ -103,7 +102,7 @@ function MainApp() {
       if (!cancelled) setPendingDeletion(status);
     });
     return () => { cancelled = true; };
-  }, [user?.uid, user?.id, user?.isLocalMode]);
+  }, [user?.uid, user?.id]);
 
   useEffect(() => {
     log('[APP] Setting up auth state listener...');
@@ -151,21 +150,12 @@ function MainApp() {
     );
   }
 
+  // No local mode: an account is required, so every recipe has a cloud
+  // home and devices can't drift apart. Signed-in users still work
+  // OFFLINE - the session and recipes live on the device, and sync
+  // resumes when the connection returns.
   if (!user) {
-    return (
-      <AuthScreen
-        onSignIn={handleSignIn}
-        onSkipToLocalMode={() => {
-          // Create a local-only user object
-          const localUser = {
-            id: 'local_user',
-            email: 'local@device',
-            isLocalMode: true,
-          };
-          setUser(localUser);
-        }}
-      />
-    );
+    return <AuthScreen onSignIn={handleSignIn} />;
   }
 
   if (pendingDeletion?.pending) {

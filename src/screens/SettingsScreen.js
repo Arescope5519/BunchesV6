@@ -724,29 +724,6 @@ export const SettingsScreen = ({
           </View>
         )}
 
-        {!user && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.accountBadge}>
-                <Ionicons name="phone-portrait-outline" size={14} color={colors.textSecondary} style={{ marginRight: 5 }} />
-                <Text style={styles.localModeText}>Local Mode</Text>
-              </View>
-              <Text style={styles.localModeDescription}>
-                Sign in with Google to enable cloud sync and access your recipes from any device.
-              </Text>
-              {onSignIn && (
-                <TouchableOpacity
-                  style={styles.signInButton}
-                  onPress={onSignIn}
-                >
-                  <Ionicons name="log-in-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.signInButtonText}>Sign In with Google</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
 
         {/* Admin Section (only for admin users) */}
         {isAdmin && (
@@ -1181,10 +1158,9 @@ export const SettingsScreen = ({
             <Text style={styles.dangerButtonText}>Clear All Data</Text>
           </TouchableOpacity>
 
-          {/* Deleting the account is only meaningful when there is a
-              cloud account to delete - local mode has nothing server
-              side. Both app stores require this to be reachable in-app. */}
-          {user && !user.isLocalMode && (
+          {/* Both app stores require account deletion to be reachable
+              in-app. */}
+          {user && (
             <>
               <TouchableOpacity
                 style={[styles.dangerButton, styles.deleteAccountButton]}
@@ -1480,33 +1456,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signOutButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  localModeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  localModeDescription: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  signInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  signInButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
