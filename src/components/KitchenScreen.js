@@ -31,7 +31,7 @@ const TABS = [
 const showPremiumPrompt = () => {
   Alert.alert(
     'Premium Feature',
-    'Cook planning, leftover tracking, and fridge inventory are premium features. Upgrade to plan your week and reduce food waste.',
+    'Cook planning, leftover tracking, and fridge inventory are premium features. Upgrade to plan your week and reduce food waste.\n\nAlso, I need to pay for a wedding... try out Premium?',
     [
       { text: 'Not Now', style: 'cancel' },
       { text: 'Learn More', onPress: () => Alert.alert('Coming Soon', 'Subscriptions launch soon. Stay tuned!') },
@@ -96,6 +96,7 @@ const KitchenScreen = ({
           <Text style={styles.premiumTitle}>Premium Feature</Text>
           <Text style={styles.premiumText}>
             Upgrade to unlock cook planning, leftover tracking, and fridge inventory.
+            {'\n\n'}Also, I need to pay for a wedding... try out Premium?
           </Text>
           <TouchableOpacity style={styles.premiumButton} onPress={showPremiumPrompt}>
             <Text style={styles.premiumButtonText}>Learn More</Text>
