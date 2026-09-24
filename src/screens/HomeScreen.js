@@ -1434,6 +1434,48 @@ export const HomeScreen = ({ user }) => {
     openFolderModalMultiselect();
   };
 
+  // Share the multiselect-selected recipes with friends. One recipe
+  // goes through the normal single-recipe flow (with its edits prompt);
+  // several travel as the cookbook payload shape, which the receiving
+  // side already knows how to preview and import.
+  const shareSelectedRecipes = () => {
+    if (selectedRecipes.size === 0) return;
+    const picked = recipes.filter(r => selectedRecipes.has(r.id) && !r.deletedAt);
+    if (picked.length === 0) return;
+
+    if (!user || !profile) {
+      Alert.alert('Sign In Required', 'Sign in to share recipes with friends in the app.');
+      return;
+    }
+
+    if (picked.length === 1) {
+      exitMultiselectMode();
+      handleShareRecipe(picked[0]);
+      return;
+    }
+
+    const cleanedRecipes = picked.map(r => {
+      // Strip user-specific + private-edit fields; edits and favorites
+      // are the sender's own
+      const {
+        deletedAt, id, folder, folders,
+        variants, selectedVariantId, editHistory, editedVersion,
+        hasEdits, viewingOriginal, isFavorite, isPrivate,
+        isReadOnly, ownerUserId, ownerUsername, globalRecipeId,
+        ...cleanRecipe
+      } = r;
+      return cleanRecipe;
+    });
+
+    setShareItem({
+      type: 'cookbook',
+      data: cleanedRecipes,
+      name: `${cleanedRecipes.length} Recipes`,
+    });
+    exitMultiselectMode();
+    setShowShareToFriends(true);
+  };
+
   const handleMoveSelectedToFolder = async (targetFolder) => {
     if (selectedRecipes.size === 0) return;
 
@@ -3345,6 +3387,18 @@ export const HomeScreen = ({ user }) => {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    onPress={shareSelectedRecipes}
+                    style={[styles.toolbarButton, styles.shareSelectedButton]}
+                    disabled={selectedRecipes.size === 0}
+                  >
+                    <Ionicons name="share-social" size={14} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={[styles.toolbarButtonText, styles.shareSelectedButtonText]}>
+                      Share
+                    </Text>
+                  </TouchableOpacity>
+                  {/* Deliberate gap before Delete (deleteButton marginLeft)
+                      so a Share tap can't land on it */}
+                  <TouchableOpacity
                     onPress={deleteSelectedRecipes}
                     style={[styles.toolbarButton, styles.deleteButton]}
                     disabled={selectedRecipes.size === 0}
@@ -4788,11 +4842,23 @@ const styles = StyleSheet.create({
   folderButtonText: {
     color: '#fff',
   },
+  shareSelectedButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shareSelectedButtonText: {
+    color: '#fff',
+  },
   deleteButton: {
     backgroundColor: colors.error,
     borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
+    // Kept apart from Share so a mis-tap can't delete
+    marginLeft: 16,
   },
   deleteButtonText: {
     color: '#fff',
