@@ -286,7 +286,7 @@ export const SocialModal = ({
               <Text style={styles.searchResultsTitle}>Results</Text>
               {searchResults.map(user => (
                 <View key={user.id} style={styles.listItem}>
-                  <UserAvatar username={user.username} size={36} style={styles.avatar} />
+                  <UserAvatar username={user.username} icon={user.avatarIcon} size={36} style={styles.avatar} />
                   <View style={styles.userInfo}>
                     <View style={styles.usernameRow}>
                       <Text style={styles.usernameText}>@{user.username}</Text>
@@ -357,7 +357,7 @@ export const SocialModal = ({
                 );
               }}
             >
-              <UserAvatar username={friend.username} size={36} style={styles.avatar} />
+              <UserAvatar username={friend.username} icon={friend.avatarIcon} size={36} style={styles.avatar} />
               <View style={styles.userInfo}>
                 <Text style={styles.usernameText}>@{friend.username}</Text>
                 <Text style={styles.tapToViewText}>Tap to view profile</Text>
@@ -379,7 +379,7 @@ export const SocialModal = ({
       ) : (
         friendRequests.map(request => (
           <View key={request.id} style={styles.listItem}>
-            <UserAvatar username={request.senderUsername} size={36} style={styles.avatar} />
+            <UserAvatar username={request.senderUsername} icon={request.senderAvatarIcon} size={36} style={styles.avatar} />
             <View style={styles.userInfo}>
               <Text style={styles.usernameText}>@{request.senderUsername}</Text>
             </View>
@@ -801,7 +801,7 @@ export const SocialModal = ({
             style={styles.myProfileButton}
             onPress={() => setActiveTab('account')}
           >
-            <UserAvatar username={profile.username} size={22} />
+            <UserAvatar username={profile.username} icon={profile.avatarIcon} size={22} />
             <Text style={styles.myUsername}>@{profile.username}</Text>
           </TouchableOpacity>
         )}

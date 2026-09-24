@@ -106,6 +106,7 @@ export const useSocial = (user) => {
               id: friendId,
               username: friendProfile.username,
               userCode: friendProfile.userCode,
+              avatarIcon: friendProfile.avatarIcon || null,
             });
           }
         }

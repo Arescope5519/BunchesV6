@@ -121,10 +121,33 @@ export const getUserProfile = async (userId) => {
       friendCount: data.friend_count || 0,
       followerCount: data.follower_count || 0,
       followingCount: data.following_count || 0,
+      avatarIcon: data.avatar_icon || null,
     };
   } catch (error) {
     console.error('Error getting profile:', error);
     throw error;
+  }
+};
+
+/**
+ * Save the user's chosen icon avatar ({name, color} from the
+ * UserAvatar catalog), or null to go back to the letter avatar.
+ */
+export const updateAvatarIcon = async (userId, icon) => {
+  try {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({
+        avatar_icon: icon || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('❌ updateAvatarIcon error:', error);
+    return false;
   }
 };
 
@@ -140,7 +163,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     if (normalized.length === 6 && /^[A-Z0-9]+$/i.test(normalized)) {
       const { data } = await supabase
         .from('user_profiles')
-        .select('user_id, username, user_code, accepting_friend_requests, is_private')
+        .select('user_id, username, user_code, accepting_friend_requests, is_private, avatar_icon')
         .eq('user_code', normalized.toUpperCase())
         .neq('user_id', currentUserId)
         .limit(1);
@@ -149,6 +172,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
         return data.map(u => ({
           id: u.user_id,
           username: u.username,
+          avatarIcon: u.avatar_icon || null,
           userCode: u.user_code,
           acceptingFriendRequests: u.accepting_friend_requests,
           isPrivate: u.is_private || false,
@@ -159,7 +183,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     // Search by username
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id, username, user_code, accepting_friend_requests, is_private')
+      .select('user_id, username, user_code, accepting_friend_requests, is_private, avatar_icon')
       .ilike('username', `${normalized.toLowerCase()}%`)
       .neq('user_id', currentUserId)
       .limit(20);
@@ -169,6 +193,7 @@ export const searchUsersByUsername = async (searchTerm, currentUserId) => {
     return data.map(u => ({
       id: u.user_id,
       username: u.username,
+      avatarIcon: u.avatar_icon || null,
       userCode: u.user_code,
       acceptingFriendRequests: u.accepting_friend_requests,
       isPrivate: u.is_private || false,
@@ -300,16 +325,18 @@ export const getPendingFriendRequests = async (userId) => {
     const requests = await Promise.all(
       data.map(async (r) => {
         let senderUsername = 'Unknown';
+        let senderAvatarIcon = null;
         try {
           const { data: senderProfile } = await supabase
             .from('user_profiles')
-            .select('username')
+            .select('username, avatar_icon')
             .eq('user_id', r.from_user_id)
             .single();
 
           if (senderProfile?.username) {
             senderUsername = senderProfile.username;
           }
+          senderAvatarIcon = senderProfile?.avatar_icon || null;
         } catch (e) {
           log('Could not fetch sender username:', e);
         }
@@ -318,6 +345,7 @@ export const getPendingFriendRequests = async (userId) => {
           id: r.id,
           from: r.from_user_id,
           senderUsername,
+          senderAvatarIcon,
           createdAt: new Date(r.created_at).getTime(),
         };
       })
@@ -601,7 +629,7 @@ export const getPublicProfile = async (targetUserId, viewerId) => {
     // Get basic profile info
     const { data: profile, error } = await supabase
       .from('user_profiles')
-      .select('user_id, username, user_code, is_public, friends, friend_count, follower_count, following_count, featured_recipes, bio, avatar_url')
+      .select('user_id, username, user_code, is_public, friends, friend_count, follower_count, following_count, featured_recipes, bio, avatar_url, avatar_icon')
       .eq('user_id', targetUserId)
       .single();
 
@@ -640,6 +668,7 @@ export const getPublicProfile = async (targetUserId, viewerId) => {
       featuredRecipeIds: profile.featured_recipes || [],
       bio: profile.bio || '',
       avatarUrl: profile.avatar_url || null,
+      avatarIcon: profile.avatar_icon || null,
       isFriend,
       canView,
     };
@@ -1118,7 +1147,7 @@ export const getUserFollowers = async (userId) => {
 
     const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
-      .select('user_id, username, avatar_url')
+      .select('user_id, username, avatar_url, avatar_icon')
       .in('user_id', followerIds);
 
     if (profileError) throw profileError;
@@ -1130,6 +1159,7 @@ export const getUserFollowers = async (userId) => {
       id: f.follower_id,
       username: profileMap[f.follower_id]?.username || 'Unknown',
       avatarUrl: profileMap[f.follower_id]?.avatar_url,
+      avatarIcon: profileMap[f.follower_id]?.avatar_icon || null,
       followedAt: f.created_at,
     }));
   } catch (error) {
@@ -1159,7 +1189,7 @@ export const getUserFollowing = async (userId) => {
 
     const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
-      .select('user_id, username, avatar_url')
+      .select('user_id, username, avatar_url, avatar_icon')
       .in('user_id', followingIds);
 
     if (profileError) throw profileError;
@@ -1171,6 +1201,7 @@ export const getUserFollowing = async (userId) => {
       id: f.following_id,
       username: profileMap[f.following_id]?.username || 'Unknown',
       avatarUrl: profileMap[f.following_id]?.avatar_url,
+      avatarIcon: profileMap[f.following_id]?.avatar_icon || null,
       followedAt: f.created_at,
     }));
   } catch (error) {
@@ -1811,6 +1842,7 @@ export default {
   getBlockStatus,
   getBlockedUsers,
   getFeatureFlags,
+  updateAvatarIcon,
   isUserAdmin,
   isUserPremium,
   getPendingReports,

@@ -19,7 +19,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
-import { getUserProfile, updatePrivacySettings, getUserFollowers, getUserFollowing } from '../services/supabase/social';
+import { getUserProfile, updatePrivacySettings, getUserFollowers, getUserFollowing, updateAvatarIcon } from '../services/supabase/social';
+import { UserAvatar, AVATAR_ICONS, AVATAR_COLORS } from './UserAvatar';
 import { supabase } from '../services/supabase/config';
 
 import { isOwnInternalRecipeUrl } from '../constants/app';
@@ -46,6 +47,25 @@ const MyProfile = ({
   const [saving, setSaving] = useState(false);
   const [followList, setFollowList] = useState([]);
   const [followListLoading, setFollowListLoading] = useState(false);
+  // Icon avatar picker (icon-only avatars: bundled glyphs, nothing
+  // user-uploaded to moderate)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [draftAvatarIcon, setDraftAvatarIcon] = useState(AVATAR_ICONS[0]);
+  const [draftAvatarColor, setDraftAvatarColor] = useState(AVATAR_COLORS[0]);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+
+  const saveAvatarIcon = async (icon) => {
+    setSavingAvatar(true);
+    const ok = await updateAvatarIcon(userId, icon);
+    setSavingAvatar(false);
+    if (!ok) {
+      Alert.alert('Error', 'Could not save your avatar. Please try again.');
+      return;
+    }
+    setProfile(prev => ({ ...prev, avatarIcon: icon }));
+    setShowAvatarPicker(false);
+    onProfileUpdated?.();
+  };
 
   const isActive = embedded || visible;
 
@@ -288,11 +308,12 @@ const MyProfile = ({
                   style={styles.followListItem}
                   onPress={() => onViewUser?.(u.id)}
                 >
-                  <View style={styles.followAvatar}>
-                    <Text style={styles.followAvatarText}>
-                      {u.username?.charAt(0).toUpperCase() || '?'}
-                    </Text>
-                  </View>
+                  <UserAvatar
+                    username={u.username}
+                    icon={u.avatarIcon}
+                    size={36}
+                    style={{ marginRight: 10 }}
+                  />
                   <Text style={styles.followUsername} numberOfLines={1}>@{u.username}</Text>
                   {isFriend && (
                     <View style={styles.friendChip}>
@@ -313,12 +334,15 @@ const MyProfile = ({
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
-        <TouchableOpacity style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {profile?.username?.charAt(0).toUpperCase() || '?'}
-            </Text>
-          </View>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => {
+            setDraftAvatarIcon(profile?.avatarIcon?.name || AVATAR_ICONS[0]);
+            setDraftAvatarColor(profile?.avatarIcon?.color || AVATAR_COLORS[0]);
+            setShowAvatarPicker(true);
+          }}
+        >
+          <UserAvatar username={profile?.username} icon={profile?.avatarIcon} size={70} />
           <Text style={styles.editAvatarText}>Edit</Text>
         </TouchableOpacity>
         <View style={styles.profileHeaderInfo}>
@@ -433,9 +457,90 @@ const MyProfile = ({
     renderMainView()
   );
 
+  // Icon + color chooser for the avatar
+  const avatarPickerModal = (
+    <Modal
+      visible={showAvatarPicker}
+      animationType="slide"
+      transparent
+      onRequestClose={() => setShowAvatarPicker(false)}
+    >
+      <View style={styles.avatarPickerOverlay}>
+        <View style={styles.avatarPickerCard}>
+          <Text style={styles.avatarPickerTitle}>Choose Your Avatar</Text>
+
+          <View style={styles.avatarPickerPreview}>
+            <UserAvatar
+              username={profile?.username}
+              icon={{ name: draftAvatarIcon, color: draftAvatarColor }}
+              size={80}
+            />
+          </View>
+
+          <View style={styles.avatarIconGrid}>
+            {AVATAR_ICONS.map(name => (
+              <TouchableOpacity
+                key={name}
+                style={[
+                  styles.avatarIconOption,
+                  draftAvatarIcon === name && styles.avatarIconOptionActive,
+                ]}
+                onPress={() => setDraftAvatarIcon(name)}
+              >
+                <Ionicons
+                  name={name}
+                  size={24}
+                  color={draftAvatarIcon === name ? colors.white : colors.textSecondary}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.avatarColorRow}>
+            {AVATAR_COLORS.map(color => (
+              <TouchableOpacity
+                key={color}
+                style={[
+                  styles.avatarColorOption,
+                  { backgroundColor: color },
+                  draftAvatarColor === color && styles.avatarColorOptionActive,
+                ]}
+                onPress={() => setDraftAvatarColor(color)}
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={styles.avatarPickerSave}
+            onPress={() => saveAvatarIcon({ name: draftAvatarIcon, color: draftAvatarColor })}
+            disabled={savingAvatar}
+          >
+            {savingAvatar ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.avatarPickerSaveText}>Save</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.avatarPickerCancel}
+            onPress={() => setShowAvatarPicker(false)}
+            disabled={savingAvatar}
+          >
+            <Text style={styles.avatarPickerCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Embedded in the Social hub's Account tab: no Modal, no Close header
   if (embedded) {
-    return <View style={styles.container}>{body}</View>;
+    return (
+      <View style={styles.container}>
+        {body}
+        {avatarPickerModal}
+      </View>
+    );
   }
 
   return (
@@ -456,6 +561,7 @@ const MyProfile = ({
         </View>
 
         {body}
+        {avatarPickerModal}
       </View>
     </Modal>
   );
@@ -510,18 +616,81 @@ const styles = StyleSheet.create({
   avatarContainer: {
     alignItems: 'center',
   },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: colors.primary,
+  avatarPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
+    padding: 24,
+  },
+  avatarPickerCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+  },
+  avatarPickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  avatarPickerPreview: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatarIconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  avatarIconOption: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarIconOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  avatarColorRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  avatarColorOption: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  avatarColorOptionActive: {
+    borderWidth: 3,
+    borderColor: colors.text,
+  },
+  avatarPickerSave: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 13,
     alignItems: 'center',
   },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  avatarPickerSaveText: {
     color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  avatarPickerCancel: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  avatarPickerCancelText: {
+    color: colors.textSecondary,
+    fontSize: 15,
   },
   editAvatarText: {
     fontSize: 12,

@@ -24,6 +24,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
+import { UserAvatar } from './UserAvatar';
 import { log } from '../utils/log';
 import {
   getPublicProfile,
@@ -599,11 +600,11 @@ const UserProfile = ({
           <>
             {/* Profile Header - Avatar Left, Info Right */}
             <View style={styles.profileHeader}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {profile.username?.charAt(0).toUpperCase() || '?'}
-                </Text>
-              </View>
+              <UserAvatar
+                username={profile.username}
+                icon={profile.avatarIcon}
+                size={70}
+              />
               <View style={styles.profileHeaderInfo}>
                 <Text style={styles.username}>@{profile.username}</Text>
                 <View style={styles.badges}>
