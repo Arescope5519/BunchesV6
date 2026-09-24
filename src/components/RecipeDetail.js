@@ -1351,8 +1351,11 @@ export const RecipeDetail = ({
         const creatorUsername = localRecipe.ownerUsername || localRecipe.createdBy?.username;
         const creatorUserId = localRecipe.ownerUserId || localRecipe.createdBy?.id;
 
-        // Read-only or app-created recipe: show creator link, not the internal URL
-        if (isAppOwnedUrl || (isReadOnly && creatorUsername)) {
+        // App-created recipe: show creator link, not the internal URL.
+        // A web import is owned by the website, never by whoever
+        // imported it - so an external source URL always wins over the
+        // creator line, including in read-only cross-user views.
+        if (isAppOwnedUrl || (isReadOnly && creatorUsername && !sourceUrl)) {
           if (!creatorUsername) return null;
           return (
             <View style={styles.sourceContainer}>

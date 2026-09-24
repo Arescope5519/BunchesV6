@@ -765,13 +765,16 @@ export const HomeScreen = ({ user }) => {
   const handleSaveExtractedRecipe = async (selectedFolder, modifiedRecipe) => {
     if (!modifiedRecipe) return;
 
+    // A web import is owned by the website - only recipes without an
+    // external source (paper scans) carry the user as their creator
+    const externalUrl = modifiedRecipe.url || modifiedRecipe.sourceUrl || modifiedRecipe.source_url;
+
     const recipeWithFolder = {
       ...modifiedRecipe,
       folder: selectedFolder === 'Favorites' || selectedFolder === 'Recently Deleted'
         ? 'All Recipes'
         : selectedFolder,
-      // Add creator info if user is logged in
-      createdBy: profile ? {
+      createdBy: !externalUrl && profile ? {
         id: user?.uid,
         username: profile.username,
       } : null,
