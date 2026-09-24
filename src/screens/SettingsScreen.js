@@ -49,6 +49,8 @@ export const SettingsScreen = ({
   onSyncNow,
   showQuickLinkButton,
   onToggleQuickLinkButton,
+  printFontSize,
+  onChangePrintFontSize,
   isAdmin,
   onOpenAdminReports,
   onOpenBlockedUsers,
@@ -965,6 +967,30 @@ export const SettingsScreen = ({
                 thumbColor="#fff"
               />
             </View>
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Print Font Size</Text>
+                <Text style={styles.settingDescription}>
+                  Text size for printed recipes
+                </Text>
+              </View>
+              <View style={styles.fontSizeOptions}>
+                {[12, 14, 16, 18].map(size => {
+                  const active = (printFontSize || 14) === size;
+                  return (
+                    <TouchableOpacity
+                      key={size}
+                      style={[styles.fontSizeOption, active && styles.fontSizeOptionActive]}
+                      onPress={() => onChangePrintFontSize?.(size)}
+                    >
+                      <Text style={[styles.fontSizeOptionText, active && styles.fontSizeOptionTextActive]}>
+                        {size}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         </View>
 
@@ -1548,6 +1574,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  fontSizeOptions: {
+    flexDirection: 'row',
+  },
+  // Explicit sizes for the same iOS flex-row reason as switchControl
+  fontSizeOption: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  fontSizeOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  fontSizeOptionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  fontSizeOptionTextActive: {
+    color: '#fff',
   },
   profileItem: {
     paddingVertical: 12,

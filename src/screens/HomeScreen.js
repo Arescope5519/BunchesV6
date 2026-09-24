@@ -184,6 +184,7 @@ export const HomeScreen = ({ user }) => {
 
   // Quick link button setting
   const [showQuickLinkButton, setShowQuickLinkButton] = useState(false);
+  const [printFontSize, setPrintFontSize] = useState(14);
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
   const [quickLinkUrl, setQuickLinkUrl] = useState('');
   const [quickLinkLoading, setQuickLinkLoading] = useState(false);
@@ -369,6 +370,9 @@ export const HomeScreen = ({ user }) => {
       if (settings.showQuickLinkButton !== undefined) {
         setShowQuickLinkButton(settings.showQuickLinkButton);
       }
+      if (settings.printFontSize !== undefined) {
+        setPrintFontSize(settings.printFontSize);
+      }
       // Check if user has seen welcome modal
       if (!hasCheckedWelcome && user && !settings.hasSeenWelcome) {
         setShowWelcomeModal(true);
@@ -403,6 +407,9 @@ export const HomeScreen = ({ user }) => {
     await saveAppSettings(newSettings, user?.uid);
     if (key === 'showQuickLinkButton') {
       setShowQuickLinkButton(value);
+    }
+    if (key === 'printFontSize') {
+      setPrintFontSize(value);
     }
   };
 
@@ -3245,6 +3252,8 @@ export const HomeScreen = ({ user }) => {
           onSyncNow={handleSyncNow}
           showQuickLinkButton={showQuickLinkButton}
           onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
+          printFontSize={printFontSize}
+          onChangePrintFontSize={(value) => updateAppSetting('printFontSize', value)}
           isAdmin={isAdmin}
           onOpenAdminReports={() => setShowAdminReports(true)}
           onOpenBlockedUsers={() => setShowBlockedUsers(true)}

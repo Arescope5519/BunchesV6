@@ -23,6 +23,7 @@ import { formatDuration, formatServings, buildNutritionItems } from '../utils/re
 
 import { log } from '../utils/log';
 import { isInternalUrl } from '../constants/app';
+import { printRecipe } from '../utils/printRecipe';
 // Helper to safely parse JSON if it's a string
 const tryParseJSON = (value) => {
   if (typeof value !== 'string') return value;
@@ -938,15 +939,35 @@ export const RecipeDetail = ({
         </View>
       )}
 
-      {/* Cook Mode - hands-on session with cross-off steps and ingredients */}
+      {/* Cook Mode - hands-on session with cross-off steps and ingredients.
+          Print opens the OS dialog with a Letter-sized, large-type page. */}
       {!selectionMode && !editingItem && !swapMode && (
-        <TouchableOpacity
-          style={styles.cookModeButton}
-          onPress={() => setShowCookMode(true)}
-        >
-          <Ionicons name="flame" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.cookModeButtonText}>Start Cooking</Text>
-        </TouchableOpacity>
+        <View style={styles.cookModeRow}>
+          <TouchableOpacity
+            style={styles.cookModeButton}
+            onPress={() => setShowCookMode(true)}
+          >
+            <Ionicons name="flame" size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.cookModeButtonText}>Start Cooking</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.printButton}
+            onPress={async () => {
+              try {
+                await printRecipe(localRecipe, { userId });
+              } catch (err) {
+                // iOS rejects with "did not complete" when the dialog
+                // is dismissed - a cancel, not a failure
+                const msg = err?.message || '';
+                if (!/did not complete|cancel/i.test(msg)) {
+                  Alert.alert('Print Failed', msg || 'Could not open the print dialog.');
+                }
+              }
+            }}
+          >
+            <Ionicons name="print-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       )}
 
       <View style={styles.sectionHeader}>
@@ -2756,14 +2777,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  cookModeRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 16,
+  },
   cookModeButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 16,
+  },
+  printButton: {
+    width: 52,
+    marginLeft: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cookModeButtonText: {
     color: '#fff',
