@@ -15,6 +15,14 @@ Text.defaultProps.maxFontSizeMultiplier = 1.2;
 if (TextInput.defaultProps == null) TextInput.defaultProps = {};
 TextInput.defaultProps.maxFontSizeMultiplier = 1.2;
 
+// iOS: keep the focused text box visible above the keyboard in every
+// ScrollView (FlatLists inherit this too). Android ignores the prop and
+// resizes the window instead (adjustResize, the Expo default). Screens
+// that manage the keyboard themselves can opt out per-instance with
+// automaticallyAdjustKeyboardInsets={false}.
+if (ScrollView.defaultProps == null) ScrollView.defaultProps = {};
+ScrollView.defaultProps.automaticallyAdjustKeyboardInsets = true;
+
 import { onAuthStateChanged, signOut } from './src/services/supabase/auth';
 import { getDeletionStatus } from './src/services/supabase/account';
 import AuthScreen from './src/screens/AuthScreen';
