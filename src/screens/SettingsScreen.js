@@ -28,6 +28,7 @@ import { DIETS, ALLERGENS } from '../utils/dietaryAnalysis';
 import { APP_NAME, APP_VERSION_LABEL, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BACKUP_EXT, LEGACY_BACKUP_EXTS, buildFriendLink } from '../constants/app';
 import { requestAccountDeletion } from '../services/supabase/account';
 import { USERNAME_INPUT_PROPS } from '../components/UsernameSetupModal';
+import { cookbookToPdf } from '../utils/printRecipe';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -64,6 +65,7 @@ export const SettingsScreen = ({
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [savingUsername, setSavingUsername] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const handleSyncNow = async () => {
     if (!onSyncNow || !user) return;
@@ -336,40 +338,28 @@ export const SettingsScreen = ({
         return;
       }
 
-      // Process recipes with images - include ALL fields for exact reproduction
+      // Full-fidelity export: the entire recipe object (folders,
+      // variants, favorites, notes - everything), with device-local
+      // images inlined as base64 so they survive the file
       const recipesWithImages = await Promise.all(
         activeRecipes.map(async (recipe) => {
-          const imageData = await imageToBase64(recipe.image_url);
-          return {
-            title: recipe.title,
-            folder: recipe.folder,
-            ingredients: recipe.ingredients,
-            instructions: recipe.instructions,
-            prep_time: recipe.prep_time,
-            cook_time: recipe.cook_time,
-            servings: recipe.servings,
-            notes: recipe.notes,
-            image_url: imageData,
-            source_url: recipe.source_url,
-            tags: recipe.tags || [],
-            createdAt: recipe.createdAt,
-            updatedAt: recipe.updatedAt,
-          };
+          const imageData = await imageToBase64(recipe.image_url || recipe.imageUrl);
+          const { deletedAt, ...fullRecipe } = recipe;
+          return { ...fullRecipe, image_url: imageData };
         })
       );
 
       const backupData = {
-        type: 'bunches_backup',
-        version: '2.2',
+        type: 'melibri_backup',
+        version: 3,
         exportedAt: new Date().toISOString(),
         recipeCount: recipesWithImages.length,
         folders: folders || [],
         recipes: recipesWithImages,
       };
 
-      // Encode as base64 to make it non-editable
-      const jsonString = JSON.stringify(backupData);
-      const encodedContent = `BUNCHES_BKP_V2:${btoa(unescape(encodeURIComponent(jsonString)))}`;
+      // Plain, readable JSON - open it in any text editor
+      const encodedContent = JSON.stringify(backupData, null, 2);
 
       // Create filename with date and custom extension
       const date = new Date();
@@ -488,6 +478,48 @@ export const SettingsScreen = ({
     }
   };
 
+  // Render every recipe into one Letter-sized PDF and hand it to the
+  // share sheet - the human-readable export (recipes read like a
+  // cookbook, not a spreadsheet)
+  const handleExportCookbook = async () => {
+    const activeRecipes = (recipes || []).filter(r => !r.deletedAt);
+    if (activeRecipes.length === 0) {
+      Alert.alert('No Recipes', 'You have no recipes to export.');
+      return;
+    }
+
+    setIsExportingPdf(true);
+    try {
+      // Light normalization: stored ingredients/instructions may be
+      // JSON strings (share-extension imports); the print builder
+      // handles objects and arrays
+      const normalized = activeRecipes.map(r => {
+        const parse = (v) => {
+          if (typeof v !== 'string') return v;
+          try { return JSON.parse(v); } catch { return v.split('\n').filter(l => l.trim()); }
+        };
+        return { ...r, ingredients: parse(r.ingredients), instructions: parse(r.instructions) };
+      });
+
+      const uri = await cookbookToPdf(normalized, { userId: user?.uid || null });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Save ${APP_NAME} Cookbook`,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Saved', `Cookbook PDF created at:\n${uri}`);
+      }
+    } catch (error) {
+      console.error('Cookbook export error:', error);
+      Alert.alert('Export Failed', error.message || 'Could not create the cookbook PDF.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   // Decode backup content (handles both new encoded format and legacy JSON)
   const decodeBackupContent = (content) => {
     // Check for new encoded format
@@ -501,7 +533,10 @@ export const SettingsScreen = ({
     return JSON.parse(content);
   };
 
-  // Process and show restore options
+  // Confirm and run the import. Add-only by design: imported recipes go
+  // through the normal save path (local + cloud dual-write), duplicates
+  // are skipped, and nothing existing is touched - a "replace" mode
+  // against local storage fought the cloud sync and resurrected data.
   const showRestoreOptions = (backupData) => {
     const recipeCount = backupData.recipes.length;
     const backupDate = backupData.exportedAt
@@ -509,50 +544,22 @@ export const SettingsScreen = ({
       : 'Unknown date';
 
     Alert.alert(
-      'Restore Backup',
-      `This backup contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nHow would you like to restore?`,
+      'Import Recipes',
+      `This file contains ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from ${backupDate}.\n\nRecipes you already have are skipped.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Add New Only',
+          text: 'Import',
           onPress: async () => {
             try {
               if (onRestoreBackup) {
                 await onRestoreBackup({ ...backupData, mode: 'add' });
-                Alert.alert('Restored', `Added new recipes from backup. Duplicates were skipped.`);
+                Alert.alert('Imported', 'New recipes from the file were added. Duplicates were skipped.');
               }
             } catch (error) {
-              console.error('Restore error:', error);
-              Alert.alert('Error', 'Failed to restore backup. Please try again.');
+              console.error('Import error:', error);
+              Alert.alert('Error', 'Failed to import the file. Please try again.');
             }
-          },
-        },
-        {
-          text: 'Replace All',
-          style: 'destructive',
-          onPress: async () => {
-            Alert.alert(
-              'Confirm Replace',
-              'This will DELETE all your current recipes and replace them with the backup. This cannot be undone.\n\nAre you sure?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Replace All',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      if (onRestoreBackup) {
-                        await onRestoreBackup({ ...backupData, mode: 'replace' });
-                        Alert.alert('Restored', `Successfully replaced with ${recipeCount} recipe${recipeCount !== 1 ? 's' : ''} from backup.`);
-                      }
-                    } catch (error) {
-                      console.error('Restore error:', error);
-                      Alert.alert('Error', 'Failed to restore backup. Please try again.');
-                    }
-                  },
-                },
-              ]
-            );
           },
         },
       ]
@@ -1116,24 +1123,39 @@ export const SettingsScreen = ({
           </View>
         </View>
 
-        {/* Backup & Restore Section */}
+        {/* Export & Import Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Backup & Restore</Text>
+          <Text style={styles.sectionTitle}>Export & Import</Text>
           <View style={styles.infoCard}>
             <Text style={styles.backupDescription}>
-              Create a backup of all your recipes to save locally or restore from a previous backup.
+              Your recipes are yours. Save them as a printable cookbook, export
+              a file you can import later, or bring recipes in from a file.
             </Text>
             <TouchableOpacity
-              style={[styles.backupButton, isExporting && styles.buttonDisabled]}
+              style={[styles.backupButton, isExportingPdf && styles.buttonDisabled]}
+              onPress={handleExportCookbook}
+              disabled={isExportingPdf}
+            >
+              {isExportingPdf ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="book-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.backupButtonText}>Export Cookbook (PDF)</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.restoreButton, isExporting && styles.buttonDisabled]}
               onPress={handleExportBackup}
               disabled={isExporting}
             >
               {isExporting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.primary} />
               ) : (
                 <>
-                  <Ionicons name="share-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.backupButtonText}>Export Backup</Text>
+                  <Ionicons name="share-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.restoreButtonText}>Export Backup File</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -1142,7 +1164,7 @@ export const SettingsScreen = ({
               onPress={handleRestoreBackup}
             >
               <Ionicons name="download-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.restoreButtonText}>Restore from Backup</Text>
+              <Text style={styles.restoreButtonText}>Import from File</Text>
             </TouchableOpacity>
           </View>
         </View>

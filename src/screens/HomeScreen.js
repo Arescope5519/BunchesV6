@@ -950,9 +950,7 @@ export const HomeScreen = ({ user }) => {
   const handleRestoreBackup = async (backupData) => {
     try {
       const FileSystem = require('expo-file-system');
-      const { saveRecipes } = require('../utils/storage');
       const recipesToRestore = backupData.recipes || [];
-      const mode = backupData.mode || 'add'; // 'add' or 'replace'
 
       // Helper to save base64 image to local file
       const saveBase64Image = async (base64Data, recipeId) => {
@@ -999,27 +997,23 @@ export const HomeScreen = ({ user }) => {
         return base64Data;
       };
 
-      // Get existing recipe titles for duplicate detection (case-insensitive)
+      // Add-only: imported recipes go through the normal batch save,
+      // which persists locally AND dual-writes to the cloud. The old
+      // replace mode wrote only to local storage, so the next sync
+      // resurrected the cloud copies - a desync generator, removed.
       const existingRecipes = recipes.filter(r => !r.deletedAt);
-      const existingTitles = mode === 'add'
-        ? existingRecipes.map(r => r.title?.toLowerCase().trim())
-        : [];
+      const existingTitles = existingRecipes.map(r => r.title?.toLowerCase().trim());
 
-      // Process each recipe and build array
-      let addedCount = 0;
       let skippedCount = 0;
       const processedRecipes = [];
 
       for (let index = 0; index < recipesToRestore.length; index++) {
         const recipeData = recipesToRestore[index];
 
-        // Check for duplicates in 'add' mode
-        if (mode === 'add') {
-          const titleLower = recipeData.title?.toLowerCase().trim();
-          if (existingTitles.includes(titleLower)) {
-            skippedCount++;
-            continue; // Skip duplicate
-          }
+        const titleLower = recipeData.title?.toLowerCase().trim();
+        if (existingTitles.includes(titleLower)) {
+          skippedCount++;
+          continue; // Skip duplicate
         }
 
         const recipeId = `restored_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
@@ -1028,33 +1022,30 @@ export const HomeScreen = ({ user }) => {
         const imageUrl = await saveBase64Image(recipeData.image_url, recipeId);
 
         const newRecipe = {
+          // Full-fidelity v3 backups carry the whole recipe object;
+          // older subset backups just have fewer of these fields
+          ...recipeData,
           id: recipeId,
           title: recipeData.title || 'Untitled Recipe',
-          folder: recipeData.folder || 'All Recipes',
+          folders: Array.isArray(recipeData.folders) && recipeData.folders.length > 0
+            ? recipeData.folders
+            : [recipeData.folder || 'All Recipes'],
+          folder: recipeData.folder || recipeData.folders?.[0] || 'All Recipes',
           ingredients: recipeData.ingredients || {},
           instructions: recipeData.instructions || [],
-          prep_time: recipeData.prep_time || '',
-          cook_time: recipeData.cook_time || '',
-          servings: recipeData.servings || '',
-          notes: recipeData.notes || '',
           image_url: imageUrl,
-          source_url: recipeData.source_url || null,
-          tags: recipeData.tags || [],
-          createdAt: recipeData.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: recipeData.createdAt || Date.now(),
+          updatedAt: Date.now(),
         };
 
         processedRecipes.push(newRecipe);
-        addedCount++;
       }
 
-      // Save all recipes at once based on mode
-      if (mode === 'replace') {
-        // Replace mode: save only the new recipes (clears everything else)
-        await saveRecipes(processedRecipes, user?.uid || null);
-      } else {
-        // Add mode: merge new recipes with existing ones
-        await saveRecipes([...processedRecipes, ...existingRecipes], user?.uid || null);
+      const addedCount = processedRecipes.length;
+      if (addedCount > 0) {
+        // saveRecipesBatch persists locally, updates state, and syncs
+        // each recipe to Supabase (dual-write) in the background
+        await saveRecipesBatch(processedRecipes);
       }
 
       // Also restore any new folders that don't exist
@@ -1067,7 +1058,10 @@ export const HomeScreen = ({ user }) => {
         });
         for (const folder of newFolders) {
           const folderName = typeof folder === 'string' ? folder : folder.name;
-          await addFolder(folderName);
+          // addFolderBase is the hook's addFolder(name) - the local
+          // addFolder here is the no-argument UI handler and silently
+          // ignored the name
+          await addFolderBase(folderName);
         }
       }
 

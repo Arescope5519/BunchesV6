@@ -1,8 +1,8 @@
 /**
  * FILENAME: src/utils/printRecipe.js
- * PURPOSE: Printable recipe - builds a US Letter (8.5x11) HTML document
- * and hands it to the OS print dialog (AirPrint on iOS, print or
- * save-as-PDF on Android).
+ * PURPOSE: Printable recipes - builds US Letter (8.5x11) HTML and hands
+ * it to the OS print dialog (single recipe) or renders it to a PDF file
+ * (the whole-cookbook export in Settings).
  *
  * Font size defaults to 14pt so the page is readable without glasses;
  * the user can change it in Settings (app setting `printFontSize`).
@@ -27,14 +27,90 @@ const esc = (value) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-/**
- * Build the printable HTML for a recipe. Expects the normalized shape
- * RecipeDetail works with: ingredients as {section: [lines]},
- * instructions as an array of steps.
- */
-export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE, { includeImage = false } = {}) => {
-  const fs = Number(fontSize) || DEFAULT_PRINT_FONT_SIZE;
+const documentStyles = (fs) => `
+  @page { size: letter; margin: 0.75in; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: ${fs}pt;
+    line-height: 1.5;
+    color: #1a1a1a;
+    margin: 0;
+  }
+  h1 {
+    font-size: ${Math.round(fs * 1.9)}pt;
+    line-height: 1.2;
+    margin: 0 0 6pt 0;
+  }
+  .meta {
+    font-size: ${Math.max(Math.round(fs * 0.85), 10)}pt;
+    color: #555555;
+    margin: 0 0 4pt 0;
+  }
+  .rule {
+    border: none;
+    border-top: 2pt solid #1a1a1a;
+    margin: 8pt 0 14pt 0;
+  }
+  h2 {
+    font-size: ${Math.round(fs * 1.25)}pt;
+    text-transform: uppercase;
+    letter-spacing: 1pt;
+    border-bottom: 1pt solid #999999;
+    padding-bottom: 3pt;
+    margin: 16pt 0 8pt 0;
+  }
+  h3 {
+    font-size: ${fs}pt;
+    margin: 10pt 0 4pt 0;
+  }
+  ul, ol { margin: 0 0 6pt 0; padding-left: 20pt; }
+  li { margin-bottom: ${Math.max(Math.round(fs * 0.4), 4)}pt; page-break-inside: avoid; }
+  ol li { padding-left: 4pt; }
+  .photo {
+    float: right;
+    width: 2.4in;
+    height: 1.8in;
+    object-fit: cover;
+    border-radius: 6pt;
+    margin: 0 0 10pt 14pt;
+  }
+  .recipe { page-break-before: always; }
+  .recipe.first { page-break-before: auto; }
+  .cover {
+    text-align: center;
+    margin-top: 2.5in;
+  }
+  .cover h1 { font-size: ${Math.round(fs * 2.6)}pt; }
+  .footer {
+    margin-top: 18pt;
+    padding-top: 10pt;
+    border-top: 1pt solid #999999;
+    font-size: ${Math.max(Math.round(fs * 0.75), 9)}pt;
+    color: #777777;
+    display: flex;
+    align-items: center;
+  }
+  .footer svg {
+    width: 0.7in;
+    height: 0.7in;
+    margin-right: 10pt;
+    flex-shrink: 0;
+  }
+`;
 
+const footerHTML = () => `
+  <div class="footer">
+    ${GET_APP_QR_SVG}
+    <div>Printed from ${esc(APP_NAME)}<br />Scan to get the app: melibri.app/get</div>
+  </div>`;
+
+/**
+ * The body of one recipe (title through directions), shared by the
+ * single-recipe print and the cookbook PDF. Expects the normalized
+ * shape RecipeDetail works with: ingredients as {section: [lines]} (an
+ * array is treated as one unnamed section), instructions as an array.
+ */
+const recipeBodyHTML = (recipe, { includeImage = false } = {}) => {
   const imageUrl = includeImage
     ? (recipe.imageUrl || recipe.image_url || recipe.image || null)
     : null;
@@ -76,77 +152,7 @@ export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE, { in
     ? `Source: ${esc(externalSource)}`
     : (creator ? `Created by @${esc(creator)}` : '');
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-  @page { size: letter; margin: 0.75in; }
-  body {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: ${fs}pt;
-    line-height: 1.5;
-    color: #1a1a1a;
-    margin: 0;
-  }
-  h1 {
-    font-size: ${Math.round(fs * 1.9)}pt;
-    line-height: 1.2;
-    margin: 0 0 6pt 0;
-  }
-  .meta {
-    font-size: ${Math.max(Math.round(fs * 0.85), 10)}pt;
-    color: #555555;
-    margin: 0 0 4pt 0;
-  }
-  .rule {
-    border: none;
-    border-top: 2pt solid #1a1a1a;
-    margin: 8pt 0 14pt 0;
-  }
-  h2 {
-    font-size: ${Math.round(fs * 1.25)}pt;
-    text-transform: uppercase;
-    letter-spacing: 1pt;
-    border-bottom: 1pt solid #999999;
-    padding-bottom: 3pt;
-    margin: 16pt 0 8pt 0;
-  }
-  h3 {
-    font-size: ${fs}pt;
-    margin: 10pt 0 4pt 0;
-  }
-  ul, ol { margin: 0 0 6pt 0; padding-left: 20pt; }
-  li { margin-bottom: ${Math.max(Math.round(fs * 0.4), 4)}pt; }
-  ol li { padding-left: 4pt; }
-  .photo {
-    float: right;
-    width: 2.4in;
-    height: 1.8in;
-    object-fit: cover;
-    border-radius: 6pt;
-    margin: 0 0 10pt 14pt;
-  }
-  .footer {
-    margin-top: 18pt;
-    padding-top: 10pt;
-    border-top: 1pt solid #999999;
-    font-size: ${Math.max(Math.round(fs * 0.75), 9)}pt;
-    color: #777777;
-    display: flex;
-    align-items: center;
-  }
-  .footer svg {
-    width: 0.7in;
-    height: 0.7in;
-    margin-right: 10pt;
-    flex-shrink: 0;
-  }
-  /* Keep a step from being sliced across two pages */
-  li { page-break-inside: avoid; }
-</style>
-</head>
-<body>
+  return `
   ${imageUrl ? `<img class="photo" src="${esc(imageUrl)}" />` : ''}
   <h1>${esc(recipe.title || 'Untitled Recipe')}</h1>
   ${metaParts.length ? `<p class="meta">${metaParts.join(' &nbsp;·&nbsp; ')}</p>` : ''}
@@ -155,13 +161,68 @@ export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE, { in
   <h2>Ingredients</h2>
   ${ingredientsHTML || '<p>No ingredients listed.</p>'}
   <h2>Directions</h2>
-  ${instructionsHTML ? `<ol>${instructionsHTML}</ol>` : '<p>No directions listed.</p>'}
-  <div class="footer">
-    ${GET_APP_QR_SVG}
-    <div>Printed from ${esc(APP_NAME)}<br />Scan to get the app: melibri.app/get</div>
-  </div>
+  ${instructionsHTML ? `<ol>${instructionsHTML}</ol>` : '<p>No directions listed.</p>'}`;
+};
+
+/**
+ * One recipe as a full printable page.
+ */
+export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE, { includeImage = false } = {}) => {
+  const fs = Number(fontSize) || DEFAULT_PRINT_FONT_SIZE;
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>${documentStyles(fs)}</style>
+</head>
+<body>
+${recipeBodyHTML(recipe, { includeImage })}
+${footerHTML()}
 </body>
 </html>`;
+};
+
+/**
+ * All recipes as one document: a cover page, then one recipe per page.
+ * The human-readable export - recipes read like a cookbook, not a
+ * spreadsheet.
+ */
+export const buildCookbookHTML = (recipes, fontSize = DEFAULT_PRINT_FONT_SIZE, { includeImages = false } = {}) => {
+  const fs = Number(fontSize) || DEFAULT_PRINT_FONT_SIZE;
+  const list = Array.isArray(recipes) ? recipes : [];
+  const dateStr = new Date().toLocaleDateString();
+
+  const pages = list
+    .map((recipe, i) =>
+      `<div class="recipe${i === 0 ? ' first' : ''}">${recipeBodyHTML(recipe, { includeImage: includeImages })}</div>`
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>${documentStyles(fs)}</style>
+</head>
+<body>
+<div class="cover">
+  <h1>My ${esc(APP_NAME)} Cookbook</h1>
+  <p class="meta">${list.length} recipe${list.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${esc(dateStr)}</p>
+  ${footerHTML()}
+</div>
+${pages}
+</body>
+</html>`;
+};
+
+const resolveFontSize = async (userId) => {
+  try {
+    const settings = await loadAppSettings(userId);
+    if (settings?.printFontSize) return settings.printFontSize;
+  } catch {
+    // Settings are a nicety - print at the default size without them
+  }
+  return DEFAULT_PRINT_FONT_SIZE;
 };
 
 /**
@@ -170,14 +231,21 @@ export const buildRecipeHTML = (recipe, fontSize = DEFAULT_PRINT_FONT_SIZE, { in
  * which callers should treat as a cancel, not an error.
  */
 export const printRecipe = async (recipe, { userId = null, includeImage = false } = {}) => {
-  let fontSize = DEFAULT_PRINT_FONT_SIZE;
-  try {
-    const settings = await loadAppSettings(userId);
-    if (settings?.printFontSize) fontSize = settings.printFontSize;
-  } catch {
-    // Settings are a nicety - print at the default size without them
-  }
+  const fontSize = await resolveFontSize(userId);
   await Print.printAsync({ html: buildRecipeHTML(recipe, fontSize, { includeImage }) });
+};
+
+/**
+ * Render the whole cookbook to a PDF file and return its local uri
+ * (caller shares it). Remote recipe photos need a connection at render
+ * time, so the caller decides whether to include them.
+ */
+export const cookbookToPdf = async (recipes, { userId = null, includeImages = false } = {}) => {
+  const fontSize = await resolveFontSize(userId);
+  const { uri } = await Print.printToFileAsync({
+    html: buildCookbookHTML(recipes, fontSize, { includeImages }),
+  });
+  return uri;
 };
 
 export default printRecipe;
