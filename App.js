@@ -25,9 +25,11 @@ ScrollView.defaultProps.automaticallyAdjustKeyboardInsets = true;
 
 import { onAuthStateChanged, signOut } from './src/services/supabase/auth';
 import { getDeletionStatus } from './src/services/supabase/account';
+import { getUserProfile, setupUserProfile, isUsernameAvailable } from './src/services/supabase/social';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import PendingDeletionScreen from './src/components/PendingDeletionScreen';
+import UsernameSetupModal from './src/components/UsernameSetupModal';
 import colors from './src/constants/colors';
 
 import { log } from './src/utils/log';
@@ -89,6 +91,41 @@ function MainApp() {
   const [initError, setInitError] = useState(null);
   // null = not checked yet for this user
   const [pendingDeletion, setPendingDeletion] = useState(null);
+  // First-run gate: the main app must not mount until the account's
+  // profile row (with username) exists. Mounting it earlier lets the
+  // Feed and the feature-flag check race profile creation and error
+  // out on brand-new accounts. null = checking, 'needs-setup' = show
+  // the username screen, 'ready' = profile exists.
+  const [profileStatus, setProfileStatus] = useState(null);
+
+  useEffect(() => {
+    if (!user) {
+      setProfileStatus(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await getUserProfile(user.uid || user.id);
+        if (!cancelled) {
+          setProfileStatus(profile?.username ? 'ready' : 'needs-setup');
+        }
+      } catch (err) {
+        // Can't reach the profile (offline?). Fail open: existing
+        // accounts must still get into the app to read their recipes.
+        console.error('[APP] Profile check failed:', err);
+        if (!cancelled) setProfileStatus('ready');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid, user?.id]);
+
+  const handleUsernameSetup = async (username) => {
+    // Throws on failure - the setup screen shows the message
+    await setupUserProfile(user.uid || user.id, username);
+    setProfileStatus('ready');
+    return true;
+  };
 
   // An account in its 30-day grace period is blocked from the app until
   // the user restores it or signs out.
@@ -173,6 +210,30 @@ function MainApp() {
           setPendingDeletion(null);
         }}
       />
+    );
+  }
+
+  // Hold the main app until the profile check settles; brand-new
+  // accounts pick their username on a dedicated screen FIRST, so
+  // nothing in HomeScreen ever queries before the profile row exists
+  if (profileStatus === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: '#fff', marginTop: 10 }}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (profileStatus === 'needs-setup') {
+    return (
+      <View style={styles.loadingContainer}>
+        <UsernameSetupModal
+          visible
+          onSetup={handleUsernameSetup}
+          checkAvailability={isUsernameAvailable}
+        />
+      </View>
     );
   }
 
