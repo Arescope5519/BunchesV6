@@ -4386,9 +4386,12 @@ export const HomeScreen = ({ user }) => {
         colors={colors}
       />
 
-      {/* Welcome Modal for first-time users */}
+      {/* Welcome Modal for first-time users. Never while the username
+          modal is up: iOS can only present one modal at a time, and
+          two going visible in the same tick made the username prompt
+          silently lose the race and never appear */}
       <WelcomeModal
-        visible={showWelcomeModal}
+        visible={showWelcomeModal && !(needsUsername && !!user)}
         onClose={() => setShowWelcomeModal(false)}
         onDontShowAgain={handleWelcomeDontShowAgain}
       />
