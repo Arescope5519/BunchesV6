@@ -49,6 +49,11 @@ export const UsernameSetupModal = ({
   visible,
   onSetup,
   checkAvailability,
+  // Render as a plain full-screen view instead of a native Modal. The
+  // pre-app first-run gate needs this: unmounting a still-presented
+  // iOS Modal while swapping to the main app leaves a dead host view
+  // that eats touches (top buttons, scrolling).
+  asScreen = false,
 }) => {
   const [username, setUsername] = useState('');
   const [isAvailable, setIsAvailable] = useState(null);
@@ -128,13 +133,7 @@ export const UsernameSetupModal = ({
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={() => {}} // Prevent closing without setup
-    >
+  const body = (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.overlay}
@@ -206,6 +205,20 @@ export const UsernameSetupModal = ({
           </Text>
         </View>
       </KeyboardAvoidingView>
+  );
+
+  if (asScreen) {
+    return visible ? body : null;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent
+      onRequestClose={() => {}} // Prevent closing without setup
+    >
+      {body}
     </Modal>
   );
 };

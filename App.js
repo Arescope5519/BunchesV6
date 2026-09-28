@@ -226,10 +226,14 @@ function MainApp() {
   }
 
   if (profileStatus === 'needs-setup') {
+    // asScreen: no native Modal here - swapping this screen for
+    // HomeScreen while a Modal is presented leaves iOS with a dead
+    // host view that eats touches
     return (
       <View style={styles.loadingContainer}>
         <UsernameSetupModal
           visible
+          asScreen
           onSetup={handleUsernameSetup}
           checkAvailability={isUsernameAvailable}
         />
