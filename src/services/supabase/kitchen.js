@@ -351,11 +351,76 @@ export const formatDayLabel = (dateStr) => {
   return `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${d.getMonth() + 1}/${d.getDate()}`;
 };
 
+// ---------------------------------------------------------------------------
+// Meal templates (sql/add_meal_templates.sql) - a named week of cook
+// plans, stored as [{dayOffset 0-6, recipeId, servings}] so a template
+// loads into any week
+// ---------------------------------------------------------------------------
+
+export const getMealTemplates = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_templates')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ getMealTemplates error:', error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('❌ getMealTemplates error:', err);
+    return [];
+  }
+};
+
+export const saveMealTemplate = async (userId, name, meals) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_templates')
+      .insert({ user_id: userId, name, meals })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ saveMealTemplate error:', error);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('❌ saveMealTemplate error:', err);
+    return null;
+  }
+};
+
+export const deleteMealTemplate = async (templateId) => {
+  try {
+    const { error } = await supabase
+      .from('meal_templates')
+      .delete()
+      .eq('id', templateId);
+
+    if (error) {
+      console.error('❌ deleteMealTemplate error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ deleteMealTemplate error:', err);
+    return false;
+  }
+};
+
 export default {
   getCookEvents,
   createCookEvent,
   updateCookEvent,
   deleteCookEvent,
+  getMealTemplates,
+  saveMealTemplate,
+  deleteMealTemplate,
   getMealEvents,
   createMealEvent,
   deleteMealEvent,

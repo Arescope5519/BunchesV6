@@ -4,7 +4,7 @@
  * Each day can have multiple cook events (recipe + servings produced).
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import {
   Alert,
   Image,
   TextInput,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
@@ -23,17 +25,134 @@ import LetterPlaceholder from './LetterPlaceholder';
 import {
   getCookEvents,
   createCookEvent,
+  updateCookEvent,
   deleteCookEvent,
+  getMealTemplates,
+  saveMealTemplate,
+  deleteMealTemplate,
   getWeekStart,
   getWeekDays,
   formatDayLabel,
 } from '../services/supabase/kitchen';
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const addDays = (dateStr, n) => {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+};
+
+const dayOffsetOf = (dateStr, weekStartStr) =>
+  Math.round((new Date(dateStr) - new Date(weekStartStr)) / 86400000);
 
 const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const [weekStart, setWeekStart] = useState(getWeekStart());
   const [cookEvents, setCookEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pickerDate, setPickerDate] = useState(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // ---- Drag & drop (long-press a meal box, drop on another day) ----
+  // Armed by onLongPress; a capture PanResponder on the container then
+  // steals the gesture and tracks the finger. Targets (meal boxes and
+  // "+ Add" slots) are measured in window coords at drag start.
+  const [dragging, setDragging] = useState(null);
+  const [hoverKey, setHoverKey] = useState(null);
+  const draggingRef = useRef(null);
+  const hoverKeyRef = useRef(null);
+  const targetsRef = useRef({});
+  const rectsRef = useRef([]);
+  const containerOriginRef = useRef({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+  const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
+  const registerTarget = (key, info) => (node) => {
+    if (node) targetsRef.current[key] = { ...info, node };
+    else delete targetsRef.current[key];
+  };
+
+  const startDrag = (cookEvent, pageX, pageY) => {
+    rectsRef.current = [];
+    Object.entries(targetsRef.current).forEach(([key, t]) => {
+      if (!t.node?.measureInWindow) return;
+      t.node.measureInWindow((x, y, w, h) => {
+        rectsRef.current.push({ key, type: t.type, date: t.date, event: t.event, x, y, w, h });
+      });
+    });
+    containerRef.current?.measureInWindow((x, y) => {
+      containerOriginRef.current = { x, y };
+    });
+    draggingRef.current = cookEvent;
+    hoverKeyRef.current = null;
+    dragPos.setValue({ x: pageX, y: pageY });
+    setDragging(cookEvent);
+    setHoverKey(null);
+  };
+
+  const resetDrag = () => {
+    draggingRef.current = null;
+    hoverKeyRef.current = null;
+    setDragging(null);
+    setHoverKey(null);
+  };
+
+  const commitDrag = async () => {
+    const dragged = draggingRef.current;
+    const key = hoverKeyRef.current;
+    const rect = key ? rectsRef.current.find(r => r.key === key) : null;
+    resetDrag();
+    if (!dragged || !rect) return;
+
+    if (rect.type === 'add') {
+      // Dropped on a day's Add slot: move the meal to that day
+      const ok = await updateCookEvent(dragged.id, { cookDate: rect.date });
+      if (ok) {
+        setCookEvents(prev => prev.map(e =>
+          e.id === dragged.id ? { ...e, cook_date: rect.date } : e
+        ));
+      }
+    } else if (rect.type === 'event') {
+      // Dropped on another day's meal: the two swap days
+      const other = rect.event;
+      const [a, b] = await Promise.all([
+        updateCookEvent(dragged.id, { cookDate: other.cook_date }),
+        updateCookEvent(other.id, { cookDate: dragged.cook_date }),
+      ]);
+      if (a && b) {
+        setCookEvents(prev => prev.map(e => {
+          if (e.id === dragged.id) return { ...e, cook_date: other.cook_date };
+          if (e.id === other.id) return { ...e, cook_date: dragged.cook_date };
+          return e;
+        }));
+      }
+    }
+  };
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponderCapture: () => !!draggingRef.current,
+    onPanResponderMove: (_evt, gesture) => {
+      if (!draggingRef.current) return;
+      dragPos.setValue({ x: gesture.moveX, y: gesture.moveY });
+      const hit = rectsRef.current.find(r =>
+        gesture.moveX >= r.x && gesture.moveX <= r.x + r.w &&
+        gesture.moveY >= r.y && gesture.moveY <= r.y + r.h
+      );
+      let key = null;
+      if (hit) {
+        const dragged = draggingRef.current;
+        if (hit.type === 'add' && hit.date !== dragged.cook_date) key = hit.key;
+        if (hit.type === 'event' && hit.event.id !== dragged.id && hit.event.cook_date !== dragged.cook_date) key = hit.key;
+      }
+      if (key !== hoverKeyRef.current) {
+        hoverKeyRef.current = key;
+        setHoverKey(key);
+      }
+    },
+    onPanResponderRelease: () => { commitDrag(); },
+    onPanResponderTerminate: () => { resetDrag(); },
+  })).current;
 
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekEnd = weekDays[6];
@@ -98,8 +217,10 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     );
   };
 
+  const draggedRecipe = dragging ? findRecipe(dragging.recipe_id) : null;
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} ref={containerRef} {...panResponder.panHandlers}>
       {/* Week Navigation */}
       <View style={styles.weekNav}>
         <TouchableOpacity onPress={() => shiftWeek(-7)} style={styles.weekNavButton}>
@@ -116,10 +237,23 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Templates + drag hint bar */}
+      <View style={styles.toolBar}>
+        <Text style={styles.toolBarHint}>Hold & drag a meal to move it</Text>
+        <TouchableOpacity style={styles.templatesButton} onPress={() => setShowTemplates(true)}>
+          <Ionicons name="albums-outline" size={15} color={colors.primary} style={{ marginRight: 5 }} />
+          <Text style={styles.templatesButtonText}>Templates</Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView style={styles.grid} contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
+        <ScrollView
+          style={styles.grid}
+          contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
+          scrollEnabled={!dragging}
+        >
           {weekDays.map(date => {
             const events = cookEventsForDate(date);
             return (
@@ -128,11 +262,26 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
 
                 {events.map(event => {
                   const recipe = findRecipe(event.recipe_id);
+                  const isDragSource = dragging?.id === event.id;
+                  const isSwapTarget = hoverKey === `ev:${event.id}`;
                   return (
-                    <TouchableOpacity
+                    // Wrapper View carries the measurement ref -
+                    // Touchable refs aren't native views, and Android
+                    // needs collapsable={false} to measure
+                    <View
                       key={event.id}
-                      style={styles.cookEvent}
+                      ref={registerTarget(`ev:${event.id}`, { type: 'event', date, event })}
+                      collapsable={false}
+                    >
+                    <TouchableOpacity
+                      style={[
+                        styles.cookEvent,
+                        isDragSource && styles.cookEventDragging,
+                        isSwapTarget && styles.cookEventSwapTarget,
+                      ]}
                       onPress={() => recipe && onOpenRecipe?.(recipe)}
+                      delayLongPress={250}
+                      onLongPress={(e) => startDrag(event, e.nativeEvent.pageX, e.nativeEvent.pageY)}
                     >
                       {recipe?.image_url ? (
                         <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
@@ -143,7 +292,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.cookTitle} numberOfLines={1}>
-                          {recipe?.title || '(deleted recipe)'}
+                          {isSwapTarget ? 'Swap days' : (recipe?.title || '(deleted recipe)')}
                         </Text>
                         <Text style={styles.cookMeta}>
                           {event.servings_produced} serving{event.servings_produced !== 1 ? 's' : ''}
@@ -157,16 +306,54 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                         <Text style={styles.deleteButtonText}>×</Text>
                       </TouchableOpacity>
                     </TouchableOpacity>
+                    </View>
                   );
                 })}
 
-                <TouchableOpacity style={styles.addButton} onPress={() => setPickerDate(date)}>
-                  <Text style={styles.addButtonText}>+ Add a meal</Text>
+                <View
+                  ref={registerTarget(`add:${date}`, { type: 'add', date })}
+                  collapsable={false}
+                >
+                <TouchableOpacity
+                  style={[
+                    styles.addButton,
+                    hoverKey === `add:${date}` && styles.addButtonDropTarget,
+                  ]}
+                  onPress={() => setPickerDate(date)}
+                >
+                  <Text style={[
+                    styles.addButtonText,
+                    hoverKey === `add:${date}` && styles.addButtonTextDropTarget,
+                  ]}>
+                    {hoverKey === `add:${date}` ? 'Move here' : '+ Add a meal'}
+                  </Text>
                 </TouchableOpacity>
+                </View>
               </View>
             );
           })}
         </ScrollView>
+      )}
+
+      {/* Ghost of the dragged meal following the finger */}
+      {dragging && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.dragGhost,
+            {
+              transform: [
+                { translateX: Animated.subtract(dragPos.x, containerOriginRef.current.x + 110) },
+                { translateY: Animated.subtract(dragPos.y, containerOriginRef.current.y + 24) },
+              ],
+            },
+          ]}
+        >
+          <Ionicons name="flame" size={14} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.dragGhostText} numberOfLines={1}>
+            {draggedRecipe?.title || 'Meal'}
+          </Text>
+        </Animated.View>
       )}
 
       {/* Recipe Picker */}
@@ -177,7 +364,236 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         recipes={recipes}
         dateLabel={pickerDate ? formatDayLabel(pickerDate) : ''}
       />
+
+      {/* Week templates: save the open week, browse, load */}
+      <TemplatesModal
+        visible={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        userId={userId}
+        weekStart={weekStart}
+        cookEvents={cookEvents}
+        recipes={recipes}
+        findRecipe={findRecipe}
+        onLoaded={(created) => setCookEvents(prev => [...prev, ...created])}
+      />
     </View>
+  );
+};
+
+// -----------------------------------------------------------------------------
+// Templates - save the open week's cook plan under a name, browse saved
+// templates (expand to see the meals), load one into the open week
+// -----------------------------------------------------------------------------
+
+const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recipes, findRecipe, onLoaded }) => {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loadingId, setLoadingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+
+  useEffect(() => {
+    if (!visible || !userId) return;
+    setLoading(true);
+    getMealTemplates(userId)
+      .then(setTemplates)
+      .finally(() => setLoading(false));
+  }, [visible, userId]);
+
+  const handleSave = async () => {
+    const name = newName.trim();
+    if (!name) {
+      Alert.alert('Name Needed', 'Give this template a name first.');
+      return;
+    }
+    if (cookEvents.length === 0) {
+      Alert.alert('Empty Week', 'Add some meals to the week before saving it as a template.');
+      return;
+    }
+    setSaving(true);
+    const meals = cookEvents.map(e => ({
+      dayOffset: dayOffsetOf(e.cook_date, weekStart),
+      recipeId: e.recipe_id,
+      servings: e.servings_produced,
+    }));
+    const created = await saveMealTemplate(userId, name, meals);
+    setSaving(false);
+    if (created) {
+      setTemplates([created, ...templates]);
+      setNewName('');
+    } else {
+      Alert.alert('Error', 'Could not save the template. Please try again.');
+    }
+  };
+
+  const handleLoad = (template) => {
+    const meals = Array.isArray(template.meals) ? template.meals : [];
+    const usable = meals.filter(m => findRecipe(m.recipeId));
+    const skipped = meals.length - usable.length;
+    if (usable.length === 0) {
+      Alert.alert('Nothing to Load', 'None of this template\'s recipes exist in your cookbook anymore.');
+      return;
+    }
+    Alert.alert(
+      'Load Template',
+      `Add ${usable.length} meal${usable.length !== 1 ? 's' : ''} to the week of ${new Date(weekStart).toLocaleDateString()}?` +
+        (skipped > 0 ? `\n\n${skipped} meal${skipped !== 1 ? 's' : ''} will be skipped (recipe no longer exists).` : ''),
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Load',
+          onPress: async () => {
+            setLoadingId(template.id);
+            const created = [];
+            for (const meal of usable) {
+              const event = await createCookEvent(userId, {
+                cookDate: addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6)),
+                recipeId: meal.recipeId,
+                servingsProduced: meal.servings,
+              });
+              if (event) created.push(event);
+            }
+            setLoadingId(null);
+            onLoaded(created);
+            onClose();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteTemplate = (template) => {
+    Alert.alert(
+      'Delete Template',
+      `Delete "${template.name}"? This does not touch any planned weeks.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await deleteMealTemplate(template.id);
+            if (ok) setTemplates(templates.filter(t => t.id !== template.id));
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={styles.pickerContainer}>
+        <View style={styles.pickerHeader}>
+          <TouchableOpacity onPress={onClose}>
+            <Text style={styles.headerAction}>Close</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Week Templates</Text>
+          <View style={{ width: 60 }} />
+        </View>
+
+        <View style={styles.templateSaveCard}>
+          <Text style={styles.templateSaveLabel}>
+            Save this week ({cookEvents.length} meal{cookEvents.length !== 1 ? 's' : ''}) as a template
+          </Text>
+          <View style={styles.templateSaveRow}>
+            <TextInput
+              style={styles.templateNameInput}
+              placeholder="Template name (e.g. Busy Week)"
+              placeholderTextColor={colors.textSecondary}
+              value={newName}
+              onChangeText={setNewName}
+              maxLength={40}
+            />
+            <TouchableOpacity
+              style={[styles.templateSaveButton, (saving || cookEvents.length === 0) && { opacity: 0.5 }]}
+              onPress={handleSave}
+              disabled={saving || cookEvents.length === 0}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.templateSaveButtonText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 30 }} />
+          ) : templates.length === 0 ? (
+            <View style={{ padding: 30, alignItems: 'center' }}>
+              <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+                No templates yet. Plan a week you like, then save it here to reuse it any time.
+              </Text>
+            </View>
+          ) : (
+            templates.map(template => {
+              const meals = Array.isArray(template.meals) ? template.meals : [];
+              const expanded = expandedId === template.id;
+              return (
+                <View key={template.id} style={styles.templateCard}>
+                  <TouchableOpacity
+                    style={styles.templateCardHeader}
+                    onPress={() => setExpandedId(expanded ? null : template.id)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.templateName}>{template.name}</Text>
+                      <Text style={styles.templateMeta}>
+                        {meals.length} meal{meals.length !== 1 ? 's' : ''} · saved {new Date(template.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={expanded ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+
+                  {expanded && (
+                    <View style={styles.templateDetail}>
+                      {[...meals]
+                        .sort((a, b) => a.dayOffset - b.dayOffset)
+                        .map((meal, i) => {
+                          const recipe = findRecipe(meal.recipeId);
+                          return (
+                            <Text key={i} style={[styles.templateDetailLine, !recipe && { color: colors.textTertiary }]}>
+                              {DAY_NAMES[Math.min(Math.max(meal.dayOffset, 0), 6)]}: {recipe?.title || '(recipe deleted)'}
+                              {meal.servings ? ` · ${meal.servings} serving${meal.servings !== 1 ? 's' : ''}` : ''}
+                            </Text>
+                          );
+                        })}
+                    </View>
+                  )}
+
+                  <View style={styles.templateActions}>
+                    <TouchableOpacity
+                      style={styles.templateLoadButton}
+                      onPress={() => handleLoad(template)}
+                      disabled={loadingId !== null}
+                    >
+                      {loadingId === template.id ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.templateLoadButtonText}>Load into This Week</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.templateDeleteButton}
+                      onPress={() => handleDeleteTemplate(template)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
   );
 };
 
@@ -463,6 +879,127 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addButtonText: { fontSize: 13, color: colors.textSecondary },
+  addButtonDropTarget: {
+    borderColor: colors.primary,
+    borderStyle: 'solid',
+    backgroundColor: colors.primaryLight,
+  },
+  addButtonTextDropTarget: { color: colors.primary, fontWeight: '700' },
+  cookEventDragging: { opacity: 0.35 },
+  cookEventSwapTarget: {
+    borderColor: colors.accentDark,
+    backgroundColor: colors.accentLight,
+  },
+  dragGhost: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 100,
+  },
+  dragGhostText: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.text },
+  toolBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  toolBarHint: { fontSize: 12, color: colors.textTertiary },
+  templatesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  templatesButtonText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+
+  // Templates modal
+  templateSaveCard: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  templateSaveLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 8 },
+  templateSaveRow: { flexDirection: 'row', alignItems: 'center' },
+  templateNameInput: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: colors.text,
+    marginRight: 8,
+  },
+  templateSaveButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minWidth: 64,
+    alignItems: 'center',
+  },
+  templateSaveButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  templateCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  templateCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  templateName: { fontSize: 15, fontWeight: '700', color: colors.text },
+  templateMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  templateDetail: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    paddingTop: 8,
+  },
+  templateDetailLine: { fontSize: 13, color: colors.text, marginBottom: 4 },
+  templateActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    paddingTop: 0,
+  },
+  templateLoadButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  templateLoadButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  templateDeleteButton: { padding: 6 },
 
   // Picker
   pickerContainer: { flex: 1, backgroundColor: colors.background },
