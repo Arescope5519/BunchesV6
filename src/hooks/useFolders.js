@@ -302,6 +302,27 @@ export const useFolders = (user) => {
   };
 
   /**
+   * Persist a new display order for the visible cookbooks (drag
+   * reorder). Hidden system folders keep their spots at the front;
+   * any folder missing from orderedNames (created mid-reorder) keeps
+   * its place at the end.
+   */
+  const reorderFolders = async (orderedNames) => {
+    const hiddenFolders = ['All Recipes', 'Favorites', 'Recently Deleted'];
+    const byName = {};
+    folders.forEach(f => { byName[f.name] = f; });
+
+    const next = [
+      ...folders.filter(f => hiddenFolders.includes(f.name)),
+      ...orderedNames.map(n => byName[n]).filter(Boolean),
+      ...folders.filter(f => !hiddenFolders.includes(f.name) && !orderedNames.includes(f.name)),
+    ];
+
+    setFolders(next);
+    await saveFolders(next);
+  };
+
+  /**
    * Get My Creations subfolders
    */
   const getMyCreationsSubfolders = () => {
@@ -334,6 +355,7 @@ export const useFolders = (user) => {
     renameFolder,
     deleteFolder,
     getCustomFolders,
+    reorderFolders,
     getFolderNames,
     getFolderByName,
     isFolderPrivate,

@@ -84,6 +84,7 @@ import {
   getBlockStatus,
 } from '../services/supabase/social';
 import DiscoverFeed from '../components/DiscoverFeed';
+import ReorderFolderList from '../components/ReorderFolderList';
 import { getLikesForRecipes, likeRecipe, unlikeRecipe } from '../services/supabase/discover';
 import AdminReports from '../components/AdminReports';
 import BlockedUsers from '../components/BlockedUsers';
@@ -165,6 +166,19 @@ export const HomeScreen = ({ user }) => {
 
   // Folder filter state
   const [folderSortAZ, setFolderSortAZ] = useState(false); // Sort folders A-Z
+  // Drag-reorder mode for the Cookbooks list; dragging disables the
+  // modal's own scrolling so the gestures don't fight
+  const [folderReorderMode, setFolderReorderMode] = useState(false);
+  const [folderDragging, setFolderDragging] = useState(false);
+
+  // Leave reorder mode whenever the Cookbooks modal closes, whichever
+  // of its several close paths was used
+  useEffect(() => {
+    if (!showFolderManager) {
+      setFolderReorderMode(false);
+      setFolderDragging(false);
+    }
+  }, [showFolderManager]);
   const [folderPrivacyFilter, setFolderPrivacyFilter] = useState('all'); // 'all', 'private', 'public'
 
   // Multiselect state
@@ -239,6 +253,7 @@ export const HomeScreen = ({ user }) => {
     renameFolder: renameFolderBase,
     deleteFolder: deleteFolderBase,
     getCustomFolders,
+    reorderFolders,
     isFolderPrivate,
     updateFolderPrivacy,
   } = useFolders(user);
@@ -3618,6 +3633,7 @@ export const HomeScreen = ({ user }) => {
           <ScrollView
             style={styles.modalContent}
             contentContainerStyle={styles.modalScrollContent}
+            scrollEnabled={!folderDragging}
           >
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
@@ -3685,23 +3701,43 @@ export const HomeScreen = ({ user }) => {
                 <Text style={styles.folderSectionTitle}>My Cookbooks</Text>
                 {getCustomFolders().length > 0 && (
                   <View style={styles.folderFilters}>
+                    {!folderReorderMode && (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.folderFilterBtn, folderSortAZ && styles.folderFilterBtnActive]}
+                          onPress={() => setFolderSortAZ(!folderSortAZ)}
+                        >
+                          <Text style={[styles.folderFilterText, folderSortAZ && styles.folderFilterTextActive]}>A-Z</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.folderFilterBtn, folderPrivacyFilter === 'private' && styles.folderFilterBtnActive]}
+                          onPress={() => setFolderPrivacyFilter(folderPrivacyFilter === 'private' ? 'all' : 'private')}
+                        >
+                          <Text style={[styles.folderFilterText, folderPrivacyFilter === 'private' && styles.folderFilterTextActive]}>Private</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.folderFilterBtn, folderPrivacyFilter === 'public' && styles.folderFilterBtnActive]}
+                          onPress={() => setFolderPrivacyFilter(folderPrivacyFilter === 'public' ? 'all' : 'public')}
+                        >
+                          <Text style={[styles.folderFilterText, folderPrivacyFilter === 'public' && styles.folderFilterTextActive]}>Public</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                     <TouchableOpacity
-                      style={[styles.folderFilterBtn, folderSortAZ && styles.folderFilterBtnActive]}
-                      onPress={() => setFolderSortAZ(!folderSortAZ)}
+                      style={[styles.folderFilterBtn, folderReorderMode && styles.folderFilterBtnActive]}
+                      onPress={() => {
+                        if (!folderReorderMode) {
+                          // Custom order is what's being edited - A-Z off
+                          setFolderSortAZ(false);
+                          setFolderPrivacyFilter('all');
+                        }
+                        setFolderDragging(false);
+                        setFolderReorderMode(!folderReorderMode);
+                      }}
                     >
-                      <Text style={[styles.folderFilterText, folderSortAZ && styles.folderFilterTextActive]}>A-Z</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.folderFilterBtn, folderPrivacyFilter === 'private' && styles.folderFilterBtnActive]}
-                      onPress={() => setFolderPrivacyFilter(folderPrivacyFilter === 'private' ? 'all' : 'private')}
-                    >
-                      <Text style={[styles.folderFilterText, folderPrivacyFilter === 'private' && styles.folderFilterTextActive]}>Private</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.folderFilterBtn, folderPrivacyFilter === 'public' && styles.folderFilterBtnActive]}
-                      onPress={() => setFolderPrivacyFilter(folderPrivacyFilter === 'public' ? 'all' : 'public')}
-                    >
-                      <Text style={[styles.folderFilterText, folderPrivacyFilter === 'public' && styles.folderFilterTextActive]}>Public</Text>
+                      <Text style={[styles.folderFilterText, folderReorderMode && styles.folderFilterTextActive]}>
+                        {folderReorderMode ? 'Done' : 'Reorder'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -3711,6 +3747,12 @@ export const HomeScreen = ({ user }) => {
                   <Text style={styles.emptyFoldersText}>No custom cookbooks yet</Text>
                   <Text style={styles.emptyFoldersSubtext}>Tap "+ New" to create one</Text>
                 </View>
+              ) : folderReorderMode ? (
+                <ReorderFolderList
+                  folderNames={getCustomFolders()}
+                  onReorder={reorderFolders}
+                  onDragActive={setFolderDragging}
+                />
               ) : (
                 getCustomFolders()
                   .filter(folder => {
