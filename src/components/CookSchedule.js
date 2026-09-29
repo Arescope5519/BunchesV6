@@ -67,6 +67,67 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const containerRef = useRef(null);
   const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
+  // Edge auto-scroll while dragging: holding a meal near the list's
+  // top/bottom edge scrolls it, so drops can land beyond the viewport.
+  // Target rects were measured at drag start, so hit-testing offsets
+  // them by how far the list has scrolled since.
+  const scrollRef = useRef(null);
+  const scrollWrapRef = useRef(null);
+  const scrollOffsetRef = useRef(0);
+  const dragStartOffsetRef = useRef(0);
+  const scrollAreaRef = useRef({ y: 0, height: 0 });
+  const contentSizeRef = useRef({ h: 0, viewH: 0 });
+  const autoScrollDirRef = useRef(0);
+  const autoScrollTimerRef = useRef(null);
+  const lastFingerRef = useRef({ x: 0, y: 0 });
+
+  const stopAutoScroll = () => {
+    autoScrollDirRef.current = 0;
+    if (autoScrollTimerRef.current) {
+      clearInterval(autoScrollTimerRef.current);
+      autoScrollTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => stopAutoScroll, []);
+
+  const computeHover = (x, y) => {
+    const dragged = draggingRef.current;
+    if (!dragged) return;
+    const scrollDelta = scrollOffsetRef.current - dragStartOffsetRef.current;
+    const hit = rectsRef.current.find(r =>
+      x >= r.x && x <= r.x + r.w &&
+      y >= r.y - scrollDelta && y <= r.y - scrollDelta + r.h
+    );
+    let key = null;
+    if (hit) {
+      if (hit.type === 'add' && hit.date !== dragged.cook_date) key = hit.key;
+      // Any other meal is a target: another day swaps days, the same
+      // day swaps cooking order
+      if (hit.type === 'event' && hit.event.id !== dragged.id) key = hit.key;
+    }
+    if (key !== hoverKeyRef.current) {
+      hoverKeyRef.current = key;
+      setHoverKey(key);
+    }
+  };
+
+  const setAutoScroll = (dir) => {
+    if (dir === autoScrollDirRef.current) return;
+    stopAutoScroll();
+    autoScrollDirRef.current = dir;
+    if (dir === 0) return;
+    autoScrollTimerRef.current = setInterval(() => {
+      const maxOffset = Math.max(0, contentSizeRef.current.h - contentSizeRef.current.viewH);
+      const next = Math.max(0, Math.min(maxOffset, scrollOffsetRef.current + autoScrollDirRef.current * 14));
+      if (next === scrollOffsetRef.current) return;
+      scrollOffsetRef.current = next;
+      scrollRef.current?.scrollTo({ y: next, animated: false });
+      // Targets moved under a still finger - re-run the hit test
+      computeHover(lastFingerRef.current.x, lastFingerRef.current.y);
+    }, 16);
+  };
+
   const registerTarget = (key, info) => (node) => {
     if (node) targetsRef.current[key] = { ...info, node };
     else delete targetsRef.current[key];
@@ -83,6 +144,10 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     containerRef.current?.measureInWindow((x, y) => {
       containerOriginRef.current = { x, y };
     });
+    scrollWrapRef.current?.measureInWindow((x, y, w, h) => {
+      scrollAreaRef.current = { y, height: h };
+    });
+    dragStartOffsetRef.current = scrollOffsetRef.current;
     draggingRef.current = cookEvent;
     hoverKeyRef.current = null;
     dragPos.setValue({ x: pageX, y: pageY });
@@ -91,6 +156,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   };
 
   const resetDrag = () => {
+    stopAutoScroll();
     draggingRef.current = null;
     hoverKeyRef.current = null;
     setDragging(null);
@@ -152,22 +218,18 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     onPanResponderMove: (_evt, gesture) => {
       if (!draggingRef.current) return;
       dragPos.setValue({ x: gesture.moveX, y: gesture.moveY });
-      const hit = rectsRef.current.find(r =>
-        gesture.moveX >= r.x && gesture.moveX <= r.x + r.w &&
-        gesture.moveY >= r.y && gesture.moveY <= r.y + r.h
-      );
-      let key = null;
-      if (hit) {
-        const dragged = draggingRef.current;
-        if (hit.type === 'add' && hit.date !== dragged.cook_date) key = hit.key;
-        // Any other meal is a target: another day swaps days, the same
-        // day swaps cooking order
-        if (hit.type === 'event' && hit.event.id !== dragged.id) key = hit.key;
+      lastFingerRef.current = { x: gesture.moveX, y: gesture.moveY };
+      computeHover(gesture.moveX, gesture.moveY);
+
+      // Near the list's edges? Keep scrolling while the finger holds
+      const EDGE = 90;
+      const area = scrollAreaRef.current;
+      let dir = 0;
+      if (area.height > 0) {
+        if (gesture.moveY < area.y + EDGE) dir = -1;
+        else if (gesture.moveY > area.y + area.height - EDGE) dir = 1;
       }
-      if (key !== hoverKeyRef.current) {
-        hoverKeyRef.current = key;
-        setHoverKey(key);
-      }
+      setAutoScroll(dir);
     },
     onPanResponderRelease: () => { commitDrag(); },
     onPanResponderTerminate: () => { resetDrag(); },
@@ -276,10 +338,16 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
+        <View ref={scrollWrapRef} collapsable={false} style={{ flex: 1 }}>
         <ScrollView
+          ref={scrollRef}
           style={styles.grid}
           contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
           scrollEnabled={!dragging}
+          scrollEventThrottle={16}
+          onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
+          onContentSizeChange={(_w, h) => { contentSizeRef.current.h = h; }}
+          onLayout={(e) => { contentSizeRef.current.viewH = e.nativeEvent.layout.height; }}
         >
           {weekDays.map(date => {
             const events = cookEventsForDate(date);
@@ -362,6 +430,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
             );
           })}
         </ScrollView>
+        </View>
       )}
 
       {/* Ghost of the dragged meal following the finger */}
