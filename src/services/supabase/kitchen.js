@@ -31,7 +31,9 @@ export const getCookEvents = async (userId, startDate, endDate) => {
       .eq('user_id', userId)
       .gte('cook_date', startDate)
       .lte('cook_date', endDate)
-      .order('cook_date', { ascending: true });
+      .order('cook_date', { ascending: true })
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('❌ getCookEvents error:', error);
@@ -51,6 +53,7 @@ export const createCookEvent = async (userId, {
   notes,
   isTakeout,
   takeoutName,
+  sortOrder,
 }) => {
   try {
     const { data, error } = await supabase
@@ -63,6 +66,7 @@ export const createCookEvent = async (userId, {
         notes: notes || null,
         is_takeout: !!isTakeout,
         takeout_name: takeoutName || null,
+        sort_order: sortOrder || 0,
       })
       .select()
       .single();
@@ -84,6 +88,7 @@ export const updateCookEvent = async (cookEventId, patch) => {
     if (patch.cookDate !== undefined) dbPatch.cook_date = patch.cookDate;
     if (patch.servingsProduced !== undefined) dbPatch.servings_produced = patch.servingsProduced;
     if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+    if (patch.sortOrder !== undefined) dbPatch.sort_order = patch.sortOrder;
 
     const { error } = await supabase
       .from('cook_events')

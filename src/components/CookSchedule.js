@@ -105,24 +105,41 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     if (!dragged || !rect) return;
 
     if (rect.type === 'add') {
-      // Dropped on a day's Add slot: move the meal to that day
-      const ok = await updateCookEvent(dragged.id, { cookDate: rect.date });
+      // Dropped on a day's Add slot: move the meal to the end of that day
+      const endOrder = cookEvents.filter(e => e.cook_date === rect.date && e.id !== dragged.id).length;
+      const ok = await updateCookEvent(dragged.id, { cookDate: rect.date, sortOrder: endOrder });
       if (ok) {
         setCookEvents(prev => prev.map(e =>
-          e.id === dragged.id ? { ...e, cook_date: rect.date } : e
+          e.id === dragged.id ? { ...e, cook_date: rect.date, sort_order: endOrder } : e
         ));
       }
+    } else if (rect.type === 'event' && rect.event.cook_date === dragged.cook_date) {
+      // Same day: swap cooking order. Renumber the whole day from its
+      // displayed order so legacy all-zero sort_orders behave too
+      const other = rect.event;
+      const day = cookEvents.filter(e => e.cook_date === dragged.cook_date).sort(byDayOrder);
+      const i = day.findIndex(e => e.id === dragged.id);
+      const j = day.findIndex(e => e.id === other.id);
+      if (i === -1 || j === -1) return;
+      [day[i], day[j]] = [day[j], day[i]];
+      const results = await Promise.all(day.map((e, idx) => updateCookEvent(e.id, { sortOrder: idx })));
+      if (results.every(Boolean)) {
+        setCookEvents(prev => prev.map(e => {
+          const idx = day.findIndex(d => d.id === e.id);
+          return idx === -1 ? e : { ...e, sort_order: idx };
+        }));
+      }
     } else if (rect.type === 'event') {
-      // Dropped on another day's meal: the two swap days
+      // Another day's meal: the two swap days (and slots)
       const other = rect.event;
       const [a, b] = await Promise.all([
-        updateCookEvent(dragged.id, { cookDate: other.cook_date }),
-        updateCookEvent(other.id, { cookDate: dragged.cook_date }),
+        updateCookEvent(dragged.id, { cookDate: other.cook_date, sortOrder: other.sort_order || 0 }),
+        updateCookEvent(other.id, { cookDate: dragged.cook_date, sortOrder: dragged.sort_order || 0 }),
       ]);
       if (a && b) {
         setCookEvents(prev => prev.map(e => {
-          if (e.id === dragged.id) return { ...e, cook_date: other.cook_date };
-          if (e.id === other.id) return { ...e, cook_date: dragged.cook_date };
+          if (e.id === dragged.id) return { ...e, cook_date: other.cook_date, sort_order: other.sort_order || 0 };
+          if (e.id === other.id) return { ...e, cook_date: dragged.cook_date, sort_order: dragged.sort_order || 0 };
           return e;
         }));
       }
@@ -143,7 +160,9 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       if (hit) {
         const dragged = draggingRef.current;
         if (hit.type === 'add' && hit.date !== dragged.cook_date) key = hit.key;
-        if (hit.type === 'event' && hit.event.id !== dragged.id && hit.event.cook_date !== dragged.cook_date) key = hit.key;
+        // Any other meal is a target: another day swaps days, the same
+        // day swaps cooking order
+        if (hit.type === 'event' && hit.event.id !== dragged.id) key = hit.key;
       }
       if (key !== hoverKeyRef.current) {
         hoverKeyRef.current = key;
@@ -175,7 +194,14 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
 
   const findRecipe = (id) => recipes.find(r => r.id === id && !r.deletedAt);
 
-  const cookEventsForDate = (date) => cookEvents.filter(e => e.cook_date === date);
+  // Within-day order: sort_order first (drag-arranged), created_at as
+  // the tiebreak for legacy rows that are all 0
+  const byDayOrder = (a, b) =>
+    (a.sort_order || 0) - (b.sort_order || 0) ||
+    String(a.created_at || '').localeCompare(String(b.created_at || ''));
+
+  const cookEventsForDate = (date) =>
+    cookEvents.filter(e => e.cook_date === date).sort(byDayOrder);
 
   const shiftWeek = (deltaDays) => {
     const d = new Date(weekStart);
@@ -189,6 +215,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       cookDate: pickerDate,
       recipeId: recipe.id,
       servingsProduced: servings,
+      sortOrder: cookEventsForDate(pickerDate).length,
     });
     if (created) {
       setCookEvents([...cookEvents, created]);
@@ -280,7 +307,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                         isSwapTarget && styles.cookEventSwapTarget,
                       ]}
                       onPress={() => recipe && onOpenRecipe?.(recipe)}
-                      delayLongPress={250}
+                      delayLongPress={150}
                       onLongPress={(e) => startDrag(event, e.nativeEvent.pageX, e.nativeEvent.pageY)}
                     >
                       {recipe?.image_url ? (
@@ -292,7 +319,9 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.cookTitle} numberOfLines={1}>
-                          {isSwapTarget ? 'Swap days' : (recipe?.title || '(deleted recipe)')}
+                          {isSwapTarget
+                            ? (dragging?.cook_date === event.cook_date ? 'Swap order' : 'Swap days')
+                            : (recipe?.title || '(deleted recipe)')}
                         </Text>
                         <Text style={styles.cookMeta}>
                           {event.servings_produced} serving{event.servings_produced !== 1 ? 's' : ''}
@@ -446,11 +475,20 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
           onPress: async () => {
             setLoadingId(template.id);
             const created = [];
+            // Append after each day's existing meals, in template order
+            const dayCounts = {};
+            cookEvents.forEach(e => {
+              dayCounts[e.cook_date] = (dayCounts[e.cook_date] || 0) + 1;
+            });
             for (const meal of usable) {
+              const cookDate = addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6));
+              const sortOrder = dayCounts[cookDate] || 0;
+              dayCounts[cookDate] = sortOrder + 1;
               const event = await createCookEvent(userId, {
-                cookDate: addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6)),
+                cookDate,
                 recipeId: meal.recipeId,
                 servingsProduced: meal.servings,
+                sortOrder,
               });
               if (event) created.push(event);
             }
