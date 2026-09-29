@@ -370,38 +370,91 @@ export const SocialModal = ({
     </View>
   );
 
-  const renderRequestsTab = () => (
-    <ScrollView style={styles.tabContent}>
-      {friendRequests.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No pending requests</Text>
-        </View>
-      ) : (
-        friendRequests.map(request => (
-          <View key={request.id} style={styles.listItem}>
-            <UserAvatar username={request.senderUsername} icon={request.senderAvatarIcon} size={36} style={styles.avatar} />
-            <View style={styles.userInfo}>
-              <Text style={styles.usernameText}>@{request.senderUsername}</Text>
-            </View>
-            <View style={styles.requestActions}>
-              <TouchableOpacity
-                onPress={() => onAcceptFriendRequest(request.id)}
-                style={styles.acceptButton}
-              >
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onDeclineFriendRequest(request.id)}
-                style={styles.declineButton}
-              >
-                <Text style={styles.declineButtonText}>Decline</Text>
-              </TouchableOpacity>
-            </View>
+  // One Notifications tab: friend requests first, then shared
+  // recipes/cookbooks grouped by sender (the old Requests + Inbox tabs)
+  const renderNotificationsTab = () => {
+    if (previewRecipe) {
+      return renderRecipePreview();
+    }
+    if (selectedThread) {
+      return renderThreadDetail();
+    }
+
+    const nothingAtAll = friendRequests.length === 0 && threadedInbox.length === 0;
+
+    return (
+      <ScrollView style={styles.tabContent}>
+        {nothingAtAll ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No notifications</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Friend requests and recipes shared with you will appear here
+            </Text>
           </View>
-        ))
-      )}
-    </ScrollView>
-  );
+        ) : (
+          <>
+            {friendRequests.length > 0 && (
+              <>
+                <Text style={styles.notifSectionTitle}>Friend Requests</Text>
+                {friendRequests.map(request => (
+                  <View key={request.id} style={styles.listItem}>
+                    <UserAvatar username={request.senderUsername} icon={request.senderAvatarIcon} size={36} style={styles.avatar} />
+                    <View style={styles.userInfo}>
+                      <Text style={styles.usernameText}>@{request.senderUsername}</Text>
+                    </View>
+                    <View style={styles.requestActions}>
+                      <TouchableOpacity
+                        onPress={() => onAcceptFriendRequest(request.id)}
+                        style={styles.acceptButton}
+                      >
+                        <Text style={styles.acceptButtonText}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => onDeclineFriendRequest(request.id)}
+                        style={styles.declineButton}
+                      >
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {threadedInbox.length > 0 && (
+              <>
+                <Text style={styles.notifSectionTitle}>Shared with You</Text>
+                {threadedInbox.map(thread => (
+                  <TouchableOpacity
+                    key={thread.fromUserId}
+                    style={styles.threadItem}
+                    onPress={() => setSelectedThread(thread)}
+                  >
+                    <View style={styles.threadAvatar}>
+                      <Text style={styles.threadAvatarText}>
+                        {thread.fromUsername?.charAt(0).toUpperCase() || '?'}
+                      </Text>
+                    </View>
+                    <View style={styles.threadInfo}>
+                      <View style={styles.threadTopRow}>
+                        <Text style={styles.threadUsername}>@{thread.fromUsername}</Text>
+                        <Text style={styles.threadTime}>{formatTimeAgo(thread.latestAt)}</Text>
+                      </View>
+                      <Text style={styles.threadPreview}>
+                        {thread.items.length} recipe{thread.items.length !== 1 ? 's' : ''} shared
+                      </Text>
+                    </View>
+                    <View style={styles.threadBadge}>
+                      <Text style={styles.threadBadgeText}>{thread.items.length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+    );
+  };
 
   // Format time ago for thread list
   const formatTimeAgo = (timestamp) => {
@@ -737,58 +790,6 @@ export const SocialModal = ({
   };
 
   // Render thread list (main inbox view)
-  const renderThreadList = () => (
-    <ScrollView style={styles.tabContent}>
-      {threadedInbox.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No shared items</Text>
-          <Text style={styles.emptyStateSubtext}>
-            When friends share recipes with you, they'll appear here
-          </Text>
-        </View>
-      ) : (
-        threadedInbox.map(thread => (
-          <TouchableOpacity
-            key={thread.fromUserId}
-            style={styles.threadItem}
-            onPress={() => setSelectedThread(thread)}
-          >
-            <View style={styles.threadAvatar}>
-              <Text style={styles.threadAvatarText}>
-                {thread.fromUsername?.charAt(0).toUpperCase() || '?'}
-              </Text>
-            </View>
-            <View style={styles.threadInfo}>
-              <View style={styles.threadTopRow}>
-                <Text style={styles.threadUsername}>@{thread.fromUsername}</Text>
-                <Text style={styles.threadTime}>{formatTimeAgo(thread.latestAt)}</Text>
-              </View>
-              <Text style={styles.threadPreview}>
-                {thread.items.length} recipe{thread.items.length !== 1 ? 's' : ''} shared
-              </Text>
-            </View>
-            <View style={styles.threadBadge}>
-              <Text style={styles.threadBadgeText}>{thread.items.length}</Text>
-            </View>
-          </TouchableOpacity>
-        ))
-      )}
-    </ScrollView>
-  );
-
-  const renderInboxTab = () => {
-    // Show recipe preview if one is selected
-    if (previewRecipe) {
-      return renderRecipePreview();
-    }
-    // Show thread detail if a thread is selected
-    if (selectedThread) {
-      return renderThreadDetail();
-    }
-    // Show thread list
-    return renderThreadList();
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" hidden={true} />
@@ -811,8 +812,7 @@ export const SocialModal = ({
         <View style={styles.tabs}>
           {[
             { key: 'discover', label: 'Feed', icon: 'compass' },
-            { key: 'inbox', label: 'Inbox', icon: 'chatbubbles', count: sharedItems.length },
-            { key: 'requests', label: 'Requests', icon: 'person-add', count: friendRequests.length },
+            { key: 'notifications', label: 'Notifications', icon: 'notifications', count: friendRequests.length + sharedItems.length },
             { key: 'account', label: 'Account', icon: 'person-circle' },
           ].map(tab => {
             const active = activeTab === tab.key;
@@ -877,8 +877,7 @@ export const SocialModal = ({
             {renderFriendsContent()}
           </MyProfile>
         )}
-        {activeTab === 'requests' && renderRequestsTab()}
-        {activeTab === 'inbox' && renderInboxTab()}
+        {activeTab === 'notifications' && renderNotificationsTab()}
 
         {/* User Profile Modal */}
         <UserProfile
@@ -1431,6 +1430,15 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   // Thread list styles
+  notifSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 8,
+  },
   threadItem: {
     flexDirection: 'row',
     alignItems: 'center',
