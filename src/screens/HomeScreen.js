@@ -1992,11 +1992,31 @@ export const HomeScreen = ({ user }) => {
         return;
       }
 
+      // The AI provider's overload/capacity errors arrive as raw text
+      // blobs in `detail` - never show those to the user. Log for
+      // debugging and show honest testing-tier copy instead.
+      if (result.detail) {
+        console.error('📷 [SCAN] AI failure detail:', result.detail);
+      }
+      const busy =
+        result.error === 'ai_busy' ||
+        /503|429|overload|unavailable|resource|exhaust|quota|capacity|high demand/i.test(result.detail || '');
+      if (busy) {
+        Alert.alert(
+          'Scanner Busy',
+          'Recipe scanning runs on a free testing tier right now, so the AI tool is sometimes busy and we don\'t get priority. This isn\'t a failure - just try again in a moment until it goes through. A real problem will show a different error.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Try Again', onPress: () => handleScanRecipe() },
+          ]
+        );
+        return;
+      }
+
       // No recipe found / AI problem - offer manual entry as fallback
-      const failDetail = result.detail ? `\n\nDetails: ${result.detail}` : '';
       Alert.alert(
         'Scan Failed',
-        (result.message || 'Could not read a recipe from the photo.') + failDetail,
+        result.message || 'Could not read a recipe from the photo.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Try Again', onPress: () => handleScanRecipe() },
