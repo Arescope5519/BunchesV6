@@ -36,6 +36,8 @@ import {
   getWeekStart,
   getWeekDays,
   formatDayLabel,
+  parseLocalDate,
+  toDateString,
 } from '../services/supabase/kitchen';
 
 const SLOTS = [
@@ -63,9 +65,9 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     try {
       // Look back further for cook events to make sure we can display meals
       // that reference older (now-depleted) cook events
-      const lookbackDate = new Date(weekStart);
+      const lookbackDate = parseLocalDate(weekStart);
       lookbackDate.setDate(lookbackDate.getDate() - 14);
-      const lookbackStr = lookbackDate.toISOString().split('T')[0];
+      const lookbackStr = toDateString(lookbackDate);
 
       const [meals, fridge, cooks] = await Promise.all([
         getMealEvents(userId, weekStart, weekEnd),
@@ -100,9 +102,9 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     mealEvents.filter(m => m.meal_date === date && m.slot === slot);
 
   const shiftWeek = (deltaDays) => {
-    const d = new Date(weekStart);
+    const d = parseLocalDate(weekStart);
     d.setDate(d.getDate() + deltaDays);
-    setWeekStart(d.toISOString().split('T')[0]);
+    setWeekStart(toDateString(d));
   };
 
   const handleAddFromFridge = async (entry, servingsToEat) => {
@@ -289,7 +291,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
           <Text style={styles.weekNavText}>{'< Prev'}</Text>
         </TouchableOpacity>
         <View style={styles.weekLabel}>
-          <Text style={styles.weekLabelText}>Week of {new Date(weekStart).toLocaleDateString()}</Text>
+          <Text style={styles.weekLabelText}>Week of {parseLocalDate(weekStart).toLocaleDateString()}</Text>
           <TouchableOpacity onPress={() => setWeekStart(getWeekStart())}>
             <Text style={styles.todayLink}>Today</Text>
           </TouchableOpacity>
@@ -435,7 +437,7 @@ const getBaseServings = (recipe) => {
  */
 const buildCookDayOptions = (eatDateStr) => {
   if (!eatDateStr) return [];
-  const eat = new Date(eatDateStr);
+  const eat = parseLocalDate(eatDateStr);
   eat.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -443,7 +445,7 @@ const buildCookDayOptions = (eatDateStr) => {
   const days = [];
   let d = new Date(start);
   while (d <= eat && days.length < 14) {
-    days.push(d.toISOString().split('T')[0]);
+    days.push(toDateString(d));
     d = new Date(d.getTime() + 86400000);
   }
   if (days.length === 0) days.push(eatDateStr);

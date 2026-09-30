@@ -33,18 +33,21 @@ import {
   getWeekStart,
   getWeekDays,
   formatDayLabel,
+  parseLocalDate,
+  toDateString,
 } from '../services/supabase/kitchen';
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Sunday-first, matching getWeekStart
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const addDays = (dateStr, n) => {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return toDateString(d);
 };
 
 const dayOffsetOf = (dateStr, weekStartStr) =>
-  Math.round((new Date(dateStr) - new Date(weekStartStr)) / 86400000);
+  Math.round((parseLocalDate(dateStr) - parseLocalDate(weekStartStr)) / 86400000);
 
 const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const [weekStart, setWeekStart] = useState(getWeekStart());
@@ -266,9 +269,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     cookEvents.filter(e => e.cook_date === date).sort(byDayOrder);
 
   const shiftWeek = (deltaDays) => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + deltaDays);
-    setWeekStart(d.toISOString().split('T')[0]);
+    setWeekStart(addDays(weekStart, deltaDays));
   };
 
   const handleAdd = async (recipe, servings) => {
@@ -316,7 +317,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
           <Text style={styles.weekNavText}>{'< Prev'}</Text>
         </TouchableOpacity>
         <View style={styles.weekLabel}>
-          <Text style={styles.weekLabelText}>Week of {new Date(weekStart).toLocaleDateString()}</Text>
+          <Text style={styles.weekLabelText}>Week of {parseLocalDate(weekStart).toLocaleDateString()}</Text>
           <TouchableOpacity onPress={() => setWeekStart(getWeekStart())}>
             <Text style={styles.todayLink}>Today</Text>
           </TouchableOpacity>
@@ -535,7 +536,7 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
     }
     Alert.alert(
       'Load Template',
-      `Add ${usable.length} meal${usable.length !== 1 ? 's' : ''} to the week of ${new Date(weekStart).toLocaleDateString()}?` +
+      `Add ${usable.length} meal${usable.length !== 1 ? 's' : ''} to the week of ${parseLocalDate(weekStart).toLocaleDateString()}?` +
         (skipped > 0 ? `\n\n${skipped} meal${skipped !== 1 ? 's' : ''} will be skipped (recipe no longer exists).` : ''),
       [
         { text: 'Cancel', style: 'cancel' },

@@ -328,31 +328,47 @@ export const getFridgeInventory = async (userId, lookbackDays = 10) => {
 /**
  * Get the Monday of the week containing the given date (ISO format)
  */
+/**
+ * Date-string helpers. "YYYY-MM-DD" strings must be parsed and
+ * formatted in LOCAL time: new Date("YYYY-MM-DD") is UTC midnight, so
+ * in US timezones it renders as the previous evening and every label
+ * shifts back a day (Monday dates displaying as "Sun" - the bug that
+ * made the week look Sunday-started while templates counted from
+ * Monday). toISOString() has the mirror problem when formatting.
+ */
+export const parseLocalDate = (dateStr) => {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+export const toDateString = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Weeks start on SUNDAY (US convention, and what the schedule has
+// always visually shown)
 export const getWeekStart = (date = new Date()) => {
   const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
-  d.setDate(diff);
+  d.setDate(d.getDate() - d.getDay());
   d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  return toDateString(d);
 };
 
 /**
  * Get an array of 7 date strings for a given week start
  */
 export const getWeekDays = (weekStartStr) => {
-  const start = new Date(weekStartStr);
+  const start = parseLocalDate(weekStartStr);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(toDateString(d));
   }
   return days;
 };
 
 export const formatDayLabel = (dateStr) => {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${d.getMonth() + 1}/${d.getDate()}`;
 };
 
@@ -419,6 +435,8 @@ export const deleteMealTemplate = async (templateId) => {
 };
 
 export default {
+  parseLocalDate,
+  toDateString,
   getCookEvents,
   createCookEvent,
   updateCookEvent,
