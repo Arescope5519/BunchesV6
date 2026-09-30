@@ -124,6 +124,10 @@ Traps that burned real time:
 - **Show SQL in chat**, never only in a file - Daniel runs it by hand in
   the Supabase dashboard.
 - **Give the full build command block after every code change.**
+  ALWAYS both platforms together: the Android block above AND the iOS
+  Mac pull (`cd ~/BunchesV6 && git pull origin master` + `r` in Metro;
+  full `npx expo prebuild --clean --platform ios` + `npx expo run:ios
+  --device` only when something native changed - flag it when so).
 - iOS is dormant but intentionally preserved (ios/ folder, app.json
   config, eas.json). Revive at launch prep; needs a Mac or EAS.
 
