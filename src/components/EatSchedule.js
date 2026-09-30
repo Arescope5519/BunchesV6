@@ -53,6 +53,20 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const [allCookEvents, setAllCookEvents] = useState([]); // For display lookup, includes empty-fridge items
   const [loading, setLoading] = useState(false);
   const [addingTo, setAddingTo] = useState(null); // { date, slot }
+  // Inventory for the date being planned: the regular fridge PLUS
+  // future planned cooks up to that eat date, so Wednesday's meal can
+  // be planned against Tuesday's not-yet-cooked plan. Their remaining
+  // already nets out pre-planned servings.
+  const [pickInventory, setPickInventory] = useState([]);
+
+  useEffect(() => {
+    if (!addingTo || !userId) return;
+    let cancelled = false;
+    setPickInventory(inventory);
+    getFridgeInventory(userId, 10, { includePlannedUntil: addingTo.date })
+      .then(list => { if (!cancelled) setPickInventory(list); });
+    return () => { cancelled = true; };
+  }, [addingTo?.date, addingTo?.slot, userId]);
   const [editingMeal, setEditingMeal] = useState(null); // meal_event being edited
   const [editServings, setEditServings] = useState(1);
 
@@ -335,7 +349,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         visible={!!addingTo}
         onClose={() => setAddingTo(null)}
         slotLabel={addingTo ? `${SLOTS.find(s => s.key === addingTo.slot)?.label} on ${formatDayLabel(addingTo.date)}` : ''}
-        inventory={inventory}
+        inventory={addingTo ? pickInventory : inventory}
         recipes={recipes}
         eatDate={addingTo?.date}
         onPickFromFridge={handleAddFromFridge}
@@ -829,8 +843,10 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.mealTitle}>{title}</Text>
-                        <Text style={styles.mealSubtitle}>
-                          {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} left • cooked {entry.daysOld === 0 ? 'today' : entry.daysOld === 1 ? 'yesterday' : `${entry.daysOld}d ago`}
+                        <Text style={[styles.mealSubtitle, entry.isPlanned && { color: colors.primary, fontWeight: '600' }]}>
+                          {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} {entry.isPlanned ? 'planned' : 'left'} • {entry.isPlanned
+                            ? `cooking ${formatDayLabel(entry.cookEvent.cook_date)}`
+                            : `cooked ${entry.daysOld === 0 ? 'today' : entry.daysOld === 1 ? 'yesterday' : `${entry.daysOld}d ago`}`}
                         </Text>
                       </View>
                     </TouchableOpacity>

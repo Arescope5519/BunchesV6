@@ -249,11 +249,19 @@ export const createFridgeAdjustment = async (userId, { cookEventId, adjustmentTy
  * Get the current fridge inventory - all cook events with servings remaining.
  * Returns array of: {cookEvent, remaining, daysOld, mealEventsCount}
  */
-export const getFridgeInventory = async (userId, lookbackDays = 10) => {
+/**
+ * @param {object} [options]
+ * @param {string|null} [options.includePlannedUntil] - also include
+ *   FUTURE planned cook events with cook_date <= this date (for
+ *   planning a meal against something not cooked yet). Their remaining
+ *   already nets out any servings pre-planned against them, so when
+ *   the cook happens it lands in the fridge pre-decremented.
+ */
+export const getFridgeInventory = async (userId, lookbackDays = 10, { includePlannedUntil = null } = {}) => {
   try {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - lookbackDays);
-    const startDateStr = startDate.toISOString().split('T')[0];
+    const startDateStr = toDateString(startDate);
 
     // Fetch all cook events in window
     const { data: cookEvents, error: cookErr } = await supabase
@@ -292,7 +300,7 @@ export const getFridgeInventory = async (userId, lookbackDays = 10) => {
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = toDateString(now);
 
     return cookEvents
       .map(cook => {
@@ -300,7 +308,7 @@ export const getFridgeInventory = async (userId, lookbackDays = 10) => {
         const consumed = consumedByCook[cook.id] || 0;
         const adjusted = adjustedByCook[cook.id] || 0;
         const remaining = produced - consumed - adjusted;
-        const cookDate = new Date(cook.cook_date);
+        const cookDate = parseLocalDate(cook.cook_date);
         cookDate.setHours(0, 0, 0, 0);
         const daysOld = Math.max(0, Math.floor((now - cookDate) / (1000 * 60 * 60 * 24)));
         const isPlanned = cook.cook_date > todayStr; // date is future
@@ -313,8 +321,12 @@ export const getFridgeInventory = async (userId, lookbackDays = 10) => {
           isPlanned,
         };
       })
-      // Only show items with remaining servings AND that have been cooked (not future plans)
-      .filter(entry => entry.remaining > 0 && !entry.isPlanned);
+      // Only items with remaining servings; future plans only when the
+      // caller asked for them (and only up to the date being planned)
+      .filter(entry =>
+        entry.remaining > 0 &&
+        (!entry.isPlanned || (includePlannedUntil && entry.cookEvent.cook_date <= includePlannedUntil))
+      );
   } catch (err) {
     console.error('❌ getFridgeInventory error:', err);
     return [];
