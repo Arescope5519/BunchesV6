@@ -473,7 +473,9 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         cookEvents={cookEvents}
         recipes={recipes}
         findRecipe={findRecipe}
-        onLoaded={(created) => setCookEvents(prev => [...prev, ...created])}
+        onLoaded={(created, { replace } = {}) =>
+          setCookEvents(prev => (replace ? created : [...prev, ...created]))
+        }
       />
     </View>
   );
@@ -526,6 +528,40 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
     }
   };
 
+  const runLoad = async (template, usable, { replace }) => {
+    setLoadingId(template.id);
+
+    // Replace: clear the open week's planned meals first (takeout
+    // entries aren't in this list and are left alone)
+    if (replace) {
+      await Promise.all(cookEvents.map(e => deleteCookEvent(e.id)));
+    }
+
+    const created = [];
+    // Append after each day's remaining meals, in template order
+    const dayCounts = {};
+    if (!replace) {
+      cookEvents.forEach(e => {
+        dayCounts[e.cook_date] = (dayCounts[e.cook_date] || 0) + 1;
+      });
+    }
+    for (const meal of usable) {
+      const cookDate = addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6));
+      const sortOrder = dayCounts[cookDate] || 0;
+      dayCounts[cookDate] = sortOrder + 1;
+      const event = await createCookEvent(userId, {
+        cookDate,
+        recipeId: meal.recipeId,
+        servingsProduced: meal.servings,
+        sortOrder,
+      });
+      if (event) created.push(event);
+    }
+    setLoadingId(null);
+    onLoaded(created, { replace });
+    onClose();
+  };
+
   const handleLoad = (template) => {
     const meals = Array.isArray(template.meals) ? template.meals : [];
     const usable = meals.filter(m => findRecipe(m.recipeId));
@@ -536,36 +572,18 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
     }
     Alert.alert(
       'Load Template',
-      `Add ${usable.length} meal${usable.length !== 1 ? 's' : ''} to the week of ${parseLocalDate(weekStart).toLocaleDateString()}?` +
+      `Load ${usable.length} meal${usable.length !== 1 ? 's' : ''} into the week of ${parseLocalDate(weekStart).toLocaleDateString()}?` +
         (skipped > 0 ? `\n\n${skipped} meal${skipped !== 1 ? 's' : ''} will be skipped (recipe no longer exists).` : ''),
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Load',
-          onPress: async () => {
-            setLoadingId(template.id);
-            const created = [];
-            // Append after each day's existing meals, in template order
-            const dayCounts = {};
-            cookEvents.forEach(e => {
-              dayCounts[e.cook_date] = (dayCounts[e.cook_date] || 0) + 1;
-            });
-            for (const meal of usable) {
-              const cookDate = addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6));
-              const sortOrder = dayCounts[cookDate] || 0;
-              dayCounts[cookDate] = sortOrder + 1;
-              const event = await createCookEvent(userId, {
-                cookDate,
-                recipeId: meal.recipeId,
-                servingsProduced: meal.servings,
-                sortOrder,
-              });
-              if (event) created.push(event);
-            }
-            setLoadingId(null);
-            onLoaded(created);
-            onClose();
-          },
+          text: 'Replace Week',
+          style: 'destructive',
+          onPress: () => runLoad(template, usable, { replace: true }),
+        },
+        {
+          text: 'Add to Week',
+          onPress: () => runLoad(template, usable, { replace: false }),
         },
       ]
     );
