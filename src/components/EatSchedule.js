@@ -849,11 +849,23 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.mealTitle}>{title}</Text>
-                        <Text style={[styles.mealSubtitle, entry.isPlanned && { color: colors.primary, fontWeight: '600' }]}>
-                          {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} {entry.isPlanned ? 'planned' : 'left'} • {entry.isPlanned
-                            ? `cooking ${formatDayLabel(entry.cookEvent.cook_date)}`
-                            : `cooked ${entry.daysOld === 0 ? 'today' : entry.daysOld === 1 ? 'yesterday' : `${entry.daysOld}d ago`}`}
-                        </Text>
+                        {(() => {
+                          // Age AS OF the date being planned, not today -
+                          // eating Wednesday what was cooked Monday is 2d old
+                          const ageAtEat = eatDate
+                            ? Math.round((parseLocalDate(eatDate) - parseLocalDate(cook.cook_date)) / 86400000)
+                            : entry.daysOld;
+                          const ageText = ageAtEat <= 0
+                            ? 'cooked that day'
+                            : `will be ${ageAtEat}d old`;
+                          return (
+                            <Text style={[styles.mealSubtitle, entry.isPlanned && { color: colors.primary, fontWeight: '600' }]}>
+                              {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} {entry.isPlanned ? 'planned' : 'left'} • {entry.isPlanned
+                                ? `cooking ${formatDayLabel(cook.cook_date)}${ageAtEat > 0 ? ` (${ageAtEat}d old by then)` : ''}`
+                                : ageText}
+                            </Text>
+                          );
+                        })()}
                       </View>
                     </TouchableOpacity>
                   );
