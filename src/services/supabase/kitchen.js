@@ -136,7 +136,9 @@ export const getMealEvents = async (userId, startDate, endDate) => {
       .eq('user_id', userId)
       .gte('meal_date', startDate)
       .lte('meal_date', endDate)
-      .order('meal_date', { ascending: true });
+      .order('meal_date', { ascending: true })
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (error) {
       console.error('❌ getMealEvents error:', error);
@@ -159,6 +161,7 @@ export const createMealEvent = async (userId, { mealDate, slot, cookEventId, ser
         slot,
         cook_event_id: cookEventId,
         servings_consumed: servingsConsumed || 1,
+        sort_order: sortOrder || 0,
       })
       .select()
       .single();
@@ -180,6 +183,7 @@ export const updateMealEvent = async (mealEventId, patch) => {
     if (patch.servingsConsumed !== undefined) dbPatch.servings_consumed = patch.servingsConsumed;
     if (patch.mealDate !== undefined) dbPatch.meal_date = patch.mealDate;
     if (patch.slot !== undefined) dbPatch.slot = patch.slot;
+    if (patch.sortOrder !== undefined) dbPatch.sort_order = patch.sortOrder;
 
     const { error } = await supabase
       .from('meal_events')

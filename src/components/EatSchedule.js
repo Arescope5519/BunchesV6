@@ -8,7 +8,7 @@
  *   - Take Out: enter takeout name + servings ordered/eaten (leftovers → fridge)
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
@@ -40,11 +42,12 @@ import {
   toDateString,
 } from '../services/supabase/kitchen';
 
-const SLOTS = [
-  { key: 'breakfast', label: 'Breakfast', icon: 'egg-outline' },
-  { key: 'lunch',     label: 'Lunch',     icon: 'fast-food-outline' },
-  { key: 'dinner',    label: 'Dinner',    icon: 'restaurant-outline' },
-];
+// Named meal slots (breakfast/lunch/dinner) were dropped from the UI -
+// not everyone's day fits them and they ate vertical space. Days hold
+// one ordered list instead (drag to arrange). The DB slot column stays
+// and new events write 'dinner' to satisfy any legacy constraint;
+// display ignores it.
+const MEAL_SLOT = 'dinner';
 
 const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const [weekStart, setWeekStart] = useState(getWeekStart());
@@ -118,8 +121,197 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
     return map;
   }, [inventory, allCookEvents]);
 
-  const mealsForSlot = (date, slot) =>
-    mealEvents.filter(m => m.meal_date === date && m.slot === slot);
+  const byDayOrder = (a, b) =>
+    (a.sort_order || 0) - (b.sort_order || 0) ||
+    String(a.created_at || '').localeCompare(String(b.created_at || ''));
+
+  const mealsForDate = (date) =>
+    mealEvents.filter(m => m.meal_date === date).sort(byDayOrder);
+
+  // ---- Drag & drop (same pattern as CookSchedule): long-press a meal,
+  // drop on another meal to swap (same day = order, other day = days),
+  // drop on a day's Add slot to move it there. A meal can never land
+  // before its food's cook date. ----
+  const [dragging, setDragging] = useState(null);
+  const [hoverKey, setHoverKey] = useState(null);
+  const draggingRef = useRef(null);
+  const hoverKeyRef = useRef(null);
+  const targetsRef = useRef({});
+  const rectsRef = useRef([]);
+  const containerOriginRef = useRef({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+  const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const scrollRef = useRef(null);
+  const scrollWrapRef = useRef(null);
+  const scrollOffsetRef = useRef(0);
+  const dragStartOffsetRef = useRef(0);
+  const scrollAreaRef = useRef({ y: 0, height: 0 });
+  const contentSizeRef = useRef({ h: 0, viewH: 0 });
+  const autoScrollDirRef = useRef(0);
+  const autoScrollTimerRef = useRef(null);
+  const lastFingerRef = useRef({ x: 0, y: 0 });
+
+  const stopAutoScroll = () => {
+    autoScrollDirRef.current = 0;
+    if (autoScrollTimerRef.current) {
+      clearInterval(autoScrollTimerRef.current);
+      autoScrollTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => stopAutoScroll, []);
+
+  const registerTarget = (key, info) => (node) => {
+    if (node) targetsRef.current[key] = { ...info, node };
+    else delete targetsRef.current[key];
+  };
+
+  const computeHover = (x, y) => {
+    const dragged = draggingRef.current;
+    if (!dragged) return;
+    const scrollDelta = scrollOffsetRef.current - dragStartOffsetRef.current;
+    const hit = rectsRef.current.find(r =>
+      x >= r.x && x <= r.x + r.w &&
+      y >= r.y - scrollDelta && y <= r.y - scrollDelta + r.h
+    );
+    let key = null;
+    if (hit) {
+      if (hit.type === 'add' && hit.date !== dragged.meal_date) key = hit.key;
+      if (hit.type === 'meal' && hit.meal.id !== dragged.id) key = hit.key;
+    }
+    if (key !== hoverKeyRef.current) {
+      hoverKeyRef.current = key;
+      setHoverKey(key);
+    }
+  };
+
+  const setAutoScroll = (dir) => {
+    if (dir === autoScrollDirRef.current) return;
+    stopAutoScroll();
+    autoScrollDirRef.current = dir;
+    if (dir === 0) return;
+    autoScrollTimerRef.current = setInterval(() => {
+      const maxOffset = Math.max(0, contentSizeRef.current.h - contentSizeRef.current.viewH);
+      const next = Math.max(0, Math.min(maxOffset, scrollOffsetRef.current + autoScrollDirRef.current * 14));
+      if (next === scrollOffsetRef.current) return;
+      scrollOffsetRef.current = next;
+      scrollRef.current?.scrollTo({ y: next, animated: false });
+      computeHover(lastFingerRef.current.x, lastFingerRef.current.y);
+    }, 16);
+  };
+
+  const startDrag = (meal, pageX, pageY) => {
+    rectsRef.current = [];
+    Object.entries(targetsRef.current).forEach(([key, t]) => {
+      if (!t.node?.measureInWindow) return;
+      t.node.measureInWindow((x, y, w, h) => {
+        rectsRef.current.push({ key, type: t.type, date: t.date, meal: t.meal, x, y, w, h });
+      });
+    });
+    containerRef.current?.measureInWindow((x, y) => {
+      containerOriginRef.current = { x, y };
+    });
+    scrollWrapRef.current?.measureInWindow((x, y, w, h) => {
+      scrollAreaRef.current = { y, height: h };
+    });
+    dragStartOffsetRef.current = scrollOffsetRef.current;
+    draggingRef.current = meal;
+    hoverKeyRef.current = null;
+    dragPos.setValue({ x: pageX, y: pageY });
+    setDragging(meal);
+    setHoverKey(null);
+  };
+
+  const resetDrag = () => {
+    stopAutoScroll();
+    draggingRef.current = null;
+    hoverKeyRef.current = null;
+    setDragging(null);
+    setHoverKey(null);
+  };
+
+  // A meal can't be scheduled before the day its food gets cooked
+  const cookDateOf = (meal) => knownCookEvents[meal.cook_event_id]?.cook_date || null;
+  const violatesCookDate = (meal, newDate) => {
+    const cookDate = cookDateOf(meal);
+    return cookDate ? newDate < cookDate : false;
+  };
+
+  const commitDrag = async () => {
+    const dragged = draggingRef.current;
+    const key = hoverKeyRef.current;
+    const rect = key ? rectsRef.current.find(r => r.key === key) : null;
+    resetDrag();
+    if (!dragged || !rect) return;
+
+    if (rect.type === 'add') {
+      if (violatesCookDate(dragged, rect.date)) {
+        Alert.alert('Too Early', 'That meal\'s food isn\'t cooked until after this day.');
+        return;
+      }
+      const endOrder = mealEvents.filter(m => m.meal_date === rect.date && m.id !== dragged.id).length;
+      const ok = await updateMealEvent(dragged.id, { mealDate: rect.date, sortOrder: endOrder });
+      if (ok) {
+        setMealEvents(prev => prev.map(m =>
+          m.id === dragged.id ? { ...m, meal_date: rect.date, sort_order: endOrder } : m
+        ));
+      }
+    } else if (rect.type === 'meal' && rect.meal.meal_date === dragged.meal_date) {
+      // Same day: swap eating order, renumbering from displayed order
+      const other = rect.meal;
+      const day = mealEvents.filter(m => m.meal_date === dragged.meal_date).sort(byDayOrder);
+      const i = day.findIndex(m => m.id === dragged.id);
+      const j = day.findIndex(m => m.id === other.id);
+      if (i === -1 || j === -1) return;
+      [day[i], day[j]] = [day[j], day[i]];
+      const results = await Promise.all(day.map((m, idx) => updateMealEvent(m.id, { sortOrder: idx })));
+      if (results.every(Boolean)) {
+        setMealEvents(prev => prev.map(m => {
+          const idx = day.findIndex(d => d.id === m.id);
+          return idx === -1 ? m : { ...m, sort_order: idx };
+        }));
+      }
+    } else if (rect.type === 'meal') {
+      // Another day: the two meals swap days (and slots)
+      const other = rect.meal;
+      if (violatesCookDate(dragged, other.meal_date) || violatesCookDate(other, dragged.meal_date)) {
+        Alert.alert('Too Early', 'One of these meals would land before its food is cooked.');
+        return;
+      }
+      const [a, b] = await Promise.all([
+        updateMealEvent(dragged.id, { mealDate: other.meal_date, sortOrder: other.sort_order || 0 }),
+        updateMealEvent(other.id, { mealDate: dragged.meal_date, sortOrder: dragged.sort_order || 0 }),
+      ]);
+      if (a && b) {
+        setMealEvents(prev => prev.map(m => {
+          if (m.id === dragged.id) return { ...m, meal_date: other.meal_date, sort_order: other.sort_order || 0 };
+          if (m.id === other.id) return { ...m, meal_date: dragged.meal_date, sort_order: dragged.sort_order || 0 };
+          return m;
+        }));
+      }
+    }
+  };
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponderCapture: () => !!draggingRef.current,
+    onPanResponderMove: (_evt, gesture) => {
+      if (!draggingRef.current) return;
+      dragPos.setValue({ x: gesture.moveX, y: gesture.moveY });
+      lastFingerRef.current = { x: gesture.moveX, y: gesture.moveY };
+      computeHover(gesture.moveX, gesture.moveY);
+      const EDGE = 90;
+      const area = scrollAreaRef.current;
+      let dir = 0;
+      if (area.height > 0) {
+        if (gesture.moveY < area.y + EDGE) dir = -1;
+        else if (gesture.moveY > area.y + area.height - EDGE) dir = 1;
+      }
+      setAutoScroll(dir);
+    },
+    onPanResponderRelease: () => { commitDrag(); },
+    onPanResponderTerminate: () => { resetDrag(); },
+  })).current;
 
   const shiftWeek = (deltaDays) => {
     const d = parseLocalDate(weekStart);
@@ -133,6 +325,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       slot: addingTo.slot,
       cookEventId: entry.cookEvent.id,
       servingsConsumed: servingsToEat,
+      sortOrder: mealsForDate(addingTo.date).length,
     });
     if (created) {
       setMealEvents([...mealEvents, created]);
@@ -165,6 +358,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       slot: addingTo.slot,
       cookEventId: cook.id,
       servingsConsumed: servingsEaten,
+      sortOrder: mealsForDate(addingTo.date).length,
     });
     if (!meal) {
       Alert.alert('Error', 'Could not add the meal.');
@@ -189,6 +383,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       slot: addingTo.slot,
       cookEventId: cook.id,
       servingsConsumed: servingsEaten,
+      sortOrder: mealsForDate(addingTo.date).length,
     });
     if (meal) {
       setMealEvents([...mealEvents, meal]);
@@ -270,26 +465,41 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       }
     }
 
+    const isDragSource = dragging?.id === m.id;
+    const isSwapTarget = hoverKey === `mv:${m.id}`;
+    const swapLabel = dragging?.meal_date === m.meal_date ? 'Swap order' : 'Swap days';
+
     return (
+      // Wrapper carries the drop-target ref (Touchable refs aren't
+      // native views; Android needs collapsable={false} to measure)
+      <View key={m.id} ref={registerTarget(`mv:${m.id}`, { type: 'meal', meal: m })} collapsable={false}>
       <TouchableOpacity
-        key={m.id}
-        style={styles.mealItem}
-        onPress={() => recipe && onOpenRecipe?.(recipe)}
-        onLongPress={() => {
+        style={[
+          styles.mealItem,
+          isDragSource && { opacity: 0.35 },
+          isSwapTarget && { borderColor: colors.accentDark, backgroundColor: colors.accentLight, borderWidth: 1 },
+        ]}
+        onPress={() => {
           setEditingMeal(m);
           setEditServings(Number(m.servings_consumed) || 1);
         }}
-        delayLongPress={400}
+        onLongPress={(e) => startDrag(m, e.nativeEvent.pageX, e.nativeEvent.pageY)}
+        delayLongPress={150}
       >
-        {recipe?.image_url ? (
-          <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
-        ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder]}>
-            <Ionicons name={icon} size={18} color={colors.primary} />
-          </View>
-        )}
+        <TouchableOpacity
+          onPress={() => recipe && onOpenRecipe?.(recipe)}
+          disabled={!recipe}
+        >
+          {recipe?.image_url ? (
+            <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+          ) : (
+            <View style={[styles.thumb, styles.thumbPlaceholder]}>
+              <Ionicons name={icon} size={18} color={colors.primary} />
+            </View>
+          )}
+        </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.mealTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.mealTitle} numberOfLines={1}>{isSwapTarget ? swapLabel : title}</Text>
           <Text style={styles.mealSubtitle}>{subtitle}</Text>
         </View>
         <TouchableOpacity
@@ -300,11 +510,12 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
           <Text style={styles.removeButtonText}>×</Text>
         </TouchableOpacity>
       </TouchableOpacity>
+      </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} ref={containerRef} {...panResponder.panHandlers}>
       {/* Week Navigation */}
       <View style={styles.weekNav}>
         <TouchableOpacity onPress={() => shiftWeek(-7)} style={styles.weekNavButton}>
@@ -324,37 +535,69 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
+        <View ref={scrollWrapRef} collapsable={false} style={{ flex: 1 }}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
+          scrollEnabled={!dragging}
+          scrollEventThrottle={16}
+          onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
+          onContentSizeChange={(_w, h) => { contentSizeRef.current.h = h; }}
+          onLayout={(e) => { contentSizeRef.current.viewH = e.nativeEvent.layout.height; }}
+        >
           {visibleDays.map(date => (
             <View key={date} style={styles.dayCard}>
               <Text style={styles.dayLabel}>{formatDayLabel(date)}</Text>
-              {SLOTS.map(slot => (
-                <View key={slot.key} style={styles.slot}>
-                  <View style={styles.slotHeader}>
-                    <View style={styles.slotLabelRow}>
-                <Ionicons name={slot.icon} size={15} color={colors.text} style={{ marginRight: 5 }} />
-                <Text style={styles.slotLabel}>{slot.label}</Text>
+              {mealsForDate(date).map(renderMealItem)}
+              <View ref={registerTarget(`add:${date}`, { type: 'add', date })} collapsable={false}>
+                <TouchableOpacity
+                  style={[
+                    styles.addButton,
+                    hoverKey === `add:${date}` && { borderColor: colors.primary, borderStyle: 'solid', backgroundColor: colors.primaryLight },
+                  ]}
+                  onPress={() => setAddingTo({ date, slot: MEAL_SLOT })}
+                >
+                  <Text style={[styles.addButtonText, hoverKey === `add:${date}` && { color: colors.primary, fontWeight: '700' }]}>
+                    {hoverKey === `add:${date}` ? 'Move here' : '+ Add a meal'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-                  </View>
-                  {mealsForSlot(date, slot.key).map(renderMealItem)}
-                  <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setAddingTo({ date, slot: slot.key })}
-                  >
-                    <Text style={styles.addButtonText}>+ Add meal</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
             </View>
           ))}
         </ScrollView>
+        </View>
+      )}
+
+      {/* Ghost of the dragged meal following the finger */}
+      {dragging && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.dragGhost,
+            {
+              transform: [
+                { translateX: Animated.subtract(dragPos.x, containerOriginRef.current.x + 110) },
+                { translateY: Animated.subtract(dragPos.y, containerOriginRef.current.y + 24) },
+              ],
+            },
+          ]}
+        >
+          <Ionicons name="restaurant" size={14} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.dragGhostText} numberOfLines={1}>
+            {(() => {
+              const cook = knownCookEvents[dragging.cook_event_id];
+              if (cook?.is_takeout) return cook.takeout_name || 'Takeout';
+              return findRecipe(cook?.recipe_id)?.title || 'Meal';
+            })()}
+          </Text>
+        </Animated.View>
       )}
 
       {/* Add Meal Picker */}
       <AddMealModal
         visible={!!addingTo}
         onClose={() => setAddingTo(null)}
-        slotLabel={addingTo ? `${SLOTS.find(s => s.key === addingTo.slot)?.label} on ${formatDayLabel(addingTo.date)}` : ''}
+        slotLabel={addingTo ? `Meal on ${formatDayLabel(addingTo.date)}` : ''}
         inventory={addingTo ? pickInventory : inventory}
         recipes={recipes}
         eatDate={addingTo?.date}
@@ -982,6 +1225,27 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
 };
 
 const styles = StyleSheet.create({
+  dragGhost: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 100,
+  },
+  dragGhostText: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.text },
   container: { flex: 1, backgroundColor: colors.background },
   weekNav: {
     flexDirection: 'row',
