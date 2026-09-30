@@ -241,6 +241,12 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekEnd = weekDays[6];
 
+  // Planning looks forward: the current week starts at today. Weeks
+  // navigated back to are history and stay fully visible.
+  const todayStr = toDateString(new Date());
+  const isCurrentWeek = weekDays.includes(todayStr);
+  const visibleDays = isCurrentWeek ? weekDays.filter(d => d >= todayStr) : weekDays;
+
   const loadCookEvents = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -350,7 +356,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
           onContentSizeChange={(_w, h) => { contentSizeRef.current.h = h; }}
           onLayout={(e) => { contentSizeRef.current.viewH = e.nativeEvent.layout.height; }}
         >
-          {weekDays.map(date => {
+          {visibleDays.map(date => {
             const events = cookEventsForDate(date);
             return (
               <View key={date} style={styles.dayRow}>
@@ -474,7 +480,12 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         recipes={recipes}
         findRecipe={findRecipe}
         onLoaded={(created, { replace } = {}) =>
-          setCookEvents(prev => (replace ? created : [...prev, ...created]))
+          setCookEvents(prev => {
+            if (!replace) return [...prev, ...created];
+            // Replace cleared only today-forward; keep past days
+            const todayStr = toDateString(new Date());
+            return [...prev.filter(e => e.cook_date < todayStr), ...created];
+          })
         }
       />
     </View>
@@ -530,11 +541,15 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
 
   const runLoad = async (template, usable, { replace }) => {
     setLoadingId(template.id);
+    const todayStr = toDateString(new Date());
 
-    // Replace: clear the open week's planned meals first (takeout
-    // entries aren't in this list and are left alone)
+    // Replace: clear the open week's REMAINING planned meals (past
+    // days are history - already-cooked events and their fridge math
+    // stay; takeout entries aren't in this list and are left alone)
     if (replace) {
-      await Promise.all(cookEvents.map(e => deleteCookEvent(e.id)));
+      await Promise.all(
+        cookEvents.filter(e => e.cook_date >= todayStr).map(e => deleteCookEvent(e.id))
+      );
     }
 
     const created = [];
@@ -547,6 +562,8 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
     }
     for (const meal of usable) {
       const cookDate = addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6));
+      // Only what's left of the week: days already past are skipped
+      if (cookDate < todayStr) continue;
       const sortOrder = dayCounts[cookDate] || 0;
       dayCounts[cookDate] = sortOrder + 1;
       const event = await createCookEvent(userId, {
@@ -564,15 +581,28 @@ const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recip
 
   const handleLoad = (template) => {
     const meals = Array.isArray(template.meals) ? template.meals : [];
-    const usable = meals.filter(m => findRecipe(m.recipeId));
-    const skipped = meals.length - usable.length;
+    const todayStr = toDateString(new Date());
+    const withRecipes = meals.filter(m => findRecipe(m.recipeId));
+    // Only what's left of the viewed week loads - meals landing on
+    // days already past are skipped
+    const usable = withRecipes.filter(m =>
+      addDays(weekStart, Math.min(Math.max(m.dayOffset, 0), 6)) >= todayStr
+    );
+    const skipped = meals.length - withRecipes.length;
+    const pastSkipped = withRecipes.length - usable.length;
     if (usable.length === 0) {
-      Alert.alert('Nothing to Load', 'None of this template\'s recipes exist in your cookbook anymore.');
+      Alert.alert(
+        'Nothing to Load',
+        pastSkipped > 0
+          ? 'All of this template\'s meals would land on days that have already passed this week.'
+          : 'None of this template\'s recipes exist in your cookbook anymore.'
+      );
       return;
     }
     Alert.alert(
       'Load Template',
-      `Load ${usable.length} meal${usable.length !== 1 ? 's' : ''} into the week of ${parseLocalDate(weekStart).toLocaleDateString()}?` +
+      `Load ${usable.length} meal${usable.length !== 1 ? 's' : ''} into the rest of this week?` +
+        (pastSkipped > 0 ? `\n\n${pastSkipped} meal${pastSkipped !== 1 ? 's' : ''} fall on days already passed and will be skipped.` : '') +
         (skipped > 0 ? `\n\n${skipped} meal${skipped !== 1 ? 's' : ''} will be skipped (recipe no longer exists).` : ''),
       [
         { text: 'Cancel', style: 'cancel' },

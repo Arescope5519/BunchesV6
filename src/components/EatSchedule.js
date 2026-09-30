@@ -73,6 +73,12 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekEnd = weekDays[6];
 
+  // Planning looks forward: the current week starts at today. Weeks
+  // navigated back to are history and stay fully visible.
+  const todayStr = toDateString(new Date());
+  const isCurrentWeek = weekDays.includes(todayStr);
+  const visibleDays = isCurrentWeek ? weekDays.filter(d => d >= todayStr) : weekDays;
+
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -319,7 +325,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
-          {weekDays.map(date => (
+          {visibleDays.map(date => (
             <View key={date} style={styles.dayCard}>
               <Text style={styles.dayLabel}>{formatDayLabel(date)}</Text>
               {SLOTS.map(slot => (
