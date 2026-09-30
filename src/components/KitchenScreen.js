@@ -20,6 +20,7 @@ import { GroceryList } from './GroceryList';
 import CookSchedule from './CookSchedule';
 import EatSchedule from './EatSchedule';
 import FridgeView from './FridgeView';
+import { getWeekStart } from '../services/supabase/kitchen';
 
 const TABS = [
   { key: 'cook',   label: 'Cook',   icon: 'flame',      premium: true },
@@ -55,6 +56,9 @@ const KitchenScreen = ({
 }) => {
   // Free users default to Shop tab; premium users can default to Cook
   const [activeTab, setActiveTab] = useState(isPremium ? 'cook' : 'shop');
+  // Shared between the Cook and Eat tabs so switching tabs stays on the
+  // same week instead of resetting to the current one
+  const [weekStart, setWeekStart] = useState(getWeekStart());
 
   useEffect(() => {
     // If user's premium status changes mid-session, keep them on their current tab
@@ -112,6 +116,8 @@ const KitchenScreen = ({
           recipes={recipes}
           onOpenRecipe={onOpenRecipe}
           onAddItemsToGroceryList={onAddItemsToGroceryList}
+          weekStart={weekStart}
+          onChangeWeek={setWeekStart}
         />
       );
     }
@@ -121,6 +127,8 @@ const KitchenScreen = ({
           userId={userId}
           recipes={recipes}
           onOpenRecipe={onOpenRecipe}
+          weekStart={weekStart}
+          onChangeWeek={setWeekStart}
         />
       );
     }

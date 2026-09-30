@@ -49,8 +49,12 @@ const addDays = (dateStr, n) => {
 const dayOffsetOf = (dateStr, weekStartStr) =>
   Math.round((parseLocalDate(dateStr) - parseLocalDate(weekStartStr)) / 86400000);
 
-const CookSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
-  const [weekStart, setWeekStart] = useState(getWeekStart());
+const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartProp, onChangeWeek }) => {
+  // Controlled by KitchenScreen when provided, so Cook and Eat share
+  // the same viewed week; falls back to local state when standalone
+  const [localWeekStart, setLocalWeekStart] = useState(getWeekStart());
+  const weekStart = weekStartProp || localWeekStart;
+  const setWeekStart = onChangeWeek || setLocalWeekStart;
   const [cookEvents, setCookEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [pickerDate, setPickerDate] = useState(null);

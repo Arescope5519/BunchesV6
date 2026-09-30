@@ -49,8 +49,12 @@ import {
 // display ignores it.
 const MEAL_SLOT = 'dinner';
 
-const EatSchedule = ({ userId, recipes = [], onOpenRecipe }) => {
-  const [weekStart, setWeekStart] = useState(getWeekStart());
+const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartProp, onChangeWeek }) => {
+  // Controlled by KitchenScreen when provided, so Cook and Eat share
+  // the same viewed week; falls back to local state when standalone
+  const [localWeekStart, setLocalWeekStart] = useState(getWeekStart());
+  const weekStart = weekStartProp || localWeekStart;
+  const setWeekStart = onChangeWeek || setLocalWeekStart;
   const [mealEvents, setMealEvents] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [allCookEvents, setAllCookEvents] = useState([]); // For display lookup, includes empty-fridge items
