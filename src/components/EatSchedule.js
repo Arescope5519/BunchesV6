@@ -841,23 +841,62 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {mode === 'choose' && (
+          {mode === 'choose' && !pickedFridgeItem && (
             <ScrollView contentContainerStyle={{ padding: 16 }}>
-              <Text style={styles.chooseHelp}>How are you eating this meal?</Text>
+              {/* What's (or will be) in the fridge that day comes first -
+                  it's the most likely pick and saves a tap */}
+              <Text style={styles.chooseHelp}>In the fridge that day:</Text>
+              {inventory.length === 0 ? (
+                <Text style={{ padding: 20, color: colors.textSecondary, textAlign: 'center' }}>
+                  Nothing will be in the fridge that day.
+                </Text>
+              ) : (
+                inventory.map(entry => {
+                  const cook = entry.cookEvent;
+                  const recipe = !cook.is_takeout ? findRecipe(cook.recipe_id) : null;
+                  const title = cook.is_takeout ? (cook.takeout_name || 'Takeout') : (recipe?.title || 'Unknown');
+                  return (
+                    <TouchableOpacity
+                      key={cook.id}
+                      style={styles.fridgeItem}
+                      onPress={() => {
+                        setPickedFridgeItem(entry);
+                        setServingsToEat('1');
+                      }}
+                    >
+                      {recipe?.image_url ? (
+                        <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+                      ) : (
+                        <View style={[styles.thumb, styles.thumbPlaceholder]}>
+                          <Ionicons name={cook.is_takeout ? 'fast-food' : 'restaurant'} size={18} color={colors.primary} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.mealTitle}>{title}</Text>
+                        {(() => {
+                          // Age AS OF the date being planned, not today -
+                          // eating Wednesday what was cooked Monday is 2d old
+                          const ageAtEat = eatDate
+                            ? Math.round((parseLocalDate(eatDate) - parseLocalDate(cook.cook_date)) / 86400000)
+                            : entry.daysOld;
+                          const ageText = ageAtEat <= 0
+                            ? 'cooked that day'
+                            : `will be ${ageAtEat}d old`;
+                          return (
+                            <Text style={[styles.mealSubtitle, entry.isPlanned && { color: colors.primary, fontWeight: '600' }]}>
+                              {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} {entry.isPlanned ? 'planned' : 'left'} • {entry.isPlanned
+                                ? `cooking ${formatDayLabel(cook.cook_date)}${ageAtEat > 0 ? ` (${ageAtEat}d old by then)` : ''}`
+                                : ageText}
+                            </Text>
+                          );
+                        })()}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
 
-              <TouchableOpacity
-                style={styles.optionCard}
-                onPress={() => setMode('fridge')}
-              >
-                <Ionicons name="fast-food" size={22} color={colors.primary} style={styles.optionIcon} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.optionTitle}>From Fridge</Text>
-                  <Text style={styles.optionSubtitle}>
-                    {inventory.length === 0 ? 'Nothing cooked yet' : `${inventory.length} item${inventory.length !== 1 ? 's' : ''} available`}
-                  </Text>
-                </View>
-                <Text style={styles.optionArrow}>{'>'}</Text>
-              </TouchableOpacity>
+              <Text style={[styles.chooseHelp, { marginTop: 20 }]}>Or something new:</Text>
 
               <TouchableOpacity
                 style={styles.optionCard}
@@ -1063,65 +1102,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
             );
           })()}
 
-          {mode === 'fridge' && !pickedFridgeItem && (
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
-              <TouchableOpacity onPress={() => setMode('choose')}>
-                <Text style={styles.backLink}>{'< Back'}</Text>
-              </TouchableOpacity>
-              <Text style={styles.chooseHelp}>Pick from fridge:</Text>
-              {inventory.length === 0 ? (
-                <Text style={{ padding: 20, color: colors.textSecondary, textAlign: 'center' }}>
-                  Nothing in the fridge yet. Cook something first.
-                </Text>
-              ) : (
-                inventory.map(entry => {
-                  const cook = entry.cookEvent;
-                  const recipe = !cook.is_takeout ? findRecipe(cook.recipe_id) : null;
-                  const title = cook.is_takeout ? (cook.takeout_name || 'Takeout') : (recipe?.title || 'Unknown');
-                  return (
-                    <TouchableOpacity
-                      key={cook.id}
-                      style={styles.fridgeItem}
-                      onPress={() => {
-                        setPickedFridgeItem(entry);
-                        setServingsToEat('1');
-                      }}
-                    >
-                      {recipe?.image_url ? (
-                        <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
-                      ) : (
-                        <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                          <Ionicons name={cook.is_takeout ? 'fast-food' : 'restaurant'} size={18} color={colors.primary} />
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.mealTitle}>{title}</Text>
-                        {(() => {
-                          // Age AS OF the date being planned, not today -
-                          // eating Wednesday what was cooked Monday is 2d old
-                          const ageAtEat = eatDate
-                            ? Math.round((parseLocalDate(eatDate) - parseLocalDate(cook.cook_date)) / 86400000)
-                            : entry.daysOld;
-                          const ageText = ageAtEat <= 0
-                            ? 'cooked that day'
-                            : `will be ${ageAtEat}d old`;
-                          return (
-                            <Text style={[styles.mealSubtitle, entry.isPlanned && { color: colors.primary, fontWeight: '600' }]}>
-                              {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} {entry.isPlanned ? 'planned' : 'left'} • {entry.isPlanned
-                                ? `cooking ${formatDayLabel(cook.cook_date)}${ageAtEat > 0 ? ` (${ageAtEat}d old by then)` : ''}`
-                                : ageText}
-                            </Text>
-                          );
-                        })()}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-          )}
-
-          {mode === 'fridge' && pickedFridgeItem && (
+          {pickedFridgeItem && (
             <ScrollView contentContainerStyle={{ padding: 16 }}>
               <TouchableOpacity onPress={() => setPickedFridgeItem(null)}>
                 <Text style={styles.backLink}>{'< Back'}</Text>
