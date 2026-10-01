@@ -52,6 +52,8 @@ export const SettingsScreen = ({
   onToggleQuickLinkButton,
   printFontSize,
   onChangePrintFontSize,
+  showNutrition,
+  onToggleShowNutrition,
   isAdmin,
   onOpenAdminReports,
   onOpenBlockedUsers,
@@ -947,6 +949,21 @@ export const SettingsScreen = ({
                 style={styles.switchControl}
                 value={showQuickLinkButton || false}
                 onValueChange={onToggleQuickLinkButton}
+                trackColor={{ false: '#D1D5DB', true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Show Nutrition</Text>
+                <Text style={styles.settingDescription}>
+                  Show the nutrition panel at the bottom of recipes that include it
+                </Text>
+              </View>
+              <Switch
+                style={styles.switchControl}
+                value={showNutrition !== false}
+                onValueChange={onToggleShowNutrition}
                 trackColor={{ false: '#D1D5DB', true: colors.primary }}
                 thumbColor="#fff"
               />

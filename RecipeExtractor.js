@@ -105,6 +105,20 @@ export class RecipeExtractor {
         scored.map(s => `${s.source}=${Math.round(s.fitness)}`).join(' ')
       );
 
+      // Fitness judges ingredients/instructions, but losing tiers can
+      // still hold metadata the winner lacks - only JSON-LD carries
+      // nutrition, for instance. Backfill empty fields from the
+      // runners-up (in fitness order) so picking a better-parsed body
+      // never costs the nutrition panel, image, or times.
+      const BACKFILL_FIELDS = ['nutrition', 'image', 'servings', 'prep_time', 'cook_time', 'total_time'];
+      for (const other of scored.slice(1)) {
+        for (const field of BACKFILL_FIELDS) {
+          if (!best.data[field] && other.data[field]) {
+            best.data[field] = other.data[field];
+          }
+        }
+      }
+
       this.stats[best.statKey]++;
       delete best.data._repairs;
       return { success: true, data: best.data, source: best.source, fitness: best.fitness };

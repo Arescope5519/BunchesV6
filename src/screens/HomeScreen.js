@@ -199,6 +199,7 @@ export const HomeScreen = ({ user }) => {
   // Quick link button setting
   const [showQuickLinkButton, setShowQuickLinkButton] = useState(false);
   const [printFontSize, setPrintFontSize] = useState(14);
+  const [showNutrition, setShowNutrition] = useState(true);
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
   const [quickLinkUrl, setQuickLinkUrl] = useState('');
   const [quickLinkLoading, setQuickLinkLoading] = useState(false);
@@ -388,6 +389,9 @@ export const HomeScreen = ({ user }) => {
       if (settings.printFontSize !== undefined) {
         setPrintFontSize(settings.printFontSize);
       }
+      if (settings.showNutrition !== undefined) {
+        setShowNutrition(settings.showNutrition);
+      }
       // Check if user has seen welcome modal
       if (!hasCheckedWelcome && user && !settings.hasSeenWelcome) {
         setShowWelcomeModal(true);
@@ -425,6 +429,9 @@ export const HomeScreen = ({ user }) => {
     }
     if (key === 'printFontSize') {
       setPrintFontSize(value);
+    }
+    if (key === 'showNutrition') {
+      setShowNutrition(value);
     }
   };
 
@@ -3325,6 +3332,8 @@ export const HomeScreen = ({ user }) => {
           onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
           printFontSize={printFontSize}
           onChangePrintFontSize={(value) => updateAppSetting('printFontSize', value)}
+          showNutrition={showNutrition}
+          onToggleShowNutrition={(value) => updateAppSetting('showNutrition', value)}
           isAdmin={isAdmin}
           onOpenAdminReports={() => setShowAdminReports(true)}
           onOpenBlockedUsers={() => setShowBlockedUsers(true)}
@@ -4040,6 +4049,7 @@ export const HomeScreen = ({ user }) => {
                 dietaryPrefs={dietaryPrefs}
                 frequentTags={frequentTags}
                 userId={user?.uid}
+                showNutrition={showNutrition}
                 onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}

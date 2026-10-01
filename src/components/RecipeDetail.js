@@ -124,6 +124,7 @@ export const RecipeDetail = ({
   dietaryPrefs = null, // { diets: [...], avoid: [...] } from user profile
   frequentTags = [], // most-searched tags, passed down from HomeScreen
   userId = null, // for photo uploads on custom/scanned recipes
+  showNutrition = true, // Settings preference - hides the nutrition panel
 }) => {
   const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
@@ -1348,6 +1349,7 @@ export const RecipeDetail = ({
 
       {/* Nutrition - at the bottom, after instructions */}
       {(() => {
+        if (!showNutrition) return null;
         const items = buildNutritionItems(localRecipe.nutrition, scaleFactor);
         if (items.length === 0) return null;
 
