@@ -163,8 +163,23 @@ export const RecipeDetail = ({
   // Scaling and conversion state
   const [scaleFactor, setScaleFactor] = useState(1);
   const [useMetric, setUseMetric] = useState(false);
-  const [parsedIngredients, setParsedIngredients] = useState(null);
-  const [displayedIngredients, setDisplayedIngredients] = useState(null);
+  // Parsed synchronously so the first paint already has the ingredient
+  // list - starting these at null made ingredients pop in two effect
+  // passes after mount, visibly shoving the instructions down
+  const [parsedIngredients, setParsedIngredients] = useState(() => {
+    try {
+      return parseRecipeIngredients(normalizeRecipe(recipe).ingredients);
+    } catch (e) {
+      return { main: [] };
+    }
+  });
+  const [displayedIngredients, setDisplayedIngredients] = useState(() => {
+    try {
+      return scaleRecipeIngredients(parseRecipeIngredients(normalizeRecipe(recipe).ingredients), 1);
+    } catch (e) {
+      return null;
+    }
+  });
   const [scaledInstructions, setScaledInstructions] = useState(null);
 
   // Editing state

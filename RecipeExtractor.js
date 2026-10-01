@@ -119,6 +119,11 @@ export class RecipeExtractor {
         }
       }
 
+      console.log(
+        '[RecipeExtractor] winner:', best.source,
+        '| nutrition:', best.data.nutrition ? Object.keys(best.data.nutrition).join(',') : 'NONE in any candidate'
+      );
+
       this.stats[best.statKey]++;
       delete best.data._repairs;
       return { success: true, data: best.data, source: best.source, fitness: best.fitness };
