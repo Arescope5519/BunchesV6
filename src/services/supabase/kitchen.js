@@ -151,7 +151,7 @@ export const getMealEvents = async (userId, startDate, endDate) => {
   }
 };
 
-export const createMealEvent = async (userId, { mealDate, slot, cookEventId, servingsConsumed }) => {
+export const createMealEvent = async (userId, { mealDate, slot, cookEventId, servingsConsumed, sortOrder }) => {
   try {
     const { data, error } = await supabase
       .from('meal_events')
