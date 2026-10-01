@@ -283,7 +283,7 @@ export const getFridgeInventory = async (userId, lookbackDays = 10, { includePla
     // Fetch meal events referencing these cook events
     const { data: mealEvents } = await supabase
       .from('meal_events')
-      .select('cook_event_id, servings_consumed')
+      .select('cook_event_id, servings_consumed, meal_date')
       .in('cook_event_id', cookEventIds);
 
     // Fetch fridge adjustments referencing these cook events
@@ -292,19 +292,26 @@ export const getFridgeInventory = async (userId, lookbackDays = 10, { includePla
       .select('cook_event_id, servings')
       .in('cook_event_id', cookEventIds);
 
-    // Group by cook_event_id
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const todayStr = toDateString(now);
+
+    // Group by cook_event_id. Consumption counts everything (that is
+    // what keeps planned meals pre-claimed); futureClaimed is the part
+    // held by today-forward planned meals, so callers can tell edible
+    // stock (remaining + futureClaimed) from unclaimed (remaining).
     const consumedByCook = {};
+    const claimedByCook = {};
     (mealEvents || []).forEach(m => {
       consumedByCook[m.cook_event_id] = (consumedByCook[m.cook_event_id] || 0) + Number(m.servings_consumed);
+      if (m.meal_date >= todayStr) {
+        claimedByCook[m.cook_event_id] = (claimedByCook[m.cook_event_id] || 0) + Number(m.servings_consumed);
+      }
     });
     const adjustedByCook = {};
     (adjustments || []).forEach(a => {
       adjustedByCook[a.cook_event_id] = (adjustedByCook[a.cook_event_id] || 0) + Number(a.servings);
     });
-
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const todayStr = toDateString(now);
 
     return cookEvents
       .map(cook => {
@@ -323,6 +330,7 @@ export const getFridgeInventory = async (userId, lookbackDays = 10, { includePla
           adjusted,
           daysOld,
           isPlanned,
+          futureClaimed: claimedByCook[cook.id] || 0,
         };
       })
       // Only items with remaining servings; future plans only when the
@@ -335,6 +343,53 @@ export const getFridgeInventory = async (userId, lookbackDays = 10, { includePla
     console.error('❌ getFridgeInventory error:', err);
     return [];
   }
+};
+
+/**
+ * Shrink a cook event's future planned meals to fit what is actually
+ * still edible. Walks today-forward meal_events for the cook event
+ * LATEST-FIRST, deleting (or trimming the last one touched) until
+ * their total claims <= availableForClaims.
+ * @returns {{ removed: number, trimmed: number }}
+ */
+export const reconcilePlannedMeals = async (userId, cookEventId, availableForClaims) => {
+  const result = { removed: 0, trimmed: 0 };
+  try {
+    const todayStr = toDateString(new Date());
+    const { data: planned, error } = await supabase
+      .from('meal_events')
+      .select('id, servings_consumed, meal_date, sort_order')
+      .eq('user_id', userId)
+      .eq('cook_event_id', cookEventId)
+      .gte('meal_date', todayStr)
+      .order('meal_date', { ascending: false })
+      .order('sort_order', { ascending: false });
+
+    if (error || !planned) return result;
+
+    let claimed = planned.reduce((sum, m) => sum + Number(m.servings_consumed), 0);
+    const budget = Math.max(0, Number(availableForClaims) || 0);
+
+    for (const meal of planned) {
+      if (claimed <= budget) break;
+      const excess = claimed - budget;
+      const servings = Number(meal.servings_consumed);
+      if (servings <= excess) {
+        if (await deleteMealEvent(meal.id)) {
+          claimed -= servings;
+          result.removed++;
+        }
+      } else {
+        if (await updateMealEvent(meal.id, { servingsConsumed: servings - excess })) {
+          claimed -= excess;
+          result.trimmed++;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('❌ reconcilePlannedMeals error:', err);
+  }
+  return result;
 };
 
 // -----------------------------------------------------------------------------
@@ -465,6 +520,7 @@ export default {
   deleteMealEvent,
   createFridgeAdjustment,
   getFridgeInventory,
+  reconcilePlannedMeals,
   getWeekStart,
   getWeekDays,
   formatDayLabel,

@@ -27,6 +27,7 @@ import {
   getFridgeInventory,
   createFridgeAdjustment,
   updateCookEvent,
+  reconcilePlannedMeals,
 } from '../services/supabase/kitchen';
 
 const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
@@ -73,32 +74,66 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
       }
       // For adjust mode we allow 0 (fully consumed / trashed already)
       if (a.mode === 'adjust' && next < 0.5) next = 0;
-      // For trash, cap at remaining
-      if (a.mode === 'trash') next = Math.min(next, a.entry.remaining);
+      // For trash, cap at edible stock (unclaimed + reserved-by-plans)
+      if (a.mode === 'trash') next = Math.min(next, a.entry.remaining + (a.entry.futureClaimed || 0));
       return { ...a, servings: Math.max(0, next) };
     });
+  };
+
+  const notifyReconciled = ({ removed, trimmed }) => {
+    if (removed === 0 && trimmed === 0) return;
+    const parts = [];
+    if (removed > 0) parts.push(`removed ${removed} planned meal${removed !== 1 ? 's' : ''}`);
+    if (trimmed > 0) parts.push(`reduced ${trimmed} planned meal${trimmed !== 1 ? 's' : ''}`);
+    Alert.alert(
+      'Eat Schedule Updated',
+      `There isn't enough left for everything planned, so the latest plans were cut first: ${parts.join(' and ')}.`
+    );
   };
 
   const confirmAction = async () => {
     if (!action) return;
     const { entry, mode, servings } = action;
+    const claimed = entry.futureClaimed || 0;
 
     if (mode === 'trash') {
       if (servings <= 0) {
         setAction(null);
         return;
       }
+      const edible = entry.remaining + claimed;
+      const toTrash = Math.min(servings, edible);
       const ok = await createFridgeAdjustment(userId, {
         cookEventId: entry.cookEvent.id,
         adjustmentType: 'spoiled',
-        servings: Math.min(servings, entry.remaining),
+        servings: toTrash,
       });
-      if (!ok) Alert.alert('Error', 'Could not update.');
+      if (!ok) {
+        Alert.alert('Error', 'Could not update.');
+      } else if (toTrash > entry.remaining) {
+        // Dipped into the reserved portion: shrink future planned
+        // meals (latest first) to what's still edible
+        const result = await reconcilePlannedMeals(
+          userId,
+          entry.cookEvent.id,
+          claimed - (toTrash - entry.remaining)
+        );
+        notifyReconciled(result);
+      }
     } else if (mode === 'adjust') {
-      // Update cook_event.servings_produced so that:
-      //   new_remaining = desired
-      //   new_produced = desired + consumed + adjusted (existing)
-      const newProduced = Number(servings) + entry.consumed + entry.adjusted;
+      // `servings` = what is PHYSICALLY left (unclaimed + reserved).
+      // Plans keep at most that; the rest of them gets cut.
+      const desired = Number(servings);
+      let keptClaims = Math.min(claimed, desired);
+      if (desired < claimed) {
+        const result = await reconcilePlannedMeals(userId, entry.cookEvent.id, desired);
+        notifyReconciled(result);
+      }
+      // new_remaining (unclaimed) = desired - keptClaims
+      // produced = remaining + consumed + adjusted, with consumed now
+      // (pastConsumed + keptClaims)
+      const pastConsumed = entry.consumed - claimed;
+      const newProduced = (desired - keptClaims) + (pastConsumed + keptClaims) + entry.adjusted;
       const ok = await updateCookEvent(entry.cookEvent.id, {
         servingsProduced: newProduced,
       });
@@ -156,6 +191,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                     </Text>
                     <Text style={styles.meta}>
                       {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} left
+                      {entry.futureClaimed > 0 ? ` + ${entry.futureClaimed} reserved for planned meals` : ''}
                     </Text>
                     <Text style={[styles.meta, isOld && { color: colors.error || '#e74c3c' }]}>
                       {cook.is_takeout ? 'Ordered' : 'Cooked'} {daysAgo}{isOld ? ' - check freshness' : ''}
@@ -205,9 +241,15 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
             </Text>
             <Text style={styles.modalHelp}>
               {action?.mode === 'trash'
-                ? `Currently ${action?.entry?.remaining} serving${action?.entry?.remaining !== 1 ? 's' : ''} in the fridge`
-                : `Adjust to what's actually left in the fridge`}
+                ? `Currently ${action?.entry?.remaining} serving${action?.entry?.remaining !== 1 ? 's' : ''} free` +
+                  ((action?.entry?.futureClaimed || 0) > 0 ? ` + ${action.entry.futureClaimed} reserved for planned meals` : '')
+                : `Set what's actually left (including servings reserved for planned meals)`}
             </Text>
+            {(action?.entry?.futureClaimed || 0) > 0 && (
+              <Text style={[styles.modalHelp, { color: colors.error }]}>
+                Going below the reserved amount trims planned meals, latest first.
+              </Text>
+            )}
 
             <View style={styles.servingsRow}>
               <TouchableOpacity
