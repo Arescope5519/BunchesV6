@@ -27,27 +27,19 @@ import {
   createCookEvent,
   updateCookEvent,
   deleteCookEvent,
-  getMealTemplates,
-  saveMealTemplate,
-  deleteMealTemplate,
   getWeekStart,
   getWeekDays,
   formatDayLabel,
   parseLocalDate,
   toDateString,
 } from '../services/supabase/kitchen';
-
-// Sunday-first, matching getWeekStart
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+import MealTemplatesModal from './MealTemplatesModal';
 
 const addDays = (dateStr, n) => {
   const d = parseLocalDate(dateStr);
   d.setDate(d.getDate() + n);
   return toDateString(d);
 };
-
-const dayOffsetOf = (dateStr, weekStartStr) =>
-  Math.round((parseLocalDate(dateStr) - parseLocalDate(weekStartStr)) / 86400000);
 
 const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartProp, onChangeWeek }) => {
   // Controlled by KitchenScreen when provided, so Cook and Eat share
@@ -474,286 +466,17 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
         dateLabel={pickerDate ? formatDayLabel(pickerDate) : ''}
       />
 
-      {/* Week templates: save the open week, browse, load */}
-      <TemplatesModal
+      {/* Week templates (shared with the Eat tab): the whole plan -
+          cooks AND the meals that eat from them - saves and loads as one */}
+      <MealTemplatesModal
         visible={showTemplates}
         onClose={() => setShowTemplates(false)}
         userId={userId}
         weekStart={weekStart}
-        cookEvents={cookEvents}
         recipes={recipes}
-        findRecipe={findRecipe}
-        onLoaded={(created, { replace } = {}) =>
-          setCookEvents(prev => {
-            if (!replace) return [...prev, ...created];
-            // Replace cleared only today-forward; keep past days
-            const todayStr = toDateString(new Date());
-            return [...prev.filter(e => e.cook_date < todayStr), ...created];
-          })
-        }
+        onChanged={loadCookEvents}
       />
     </View>
-  );
-};
-
-// -----------------------------------------------------------------------------
-// Templates - save the open week's cook plan under a name, browse saved
-// templates (expand to see the meals), load one into the open week
-// -----------------------------------------------------------------------------
-
-const TemplatesModal = ({ visible, onClose, userId, weekStart, cookEvents, recipes, findRecipe, onLoaded }) => {
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [loadingId, setLoadingId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-
-  useEffect(() => {
-    if (!visible || !userId) return;
-    setLoading(true);
-    getMealTemplates(userId)
-      .then(setTemplates)
-      .finally(() => setLoading(false));
-  }, [visible, userId]);
-
-  const handleSave = async () => {
-    const name = newName.trim();
-    if (!name) {
-      Alert.alert('Name Needed', 'Give this template a name first.');
-      return;
-    }
-    if (cookEvents.length === 0) {
-      Alert.alert('Empty Week', 'Add some meals to the week before saving it as a template.');
-      return;
-    }
-    setSaving(true);
-    const meals = cookEvents.map(e => ({
-      dayOffset: dayOffsetOf(e.cook_date, weekStart),
-      recipeId: e.recipe_id,
-      servings: e.servings_produced,
-    }));
-    const created = await saveMealTemplate(userId, name, meals);
-    setSaving(false);
-    if (created) {
-      setTemplates([created, ...templates]);
-      setNewName('');
-    } else {
-      Alert.alert('Error', 'Could not save the template. Please try again.');
-    }
-  };
-
-  const runLoad = async (template, usable, { replace }) => {
-    setLoadingId(template.id);
-    const todayStr = toDateString(new Date());
-
-    // Replace: clear the open week's REMAINING planned meals (past
-    // days are history - already-cooked events and their fridge math
-    // stay; takeout entries aren't in this list and are left alone)
-    if (replace) {
-      await Promise.all(
-        cookEvents.filter(e => e.cook_date >= todayStr).map(e => deleteCookEvent(e.id))
-      );
-    }
-
-    const created = [];
-    // Append after each day's remaining meals, in template order
-    const dayCounts = {};
-    if (!replace) {
-      cookEvents.forEach(e => {
-        dayCounts[e.cook_date] = (dayCounts[e.cook_date] || 0) + 1;
-      });
-    }
-    for (const meal of usable) {
-      const cookDate = addDays(weekStart, Math.min(Math.max(meal.dayOffset, 0), 6));
-      // Only what's left of the week: days already past are skipped
-      if (cookDate < todayStr) continue;
-      const sortOrder = dayCounts[cookDate] || 0;
-      dayCounts[cookDate] = sortOrder + 1;
-      const event = await createCookEvent(userId, {
-        cookDate,
-        recipeId: meal.recipeId,
-        servingsProduced: meal.servings,
-        sortOrder,
-      });
-      if (event) created.push(event);
-    }
-    setLoadingId(null);
-    onLoaded(created, { replace });
-    onClose();
-  };
-
-  const handleLoad = (template) => {
-    const meals = Array.isArray(template.meals) ? template.meals : [];
-    const todayStr = toDateString(new Date());
-    const withRecipes = meals.filter(m => findRecipe(m.recipeId));
-    // Only what's left of the viewed week loads - meals landing on
-    // days already past are skipped
-    const usable = withRecipes.filter(m =>
-      addDays(weekStart, Math.min(Math.max(m.dayOffset, 0), 6)) >= todayStr
-    );
-    const skipped = meals.length - withRecipes.length;
-    const pastSkipped = withRecipes.length - usable.length;
-    if (usable.length === 0) {
-      Alert.alert(
-        'Nothing to Load',
-        pastSkipped > 0
-          ? 'All of this template\'s meals would land on days that have already passed this week.'
-          : 'None of this template\'s recipes exist in your cookbook anymore.'
-      );
-      return;
-    }
-    Alert.alert(
-      'Load Template',
-      `Load ${usable.length} meal${usable.length !== 1 ? 's' : ''} into the rest of this week?` +
-        (pastSkipped > 0 ? `\n\n${pastSkipped} meal${pastSkipped !== 1 ? 's' : ''} fall on days already passed and will be skipped.` : '') +
-        (skipped > 0 ? `\n\n${skipped} meal${skipped !== 1 ? 's' : ''} will be skipped (recipe no longer exists).` : ''),
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Replace Week',
-          style: 'destructive',
-          onPress: () => runLoad(template, usable, { replace: true }),
-        },
-        {
-          text: 'Add to Week',
-          onPress: () => runLoad(template, usable, { replace: false }),
-        },
-      ]
-    );
-  };
-
-  const handleDeleteTemplate = (template) => {
-    Alert.alert(
-      'Delete Template',
-      `Delete "${template.name}"? This does not touch any planned weeks.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const ok = await deleteMealTemplate(template.id);
-            if (ok) setTemplates(templates.filter(t => t.id !== template.id));
-          },
-        },
-      ]
-    );
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.pickerContainer}>
-        <View style={styles.pickerHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.headerAction}>Close</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Week Templates</Text>
-          <View style={{ width: 60 }} />
-        </View>
-
-        <View style={styles.templateSaveCard}>
-          <Text style={styles.templateSaveLabel}>
-            Save this week ({cookEvents.length} meal{cookEvents.length !== 1 ? 's' : ''}) as a template
-          </Text>
-          <View style={styles.templateSaveRow}>
-            <TextInput
-              style={styles.templateNameInput}
-              placeholder="Template name (e.g. Busy Week)"
-              placeholderTextColor={colors.textSecondary}
-              value={newName}
-              onChangeText={setNewName}
-              maxLength={40}
-            />
-            <TouchableOpacity
-              style={[styles.templateSaveButton, (saving || cookEvents.length === 0) && { opacity: 0.5 }]}
-              onPress={handleSave}
-              disabled={saving || cookEvents.length === 0}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.templateSaveButtonText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
-          {loading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 30 }} />
-          ) : templates.length === 0 ? (
-            <View style={{ padding: 30, alignItems: 'center' }}>
-              <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                No templates yet. Plan a week you like, then save it here to reuse it any time.
-              </Text>
-            </View>
-          ) : (
-            templates.map(template => {
-              const meals = Array.isArray(template.meals) ? template.meals : [];
-              const expanded = expandedId === template.id;
-              return (
-                <View key={template.id} style={styles.templateCard}>
-                  <TouchableOpacity
-                    style={styles.templateCardHeader}
-                    onPress={() => setExpandedId(expanded ? null : template.id)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.templateName}>{template.name}</Text>
-                      <Text style={styles.templateMeta}>
-                        {meals.length} meal{meals.length !== 1 ? 's' : ''} · saved {new Date(template.created_at).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name={expanded ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-
-                  {expanded && (
-                    <View style={styles.templateDetail}>
-                      {[...meals]
-                        .sort((a, b) => a.dayOffset - b.dayOffset)
-                        .map((meal, i) => {
-                          const recipe = findRecipe(meal.recipeId);
-                          return (
-                            <Text key={i} style={[styles.templateDetailLine, !recipe && { color: colors.textTertiary }]}>
-                              {DAY_NAMES[Math.min(Math.max(meal.dayOffset, 0), 6)]}: {recipe?.title || '(recipe deleted)'}
-                              {meal.servings ? ` · ${meal.servings} serving${meal.servings !== 1 ? 's' : ''}` : ''}
-                            </Text>
-                          );
-                        })}
-                    </View>
-                  )}
-
-                  <View style={styles.templateActions}>
-                    <TouchableOpacity
-                      style={styles.templateLoadButton}
-                      onPress={() => handleLoad(template)}
-                      disabled={loadingId !== null}
-                    >
-                      {loadingId === template.id ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Text style={styles.templateLoadButtonText}>Load into This Week</Text>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.templateDeleteButton}
-                      onPress={() => handleDeleteTemplate(template)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={colors.error} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
   );
 };
 
@@ -1093,73 +816,6 @@ const styles = StyleSheet.create({
   },
   templatesButtonText: { fontSize: 13, fontWeight: '600', color: colors.primary },
 
-  // Templates modal
-  templateSaveCard: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  templateSaveLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 8 },
-  templateSaveRow: { flexDirection: 'row', alignItems: 'center' },
-  templateNameInput: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 14,
-    color: colors.text,
-    marginRight: 8,
-  },
-  templateSaveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minWidth: 64,
-    alignItems: 'center',
-  },
-  templateSaveButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  templateCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 10,
-    overflow: 'hidden',
-  },
-  templateCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-  },
-  templateName: { fontSize: 15, fontWeight: '700', color: colors.text },
-  templateMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  templateDetail: {
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-    paddingTop: 8,
-  },
-  templateDetailLine: { fontSize: 13, color: colors.text, marginBottom: 4 },
-  templateActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    paddingTop: 0,
-  },
-  templateLoadButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  templateLoadButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  templateDeleteButton: { padding: 6 },
 
   // Picker
   pickerContainer: { flex: 1, backgroundColor: colors.background },

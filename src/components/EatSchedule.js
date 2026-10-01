@@ -41,6 +41,7 @@ import {
   parseLocalDate,
   toDateString,
 } from '../services/supabase/kitchen';
+import MealTemplatesModal from './MealTemplatesModal';
 
 // Named meal slots (breakfast/lunch/dinner) were dropped from the UI -
 // not everyone's day fits them and they ate vertical space. Days hold
@@ -60,6 +61,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
   const [allCookEvents, setAllCookEvents] = useState([]); // For display lookup, includes empty-fridge items
   const [loading, setLoading] = useState(false);
   const [addingTo, setAddingTo] = useState(null); // { date, slot }
+  const [showTemplates, setShowTemplates] = useState(false);
   // Inventory for the date being planned: the regular fridge PLUS
   // future planned cooks up to that eat date, so Wednesday's meal can
   // be planned against Tuesday's not-yet-cooked plan. Their remaining
@@ -536,6 +538,15 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
         </TouchableOpacity>
       </View>
 
+      {/* Templates + drag hint bar */}
+      <View style={styles.toolBar}>
+        <Text style={styles.toolBarHint}>Hold & drag a meal to move it</Text>
+        <TouchableOpacity style={styles.templatesButton} onPress={() => setShowTemplates(true)}>
+          <Ionicons name="albums-outline" size={15} color={colors.primary} style={{ marginRight: 5 }} />
+          <Text style={styles.templatesButtonText}>Templates</Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
@@ -608,6 +619,16 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
         onPickFromFridge={handleAddFromFridge}
         onAddTakeout={handleAddTakeout}
         onAddCook={handleAddCook}
+      />
+
+      {/* Week templates (shared with the Cook tab) */}
+      <MealTemplatesModal
+        visible={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        userId={userId}
+        weekStart={weekStart}
+        recipes={recipes}
+        onChanged={load}
       />
 
       {/* Edit Meal Modal */}
@@ -1210,6 +1231,27 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
 };
 
 const styles = StyleSheet.create({
+  toolBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  toolBarHint: { fontSize: 12, color: colors.textTertiary },
+  templatesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  templatesButtonText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   dragGhost: {
     position: 'absolute',
     top: 0,
