@@ -27,6 +27,8 @@ import {
   createCookEvent,
   updateCookEvent,
   deleteCookEvent,
+  getCookEventBalance,
+  reconcilePlannedMeals,
   getWeekStart,
   getWeekDays,
   formatDayLabel,
@@ -51,6 +53,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
   const [loading, setLoading] = useState(false);
   const [pickerDate, setPickerDate] = useState(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [editing, setEditing] = useState(null); // { event, servings }
 
   // ---- Drag & drop (long-press a meal box, drop on another day) ----
   // Armed by onLongPress; a capture PanResponder on the container then
@@ -288,25 +291,60 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
     setPickerDate(null);
   };
 
-  const handleDelete = (cookEvent) => {
-    const recipe = findRecipe(cookEvent.recipe_id);
-    Alert.alert(
-      'Remove cook event?',
-      `${recipe?.title || 'Recipe'} on ${formatDayLabel(cookEvent.cook_date)}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            const ok = await deleteCookEvent(cookEvent.id);
-            if (ok) {
-              setCookEvents(cookEvents.filter(e => e.id !== cookEvent.id));
-            }
-          },
-        },
-      ]
-    );
+  // One tap deletes - no confirmation by request. Planned meals eating
+  // from this cook go with it (FK cascade), same as before.
+  const handleDelete = async (cookEvent) => {
+    const ok = await deleteCookEvent(cookEvent.id);
+    if (ok) {
+      setCookEvents(prev => prev.filter(e => e.id !== cookEvent.id));
+    } else {
+      Alert.alert('Error', 'Could not remove that meal. Try again.');
+    }
+  };
+
+  const changeEditServings = (delta) => {
+    setEditing(ed => {
+      if (!ed) return ed;
+      let next;
+      if (delta < 0) {
+        if (ed.servings <= 0.5) next = 0.5;
+        else if (ed.servings <= 1) next = 0.5;
+        else next = ed.servings - 1;
+      } else {
+        next = ed.servings === 0.5 ? 1 : ed.servings + 1;
+      }
+      return { ...ed, servings: next };
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const { event, servings } = editing;
+    setEditing(null);
+    if (servings === event.servings_produced) return;
+
+    const ok = await updateCookEvent(event.id, { servingsProduced: servings });
+    if (!ok) {
+      Alert.alert('Error', 'Could not update the servings. Try again.');
+      return;
+    }
+    setCookEvents(prev => prev.map(e =>
+      e.id === event.id ? { ...e, servings_produced: servings } : e
+    ));
+
+    // Fewer servings may no longer cover meals planned against this
+    // cook - trim those claims latest-first, like the fridge does
+    if (servings < event.servings_produced) {
+      const balance = await getCookEventBalance(event.id);
+      const budget = servings - balance.pastConsumed - balance.adjusted;
+      const res = await reconcilePlannedMeals(userId, event.id, budget);
+      if (res.removed || res.trimmed) {
+        const parts = [];
+        if (res.removed) parts.push(`removed ${res.removed} planned meal${res.removed !== 1 ? 's' : ''}`);
+        if (res.trimmed) parts.push(`reduced servings on ${res.trimmed}`);
+        Alert.alert('Planned meals updated', `Not enough servings left, so we ${parts.join(' and ')} (latest first).`);
+      }
+    }
   };
 
   const draggedRecipe = dragging ? findRecipe(dragging.recipe_id) : null;
@@ -399,9 +437,16 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
                         </Text>
                       </View>
                       <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => setEditing({ event, servings: event.servings_produced })}
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                      >
+                        <Ionicons name="pencil" size={13} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={styles.deleteButton}
                         onPress={() => handleDelete(event)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                       >
                         <Text style={styles.deleteButtonText}>×</Text>
                       </TouchableOpacity>
@@ -465,6 +510,55 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
         recipes={recipes}
         dateLabel={pickerDate ? formatDayLabel(pickerDate) : ''}
       />
+
+      {/* Servings editor (pencil on a meal box) */}
+      <Modal
+        visible={!!editing}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEditing(null)}
+      >
+        <View style={styles.configOverlay}>
+          <View style={styles.configCard}>
+            <Text style={styles.configTitle} numberOfLines={2}>
+              {editing ? (findRecipe(editing.event.recipe_id)?.title || 'Meal') : ''}
+            </Text>
+            <Text style={styles.configLabel}>Servings made</Text>
+            <View style={styles.servingsRow}>
+              <TouchableOpacity
+                style={[styles.servingsButton, editing?.servings <= 0.5 && { opacity: 0.4 }]}
+                onPress={() => changeEditServings(-1)}
+                disabled={editing?.servings <= 0.5}
+              >
+                <Text style={styles.servingsButtonText}>−</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', marginHorizontal: 20 }}>
+                <Text style={styles.servingsCount}>{editing?.servings}</Text>
+                <Text style={styles.servingsHint}>
+                  serving{editing?.servings !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.servingsButton}
+                onPress={() => changeEditServings(1)}
+              >
+                <Text style={styles.servingsButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.configHint}>
+              Going below what planned meals reserve trims those meals, latest first.
+            </Text>
+            <View style={styles.configActions}>
+              <TouchableOpacity style={styles.configCancel} onPress={() => setEditing(null)}>
+                <Text style={styles.configCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.configConfirm} onPress={saveEdit}>
+                <Text style={styles.configConfirmText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Week templates (shared with the Eat tab): the whole plan -
           cooks AND the meals that eat from them - saves and loads as one */}
@@ -742,6 +836,17 @@ const styles = StyleSheet.create({
   },
   cookTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
   cookMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  editButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
   deleteButton: {
     width: 24,
     height: 24,

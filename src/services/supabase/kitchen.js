@@ -245,6 +245,39 @@ export const createFridgeAdjustment = async (userId, { cookEventId, adjustmentTy
   }
 };
 
+/**
+ * Everything already counted against one cook event, split the way the
+ * fridge math needs it: pastConsumed is eaten-and-gone, futureClaimed
+ * is reserved by today-forward planned meals, adjusted is manual
+ * trash/decrease. Used when servings_produced is edited after the fact,
+ * so the caller can hand reconcilePlannedMeals the right claim budget
+ * (newProduced - pastConsumed - adjusted).
+ */
+export const getCookEventBalance = async (cookEventId) => {
+  const balance = { pastConsumed: 0, futureClaimed: 0, adjusted: 0 };
+  try {
+    const todayStr = toDateString(new Date());
+    const [{ data: meals }, { data: adjustments }] = await Promise.all([
+      supabase
+        .from('meal_events')
+        .select('servings_consumed, meal_date')
+        .eq('cook_event_id', cookEventId),
+      supabase
+        .from('fridge_adjustments')
+        .select('servings')
+        .eq('cook_event_id', cookEventId),
+    ]);
+    (meals || []).forEach(m => {
+      if (m.meal_date >= todayStr) balance.futureClaimed += Number(m.servings_consumed);
+      else balance.pastConsumed += Number(m.servings_consumed);
+    });
+    (adjustments || []).forEach(a => { balance.adjusted += Number(a.servings); });
+  } catch (err) {
+    console.error('❌ getCookEventBalance error:', err);
+  }
+  return balance;
+};
+
 // -----------------------------------------------------------------------------
 // Fridge Inventory (computed)
 // -----------------------------------------------------------------------------
@@ -520,6 +553,7 @@ export default {
   deleteMealEvent,
   createFridgeAdjustment,
   getFridgeInventory,
+  getCookEventBalance,
   reconcilePlannedMeals,
   getWeekStart,
   getWeekDays,
