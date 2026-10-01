@@ -1354,9 +1354,12 @@ export const RecipeDetail = ({
         if (items.length === 0) return null;
 
         const perServing = localRecipe.nutrition?.servingSize || null;
+        // Source nutrition is per serving; scaling multiplies those
+        // values, so the label says exactly that rather than claiming
+        // a recipe total we can't actually compute
         const perLabel = scaleFactor === 1
           ? (perServing ? `per ${perServing}` : 'per serving')
-          : `total (${scaleFactor}x recipe)`;
+          : `per serving × ${scaleFactor}`;
 
         return (
           <View style={styles.nutritionContainer}>
@@ -1375,6 +1378,14 @@ export const RecipeDetail = ({
                 </View>
               ))}
             </View>
+            {scaleFactor !== 1 && (
+              <View style={[styles.disclaimer, { marginBottom: 0 }]}>
+                <Ionicons name="warning-outline" size={14} color={colors.warning} style={{ marginRight: 6 }} />
+                <Text style={styles.disclaimerText}>
+                  Note: Estimated - the source's per-serving values multiplied by {scaleFactor}
+                </Text>
+              </View>
+            )}
           </View>
         );
       })()}
