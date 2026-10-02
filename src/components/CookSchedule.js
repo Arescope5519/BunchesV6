@@ -439,14 +439,14 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
                       <TouchableOpacity
                         style={styles.editButton}
                         onPress={() => setEditing({ event, servings: event.servings_produced })}
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 0 }}
                       >
-                        <Ionicons name="pencil" size={13} color={colors.primary} />
+                        <Text style={styles.editButtonText}>±</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteButton}
                         onPress={() => handleDelete(event)}
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 0, right: 8 }}
                       >
                         <Text style={styles.deleteButtonText}>×</Text>
                       </TouchableOpacity>
@@ -847,6 +847,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
+  editButtonText: { color: colors.primary, fontSize: 15, fontWeight: '700', marginTop: -1 },
   deleteButton: {
     width: 24,
     height: 24,
@@ -854,7 +855,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error || '#e74c3c',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    // Well clear of the edit button so a serving tweak never
+    // becomes an accidental (confirmation-free) delete
+    marginLeft: 16,
   },
   deleteButtonText: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: -2 },
   addButton: {
