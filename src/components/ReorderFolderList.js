@@ -6,6 +6,13 @@
  * Rendered inside the Cookbook manager's ScrollView; the parent must
  * disable its own scrolling while a drag is active (onDragActive), or
  * the scroll gesture and the drag fight over the finger.
+ *
+ * Each row owns ONE PanResponder for its lifetime. Rebuilding the
+ * responder on render (the original approach) swapped the handlers
+ * mid-gesture as soon as drag state re-rendered the list, and the
+ * replacement instance never received the grant - the drag went dead
+ * after the first frame. Rows talk to the list through a ref'd api so
+ * the stable handlers always see current state.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -17,6 +24,41 @@ const ROW_HEIGHT = 52;
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
+const Row = ({ name, index, api, isDragged, shift, dragY }) => {
+  // The responder is created once; it reads the row's current index
+  // through a ref since reorders change it after the fact
+  const indexRef = useRef(index);
+  indexRef.current = index;
+
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      // The enclosing ScrollView asks to take over when the finger
+      // moves vertically - refusing is what keeps the drag alive
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => api.current.start(indexRef.current),
+      onPanResponderMove: (_evt, gesture) => api.current.move(gesture),
+      onPanResponderRelease: () => api.current.end(true),
+      onPanResponderTerminate: () => api.current.end(false),
+    })
+  ).current;
+
+  return (
+    <Animated.View
+      {...responder.panHandlers}
+      style={[
+        styles.row,
+        { transform: [{ translateY: isDragged ? dragY : shift }] },
+        isDragged && styles.rowDragged,
+      ]}
+    >
+      <Ionicons name="reorder-three" size={22} color={colors.textSecondary} style={styles.handle} />
+      <Text style={styles.rowText} numberOfLines={1}>{name}</Text>
+    </Animated.View>
+  );
+};
+
 export const ReorderFolderList = ({ folderNames, onReorder, onDragActive }) => {
   const [order, setOrder] = useState(folderNames);
   // Index being dragged and where it would land if dropped now
@@ -24,8 +66,8 @@ export const ReorderFolderList = ({ folderNames, onReorder, onDragActive }) => {
   const [dragTo, setDragTo] = useState(null);
   const dragY = useRef(new Animated.Value(0)).current;
 
-  // Refs mirror state for use inside PanResponder callbacks, which
-  // capture the values from the render they were created in
+  // Refs mirror state for use inside the rows' stable PanResponder
+  // callbacks, which never re-capture render values
   const orderRef = useRef(order);
   orderRef.current = order;
   const dragFromRef = useRef(null);
@@ -54,35 +96,31 @@ export const ReorderFolderList = ({ folderNames, onReorder, onDragActive }) => {
     onDragActive?.(false);
   };
 
-  const makeResponder = (index) =>
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        dragFromRef.current = index;
-        dragToRef.current = index;
-        setDragFrom(index);
-        setDragTo(index);
-        dragY.setValue(0);
-        onDragActive?.(true);
-      },
-      onPanResponderMove: (_evt, gesture) => {
-        dragY.setValue(gesture.dy);
-        const from = dragFromRef.current;
-        if (from === null) return;
-        const target = clamp(
-          from + Math.round(gesture.dy / ROW_HEIGHT),
-          0,
-          orderRef.current.length - 1
-        );
-        if (target !== dragToRef.current) {
-          dragToRef.current = target;
-          setDragTo(target);
-        }
-      },
-      onPanResponderRelease: () => endDrag(true),
-      onPanResponderTerminate: () => endDrag(false),
-    });
+  // Rows hold this api by ref, so reassigning its methods every render
+  // keeps their once-created responders working against fresh closures
+  const api = useRef({});
+  api.current.start = (index) => {
+    dragFromRef.current = index;
+    dragToRef.current = index;
+    setDragFrom(index);
+    setDragTo(index);
+    dragY.setValue(0);
+    onDragActive?.(true);
+  };
+  api.current.move = (gesture) => {
+    if (dragFromRef.current === null) return;
+    dragY.setValue(gesture.dy);
+    const target = clamp(
+      dragFromRef.current + Math.round(gesture.dy / ROW_HEIGHT),
+      0,
+      orderRef.current.length - 1
+    );
+    if (target !== dragToRef.current) {
+      dragToRef.current = target;
+      setDragTo(target);
+    }
+  };
+  api.current.end = (commit) => endDrag(commit);
 
   return (
     <View>
@@ -98,18 +136,15 @@ export const ReorderFolderList = ({ folderNames, onReorder, onDragActive }) => {
         }
 
         return (
-          <Animated.View
+          <Row
             key={name}
-            {...makeResponder(index).panHandlers}
-            style={[
-              styles.row,
-              { transform: [{ translateY: isDragged ? dragY : shift }] },
-              isDragged && styles.rowDragged,
-            ]}
-          >
-            <Ionicons name="reorder-three" size={22} color={colors.textSecondary} style={styles.handle} />
-            <Text style={styles.rowText} numberOfLines={1}>{name}</Text>
-          </Animated.View>
+            name={name}
+            index={index}
+            api={api}
+            isDragged={isDragged}
+            shift={shift}
+            dragY={dragY}
+          />
         );
       })}
     </View>
