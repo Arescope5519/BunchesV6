@@ -1803,40 +1803,43 @@ export const HomeScreen = ({ user }) => {
 
   // Share recipe with prompt for edit options
   // Handle import of a public recipe into current user's cookbooks
-  const handleImportPublicRecipe = async (targetFolder) => {
-    if (!importingRecipe) return;
+  const handleImportPublicRecipe = async (targetFolder, recipeArg = null) => {
+    // recipeArg lets callers import directly without routing through
+    // the picker state (same-tick state writes aren't visible here)
+    const source = recipeArg || importingRecipe;
+    if (!source) return;
 
     const newId = `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Snapshot of the owner's current recipe (used as the "original" version)
     const originalSnapshot = {
-      title: importingRecipe.title,
-      image_url: importingRecipe.image_url || importingRecipe.imageUrl || null,
-      ingredients: importingRecipe.ingredients,
-      instructions: importingRecipe.instructions,
+      title: source.title,
+      image_url: source.image_url || source.imageUrl || null,
+      ingredients: source.ingredients,
+      instructions: source.instructions,
     };
 
     const cleanedRecipe = {
       id: newId,
-      title: importingRecipe.title,
-      image_url: importingRecipe.image_url || importingRecipe.imageUrl || null,
-      ingredients: importingRecipe.ingredients,
-      instructions: importingRecipe.instructions,
+      title: source.title,
+      image_url: source.image_url || source.imageUrl || null,
+      ingredients: source.ingredients,
+      instructions: source.instructions,
       // Preserve original source_url so global_recipes stays linked to owner
-      source_url: importingRecipe.source_url || importingRecipe.sourceUrl || null,
-      url: importingRecipe.source_url || importingRecipe.sourceUrl || null,
+      source_url: source.source_url || source.sourceUrl || null,
+      url: source.source_url || source.sourceUrl || null,
       folder: targetFolder,
       folders: [targetFolder],
-      notes: importingRecipe.notes || null,
-      createdBy: importingRecipe.createdBy || (importingRecipe.ownerUserId ? {
-        id: importingRecipe.ownerUserId,
-        username: importingRecipe.ownerUsername,
+      notes: source.notes || null,
+      createdBy: source.createdBy || (source.ownerUserId ? {
+        id: source.ownerUserId,
+        username: source.ownerUsername,
       } : null),
       // Track owner for original-version sync
-      originalOwnerId: importingRecipe.ownerUserId || null,
-      originalOwnerRecipeId: importingRecipe.id || null,
+      originalOwnerId: source.ownerUserId || null,
+      originalOwnerRecipeId: source.id || null,
       originalRecipe: originalSnapshot,
-      importedFrom: importingRecipe.ownerUserId || null,
+      importedFrom: source.ownerUserId || null,
       importedAt: Date.now(),
       createdAt: Date.now(),
     };
@@ -2321,17 +2324,8 @@ export const HomeScreen = ({ user }) => {
     const importableFolders = getCustomFolders()
       .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
     if (importableFolders.length === 0) {
-      Alert.alert('No Cookbooks', 'Create a cookbook first to add this recipe.', [
-        { text: 'OK' },
-        {
-          text: 'Create Cookbook',
-          onPress: () => {
-            setSelectedRecipe(null);
-            setShowFolderManager(true);
-            setTimeout(() => setShowAddFolder(true), 300);
-          }
-        }
-      ]);
+      // No cookbooks is no obstacle - save straight into All Recipes
+      handleImportPublicRecipe('All Recipes', recipe);
       return;
     }
     setImportingRecipe(recipe);
@@ -4508,6 +4502,15 @@ export const HomeScreen = ({ user }) => {
             <View style={{ width: 60 }} />
           </View>
           <ScrollView style={{ flex: 1, padding: 20 }}>
+            <TouchableOpacity
+              style={styles.folderManagerItem}
+              onPress={() => handleImportPublicRecipe('All Recipes')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="albums" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+                <Text style={styles.folderManagerItemText}>All Recipes</Text>
+              </View>
+            </TouchableOpacity>
             {getCustomFolders()
               .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'))
               .map((folder) => (
