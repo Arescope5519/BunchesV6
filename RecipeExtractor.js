@@ -1010,14 +1010,23 @@ export class RecipeExtractor {
   parseDuration(duration) {
     if (!duration) return null;
 
-    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+    // Full ISO 8601 form: sites like foodnetwork.com write
+    // P0Y0M0DT0H5M0.000S, where the time part starts after DT, so a
+    // bare /PT.../ match never fires and the raw string leaked through
+    const match = String(duration).match(
+      /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/
+    );
     if (match) {
-      const hours = match[1];
-      const minutes = match[2];
-
-      if (hours && minutes) return `${hours}h ${minutes}m`;
-      if (hours) return `${hours}h`;
-      if (minutes) return `${minutes}m`;
+      const days = parseInt(match[3] || 0, 10);
+      let hours = parseInt(match[4] || 0, 10);
+      const minutes = Math.round(parseFloat(match[5] || 0));
+      hours += days * 24;
+      const parts = [];
+      if (hours) parts.push(`${hours}h`);
+      if (minutes) parts.push(`${minutes}m`);
+      if (parts.length) return parts.join(' ');
+      if (match[6] && parseFloat(match[6]) > 0) return `${Math.round(parseFloat(match[6]))}s`;
+      return null;
     }
 
     return duration;
