@@ -49,7 +49,9 @@ export class RecipeExtractor {
 
       if (!html) {
         this.stats.failed++;
-        return { success: false, error: 'Failed to fetch HTML', data: null };
+        const reason = this.lastFetchError ? ` (${this.lastFetchError})` : '';
+        console.log('[RecipeExtractor] fetch failed:', url, this.lastFetchError || 'unknown');
+        return { success: false, error: `The site did not let us load the page${reason}`, data: null };
       }
 
       const candidates = [];
@@ -316,29 +318,43 @@ export class RecipeExtractor {
    * Fetch HTML from URL
    */
   async fetchHTML(url) {
-    try {
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    // Two identities: desktop Chrome first, mobile Safari as the
+    // retry - bot walls (Akamai on foodnetwork.com) sometimes reject
+    // one fingerprint and pass the other. lastFetchError carries the
+    // reason up into the user-facing extraction error.
+    this.lastFetchError = null;
+    const attempts = [
+      this.userAgent,
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    ];
+    for (const ua of attempts) {
+      try {
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': this.userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-        signal: controller.signal,
-      });
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': ua,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: controller.signal,
+        });
 
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!response.ok) {
+          this.lastFetchError = `HTTP ${response.status}`;
+          continue;
+        }
+
+        return await response.text();
+      } catch (error) {
+        this.lastFetchError = error.name === 'AbortError' ? 'timed out' : (error.message || 'network error');
       }
-
-      return await response.text();
-    } catch (error) {
-      return null;
     }
+    return null;
   }
 
   /**
@@ -350,24 +366,57 @@ export class RecipeExtractor {
       const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gis;
       const matches = html.matchAll(scriptRegex);
 
+      // Pages carry several ld+json blocks, and some (foodnetwork.com)
+      // include stub Recipe objects besides the full one - taking the
+      // first match lost the instructions. Parse them all, keep the
+      // richest.
+      let blocks = 0;
+      let parsed = 0;
+      let best = null;
+      let bestRichness = -1;
       for (const match of matches) {
-        try {
-          let jsonText = match[1];
-          if (!jsonText || !jsonText.trim()) continue;
+        const jsonText = match[1];
+        if (!jsonText || !jsonText.trim()) continue;
+        blocks++;
 
-          jsonText = decode(jsonText);
-          const data = JSON.parse(jsonText);
-
-          const recipe = this.findRecipeInJSON(data);
-          if (recipe) {
-            return this.parseJSONLDRecipe(recipe, url);
+        // Raw first (ld+json is plain JSON; entity-decoding valid JSON
+        // can corrupt it), then decoded for sites that do escape it,
+        // then with control characters stripped - CMS-generated JSON
+        // with literal newlines inside strings fails parse otherwise
+        let data = null;
+        const variants = [
+          jsonText,
+          decode(jsonText),
+          jsonText.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' '),
+        ];
+        for (const variant of variants) {
+          try {
+            data = JSON.parse(variant);
+            break;
+          } catch (e) {
+            // try the next form
           }
-        } catch (e) {
-          continue;
+        }
+        if (!data) continue;
+        parsed++;
+
+        const recipe = this.findRecipeInJSON(data);
+        if (!recipe) continue;
+        const candidate = this.parseJSONLDRecipe(recipe, url);
+        if (!candidate) continue;
+        const richness =
+          this.flattenIngredientLines(candidate.ingredients).length +
+          (candidate.instructions || []).length * 2;
+        if (richness > bestRichness) {
+          bestRichness = richness;
+          best = candidate;
         }
       }
 
-      return null;
+      if (blocks > 0 && (parsed < blocks || !best)) {
+        console.log(`[RecipeExtractor] ld+json: ${blocks} blocks, ${parsed} parsed, recipe: ${best ? 'yes' : 'no'}`);
+      }
+      return best;
     } catch (error) {
       return null;
     }
