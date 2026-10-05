@@ -480,42 +480,42 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
     console.error('❌ recipes delete error:', err);
   }
 
-  // Also delete from user_recipes_v2 table (matches by cloud id OR local_recipe_data.id)
+  // Also delete from user_recipes_v2. The id may be the row id OR a
+  // local recipe id stored in local_recipe_data.id, and duplicate
+  // sibling rows can reference the same global recipe under other ids
+  // (the bug that left "deleted" recipes visible on profiles) - so
+  // find every active row this recipe owns and delete them all.
   try {
-    // Try direct id match first
-    const { error: idErr, count: idCount } = await supabase
+    const { data: rows } = await supabase
       .from('user_recipes_v2')
-      .update({ deleted_at: deletedAt }, { count: 'exact' })
-      .eq('id', recipeId)
-      .eq('user_id', userId);
+      .select('id, global_recipe_id, local_recipe_data')
+      .eq('user_id', userId)
+      .is('deleted_at', null);
 
-    if (!idErr && (idCount || 0) > 0) {
-      log(`✅ Marked deleted in user_recipes_v2 by id: ${recipeId} (${idCount} rows)`);
-      anySuccess = true;
-    } else {
-      // Recipe id might be a local recipe id, not the cloud row id
-      // Fetch all rows for this user and match on local_recipe_data.id
-      const { data: rows } = await supabase
-        .from('user_recipes_v2')
-        .select('id, local_recipe_data')
-        .eq('user_id', userId)
-        .is('deleted_at', null);
+    if (rows && rows.length > 0) {
+      const direct = rows.filter(
+        r => r.id === recipeId || r.local_recipe_data?.id === recipeId
+      );
+      const globalIds = new Set(direct.map(r => r.global_recipe_id).filter(Boolean));
+      const matchingIds = rows
+        .filter(r =>
+          r.id === recipeId ||
+          r.local_recipe_data?.id === recipeId ||
+          (r.global_recipe_id && globalIds.has(r.global_recipe_id))
+        )
+        .map(r => r.id);
 
-      if (rows && rows.length > 0) {
-        const matchingIds = rows
-          .filter(r => r.local_recipe_data?.id === recipeId)
-          .map(r => r.id);
+      if (matchingIds.length > 0) {
+        const { error: v2Err } = await supabase
+          .from('user_recipes_v2')
+          .update({ deleted_at: deletedAt })
+          .in('id', matchingIds);
 
-        if (matchingIds.length > 0) {
-          const { error: v2Err } = await supabase
-            .from('user_recipes_v2')
-            .update({ deleted_at: deletedAt })
-            .in('id', matchingIds);
-
-          if (!v2Err) {
-            log(`✅ Marked deleted in user_recipes_v2 by local id: ${recipeId} (${matchingIds.length} rows)`);
-            anySuccess = true;
-          }
+        if (!v2Err) {
+          log(`✅ Marked deleted in user_recipes_v2: ${recipeId} (${matchingIds.length} rows incl. duplicates)`);
+          anySuccess = true;
+        } else {
+          console.error('❌ user_recipes_v2 delete failed:', v2Err);
         }
       }
     }
@@ -970,7 +970,7 @@ export const createGlobalRecipe = async (recipe) => {
  * @param {Object} recipe - Recipe data
  * @param {string|null} globalRecipeId - ID of global recipe (null for manual recipes)
  */
-export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null) => {
+export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null, rowId = null) => {
   try {
     // For manual recipes (no URL), store full data in local_recipe_data
     let localRecipeData = null;
@@ -1047,7 +1047,10 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null)
     const { error } = await supabase
       .from('user_recipes_v2')
       .upsert({
-        id: recipe.id,
+        // rowId lets the dual-writer target an EXISTING row for this
+        // recipe when the local id has drifted from it - upserting the
+        // local id blindly minted sibling rows for the same recipe
+        id: rowId || recipe.id,
         user_id: userId,
         global_recipe_id: globalRecipeId,
         local_recipe_data: localRecipeData,
@@ -1147,8 +1150,28 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
       globalRecipeId = globalRecipe?.id || null;
     }
 
+    // One recipe = one active row. If an active row already references
+    // this global recipe under a different id (re-import, backup
+    // import, sync id drift), write to THAT row instead of minting a
+    // sibling - sibling rows showed as duplicate recipes on profiles.
+    let rowId = null;
+    if (globalRecipeId) {
+      const { data: existing } = await supabase
+        .from('user_recipes_v2')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('global_recipe_id', globalRecipeId)
+        .is('deleted_at', null)
+        .neq('id', recipe.id)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        rowId = existing[0].id;
+        log(`🔁 [DUAL] Reusing existing v2 row ${rowId} for this recipe`);
+      }
+    }
+
     // Save to user_recipes_v2
-    await saveToUserRecipesV2(userId, recipe, globalRecipeId);
+    await saveToUserRecipesV2(userId, recipe, globalRecipeId, rowId);
 
     log(`✅ [DUAL] Recipe saved to both tables: ${recipe.title}`);
   } catch (error) {
