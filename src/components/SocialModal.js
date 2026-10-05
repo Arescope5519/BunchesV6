@@ -806,6 +806,19 @@ export const SocialModal = ({
             <Text style={styles.myUsername}>@{profile.username}</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={styles.headerAddFriends}
+          onPress={() => {
+            // Jump to the Account tab with the friend search open
+            setActiveTab('account');
+            setShowAddFriends(true);
+            setSearchQuery('');
+            setSearchResults([]);
+          }}
+        >
+          <Ionicons name="person-add" size={14} color="#fff" style={{ marginRight: 5 }} />
+          <Text style={styles.headerAddFriendsText}>Add Friends</Text>
+        </TouchableOpacity>
       </View>
 
         {/* Tabs */}
@@ -933,6 +946,20 @@ const styles = StyleSheet.create({
   myUsername: {
     fontSize: 13,
     fontWeight: '500',
+    color: '#fff',
+  },
+  headerAddFriends: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  headerAddFriendsText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#fff',
   },
   editProfileHint: {
