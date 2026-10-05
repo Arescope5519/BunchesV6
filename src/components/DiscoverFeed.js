@@ -37,6 +37,7 @@ import {
 } from '../services/supabase/discover';
 import { getBlockedUsers } from '../services/supabase/social';
 import { log } from '../utils/log';
+import { imgSource } from '../utils/imageSource';
 
 const TABS = [
   { key: 'following', label: 'Following' },
@@ -268,7 +269,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
             onPress={() => onOpenRecipe(card)}
           >
             {card.imageUrl ? (
-              <Image source={{ uri: card.imageUrl }} style={styles.shelfImage} resizeMode="cover" />
+              <Image source={imgSource(card.imageUrl)} style={styles.shelfImage} resizeMode="cover" />
             ) : (
               <LetterPlaceholder title={card.title} size={30} style={styles.shelfImage} />
             )}
@@ -295,7 +296,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
           }}
         >
           {item.imageUrl ? (
-            <Image source={{ uri: item.imageUrl }} style={styles.feedImage} resizeMode="cover" />
+            <Image source={imgSource(item.imageUrl)} style={styles.feedImage} resizeMode="cover" />
           ) : (
             <LetterPlaceholder title={item.title} size={64} style={styles.feedImage} />
           )}
@@ -353,7 +354,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
       }}
     >
       {card.imageUrl ? (
-        <Image source={{ uri: card.imageUrl }} style={styles.tileImage} resizeMode="cover" />
+        <Image source={imgSource(card.imageUrl)} style={styles.tileImage} resizeMode="cover" />
       ) : (
         <LetterPlaceholder title={card.title} size={36} style={styles.tileImage} />
       )}

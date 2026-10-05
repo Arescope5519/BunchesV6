@@ -24,6 +24,7 @@ import { checkImageModeration, logFlaggedContent } from '../services/moderation'
 import { checkFieldsAsync } from '../services/profanityFilter';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
+import { imgSource } from '../utils/imageSource';
 
 export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   const [title, setTitle] = useState('');
@@ -391,7 +392,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
               </View>
             ) : imageUri ? (
               <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <Image source={imgSource(imageUri)} style={styles.imagePreview} />
                 <View style={styles.imageOverlay}>
                   <Text style={styles.imageOverlayText}>Tap to change</Text>
                 </View>

@@ -18,6 +18,7 @@ import { APP_NAME } from '../constants/app';
 import { getIngredientLines } from '../utils/dietaryAnalysis';
 import { formatDuration, formatServings } from '../utils/recipeFormat';
 import QrCodeView from './QrCodeView';
+import { imgSource } from '../utils/imageSource';
 
 export const SHARE_CARD_WIDTH = 360;
 export const SHARE_CARD_HEIGHT = 640;
@@ -56,7 +57,7 @@ export const RecipeShareCard = ({ recipe, link = null, onReady }) => {
       {/* Hero */}
       {imageUrl ? (
         <Image
-          source={{ uri: imageUrl }}
+          source={imgSource(imageUrl)}
           style={styles.hero}
           resizeMode="cover"
           onLoadEnd={() => onReady && onReady()}

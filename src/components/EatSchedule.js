@@ -42,6 +42,7 @@ import {
   toDateString,
 } from '../services/supabase/kitchen';
 import MealTemplatesModal from './MealTemplatesModal';
+import { imgSource } from '../utils/imageSource';
 
 // Named meal slots (breakfast/lunch/dinner) were dropped from the UI -
 // not everyone's day fits them and they ate vertical space. Days hold
@@ -497,7 +498,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
           disabled={!recipe}
         >
           {recipe?.image_url ? (
-            <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+            <Image source={imgSource(recipe.image_url)} style={styles.thumb} />
           ) : (
             <View style={[styles.thumb, styles.thumbPlaceholder]}>
               <Ionicons name={icon} size={18} color={colors.primary} />
@@ -886,7 +887,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                       }}
                     >
                       {recipe?.image_url ? (
-                        <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+                        <Image source={imgSource(recipe.image_url)} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, styles.thumbPlaceholder]}>
                           <Ionicons name={cook.is_takeout ? 'fast-food' : 'restaurant'} size={18} color={colors.primary} />
@@ -979,7 +980,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                       }}
                     >
                       {recipe.image_url ? (
-                        <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+                        <Image source={imgSource(recipe.image_url)} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, styles.thumbPlaceholder]}>
                           <Ionicons name="restaurant" size={18} color={colors.primary} />

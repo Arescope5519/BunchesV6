@@ -24,6 +24,7 @@ import { UserAvatar, AVATAR_ICONS, AVATAR_COLORS } from './UserAvatar';
 import { supabase } from '../services/supabase/config';
 
 import { isOwnInternalRecipeUrl } from '../constants/app';
+import { imgSource } from '../utils/imageSource';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const MyProfile = ({
@@ -223,7 +224,7 @@ const MyProfile = ({
               >
                 {recipe.image_url || recipe.imageUrl ? (
                   <Image
-                    source={{ uri: recipe.image_url || recipe.imageUrl }}
+                    source={imgSource(recipe.image_url || recipe.imageUrl)}
                     style={styles.recipeSelectImage}
                   />
                 ) : (
@@ -263,7 +264,7 @@ const MyProfile = ({
             <View key={recipe.id} style={styles.recipeListItem}>
               {recipe.image_url || recipe.imageUrl ? (
                 <Image
-                  source={{ uri: recipe.image_url || recipe.imageUrl }}
+                  source={imgSource(recipe.image_url || recipe.imageUrl)}
                   style={styles.recipeSelectImage}
                 />
               ) : (

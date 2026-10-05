@@ -26,6 +26,7 @@ import colors from '../constants/colors';
 import LetterPlaceholder from './LetterPlaceholder';
 import { UserAvatar } from './UserAvatar';
 import { log } from '../utils/log';
+import { imgSource } from '../utils/imageSource';
 import {
   getPublicProfile,
   getUserPublicFolders,
@@ -273,7 +274,7 @@ const UserProfile = ({
     >
       {recipe.imageUrl ? (
         <Image
-          source={{ uri: recipe.imageUrl }}
+          source={imgSource(recipe.imageUrl)}
           style={[styles.recipeImage, isSmall && styles.recipeImageSmall]}
         />
       ) : (
@@ -303,7 +304,7 @@ const UserProfile = ({
             onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
           >
             {recipe.imageUrl ? (
-              <Image source={{ uri: recipe.imageUrl }} style={styles.recipeListImage} />
+              <Image source={imgSource(recipe.imageUrl)} style={styles.recipeListImage} />
             ) : (
               <LetterPlaceholder title={recipe.title} size={22} style={styles.recipeListImage} />
             )}
@@ -475,7 +476,7 @@ const UserProfile = ({
                   >
                     {recipe.imageUrl ? (
                       <Image
-                        source={{ uri: recipe.imageUrl }}
+                        source={imgSource(recipe.imageUrl)}
                         style={styles.featuredImage}
                         resizeMode="cover"
                       />
@@ -523,7 +524,7 @@ const UserProfile = ({
               >
                 {recipe.imageUrl ? (
                   <Image
-                    source={{ uri: recipe.imageUrl }}
+                    source={imgSource(recipe.imageUrl)}
                     style={styles.sampleRecipeImage}
                     resizeMode="cover"
                   />

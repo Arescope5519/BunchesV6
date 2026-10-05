@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
+import { imgSource } from '../utils/imageSource';
 import {
   getFridgeInventory,
   createFridgeAdjustment,
@@ -178,7 +179,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                   disabled={!recipe}
                 >
                   {recipe?.image_url ? (
-                    <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+                    <Image source={imgSource(recipe.image_url)} style={styles.thumb} />
                   ) : (
                     <View style={[styles.thumb, styles.thumbPlaceholder]}>
                       <Ionicons name={cook.is_takeout ? 'fast-food' : 'restaurant'} size={20} color={colors.primary} />

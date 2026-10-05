@@ -101,6 +101,7 @@ import { saveRecipes as saveRecipesToStorage, loadAppSettings, saveAppSettings, 
 import RecipeExtractor from '../../RecipeExtractor';
 
 import { log } from '../utils/log';
+import { imgSource } from '../utils/imageSource';
 import {
   APP_NAME,
   isInternalUrl,
@@ -3501,7 +3502,7 @@ export const HomeScreen = ({ user }) => {
                     {viewMode === 'photo' && (
                       recipe.image_url ? (
                         <Image
-                          source={{ uri: recipe.image_url }}
+                          source={imgSource(recipe.image_url)}
                           style={styles.recipeImage}
                           resizeMode="cover"
                           onError={(e) => log(`❌ Image failed to load for "${recipe.title}":`, e.nativeEvent.error)}

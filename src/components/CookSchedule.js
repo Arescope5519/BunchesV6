@@ -36,6 +36,7 @@ import {
   toDateString,
 } from '../services/supabase/kitchen';
 import MealTemplatesModal from './MealTemplatesModal';
+import { imgSource } from '../utils/imageSource';
 
 const addDays = (dateStr, n) => {
   const d = parseLocalDate(dateStr);
@@ -420,7 +421,7 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
                       onLongPress={(e) => startDrag(event, e.nativeEvent.pageX, e.nativeEvent.pageY)}
                     >
                       {recipe?.image_url ? (
-                        <Image source={{ uri: recipe.image_url }} style={styles.thumb} />
+                        <Image source={imgSource(recipe.image_url)} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, styles.thumbPlaceholder]}>
                           <Ionicons name="flame" size={16} color={colors.primary} />
@@ -723,7 +724,7 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
                   onPress={() => setConfiguring({ recipe, multiplier: 1 })}
                 >
                   {recipe.image_url ? (
-                    <Image source={{ uri: recipe.image_url }} style={styles.pickerCardImage} />
+                    <Image source={imgSource(recipe.image_url)} style={styles.pickerCardImage} />
                   ) : (
                     <LetterPlaceholder title={recipe.title} size={32} style={styles.pickerCardImage} />
                   )}

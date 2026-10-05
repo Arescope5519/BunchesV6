@@ -24,6 +24,7 @@ import { formatDuration, formatServings, buildNutritionItems } from '../utils/re
 import { log } from '../utils/log';
 import { isInternalUrl } from '../constants/app';
 import { printRecipe } from '../utils/printRecipe';
+import { imgSource } from '../utils/imageSource';
 // Helper to safely parse JSON if it's a string
 const tryParseJSON = (value) => {
   if (typeof value !== 'string') return value;
@@ -799,7 +800,7 @@ export const RecipeDetail = ({
       {heroImageUrl ? (
         <View>
           <Image
-            source={{ uri: heroImageUrl }}
+            source={imgSource(heroImageUrl)}
             style={styles.heroImage}
             resizeMode="cover"
           />
