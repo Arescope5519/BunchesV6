@@ -885,6 +885,35 @@ export const getGlobalRecipeById = async (globalRecipeId) => {
 };
 
 /**
+ * Copy an external recipe photo into our own storage via the
+ * mirror-image Edge Function and return the re-hosted public URL.
+ * Bot-walled CDNs refuse the app's image requests on some platforms
+ * (Akamai vs Android), so the server fetches instead. Best-effort:
+ * any failure returns the original URL unchanged. Local file:// and
+ * data: URIs pass through - the server cannot reach those.
+ */
+export const mirrorImageToStorage = async (imageUrl) => {
+  try {
+    if (!imageUrl || typeof imageUrl !== 'string') return imageUrl;
+    if (!/^https?:\/\//i.test(imageUrl)) return imageUrl;
+    if (imageUrl.includes('.supabase.co/')) return imageUrl;
+
+    const { data, error } = await supabase.functions.invoke('mirror-image', {
+      body: { url: imageUrl },
+    });
+    if (error || !data?.success || !data?.url) {
+      log('⚠️ Image mirror skipped:', error?.message || data?.error || 'unknown');
+      return imageUrl;
+    }
+    log('🖼️ Image mirrored to storage');
+    return data.url;
+  } catch (err) {
+    log('⚠️ Image mirror failed:', err?.message);
+    return imageUrl;
+  }
+};
+
+/**
  * Create a new global recipe entry
  * @param {Object} recipe - Recipe data
  * @returns {Promise<Object|null>} The created global recipe
@@ -925,6 +954,12 @@ export const createGlobalRecipe = async (recipe) => {
       total_time: recipe.total_time || recipe.totalTime,
     });
 
+    // Re-host the photo in our bucket so hostile CDNs and dead links
+    // can't blank it later (best-effort - falls back to the original)
+    const mirroredImage = await mirrorImageToStorage(
+      recipe.imageUrl || recipe.image_url || recipe.image || null
+    );
+
     const { data, error } = await supabase
       .from('global_recipes')
       .insert({
@@ -932,7 +967,7 @@ export const createGlobalRecipe = async (recipe) => {
         title: recipe.title || 'Untitled Recipe',
         ingredients: ingredients,
         instructions: instructions,
-        image_url: recipe.imageUrl || recipe.image_url || recipe.image || null,
+        image_url: mirroredImage,
         prep_time: recipe.prep_time || recipe.prepTime || null,
         cook_time: recipe.cook_time || recipe.cookTime || null,
         total_time: recipe.total_time || recipe.totalTime || null,

@@ -109,3 +109,15 @@ no client policies - only the function's service role touches it).
 
 **Rate limits (enforced in the function):** free = 3 lifetime,
 premium = 30/calendar month, admins unlimited.
+
+## mirror-image (recipe photo re-hosting)
+
+Copies an imported recipe's photo into the public `recipe-images`
+storage bucket and returns our own URL. Exists because bot-walled CDNs
+(Akamai fronting foodnetwork's image host) refuse the app's image
+requests on Android while the same URL loads in Chrome.
+
+1. Run `sql/add_recipe_images_bucket.sql` in the dashboard (creates the bucket).
+2. Deploy: `supabase functions deploy mirror-image`
+
+No extra secrets - it uses the built-in `SUPABASE_*` env vars.
