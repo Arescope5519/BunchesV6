@@ -5,6 +5,7 @@
 
 import { supabase } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
 import { getHighConfidenceTags } from '../../utils/autoTag';
 
 import { log } from '../../utils/log';
@@ -884,13 +885,116 @@ export const getGlobalRecipeById = async (globalRecipeId) => {
   }
 };
 
+// Browser-identifying headers for the device-side image download -
+// the same disguise that lets RecipeExtractor fetch the recipe HTML
+// past these sites' bot walls
+const MIRROR_FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',
+  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+};
+
+const MIRROR_EXT_BY_TYPE = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/avif': 'avif',
+};
+
+const MIRROR_MAX_BYTES = 10 * 1024 * 1024;
+
+const base64ToBytes = (b64) => {
+  if (typeof atob === 'function') {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
+  const bytes = new Uint8Array(Math.floor((clean.length * 3) / 4));
+  let p = 0;
+  for (let i = 0; i < clean.length; i += 4) {
+    const a = chars.indexOf(clean[i]);
+    const b = chars.indexOf(clean[i + 1]);
+    const c = chars.indexOf(clean[i + 2]);
+    const d = chars.indexOf(clean[i + 3]);
+    bytes[p++] = (a << 2) | (b >> 4);
+    if (c >= 0) bytes[p++] = ((b & 15) << 4) | (c >> 2);
+    if (d >= 0) bytes[p++] = ((c & 3) << 6) | d;
+  }
+  return bytes.subarray(0, p);
+};
+
 /**
- * Copy an external recipe photo into our own storage via the
- * mirror-image Edge Function and return the re-hosted public URL.
- * Bot-walled CDNs refuse the app's image requests on some platforms
- * (Akamai vs Android), so the server fetches instead. Best-effort:
- * any failure returns the original URL unchanged. Local file:// and
- * data: URIs pass through - the server cannot reach those.
+ * Device-side mirror: the PHONE downloads the image (its fetch
+ * demonstrably passes the bot walls - it is how recipe HTML gets
+ * extracted at all) and uploads the bytes to our bucket. Requires the
+ * storage insert policy in sql/add_recipe_images_bucket.sql.
+ */
+const mirrorImageFromDevice = async (imageUrl) => {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData?.user?.id;
+  if (!uid) return null;
+
+  const tmp = `${FileSystem.cacheDirectory}mirror-${Date.now()}`;
+  try {
+    const dl = await FileSystem.downloadAsync(imageUrl, tmp, {
+      headers: MIRROR_FETCH_HEADERS,
+    });
+    if (dl.status !== 200) {
+      log(`⚠️ Device image download failed: HTTP ${dl.status}`);
+      return null;
+    }
+    const hdrs = dl.headers || {};
+    const rawType = hdrs['Content-Type'] || hdrs['content-type'] || '';
+    const contentType = String(rawType).split(';')[0].trim().toLowerCase() || 'image/jpeg';
+    if (!contentType.startsWith('image/')) {
+      log(`⚠️ Device image download returned ${contentType || 'no type'}, not an image`);
+      return null;
+    }
+
+    const info = await FileSystem.getInfoAsync(tmp);
+    if (!info.exists || !info.size || info.size > MIRROR_MAX_BYTES) {
+      log('⚠️ Device image download bad size:', info.size);
+      return null;
+    }
+
+    const base64 = await FileSystem.readAsStringAsync(tmp, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const bytes = base64ToBytes(base64);
+    const ext = MIRROR_EXT_BY_TYPE[contentType] || 'jpg';
+    const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from('recipe-images')
+      .upload(path, bytes.buffer, { contentType, upsert: false });
+    if (upErr) {
+      log('⚠️ Device image upload failed:', upErr.message);
+      return null;
+    }
+
+    const { data: pub } = supabase.storage.from('recipe-images').getPublicUrl(path);
+    return pub?.publicUrl || null;
+  } catch (err) {
+    log('⚠️ Device image mirror error:', err?.message);
+    return null;
+  } finally {
+    FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => {});
+  }
+};
+
+/**
+ * Copy an external recipe photo into our own storage and return the
+ * re-hosted public URL. Bot-walled CDNs (Akamai fronting
+ * food.fnr.sndimg.com) refuse both the app's image renderer AND
+ * datacenter IPs, so the device download runs first (it passes the
+ * wall the same way recipe extraction does) with the mirror-image
+ * Edge Function as fallback for hosts that block the device but not
+ * servers. Best-effort: any failure returns the original URL
+ * unchanged. Local file:// and data: URIs pass through.
  */
 export const mirrorImageToStorage = async (imageUrl) => {
   try {
@@ -898,6 +1002,14 @@ export const mirrorImageToStorage = async (imageUrl) => {
     if (!/^https?:\/\//i.test(imageUrl)) return imageUrl;
     if (imageUrl.includes('.supabase.co/')) return imageUrl;
 
+    // 1. Device download + upload (passes bot walls the app can pass)
+    const deviceUrl = await mirrorImageFromDevice(imageUrl);
+    if (deviceUrl) {
+      log('🖼️ Image mirrored from device');
+      return deviceUrl;
+    }
+
+    // 2. Server-side fetch via Edge Function
     const { data, error } = await supabase.functions.invoke('mirror-image', {
       body: { url: imageUrl },
     });
@@ -905,7 +1017,7 @@ export const mirrorImageToStorage = async (imageUrl) => {
       log('⚠️ Image mirror skipped:', error?.message || data?.error || 'unknown');
       return imageUrl;
     }
-    log('🖼️ Image mirrored to storage');
+    log('🖼️ Image mirrored via edge function');
     return data.url;
   } catch (err) {
     log('⚠️ Image mirror failed:', err?.message);

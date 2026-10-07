@@ -13,3 +13,15 @@
 insert into storage.buckets (id, name, public)
 values ('recipe-images', 'recipe-images', true)
 on conflict (id) do nothing;
+
+-- The bot walls turned out to block datacenter IPs too, so the DEVICE
+-- now downloads and uploads the photo itself (the Edge Function stays
+-- as fallback). Device uploads go through RLS, so signed-in users need
+-- insert on this bucket - scoped to their own folder (uploads are
+-- keyed <user_id>/<random>.<ext>).
+create policy "Users upload own recipe images"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'recipe-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
