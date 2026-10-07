@@ -11,6 +11,7 @@ import {
   saveRecipeToDatabase,
   deleteRecipeFromDatabase,
   saveRecipeWithDualWrite,
+  mirrorImageToStorage,
 } from '../services/supabase/database';
 import { MY_CREATIONS_FOLDER } from './useFolders';
 import { getHighConfidenceTags } from '../utils/autoTag';
@@ -147,10 +148,29 @@ export const useRecipes = (user) => {
       ? buildInternalRecipeUrl(user.uid, recipeId)
       : null;
 
+    // Re-host an external photo in our bucket BEFORE anything is
+    // saved, so the LOCAL copy carries the mirrored URL too. Mirroring
+    // only the cloud row wasn't enough: sync prefers the newer local
+    // copy, so the importing device kept pointing at the original CDN
+    // (which is exactly the host that refuses the app's requests).
+    let mirroredImage = null;
+    const rawImage = recipe.image_url || recipe.imageUrl || null;
+    if (user?.uid && rawImage && /^https?:\/\//i.test(rawImage)) {
+      const mirrored = await mirrorImageToStorage(rawImage);
+      if (mirrored && mirrored !== rawImage) mirroredImage = mirrored;
+    }
+
     const recipeWithTimestamp = {
       ...recipe,
       id: recipeId,
       ...(mintedUrl ? { url: mintedUrl, source_url: mintedUrl } : {}),
+      ...(mirroredImage ? {
+        image_url: mirroredImage,
+        ...(recipe.imageUrl ? { imageUrl: mirroredImage } : {}),
+        ...(recipe.originalRecipe ? {
+          originalRecipe: { ...recipe.originalRecipe, image_url: mirroredImage },
+        } : {}),
+      } : {}),
       folders: recipeFolders,
       createdAt: recipe.createdAt || Date.now(),
       updatedAt: Date.now(),

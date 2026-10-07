@@ -75,7 +75,22 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
   const [editField, setEditField] = useState('');
   const [editValue, setEditValue] = useState('');
 
+  // The save runs async (profanity check + the parent's cloud write)
+  // and the screen stays mounted meanwhile - without this guard the
+  // button could be mashed, queueing one save and alert per tap
+  const [saving, setSaving] = useState(false);
+
   const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await doSave();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doSave = async () => {
     const profanityCheck = await checkFieldsAsync({
       title: localRecipe?.title,
       ingredients: localRecipe?.ingredients,
@@ -102,7 +117,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
         localRecipe.total_time !== recipe.total_time ||
         localRecipe.servings !== recipe.servings;
 
-      onSave(selectedFolder, edited
+      await onSave(selectedFolder, edited
         ? {
             ...localRecipe,
             originalRecipe: localRecipe.originalRecipe || {
@@ -358,11 +373,12 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
       {/* Save Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.saveButton}
+          style={[styles.saveButton, saving && { opacity: 0.6 }]}
           onPress={handleSave}
+          disabled={saving}
         >
           <Ionicons name="save" size={16} color="#fff" style={{ marginRight: 6 }} />
-          <Text style={styles.saveButtonText}>Save to {selectedFolder}</Text>
+          <Text style={styles.saveButtonText}>{saving ? 'Saving...' : `Save to ${selectedFolder}`}</Text>
         </TouchableOpacity>
       </View>
 

@@ -1180,6 +1180,22 @@ export const saveRecipeWithDualWrite = async (userId, recipe) => {
           ? { ...recipe, ...recipe.originalRecipe, url: sourceUrl, source_url: sourceUrl }
           : recipe;
         globalRecipe = await createGlobalRecipe(published);
+      } else if (
+        // Self-heal entries created before image mirroring existed (or
+        // while the mirror was failing): still pointing at an external
+        // CDN - try moving the photo into our bucket now
+        globalRecipe.image_url &&
+        /^https?:\/\//i.test(globalRecipe.image_url) &&
+        !globalRecipe.image_url.includes('.supabase.co/')
+      ) {
+        const mirrored = await mirrorImageToStorage(globalRecipe.image_url);
+        if (mirrored && mirrored !== globalRecipe.image_url) {
+          await supabase
+            .from('global_recipes')
+            .update({ image_url: mirrored })
+            .eq('id', globalRecipe.id);
+          log('🖼️ Mirrored existing global recipe photo');
+        }
       }
 
       globalRecipeId = globalRecipe?.id || null;
