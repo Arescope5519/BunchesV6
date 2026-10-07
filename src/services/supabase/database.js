@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system';
 import { getHighConfidenceTags } from '../../utils/autoTag';
 
 import { log } from '../../utils/log';
+import { dbg } from '../../utils/debugLog';
 import { buildInternalRecipeUrl, isInternalUrl } from '../../constants/app';
 import { APP_NAME } from '../../constants/app';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
@@ -936,7 +937,10 @@ const base64ToBytes = (b64) => {
 const mirrorImageFromDevice = async (imageUrl) => {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData?.user?.id;
-  if (!uid) return null;
+  if (!uid) {
+    dbg('MIRROR', 'no signed-in user, skipping device mirror');
+    return null;
+  }
 
   const tmp = `${FileSystem.cacheDirectory}mirror-${Date.now()}`;
   try {
@@ -944,22 +948,24 @@ const mirrorImageFromDevice = async (imageUrl) => {
       headers: MIRROR_FETCH_HEADERS,
     });
     if (dl.status !== 200) {
-      log(`⚠️ Device image download failed: HTTP ${dl.status}`);
+      dbg('MIRROR', 'device download failed HTTP', dl.status, imageUrl);
       return null;
     }
     const hdrs = dl.headers || {};
     const rawType = hdrs['Content-Type'] || hdrs['content-type'] || '';
     const contentType = String(rawType).split(';')[0].trim().toLowerCase() || 'image/jpeg';
     if (!contentType.startsWith('image/')) {
-      log(`⚠️ Device image download returned ${contentType || 'no type'}, not an image`);
+      dbg('MIRROR', 'device download not an image:', contentType || 'no type');
       return null;
     }
+    dbg('MIRROR', 'device download ok', contentType);
 
     const info = await FileSystem.getInfoAsync(tmp);
     if (!info.exists || !info.size || info.size > MIRROR_MAX_BYTES) {
-      log('⚠️ Device image download bad size:', info.size);
+      dbg('MIRROR', 'device download bad size:', info.size);
       return null;
     }
+    dbg('MIRROR', 'size', info.size, 'bytes');
 
     const base64 = await FileSystem.readAsStringAsync(tmp, {
       encoding: FileSystem.EncodingType.Base64,
@@ -972,14 +978,15 @@ const mirrorImageFromDevice = async (imageUrl) => {
       .from('recipe-images')
       .upload(path, bytes.buffer, { contentType, upsert: false });
     if (upErr) {
-      log('⚠️ Device image upload failed:', upErr.message);
+      dbg('MIRROR', 'storage upload FAILED:', upErr.message);
       return null;
     }
+    dbg('MIRROR', 'storage upload ok:', path);
 
     const { data: pub } = supabase.storage.from('recipe-images').getPublicUrl(path);
     return pub?.publicUrl || null;
   } catch (err) {
-    log('⚠️ Device image mirror error:', err?.message);
+    dbg('MIRROR', 'device mirror error:', err?.message);
     return null;
   } finally {
     FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => {});
@@ -1003,9 +1010,10 @@ export const mirrorImageToStorage = async (imageUrl) => {
     if (imageUrl.includes('.supabase.co/')) return imageUrl;
 
     // 1. Device download + upload (passes bot walls the app can pass)
+    dbg('MIRROR', 'start:', imageUrl);
     const deviceUrl = await mirrorImageFromDevice(imageUrl);
     if (deviceUrl) {
-      log('🖼️ Image mirrored from device');
+      dbg('MIRROR', 'SUCCESS via device:', deviceUrl);
       return deviceUrl;
     }
 
@@ -1014,13 +1022,13 @@ export const mirrorImageToStorage = async (imageUrl) => {
       body: { url: imageUrl },
     });
     if (error || !data?.success || !data?.url) {
-      log('⚠️ Image mirror skipped:', error?.message || data?.error || 'unknown');
+      dbg('MIRROR', 'edge fallback failed:', error?.message || data?.error || 'unknown');
       return imageUrl;
     }
-    log('🖼️ Image mirrored via edge function');
+    dbg('MIRROR', 'SUCCESS via edge function:', data.url);
     return data.url;
   } catch (err) {
-    log('⚠️ Image mirror failed:', err?.message);
+    dbg('MIRROR', 'mirror failed:', err?.message);
     return imageUrl;
   }
 };

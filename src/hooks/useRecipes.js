@@ -15,6 +15,7 @@ import {
 } from '../services/supabase/database';
 import { MY_CREATIONS_FOLDER } from './useFolders';
 import { getHighConfidenceTags } from '../utils/autoTag';
+import { dbg } from '../utils/debugLog';
 
 import { log } from '../utils/log';
 import { isInternalUrl, buildInternalRecipeUrl } from '../constants/app';
@@ -156,8 +157,13 @@ export const useRecipes = (user) => {
     let mirroredImage = null;
     const rawImage = recipe.image_url || recipe.imageUrl || null;
     if (user?.uid && rawImage && /^https?:\/\//i.test(rawImage)) {
+      dbg('ADD', 'mirroring photo for', recipe.title || '(untitled)');
       const mirrored = await mirrorImageToStorage(rawImage);
       if (mirrored && mirrored !== rawImage) mirroredImage = mirrored;
+      dbg('ADD', mirroredImage ? 'using mirrored url' : 'keeping original url');
+    } else {
+      dbg('ADD', 'no mirror:', !user?.uid ? 'signed out' : (rawImage ? 'non-http image' : 'no image'),
+        recipe.title || '(untitled)');
     }
 
     const recipeWithTimestamp = {

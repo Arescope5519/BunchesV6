@@ -17,6 +17,7 @@ import {
   Platform,
   Linking,
   Share,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as FileSystem from 'expo-file-system';
@@ -29,6 +30,8 @@ import { APP_NAME, APP_VERSION_LABEL, SUPPORT_EMAIL, TERMS_URL, PRIVACY_URL, BAC
 import { requestAccountDeletion } from '../services/supabase/account';
 import { USERNAME_INPUT_PROPS } from '../components/UsernameSetupModal';
 import { cookbookToPdf } from '../utils/printRecipe';
+import Clipboard from '@react-native-clipboard/clipboard';
+import { getDebugLog, clearDebugLog } from '../utils/debugLog';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -69,6 +72,8 @@ export const SettingsScreen = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showDebugLog, setShowDebugLog] = useState(false);
+  const [debugLogText, setDebugLogText] = useState('');
   const handleSyncNow = async () => {
     if (!onSyncNow || !user) return;
 
@@ -992,6 +997,21 @@ export const SettingsScreen = ({
                 })}
               </View>
             </View>
+            <TouchableOpacity
+              style={[styles.settingRow, styles.settingRowBorder]}
+              onPress={() => {
+                setDebugLogText(getDebugLog());
+                setShowDebugLog(true);
+              }}
+            >
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Debug Log</Text>
+                <Text style={styles.settingDescription}>
+                  Technical log for troubleshooting (photo imports, syncing)
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1223,6 +1243,67 @@ export const SettingsScreen = ({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      <Modal
+        visible={showDebugLog}
+        animationType="slide"
+        onRequestClose={() => setShowDebugLog(false)}
+      >
+        <View style={styles.debugLogContainer}>
+          <View style={styles.debugLogHeader}>
+            <Text style={styles.debugLogTitle}>Debug Log</Text>
+            <TouchableOpacity
+              style={styles.debugLogClose}
+              onPress={() => setShowDebugLog(false)}
+            >
+              <Ionicons name="close" size={26} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.debugLogActions}>
+            <TouchableOpacity
+              style={styles.debugLogActionButton}
+              onPress={() => setDebugLogText(getDebugLog())}
+            >
+              <Ionicons name="refresh" size={18} color={colors.primary} />
+              <Text style={styles.debugLogActionText}>Refresh</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.debugLogActionButton}
+              onPress={() => {
+                try {
+                  Clipboard.setString(debugLogText);
+                  Alert.alert('Copied', 'Debug log copied to clipboard.');
+                } catch (e) {
+                  Share.share({ message: debugLogText }).catch(() => {});
+                }
+              }}
+            >
+              <Ionicons name="copy-outline" size={18} color={colors.primary} />
+              <Text style={styles.debugLogActionText}>Copy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.debugLogActionButton}
+              onPress={() => Share.share({ message: debugLogText }).catch(() => {})}
+            >
+              <Ionicons name="share-outline" size={18} color={colors.primary} />
+              <Text style={styles.debugLogActionText}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.debugLogActionButton}
+              onPress={() => {
+                clearDebugLog();
+                setDebugLogText(getDebugLog());
+              }}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+              <Text style={[styles.debugLogActionText, { color: colors.error }]}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.debugLogScroll} contentContainerStyle={styles.debugLogScrollContent}>
+            <Text selectable style={styles.debugLogText}>{debugLogText}</Text>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1758,6 +1839,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
+  },
+  debugLogContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'ios' ? 54 : 24,
+  },
+  debugLogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  debugLogTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  debugLogClose: {
+    padding: 4,
+  },
+  debugLogActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    gap: 16,
+  },
+  debugLogActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+  },
+  debugLogActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  debugLogScroll: {
+    flex: 1,
+    backgroundColor: '#1E1E1E',
+  },
+  debugLogScrollContent: {
+    padding: 12,
+  },
+  debugLogText: {
+    color: '#D4D4D4',
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   // Modal styles
   modalOverlay: {

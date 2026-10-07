@@ -25,6 +25,7 @@ import { log } from '../utils/log';
 import { isInternalUrl } from '../constants/app';
 import { printRecipe } from '../utils/printRecipe';
 import { imgSource } from '../utils/imageSource';
+import { dbg } from '../utils/debugLog';
 // Helper to safely parse JSON if it's a string
 const tryParseJSON = (value) => {
   if (typeof value !== 'string') return value;
@@ -803,6 +804,12 @@ export const RecipeDetail = ({
             source={imgSource(heroImageUrl)}
             style={styles.heroImage}
             resizeMode="cover"
+            onLoadStart={() => dbg('IMG', 'load start:', heroImageUrl)}
+            onLoad={(e) => dbg('IMG', 'LOADED',
+              `${e?.nativeEvent?.source?.width || '?'}x${e?.nativeEvent?.source?.height || '?'}`,
+              heroImageUrl)}
+            onError={(e) => dbg('IMG', 'ERROR:',
+              e?.nativeEvent?.error || 'unknown', heroImageUrl)}
           />
           {canEditPhoto && (
             <TouchableOpacity
