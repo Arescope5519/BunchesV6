@@ -5,7 +5,7 @@
 
 import { supabase } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getHighConfidenceTags } from '../../utils/autoTag';
 
 import { log } from '../../utils/log';

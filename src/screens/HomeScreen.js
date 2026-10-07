@@ -972,7 +972,7 @@ export const HomeScreen = ({ user }) => {
   // Handle restore from backup
   const handleRestoreBackup = async (backupData) => {
     try {
-      const FileSystem = require('expo-file-system');
+      const FileSystem = require('expo-file-system/legacy');
       const recipesToRestore = backupData.recipes || [];
 
       // Helper to save base64 image to local file
