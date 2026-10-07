@@ -934,7 +934,7 @@ const base64ToBytes = (b64) => {
  * extracted at all) and uploads the bytes to our bucket. Requires the
  * storage insert policy in sql/add_recipe_images_bucket.sql.
  */
-const mirrorImageFromDevice = async (imageUrl) => {
+const mirrorImageFromDevice = async (downloadUrl, label = 'direct') => {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) {
@@ -944,21 +944,21 @@ const mirrorImageFromDevice = async (imageUrl) => {
 
   const tmp = `${FileSystem.cacheDirectory}mirror-${Date.now()}`;
   try {
-    const dl = await FileSystem.downloadAsync(imageUrl, tmp, {
+    const dl = await FileSystem.downloadAsync(downloadUrl, tmp, {
       headers: MIRROR_FETCH_HEADERS,
     });
     if (dl.status !== 200) {
-      dbg('MIRROR', 'device download failed HTTP', dl.status, imageUrl);
+      dbg('MIRROR', label, 'download failed HTTP', dl.status, downloadUrl);
       return null;
     }
     const hdrs = dl.headers || {};
     const rawType = hdrs['Content-Type'] || hdrs['content-type'] || '';
     const contentType = String(rawType).split(';')[0].trim().toLowerCase() || 'image/jpeg';
     if (!contentType.startsWith('image/')) {
-      dbg('MIRROR', 'device download not an image:', contentType || 'no type');
+      dbg('MIRROR', label, 'download not an image:', contentType || 'no type');
       return null;
     }
-    dbg('MIRROR', 'device download ok', contentType);
+    dbg('MIRROR', label, 'download ok', contentType);
 
     const info = await FileSystem.getInfoAsync(tmp);
     if (!info.exists || !info.size || info.size > MIRROR_MAX_BYTES) {
@@ -996,12 +996,12 @@ const mirrorImageFromDevice = async (imageUrl) => {
 /**
  * Copy an external recipe photo into our own storage and return the
  * re-hosted public URL. Bot-walled CDNs (Akamai fronting
- * food.fnr.sndimg.com) refuse both the app's image renderer AND
- * datacenter IPs, so the device download runs first (it passes the
- * wall the same way recipe extraction does) with the mirror-image
- * Edge Function as fallback for hosts that block the device but not
- * servers. Best-effort: any failure returns the original URL
- * unchanged. Local file:// and data: URIs pass through.
+ * food.fnr.sndimg.com) refuse the app's HTTP stack outright - TLS
+ * fingerprinting, so headers don't help - and datacenter IPs too.
+ * Chain: direct device download, then device download via the
+ * wsrv.nl image proxy, then the mirror-image Edge Function.
+ * Best-effort: any failure returns the original URL unchanged.
+ * Local file:// and data: URIs pass through.
  */
 export const mirrorImageToStorage = async (imageUrl) => {
   try {
@@ -1017,7 +1017,18 @@ export const mirrorImageToStorage = async (imageUrl) => {
       return deviceUrl;
     }
 
-    // 2. Server-side fetch via Edge Function
+    // 2. Device download through a public image proxy. Akamai
+    // fingerprints the app's TLS/HTTP2 stack itself (Chrome passes,
+    // okhttp gets 403 no matter the headers), so let wsrv.nl's servers
+    // fetch from the CDN and hand the bytes to the phone.
+    const proxied = `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}`;
+    const proxyUrl = await mirrorImageFromDevice(proxied, 'proxy');
+    if (proxyUrl) {
+      dbg('MIRROR', 'SUCCESS via wsrv proxy:', proxyUrl);
+      return proxyUrl;
+    }
+
+    // 3. Server-side fetch via Edge Function
     const { data, error } = await supabase.functions.invoke('mirror-image', {
       body: { url: imageUrl },
     });
