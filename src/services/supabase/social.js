@@ -731,6 +731,8 @@ export const getUserFeaturedRecipes = async (targetUserId) => {
           imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
           sourceUrl: row.global_recipes?.source_url || null,
           isCustom: !row.global_recipes?.source_url,
+          folders: row.local_recipe_data?.folders || [],
+          isPrivate: !!row.local_recipe_data?.isPrivate,
         }));
       }
     }
@@ -821,6 +823,7 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
         sourceUrl: row.global_recipes?.source_url || null,
         folders: row.folders || row.local_recipe_data?.folders || [],
         isCustom: !row.global_recipes?.source_url,
+        isPrivate: !!row.local_recipe_data?.isPrivate,
       }));
     }
 
@@ -852,9 +855,33 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       sourceUrl: row.source_url || null,
       folders: row.recipe_data?.folders || [],
       isCustom: !row.source_url,
+      isPrivate: !!row.recipe_data?.isPrivate,
     }));
   } catch (error) {
     console.error('Error getting public recipes:', error);
+    return [];
+  }
+};
+
+/**
+ * Names of the user's private folders. RLS hides their contents from
+ * other viewers automatically, but a self-view ("Preview Your
+ * Profile") sees everything, so the preview filters with this to
+ * show exactly what others get.
+ */
+export const getPrivateFolderNames = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('folders')
+      .eq('user_id', userId)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data?.folders || [])
+      .filter(f => typeof f === 'object' && f?.isPrivate)
+      .map(f => f.name);
+  } catch (error) {
+    console.error('Error getting private folder names:', error);
     return [];
   }
 };
@@ -1007,6 +1034,7 @@ export const getUserFolderRecipes = async (targetUserId, folderName) => {
         imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
         sourceUrl: row.global_recipes?.source_url || null,
         folders: row.folders || row.local_recipe_data?.folders || [],
+        isPrivate: !!row.local_recipe_data?.isPrivate,
       }));
     }
 
@@ -1830,6 +1858,7 @@ export default {
   getUserPublicFolders,
   getUserFavorites,
   getUserFolderRecipes,
+  getPrivateFolderNames,
   isFollowing,
   followUser,
   unfollowUser,

@@ -34,6 +34,7 @@ import {
   getUserFolderRecipes,
   getUserFeaturedRecipes,
   getUserPublicRecipes,
+  getPrivateFolderNames,
   isFollowing as checkIsFollowing,
   followUser,
   unfollowUser,
@@ -43,6 +44,8 @@ import {
 } from '../services/supabase/social';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// 3-across profile grid: 16px outer padding each side + two 8px gaps
+const GRID_ITEM_WIDTH = Math.floor((SCREEN_WIDTH - 48) / 3);
 const RECIPE_CARD_WIDTH = 140;
 
 const UserProfile = ({
@@ -87,6 +90,20 @@ const UserProfile = ({
     }
   }, [visible]);
 
+  // "Preview Your Profile" opens this component on the user's own id.
+  // RLS hides private recipes from OTHER viewers automatically, but
+  // the owner sees everything - so a self view filters client-side to
+  // show exactly what everyone else gets.
+  const isSelfPreview = !!currentUserId && currentUserId === targetUserId;
+  const privateFoldersRef = React.useRef(new Set());
+
+  const visibleToOthers = (r) => {
+    if (!isSelfPreview) return true;
+    if (r.isPrivate) return false;
+    return !(r.folders || []).some(f => privateFoldersRef.current.has(f));
+  };
+  const onlyVisible = (list) => (list || []).filter(visibleToOthers);
+
   const loadProfile = async () => {
     setLoading(true);
     try {
@@ -100,6 +117,9 @@ const UserProfile = ({
       setBlockStatus(blocks);
 
       if (profileData?.canView) {
+        if (isSelfPreview) {
+          privateFoldersRef.current = new Set(await getPrivateFolderNames(currentUserId));
+        }
         const [featured, folders, allRecipes] = await Promise.all([
           getUserFeaturedRecipes(targetUserId),
           getUserPublicFolders(targetUserId),
@@ -107,14 +127,14 @@ const UserProfile = ({
         ]);
         log('📷 Featured recipes loaded:', featured?.length, featured);
         log('📁 Public folders loaded:', folders?.length);
-        setFeaturedRecipes(featured || []);
+        setFeaturedRecipes(onlyVisible(featured));
         setPublicFolders(folders || []);
 
-        // Get 5 random sample recipes (excluding featured)
+        // Random sample recipes for the 3-wide grid (excluding featured)
         const featuredIds = (featured || []).map(r => r.id);
-        const nonFeatured = (allRecipes || []).filter(r => !featuredIds.includes(r.id));
+        const nonFeatured = onlyVisible(allRecipes).filter(r => !featuredIds.includes(r.id));
         const shuffled = nonFeatured.sort(() => Math.random() - 0.5);
-        setSampleRecipes(shuffled.slice(0, 5));
+        setSampleRecipes(shuffled.slice(0, 9));
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -227,7 +247,7 @@ const UserProfile = ({
     setLoadingContent(true);
     try {
       const recipes = await getUserPublicRecipes(targetUserId);
-      setPublicRecipes(recipes);
+      setPublicRecipes(onlyVisible(recipes));
     } catch (error) {
       console.error('Error loading public recipes:', error);
       setPublicRecipes([]);
@@ -242,7 +262,7 @@ const UserProfile = ({
     setLoadingContent(true);
     try {
       const recipes = await getUserFolderRecipes(targetUserId, folderName);
-      setFolderRecipes(recipes);
+      setFolderRecipes(onlyVisible(recipes));
     } catch (error) {
       console.error('Error loading folder recipes:', error);
       setFolderRecipes([]);
@@ -286,6 +306,22 @@ const UserProfile = ({
     </TouchableOpacity>
   );
 
+  // 3-across square card: big image, title below (wraps as needed)
+  const renderGridCard = (recipe) => (
+    <TouchableOpacity
+      key={recipe.id}
+      style={styles.gridCard}
+      onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
+    >
+      {recipe.imageUrl ? (
+        <Image source={imgSource(recipe.imageUrl)} style={styles.gridImage} resizeMode="cover" />
+      ) : (
+        <LetterPlaceholder title={recipe.title} size={30} style={styles.gridImage} />
+      )}
+      <Text style={styles.gridTitle} numberOfLines={3}>{recipe.title}</Text>
+    </TouchableOpacity>
+  );
+
   const renderRecipeList = (recipes, emptyMessage) => {
     if (loadingContent) {
       return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
@@ -297,25 +333,9 @@ const UserProfile = ({
 
     return (
       <ScrollView style={styles.recipeList}>
-        {recipes.map(recipe => (
-          <TouchableOpacity
-            key={recipe.id}
-            style={styles.recipeListItem}
-            onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
-          >
-            {recipe.imageUrl ? (
-              <Image source={imgSource(recipe.imageUrl)} style={styles.recipeListImage} />
-            ) : (
-              <LetterPlaceholder title={recipe.title} size={22} style={styles.recipeListImage} />
-            )}
-            <View style={styles.recipeListInfo}>
-              <Text style={styles.recipeListTitle} numberOfLines={2}>{recipe.title}</Text>
-              {recipe.isCustom && (
-                <Text style={styles.customBadge}>Original Recipe</Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
+        <View style={styles.recipeGrid}>
+          {recipes.map(renderGridCard)}
+        </View>
       </ScrollView>
     );
   };
@@ -340,7 +360,7 @@ const UserProfile = ({
     try {
       const allRecipes = await getUserPublicRecipes(targetUserId);
       // Filter recipes that don't have a specific cookbook folder
-      const uncategorized = (allRecipes || []).filter(recipe => {
+      const uncategorized = onlyVisible(allRecipes).filter(recipe => {
         const folders = recipe.folders || [];
         // Recipe is uncategorized if it has no folders, or only has "All Recipes" or "My Creations"
         return folders.length === 0 ||
@@ -516,30 +536,9 @@ const UserProfile = ({
         {sampleRecipes.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recipes</Text>
-            {sampleRecipes.map((recipe) => (
-              <TouchableOpacity
-                key={recipe.id}
-                style={styles.sampleRecipeRow}
-                onPress={() => onRecipePress?.({ ...recipe, ownerUserId: targetUserId })}
-              >
-                {recipe.imageUrl ? (
-                  <Image
-                    source={imgSource(recipe.imageUrl)}
-                    style={styles.sampleRecipeImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <LetterPlaceholder title={recipe.title} size={20} style={styles.sampleRecipeImage} />
-                )}
-                <View style={styles.sampleRecipeInfo}>
-                  <Text style={styles.sampleRecipeTitle} numberOfLines={1}>{recipe.title}</Text>
-                  {recipe.isCustom && (
-                    <Text style={styles.sampleRecipeBadge}>Original</Text>
-                  )}
-                </View>
-                <Text style={styles.sampleRecipeArrow}>{'>'}</Text>
-              </TouchableOpacity>
-            ))}
+            <View style={styles.recipeGrid}>
+              {sampleRecipes.map(renderGridCard)}
+            </View>
           </View>
         )}
 
@@ -1046,7 +1045,30 @@ const styles = StyleSheet.create({
   // Recipe List (vertical)
   recipeList: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 16,
+  },
+  recipeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  gridCard: {
+    width: GRID_ITEM_WIDTH,
+    marginBottom: 6,
+  },
+  gridImage: {
+    width: '100%',
+    height: GRID_ITEM_WIDTH,
+    borderRadius: 10,
+    backgroundColor: colors.lightGray,
+  },
+  gridTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 5,
+    lineHeight: 16,
   },
   recipeListItem: {
     flexDirection: 'row',
