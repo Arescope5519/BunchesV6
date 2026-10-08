@@ -820,10 +820,12 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
         id: row.local_recipe_data?.id || row.id,
         title: row.local_recipe_data?.title || row.global_recipes?.title || 'Untitled',
         imageUrl: row.local_recipe_data?.image_url || row.global_recipes?.image_url || null,
-        sourceUrl: row.global_recipes?.source_url || null,
+        sourceUrl: row.global_recipes?.source_url || row.local_recipe_data?.url || null,
         folders: row.folders || row.local_recipe_data?.folders || [],
         isCustom: !row.global_recipes?.source_url,
         isPrivate: !!row.local_recipe_data?.isPrivate,
+        source: row.local_recipe_data?.source || null,
+        isOwnWork: !!row.local_recipe_data?.isOwnWork,
       }));
     }
 
@@ -856,6 +858,8 @@ export const getUserPublicRecipes = async (targetUserId, folderPath = null) => {
       folders: row.recipe_data?.folders || [],
       isCustom: !row.source_url,
       isPrivate: !!row.recipe_data?.isPrivate,
+      source: row.recipe_data?.source || null,
+      isOwnWork: !!row.recipe_data?.isOwnWork,
     }));
   } catch (error) {
     console.error('Error getting public recipes:', error);

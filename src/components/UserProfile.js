@@ -27,6 +27,7 @@ import LetterPlaceholder from './LetterPlaceholder';
 import { UserAvatar } from './UserAvatar';
 import { log } from '../utils/log';
 import { imgSource } from '../utils/imageSource';
+import { isOwnInternalRecipeUrl } from '../constants/app';
 import {
   getPublicProfile,
   getUserPublicFolders,
@@ -59,7 +60,8 @@ const UserProfile = ({
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [featuredRecipes, setFeaturedRecipes] = useState([]);
-  const [sampleRecipes, setSampleRecipes] = useState([]);
+  const [ownRecipes, setOwnRecipes] = useState([]);
+  const [collectionRecipes, setCollectionRecipes] = useState([]);
   const [publicFolders, setPublicFolders] = useState([]);
   const [currentView, setCurrentView] = useState('main'); // 'main', 'recipes', 'folders', 'folder-detail'
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -130,11 +132,16 @@ const UserProfile = ({
         setFeaturedRecipes(onlyVisible(featured));
         setPublicFolders(folders || []);
 
-        // Random sample recipes for the 3-wide grid (excluding featured)
-        const featuredIds = (featured || []).map(r => r.id);
-        const nonFeatured = onlyVisible(allRecipes).filter(r => !featuredIds.includes(r.id));
-        const shuffled = nonFeatured.sort(() => Math.random() - 0.5);
-        setSampleRecipes(shuffled.slice(0, 9));
+        // Split the public library into the user's own work (created,
+        // or scanned and claimed) and their collections (web imports,
+        // unclaimed scans, recipes saved from other users)
+        const visible = onlyVisible(allRecipes);
+        const isTheirOwnWork = (r) => {
+          if (r.source === 'scan') return !!r.isOwnWork;
+          return !r.sourceUrl || isOwnInternalRecipeUrl(r.sourceUrl, targetUserId);
+        };
+        setOwnRecipes(visible.filter(isTheirOwnWork));
+        setCollectionRecipes(visible.filter(r => !isTheirOwnWork(r)));
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -532,12 +539,12 @@ const UserProfile = ({
           )}
         </View>
 
-        {/* Sample Recipes Section */}
-        {sampleRecipes.length > 0 && (
+        {/* The user's own work: created, or scanned and claimed */}
+        {ownRecipes.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recipes</Text>
+            <Text style={styles.sectionTitle}>{profile?.username || 'user'}'s Recipes</Text>
             <View style={styles.recipeGrid}>
-              {sampleRecipes.map(renderGridCard)}
+              {ownRecipes.map(renderGridCard)}
             </View>
           </View>
         )}
@@ -556,6 +563,17 @@ const UserProfile = ({
             <Text style={styles.actionButtonArrow}>{'>'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Collections: saved from the web, other users, or unclaimed
+            scans - recipes they keep, not ones they claim as theirs */}
+        {collectionRecipes.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Collections</Text>
+            <View style={styles.recipeGrid}>
+              {collectionRecipes.map(renderGridCard)}
+            </View>
+          </View>
+        )}
       </ScrollView>
     );
   };
