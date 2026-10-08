@@ -30,6 +30,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import PendingDeletionScreen from './src/components/PendingDeletionScreen';
 import UsernameSetupModal from './src/components/UsernameSetupModal';
+import HiddenImageFetcher from './src/components/HiddenImageFetcher';
 import colors from './src/constants/colors';
 
 import { log } from './src/utils/log';
@@ -249,6 +250,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <MainApp />
+      <HiddenImageFetcher />
     </ErrorBoundary>
   );
 }

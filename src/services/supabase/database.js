@@ -10,6 +10,7 @@ import { getHighConfidenceTags } from '../../utils/autoTag';
 
 import { log } from '../../utils/log';
 import { dbg } from '../../utils/debugLog';
+import { getWebViewImageFetcher } from '../../utils/webviewImageFetcher';
 import { buildInternalRecipeUrl, isInternalUrl } from '../../constants/app';
 import { APP_NAME } from '../../constants/app';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
@@ -929,19 +930,59 @@ const base64ToBytes = (b64) => {
 };
 
 /**
- * Device-side mirror: the PHONE downloads the image (its fetch
- * demonstrably passes the bot walls - it is how recipe HTML gets
- * extracted at all) and uploads the bytes to our bucket. Requires the
- * storage insert policy in sql/add_recipe_images_bucket.sql.
+ * Upload base64 image bytes to the recipe-images bucket as the
+ * signed-in user and return the public URL. Shared tail of every
+ * mirror path. Requires the storage insert policy in
+ * sql/add_recipe_images_bucket.sql.
  */
-const mirrorImageFromDevice = async (downloadUrl, label = 'direct') => {
+const uploadMirrorBase64 = async (base64, rawContentType) => {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData?.user?.id;
   if (!uid) {
-    dbg('MIRROR', 'no signed-in user, skipping device mirror');
+    dbg('MIRROR', 'no signed-in user, skipping upload');
     return null;
   }
 
+  const contentType =
+    String(rawContentType || '').split(';')[0].trim().toLowerCase() || 'image/jpeg';
+  if (!contentType.startsWith('image/')) {
+    dbg('MIRROR', 'not an image:', contentType);
+    return null;
+  }
+
+  const bytes = base64ToBytes(base64);
+  if (!bytes.byteLength || bytes.byteLength > MIRROR_MAX_BYTES) {
+    dbg('MIRROR', 'bad byte size:', bytes.byteLength);
+    return null;
+  }
+  dbg('MIRROR', 'size', bytes.byteLength, 'bytes');
+
+  const body =
+    bytes.byteLength === bytes.buffer.byteLength
+      ? bytes.buffer
+      : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const ext = MIRROR_EXT_BY_TYPE[contentType] || 'jpg';
+  const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error: upErr } = await supabase.storage
+    .from('recipe-images')
+    .upload(path, body, { contentType, upsert: false });
+  if (upErr) {
+    dbg('MIRROR', 'storage upload FAILED:', upErr.message);
+    return null;
+  }
+  dbg('MIRROR', 'storage upload ok:', path);
+
+  const { data: pub } = supabase.storage.from('recipe-images').getPublicUrl(path);
+  return pub?.publicUrl || null;
+};
+
+/**
+ * Device-side mirror: the PHONE downloads the image (its fetch
+ * demonstrably passes the bot walls - it is how recipe HTML gets
+ * extracted at all) and uploads the bytes to our bucket.
+ */
+const mirrorImageFromDevice = async (downloadUrl, label = 'direct') => {
   const tmp = `${FileSystem.cacheDirectory}mirror-${Date.now()}`;
   try {
     const dl = await FileSystem.downloadAsync(downloadUrl, tmp, {
@@ -953,40 +994,20 @@ const mirrorImageFromDevice = async (downloadUrl, label = 'direct') => {
     }
     const hdrs = dl.headers || {};
     const rawType = hdrs['Content-Type'] || hdrs['content-type'] || '';
-    const contentType = String(rawType).split(';')[0].trim().toLowerCase() || 'image/jpeg';
-    if (!contentType.startsWith('image/')) {
-      dbg('MIRROR', label, 'download not an image:', contentType || 'no type');
-      return null;
-    }
-    dbg('MIRROR', label, 'download ok', contentType);
+    dbg('MIRROR', label, 'download ok', rawType || 'no type');
 
     const info = await FileSystem.getInfoAsync(tmp);
     if (!info.exists || !info.size || info.size > MIRROR_MAX_BYTES) {
-      dbg('MIRROR', 'device download bad size:', info.size);
+      dbg('MIRROR', label, 'download bad size:', info.size);
       return null;
     }
-    dbg('MIRROR', 'size', info.size, 'bytes');
 
     const base64 = await FileSystem.readAsStringAsync(tmp, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    const bytes = base64ToBytes(base64);
-    const ext = MIRROR_EXT_BY_TYPE[contentType] || 'jpg';
-    const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-    const { error: upErr } = await supabase.storage
-      .from('recipe-images')
-      .upload(path, bytes.buffer, { contentType, upsert: false });
-    if (upErr) {
-      dbg('MIRROR', 'storage upload FAILED:', upErr.message);
-      return null;
-    }
-    dbg('MIRROR', 'storage upload ok:', path);
-
-    const { data: pub } = supabase.storage.from('recipe-images').getPublicUrl(path);
-    return pub?.publicUrl || null;
+    return await uploadMirrorBase64(base64, rawType);
   } catch (err) {
-    dbg('MIRROR', 'device mirror error:', err?.message);
+    dbg('MIRROR', label, 'device mirror error:', err?.message);
     return null;
   } finally {
     FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => {});
@@ -998,8 +1019,9 @@ const mirrorImageFromDevice = async (downloadUrl, label = 'direct') => {
  * re-hosted public URL. Bot-walled CDNs (Akamai fronting
  * food.fnr.sndimg.com) refuse the app's HTTP stack outright - TLS
  * fingerprinting, so headers don't help - and datacenter IPs too.
- * Chain: direct device download, then device download via the
- * wsrv.nl image proxy, then the mirror-image Edge Function.
+ * Chain: direct device download, then hidden WebView (Chromium's
+ * own stack, see HiddenImageFetcher), then the wsrv.nl image proxy,
+ * then the mirror-image Edge Function.
  * Best-effort: any failure returns the original URL unchanged.
  * Local file:// and data: URIs pass through.
  */
@@ -1017,10 +1039,32 @@ export const mirrorImageToStorage = async (imageUrl) => {
       return deviceUrl;
     }
 
-    // 2. Device download through a public image proxy. Akamai
-    // fingerprints the app's TLS/HTTP2 stack itself (Chrome passes,
-    // okhttp gets 403 no matter the headers), so let wsrv.nl's servers
-    // fetch from the CDN and hand the bytes to the phone.
+    // 2. Hidden WebView download. Akamai fingerprints the app's
+    // TLS/HTTP2 stack itself (Chrome passes, okhttp gets 403 no
+    // matter the headers), but the system WebView IS Chromium - its
+    // download is indistinguishable from the Chrome that works.
+    const webviewFetch = getWebViewImageFetcher();
+    if (webviewFetch) {
+      try {
+        dbg('MIRROR', 'webview attempt');
+        const fetched = await webviewFetch(imageUrl);
+        if (fetched?.base64) {
+          const webviewUrl = await uploadMirrorBase64(fetched.base64, fetched.contentType);
+          if (webviewUrl) {
+            dbg('MIRROR', 'SUCCESS via webview:', webviewUrl);
+            return webviewUrl;
+          }
+        }
+      } catch (err) {
+        dbg('MIRROR', 'webview failed:', err?.message || String(err));
+      }
+    } else {
+      dbg('MIRROR', 'no webview fetcher registered');
+    }
+
+    // 3. Device download through a public image proxy (long shot:
+    // Food Network geo-blocks wsrv's EU servers with 451, but other
+    // CDNs may let it through).
     const proxied = `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}`;
     const proxyUrl = await mirrorImageFromDevice(proxied, 'proxy');
     if (proxyUrl) {
@@ -1028,7 +1072,7 @@ export const mirrorImageToStorage = async (imageUrl) => {
       return proxyUrl;
     }
 
-    // 3. Server-side fetch via Edge Function
+    // 4. Server-side fetch via Edge Function
     const { data, error } = await supabase.functions.invoke('mirror-image', {
       body: { url: imageUrl },
     });
