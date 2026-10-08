@@ -13,7 +13,7 @@ import {
   saveRecipeWithDualWrite,
   mirrorImageToStorage,
 } from '../services/supabase/database';
-import { MY_CREATIONS_FOLDER } from './useFolders';
+import { MY_CREATIONS_FOLDER, SCANNED_FOLDER } from './useFolders';
 import { getHighConfidenceTags } from '../utils/autoTag';
 import { dbg } from '../utils/debugLog';
 
@@ -24,6 +24,9 @@ import { normalizeRecipeUrl } from '../utils/urlExtractor';
  * Check if a recipe is custom (created by user, not imported from URL)
  */
 const isCustomRecipe = (recipe) => {
+  // A scanned paper recipe is NOT the scanner's own work unless they
+  // explicitly claimed it (isOwnWork, toggled in RecipeDetail)
+  if (recipe.source === 'scan' && !recipe.isOwnWork) return false;
   const url = recipe.url || recipe.sourceUrl || recipe.source_url;
   return !url || isInternalUrl(url);
 };
@@ -133,6 +136,11 @@ export const useRecipes = (user) => {
     // If this is a custom recipe (no external URL), ensure it's in My Creations
     if (isCustomRecipe(recipe) && !recipeFolders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'))) {
       recipeFolders.push(MY_CREATIONS_FOLDER);
+    }
+
+    // Unclaimed paper scans auto-file into Scanned Recipes instead
+    if (recipe.source === 'scan' && !recipe.isOwnWork && !recipeFolders.includes(SCANNED_FOLDER)) {
+      recipeFolders.push(SCANNED_FOLDER);
     }
 
     const recipeId = recipe.id || `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

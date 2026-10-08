@@ -15,15 +15,21 @@ import { containsProfanityAsync } from '../services/profanityFilter';
 
 import { log } from '../utils/log';
 // System folders that cannot be deleted or renamed
-export const SYSTEM_FOLDERS = ['All Recipes', 'Favorites', 'Recently Deleted', 'My Creations'];
+export const SYSTEM_FOLDERS = ['All Recipes', 'Favorites', 'Recently Deleted', 'My Creations', 'Scanned Recipes'];
 
 // My Creations is the parent folder for all custom/original recipes
 export const MY_CREATIONS_FOLDER = 'My Creations';
+
+// Scanned Recipes holds AI-scanned paper recipes. A scan is NOT the
+// scanner's own work until they explicitly claim it in RecipeDetail,
+// so scans auto-file here instead of My Creations.
+export const SCANNED_FOLDER = 'Scanned Recipes';
 
 const DEFAULT_FOLDERS = [
   { name: 'All Recipes', isPrivate: false },
   { name: 'Favorites', isPrivate: false },
   { name: 'My Creations', isPrivate: false },
+  { name: 'Scanned Recipes', isPrivate: false },
   { name: 'Recently Deleted', isPrivate: false }
 ];
 
@@ -106,6 +112,22 @@ export const useFolders = (user) => {
       }
       needsSave = true;
       log('✅ Added My Creations folder');
+    }
+
+    // Ensure Scanned Recipes exists (same migration pattern)
+    if (!folderNames.includes(SCANNED_FOLDER)) {
+      const recentlyDeletedIndex = loaded.findIndex(f =>
+        (typeof f === 'string' ? f : f.name) === 'Recently Deleted'
+      );
+      const scannedFolder = { name: SCANNED_FOLDER, isPrivate: false };
+
+      if (recentlyDeletedIndex >= 0) {
+        loaded.splice(recentlyDeletedIndex, 0, scannedFolder);
+      } else {
+        loaded.push(scannedFolder);
+      }
+      needsSave = true;
+      log('✅ Added Scanned Recipes folder');
     }
 
     // Save if we made changes

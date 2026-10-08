@@ -192,6 +192,8 @@ const MyProfile = ({
   // recipe as your own.
   const customRecipes = recipes.filter(r => {
     if (r.deletedAt) return false;
+    // A scan only counts as the user's own work once claimed
+    if (r.source === 'scan' && !r.isOwnWork) return false;
     const url = r.url || r.sourceUrl || r.source_url;
     return !url || isOwnInternalRecipeUrl(url, userId);
   });

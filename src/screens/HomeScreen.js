@@ -34,7 +34,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 
 // Hooks
 import { useRecipes } from '../hooks/useRecipes';
-import { useFolders, MY_CREATIONS_FOLDER } from '../hooks/useFolders';
+import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
@@ -263,13 +263,16 @@ export const HomeScreen = ({ user }) => {
   // Helper to check if a recipe is custom (created by user, not imported)
   const isCustomRecipe = (recipe) => {
     if (!recipe) return false;
+    // Unclaimed paper scans are not the scanner's own work
+    if (recipe.source === 'scan' && !recipe.isOwnWork) return false;
     const url = recipe.url || recipe.sourceUrl || recipe.source_url;
     return !url || isInternalUrl(url);
   };
 
   // Get folders available for a recipe (My Creations only for custom recipes)
   const getFoldersForRecipe = (recipe) => {
-    const allFolders = getCustomFolders();
+    // Scanned Recipes is auto-managed by provenance, never hand-picked
+    const allFolders = getCustomFolders().filter(f => f !== SCANNED_FOLDER);
     if (isCustomRecipe(recipe)) {
       return allFolders; // Custom recipes can go in My Creations
     }
@@ -804,10 +807,14 @@ export const HomeScreen = ({ user }) => {
       folder: selectedFolder === 'Favorites' || selectedFolder === 'Recently Deleted'
         ? 'All Recipes'
         : selectedFolder,
+      // Scans keep createdBy as the SCANNER's identity ("scanned by
+      // @user"), but are not their own work until claimed in
+      // RecipeDetail - isOwnWork gates My Creations and featuring
       createdBy: !externalUrl && profile ? {
         id: user?.uid,
         username: profile.username,
       } : null,
+      ...(modifiedRecipe.source === 'scan' ? { isOwnWork: modifiedRecipe.isOwnWork === true } : {}),
     };
 
     const saved = await saveRecipe(recipeWithFolder);
@@ -2325,7 +2332,7 @@ export const HomeScreen = ({ user }) => {
   // the read-only recipe header and the Feed's save button)
   const startImportFlow = (recipe) => {
     const importableFolders = getCustomFolders()
-      .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+      .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/') && f !== SCANNED_FOLDER);
     if (importableFolders.length === 0) {
       // No cookbooks is no obstacle - save straight into All Recipes
       handleImportPublicRecipe('All Recipes', recipe);
@@ -3574,7 +3581,7 @@ export const HomeScreen = ({ user }) => {
                         {recipe.ingredients ? (typeof recipe.ingredients === 'string' ? recipe.ingredients.split('\n').filter(l => l.trim()).length : Object.values(recipe.ingredients).flat().length) : 0} ingredients
                       </Text>
                       {/* Source/Creator badge */}
-                      {recipe.source === 'manual' && recipe.createdBy?.username && (
+                      {(recipe.source === 'manual' || (recipe.source === 'scan' && recipe.isOwnWork)) && recipe.createdBy?.username && (
                         <View style={styles.recipeMetaRow}>
                           <Ionicons name="pencil" size={10} color={colors.primary} style={{ marginRight: 3 }} />
                           <Text style={styles.recipeCreator} numberOfLines={1}>
@@ -3582,7 +3589,7 @@ export const HomeScreen = ({ user }) => {
                           </Text>
                         </View>
                       )}
-                      {recipe.source === 'scan' && (
+                      {recipe.source === 'scan' && !recipe.isOwnWork && (
                         <View style={styles.recipeMetaRow}>
                           <Ionicons name="camera" size={10} color={colors.textTertiary} style={{ marginRight: 3 }} />
                           <Text style={styles.recipeSource} numberOfLines={1}>
@@ -4241,9 +4248,10 @@ export const HomeScreen = ({ user }) => {
                 // For multiselect, only show My Creations if ALL selected are custom
                 const selectedRecipesList = recipes.filter(r => selectedRecipes.has(r.id));
                 const allCustom = selectedRecipesList.every(r => isCustomRecipe(r));
-                const availableFolders = allCustom
+                const availableFolders = (allCustom
                   ? getCustomFolders()
-                  : getCustomFolders().filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+                  : getCustomFolders().filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'))
+                ).filter(f => f !== SCANNED_FOLDER);
 
                 return availableFolders.map(folder => {
                   const isInFolder = pendingFolders.includes(folder);
@@ -4515,7 +4523,7 @@ export const HomeScreen = ({ user }) => {
               </View>
             </TouchableOpacity>
             {getCustomFolders()
-              .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'))
+              .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/') && f !== SCANNED_FOLDER)
               .map((folder) => (
               <TouchableOpacity
                 key={folder}

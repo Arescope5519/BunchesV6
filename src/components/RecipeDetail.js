@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ScrollView, Image, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { TAG_CATEGORIES, getPredefinedTagNames, combineRecipeTags } from '../constants/tags';
@@ -23,6 +23,7 @@ import { formatDuration, formatServings, buildNutritionItems } from '../utils/re
 
 import { log } from '../utils/log';
 import { isInternalUrl } from '../constants/app';
+import { MY_CREATIONS_FOLDER, SCANNED_FOLDER } from '../hooks/useFolders';
 import { printRecipe } from '../utils/printRecipe';
 import { imgSource } from '../utils/imageSource';
 import { dbg } from '../utils/debugLog';
@@ -1420,6 +1421,19 @@ export const RecipeDetail = ({
         const creatorUsername = localRecipe.ownerUsername || localRecipe.createdBy?.username;
         const creatorUserId = localRecipe.ownerUserId || localRecipe.createdBy?.id;
 
+        // Unclaimed scan: honest attribution wins even over the minted
+        // internal URL (which otherwise reads as "Created by")
+        if (localRecipe.source === 'scan' && !localRecipe.isOwnWork) {
+          return (
+            <View style={styles.sourceContainer}>
+              <Text style={styles.sourceLabel}>Source:</Text>
+              <Text style={styles.creatorName}>
+                Scanned{creatorUsername ? ` by @${creatorUsername}` : ''} with AI from a printed recipe
+              </Text>
+            </View>
+          );
+        }
+
         // App-created recipe: show creator link, not the internal URL.
         // A web import is owned by the website, never by whoever
         // imported it - so an external source URL always wins over the
@@ -1452,18 +1466,6 @@ export const RecipeDetail = ({
           );
         }
 
-        // AI-scanned recipe - honest attribution, not a claimed creation
-        if (localRecipe.source === 'scan') {
-          return (
-            <View style={styles.sourceContainer}>
-              <Text style={styles.sourceLabel}>Source:</Text>
-              <Text style={styles.creatorName}>
-                Scanned{creatorUsername ? ` by @${creatorUsername}` : ''} with AI from a printed recipe
-              </Text>
-            </View>
-          );
-        }
-
         // Manual recipe fallback - a recipe whose internal source URL has
         // not been minted yet (offline creation, or a pre-existing row).
         // Still links to the creator when we know who they are.
@@ -1484,6 +1486,59 @@ export const RecipeDetail = ({
 
         return null;
       })()}
+
+      {/* Own-work claim for scanned recipes: a scan stays attributed
+          to its scanner, not owned, until they explicitly claim it */}
+      {onUpdate && !isReadOnly && localRecipe.source === 'scan' && (
+        <View style={styles.ownWorkContainer}>
+          <View style={styles.ownWorkRow}>
+            <View style={styles.ownWorkInfo}>
+              <Text style={styles.ownWorkLabel}>This is my own recipe</Text>
+              <Text style={styles.ownWorkHint}>
+                {localRecipe.isOwnWork
+                  ? 'Counted among your creations and featurable on your profile'
+                  : 'Turn on only if you created this recipe yourself and scanned it from your own notes'}
+              </Text>
+            </View>
+            <Switch
+              value={!!localRecipe.isOwnWork}
+              onValueChange={(next) => {
+                if (next) {
+                  Alert.alert(
+                    'Claim as Your Own?',
+                    "Only mark recipes you actually created yourself. Claiming someone else's work as your own may put your account at risk.",
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: "It's My Recipe",
+                        onPress: () => {
+                          const folders = (Array.isArray(localRecipe.folders) ? localRecipe.folders : [])
+                            .filter(f => f !== SCANNED_FOLDER);
+                          if (!folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'))) {
+                            folders.push(MY_CREATIONS_FOLDER);
+                          }
+                          const updated = { ...localRecipe, isOwnWork: true, folders };
+                          setLocalRecipe(updated);
+                          onUpdate(updated);
+                        },
+                      },
+                    ]
+                  );
+                } else {
+                  const folders = (Array.isArray(localRecipe.folders) ? localRecipe.folders : [])
+                    .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/'));
+                  if (!folders.includes(SCANNED_FOLDER)) folders.push(SCANNED_FOLDER);
+                  const updated = { ...localRecipe, isOwnWork: false, folders };
+                  setLocalRecipe(updated);
+                  onUpdate(updated);
+                }
+              }}
+              trackColor={{ false: '#D1D5DB', true: colors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+      )}
 
       {/* Privacy Toggle
           - Custom recipes (created in-app): controls whether the whole recipe is public
@@ -2457,6 +2512,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.primary,
     fontStyle: 'italic',
+  },
+  ownWorkContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+  },
+  ownWorkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ownWorkInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  ownWorkLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 3,
+  },
+  ownWorkHint: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 15,
   },
   privacyContainer: {
     marginTop: 15,
