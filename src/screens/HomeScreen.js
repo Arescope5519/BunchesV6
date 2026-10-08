@@ -2974,7 +2974,7 @@ export const HomeScreen = ({ user }) => {
               style={styles.actionBarButton}
               onPress={handleScanRecipe}
             >
-              <Ionicons name="camera" size={22} color={colors.primary} />
+              <Ionicons name="scan" size={22} color={colors.primary} />
             </TouchableOpacity>
             {showQuickLinkButton && (
               <TouchableOpacity
@@ -3674,7 +3674,7 @@ export const HomeScreen = ({ user }) => {
                   icon = 'pencil';
                   count = recipes.filter(r => !r.deletedAt && inFolder(r)).length;
                 } else if (folder === SCANNED_FOLDER) {
-                  icon = 'camera';
+                  icon = 'scan';
                   count = recipes.filter(r => !r.deletedAt && inFolder(r)).length;
                 } else {
                   // All Recipes
