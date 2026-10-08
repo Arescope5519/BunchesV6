@@ -138,8 +138,9 @@ export const useRecipes = (user) => {
       recipeFolders.push(MY_CREATIONS_FOLDER);
     }
 
-    // Unclaimed paper scans auto-file into Scanned Recipes instead
-    if (recipe.source === 'scan' && !recipe.isOwnWork && !recipeFolders.includes(SCANNED_FOLDER)) {
+    // Every paper scan files into Scanned Recipes - it records what
+    // was scanned (provenance), claimed or not
+    if (recipe.source === 'scan' && !recipeFolders.includes(SCANNED_FOLDER)) {
       recipeFolders.push(SCANNED_FOLDER);
     }
 

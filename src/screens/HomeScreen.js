@@ -3650,7 +3650,10 @@ export const HomeScreen = ({ user }) => {
           >
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
-              {folders.filter(f => SYSTEM_FOLDERS.includes(f.name)).map((folderObj) => {
+              {['Favorites', SCANNED_FOLDER, MY_CREATIONS_FOLDER, 'All Recipes', 'Recently Deleted']
+                .map(name => folders.find(f => f.name === name))
+                .filter(Boolean)
+                .map((folderObj) => {
                 const folder = folderObj.name;
                 const inFolder = (r) => {
                   const recipeFolders = r.folders || [r.folder || 'All Recipes'];

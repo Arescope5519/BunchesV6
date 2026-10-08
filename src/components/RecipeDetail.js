@@ -1512,8 +1512,9 @@ export const RecipeDetail = ({
                       {
                         text: "It's My Recipe",
                         onPress: () => {
-                          const folders = (Array.isArray(localRecipe.folders) ? localRecipe.folders : [])
-                            .filter(f => f !== SCANNED_FOLDER);
+                          // Stays in Scanned Recipes (provenance) and
+                          // ALSO joins My Creations (ownership)
+                          const folders = Array.isArray(localRecipe.folders) ? [...localRecipe.folders] : [];
                           if (!folders.some(f => f === MY_CREATIONS_FOLDER || f.startsWith(MY_CREATIONS_FOLDER + '/'))) {
                             folders.push(MY_CREATIONS_FOLDER);
                           }
