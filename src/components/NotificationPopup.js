@@ -137,7 +137,7 @@ const createStyles = (colors) =>
       backgroundColor: colors.surface,
       borderRadius: 12,
       padding: 16,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -194,7 +194,7 @@ const createStyles = (colors) =>
     acceptText: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#fff',
+      color: colors.onPrimary,
     },
     dismissButton: {
       position: 'absolute',

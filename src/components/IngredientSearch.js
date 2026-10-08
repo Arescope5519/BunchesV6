@@ -238,7 +238,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeRow}>
-            <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+            <Ionicons name="close" size={18} color={colors.onPrimary} style={{ marginRight: 4 }} />
             <Text style={styles.closeButton}>Close</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Search by Ingredients</Text>
@@ -338,7 +338,7 @@ export const IngredientSearch = ({ visible, onClose, recipes, onSelectRecipe }) 
                       activeOpacity={0.7}
                     >
                       <Text style={styles.chipText}>{ingredient}</Text>
-                      <Ionicons name="close" size={14} color="#fff" style={{ marginLeft: 4 }} />
+                      <Ionicons name="close" size={14} color={colors.onPrimary} style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   dietFilterRow: {
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.primary,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   dietChipActive: {
     backgroundColor: colors.primary,
@@ -462,20 +462,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   dietChipTextActive: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   placeholder: {
     width: 60,
   },
   searchSection: {
     padding: 15,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     zIndex: 1001,
@@ -500,8 +500,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
     borderRadius: 8,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: colors.card,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGray,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     minHeight: 50,
   },
   suggestionText: {
@@ -583,12 +583,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chipText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
   chipRemove: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 4,
@@ -625,11 +625,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

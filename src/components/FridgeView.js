@@ -194,7 +194,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
                       {entry.remaining} serving{entry.remaining !== 1 ? 's' : ''} left
                       {entry.futureClaimed > 0 ? ` + ${entry.futureClaimed} reserved for planned meals` : ''}
                     </Text>
-                    <Text style={[styles.meta, isOld && { color: colors.error || '#e74c3c' }]}>
+                    <Text style={[styles.meta, isOld && { color: colors.error || colors.error }]}>
                       {cook.is_takeout ? 'Ordered' : 'Cooked'} {daysAgo}{isOld ? ' - check freshness' : ''}
                     </Text>
                   </View>
@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
   header: { fontSize: 13, color: colors.textSecondary, marginBottom: 12 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  cardOld: { borderColor: colors.error || '#e74c3c', borderWidth: 2 },
+  cardOld: { borderColor: colors.error || colors.error, borderWidth: 2 },
   cardMain: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   thumb: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
   thumbPlaceholder: { backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
-  trashButton: { borderColor: colors.error || '#e74c3c' },
+  trashButton: { borderColor: colors.error || colors.error },
   adjustButton: { borderColor: colors.primary },
   actionText: { fontSize: 12, fontWeight: '600', color: colors.text },
 
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
-  modalCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
+  modalCard: { backgroundColor: colors.card, borderRadius: 16, padding: 20 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
   modalSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 4 },
   modalHelp: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 12, marginBottom: 8 },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  servingsButtonText: { color: colors.onPrimary, fontSize: 24, fontWeight: '700' },
   servingsCount: { fontSize: 28, fontWeight: '700', color: colors.text },
   servingsHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   modalActions: { flexDirection: 'row', gap: 8 },
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
   },
-  modalConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  modalConfirmText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
 });
 
 export default FridgeView;

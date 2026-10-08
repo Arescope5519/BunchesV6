@@ -124,7 +124,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                   onPress={() => onToggleItem(item.id)}
                 >
                   <View style={[styles.checkboxInner, styles.checkboxChecked]}>
-                    <Ionicons name="checkmark" size={14} color="#fff" />
+                    <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -185,7 +185,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
                   onPress={() => onToggleItem(item.id)}
                 >
                   <View style={[styles.checkboxInner, item.checked && styles.checkboxChecked]}>
-                    {item.checked && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    {item.checked && <Ionicons name="checkmark" size={14} color={colors.onPrimary} />}
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -230,7 +230,7 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
               }}
               onPress={onOpenMealPlan}
             >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Meal Plan</Text>
+              <Text style={{ color: colors.onPrimary, fontSize: 14, fontWeight: '600' }}>Meal Plan</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 15,
     paddingBottom: 15,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: 'row',
     padding: 10,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   addItemBar: {
     flexDirection: 'row',
     padding: 10,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: 10,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },

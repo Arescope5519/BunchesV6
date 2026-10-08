@@ -3036,7 +3036,7 @@ export const HomeScreen = ({ user }) => {
                   onPress={() => toggleDietFilter(dietKey)}
                 >
                   <Text style={styles.tagChipActiveText}>{dietLabel(dietKey)}</Text>
-                  <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
+                  <Ionicons name="close" size={12} color={colors.onPrimary} style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
               ))}
               {selectedTags.map(tag => (
@@ -3046,7 +3046,7 @@ export const HomeScreen = ({ user }) => {
                   onPress={() => toggleTagFilter(tag)}
                 >
                   <Text style={styles.tagChipActiveText}>{tag}</Text>
-                  <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
+                  <Ionicons name="close" size={12} color={colors.onPrimary} style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -3425,7 +3425,7 @@ export const HomeScreen = ({ user }) => {
                       style={[styles.toolbarButton, styles.folderButton]}
                       disabled={selectedRecipes.size === 0}
                     >
-                      <Ionicons name="folder-open" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Ionicons name="folder-open" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
                       <Text style={[styles.toolbarButtonText, styles.folderButtonText]}>
                         Move
                       </Text>
@@ -3435,7 +3435,7 @@ export const HomeScreen = ({ user }) => {
                       style={[styles.toolbarButton, styles.shareSelectedButton]}
                       disabled={selectedRecipes.size === 0}
                     >
-                      <Ionicons name="share-social" size={14} color="#fff" style={{ marginRight: 4 }} />
+                      <Ionicons name="share-social" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
                       <Text style={[styles.toolbarButtonText, styles.shareSelectedButtonText]}>
                         Share
                       </Text>
@@ -3446,7 +3446,7 @@ export const HomeScreen = ({ user }) => {
                     style={[styles.toolbarButton, styles.deleteButton]}
                     disabled={selectedRecipes.size === 0}
                   >
-                    <Ionicons name="trash" size={14} color="#fff" style={{ marginRight: 4 }} />
+                    <Ionicons name="trash" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
                     <Text style={[styles.toolbarButtonText, styles.deleteButtonText]}>
                       Delete
                     </Text>
@@ -3497,7 +3497,7 @@ export const HomeScreen = ({ user }) => {
                       <View style={styles.checkbox}>
                         {isSelected && (
                           <View style={styles.checkboxChecked}>
-                            <Ionicons name="checkmark" size={16} color="#fff" />
+                            <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
                           </View>
                         )}
                       </View>
@@ -3620,7 +3620,7 @@ export const HomeScreen = ({ user }) => {
           <StatusBar style="light" hidden={true} />
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowFolderManager(false)} style={styles.modalCloseRow}>
-              <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Ionicons name="close" size={18} color={colors.onPrimary} style={{ marginRight: 4 }} />
               <Text style={styles.modalCloseButton}>Close</Text>
             </TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>Cookbooks</Text>
@@ -3885,7 +3885,7 @@ export const HomeScreen = ({ user }) => {
             <StatusBar style="light" hidden={true} />
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setSelectedRecipe(null)} style={styles.modalCloseRow}>
-                <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+                <Ionicons name="close" size={18} color={colors.onPrimary} style={{ marginRight: 4 }} />
                 <Text style={styles.modalCloseButton}>Close</Text>
               </TouchableOpacity>
               {selectedRecipe.deletedAt ? (
@@ -3899,7 +3899,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="refresh" size={20} color="#fff" />
+                    <Ionicons name="refresh" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -3927,7 +3927,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="trash" size={20} color="#fff" />
+                    <Ionicons name="trash" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                 </View>
               ) : selectedRecipe.isReadOnly ? (
@@ -3952,21 +3952,21 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="save" size={20} color="#fff" />
+                    <Ionicons name="save" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => shareRecipe(selectedRecipe)}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="paper-plane-outline" size={20} color="#fff" />
+                    <Ionicons name="paper-plane-outline" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openReportDialog(selectedRecipe)}
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="flag" size={20} color="#fff" />
+                    <Ionicons name="flag" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -3980,7 +3980,7 @@ export const HomeScreen = ({ user }) => {
                     <Ionicons
                       name={selectedRecipe.isFavorite ? 'star' : 'star-outline'}
                       size={20}
-                      color={selectedRecipe.isFavorite ? '#E9B44C' : '#fff'}
+                      color={selectedRecipe.isFavorite ? colors.accent : '#fff'}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -3988,7 +3988,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="share-social" size={20} color="#fff" />
+                    <Ionicons name="share-social" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -4012,7 +4012,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="book" size={20} color="#fff" />
+                    <Ionicons name="book" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -4032,7 +4032,7 @@ export const HomeScreen = ({ user }) => {
                     style={styles.iconButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="trash" size={20} color="#fff" />
+                    <Ionicons name="trash" size={20} color={colors.onPrimary} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -4047,7 +4047,7 @@ export const HomeScreen = ({ user }) => {
               {selectedRecipe.deletedAt && (
                 <View style={styles.deletedBanner}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <Ionicons name="trash" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Ionicons name="trash" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={styles.deletedBannerText}>
                       Deleted on {new Date(selectedRecipe.deletedAt).toLocaleDateString()}
                     </Text>
@@ -4185,7 +4185,7 @@ export const HomeScreen = ({ user }) => {
                 disabled={quickLinkLoading}
               >
                 {quickLinkLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <Text style={styles.quickLinkSubmitText}>Extract Recipe</Text>
                 )}
@@ -4515,7 +4515,7 @@ export const HomeScreen = ({ user }) => {
         <SafeAreaView style={styles.container}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowImportFolderPicker(false)} style={styles.modalCloseRow}>
-              <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Ionicons name="close" size={18} color={colors.onPrimary} style={{ marginRight: 4 }} />
               <Text style={styles.modalCloseButton}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>Add to Cookbook</Text>
@@ -4571,7 +4571,7 @@ export const HomeScreen = ({ user }) => {
                 disabled={submittingReport}
                 style={[styles.modalCloseRow, submittingReport && { opacity: 0.4 }]}
               >
-                <Ionicons name="close" size={18} color="#fff" style={{ marginRight: 4 }} />
+                <Ionicons name="close" size={18} color={colors.onPrimary} style={{ marginRight: 4 }} />
                 <Text style={styles.modalCloseButton}>
                   Cancel
                 </Text>
@@ -4584,7 +4584,7 @@ export const HomeScreen = ({ user }) => {
                 disabled={submittingReport}
               >
                 {submittingReport ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.saveButton}>Submit</Text>
                 )}
@@ -4631,7 +4631,7 @@ export const HomeScreen = ({ user }) => {
               </Text>
               <TextInput
                 style={{
-                  backgroundColor: '#fff',
+                  backgroundColor: colors.card,
                   borderWidth: 1,
                   borderColor: colors.border,
                   borderRadius: 8,
@@ -4694,7 +4694,7 @@ export const HomeScreen = ({ user }) => {
           zIndex: 9999,
         }}>
           <View style={{
-            backgroundColor: '#fff',
+            backgroundColor: colors.card,
             padding: 24,
             borderRadius: 12,
             alignItems: 'center',
@@ -4722,7 +4722,7 @@ export const HomeScreen = ({ user }) => {
           zIndex: 9999,
         }}>
           <View style={{
-            backgroundColor: '#fff',
+            backgroundColor: colors.card,
             padding: 24,
             borderRadius: 12,
             alignItems: 'center',
@@ -4784,7 +4784,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   actionsBar: {
     flexDirection: 'row',
@@ -4804,7 +4804,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -4819,7 +4819,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   extractButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -4845,11 +4845,11 @@ const styles = StyleSheet.create({
   recipeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 10,
     borderRadius: 8,
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -4930,12 +4930,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   toolbarButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   toolbarTitle: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -4951,7 +4951,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   folderButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   shareSelectedButton: {
     borderWidth: 1,
@@ -4961,7 +4961,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareSelectedButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   deleteButton: {
     backgroundColor: colors.error,
@@ -4970,7 +4970,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   recipeCardSelected: {
     backgroundColor: colors.primaryLight,
@@ -4989,7 +4989,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   checkboxChecked: {
     width: 28,
@@ -5010,7 +5010,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -5029,17 +5029,17 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   addFolderHeaderButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   modalActions: {
@@ -5102,7 +5102,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   folderFilterTextActive: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   folderManagerItem: {
     flexDirection: 'row',
@@ -5156,7 +5156,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addFolderModal: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
     width: '80%',
@@ -5198,7 +5198,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   createButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 15,
   },
@@ -5253,7 +5253,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   importModal: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
     width: '90%',
@@ -5339,7 +5339,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -5361,11 +5361,11 @@ const styles = StyleSheet.create({
     top: 192, // Below header + actions bar + sort/tags bar
     left: 15,
     right: 15,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -5395,7 +5395,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -5438,11 +5438,11 @@ const styles = StyleSheet.create({
   },
   tagChipActiveText: {
     fontSize: 12,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   tagFilterDropdown: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     paddingHorizontal: 15,
     paddingTop: 8,
     paddingBottom: 12,
@@ -5451,7 +5451,7 @@ const styles = StyleSheet.create({
     maxHeight: 320,
     zIndex: 1000,
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -5491,7 +5491,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   tagFilterChipTextSelected: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   dietFilterChip: {
     flexDirection: 'row',
@@ -5517,7 +5517,7 @@ const styles = StyleSheet.create({
   },
   tagFilterCloseButtonText: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   // Recipe Card Tag Styles
@@ -5533,17 +5533,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 10,
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.darkGray,
   },
   recipeCardTagText: {
     fontSize: 11,
-    color: '#555',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   recipeCardExpandTags: {
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.darkGray,
     borderRadius: 10,
   },
   recipeCardExpandTagsText: {
@@ -5560,7 +5560,7 @@ const styles = StyleSheet.create({
     paddingBottom: 25, // Extra padding for Android navigation bar
     paddingTop: 8,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -5603,7 +5603,7 @@ const styles = StyleSheet.create({
     borderColor: colors.surface,
   },
   navBadgeText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: 'bold',
     paddingHorizontal: 4,
@@ -5677,7 +5677,7 @@ const styles = StyleSheet.create({
   quickLinkSubmitText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   quickLinkButtonDisabled: {
     opacity: 0.6,
@@ -5696,7 +5696,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   headerBadgeText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: 'bold',
   },

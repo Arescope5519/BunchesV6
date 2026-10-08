@@ -194,7 +194,7 @@ export const UsernameSetupModal = ({
             disabled={!isAvailable || submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.buttonText}>Get Started</Text>
             )}
@@ -293,12 +293,12 @@ const styles = StyleSheet.create({
   },
   availableIcon: {
     fontSize: 18,
-    color: colors.success || '#4CAF50',
+    color: colors.success || colors.success,
     marginLeft: 8,
   },
   unavailableIcon: {
     fontSize: 18,
-    color: colors.error || '#f44336',
+    color: colors.error || colors.error,
     marginLeft: 8,
   },
   hint: {
@@ -308,12 +308,12 @@ const styles = StyleSheet.create({
   },
   availableText: {
     fontSize: 12,
-    color: colors.success || '#4CAF50',
+    color: colors.success || colors.success,
     marginTop: 4,
   },
   unavailableText: {
     fontSize: 12,
-    color: colors.error || '#f44336',
+    color: colors.error || colors.error,
     marginTop: 4,
   },
   errorIcon: {
@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: colors.warning || '#FF9800',
+    color: colors.warning || colors.warning,
     marginTop: 4,
   },
   error: {
     fontSize: 14,
-    color: colors.error || '#f44336',
+    color: colors.error || colors.error,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

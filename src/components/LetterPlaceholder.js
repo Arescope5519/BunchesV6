@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   },
   letter: {
     fontWeight: '800',
-    color: '#fff',
+    color: colors.onPrimary,
   },
 });
 

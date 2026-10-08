@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: colors.accent || '#E9B44C',
+    borderBottomColor: colors.accent || colors.accent,
   },
   tabIcon: {
     fontSize: 22,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   tabLabelActive: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   tabContent: { flex: 1 },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
   },
-  premiumButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  premiumButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: '700' },
 });
 
 export default KitchenScreen;

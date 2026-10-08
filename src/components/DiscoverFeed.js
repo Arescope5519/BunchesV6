@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   tabLabelActive: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   centerFill: {
     flexGrow: 1,
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   retryLabel: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },

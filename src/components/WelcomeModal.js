@@ -56,7 +56,7 @@ export const WelcomeModal = ({ visible, onClose, onDontShowAgain }) => {
             activeOpacity={0.7}
           >
             <View style={[styles.checkbox, dontShowAgain && styles.checkboxChecked]}>
-              {dontShowAgain && <Ionicons name="checkmark" size={14} color="#fff" />}
+              {dontShowAgain && <Ionicons name="checkmark" size={14} color={colors.onPrimary} />}
             </View>
             <Text style={styles.checkboxLabel}>Don't show this again</Text>
           </TouchableOpacity>
@@ -79,12 +79,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 24,
     width: '100%',
     maxWidth: 340,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkmark: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },

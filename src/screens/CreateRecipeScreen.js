@@ -318,7 +318,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
         <Text style={styles.headerTitle}>Create Recipe</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving}>
           {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text style={styles.saveButton}>Save</Text>
           )}
@@ -436,7 +436,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
                   onPress={() => removeIngredient(index)}
                   style={styles.removeButton}
                 >
-                  <Ionicons name="close" size={14} color="#fff" />
+                  <Ionicons name="close" size={14} color={colors.onPrimary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -464,7 +464,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
                     onPress={() => removeInstruction(index)}
                     style={styles.removeInstructionButton}
                   >
-                    <Ionicons name="close" size={14} color="#fff" />
+                    <Ionicons name="close" size={14} color={colors.onPrimary} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -507,17 +507,17 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   saveButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   content: {
@@ -547,12 +547,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   addButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   folderPicker: {
     marginTop: 8,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quantityInput: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   },
   ingredientTextInput: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   instructionInput: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 2,
     borderColor: colors.border,
     borderRadius: 8,
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 2,
     borderColor: colors.border,
     borderStyle: 'dashed',
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   imageOverlayText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '500',
   },

@@ -110,7 +110,7 @@ export const AuthScreen = ({ onSignIn }) => {
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={colors.onPrimary} size="small" />
             ) : (
               <>
                 <View style={styles.googleIconContainer}>
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 42,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.onPrimary,
     marginBottom: 8,
   },
   tagline: {
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 18,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   buttonSection: {
@@ -214,12 +214,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
     width: '100%',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   googleIcon: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   googleButtonText: {
     fontSize: 18,

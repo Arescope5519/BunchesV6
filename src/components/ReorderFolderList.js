@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     elevation: 4,
     borderColor: colors.primary,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,

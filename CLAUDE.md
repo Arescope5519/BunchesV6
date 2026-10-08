@@ -248,7 +248,16 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
 - **Icons**: Ionicons via `@expo/vector-icons` everywhere. No emoji in
   UI (native `Alert` text is plain too).
 - **Colors**: everything from `src/constants/colors.js` (Honey + Forest
-  theme). No hardcoded hex in components.
+  theme). No hardcoded hex in components. The file holds light AND
+  dark palettes, picked once at startup from the system appearance
+  (styles are static `StyleSheet.create`, so theme changes apply on
+  app restart; a live in-app toggle would need every stylesheet to
+  become dynamic - decided against). Semantics: `card`/`surface`
+  flip; `onPrimary` is white-on-colored-fill in BOTH themes - never
+  use it on a plain background; `white`/`black`/`shadow` stay
+  literal. Theme-FIXED files (hex allowed): UserAvatar palette data,
+  RecipeShareCard (share image), printRecipe (print HTML),
+  QrCodeView (scannability), the debug-log viewer.
 - **Logging**: `import { log } from '../utils/log'` for narration - it is
   a no-op in release builds. Use `console.error` for real failures.
 - **Secrets**: never in the repo. API keys live in Supabase Edge Function

@@ -254,7 +254,7 @@ export const SocialModal = ({
               disabled={searching}
             >
               {searching ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <Text style={styles.searchButtonText}>Search</Text>
               )}
@@ -807,7 +807,7 @@ export const SocialModal = ({
             style={styles.friendsBackButton}
             onPress={() => setShowFriendsPage(false)}
           >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color={colors.onPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Friends</Text>
         </View>
@@ -864,7 +864,7 @@ export const SocialModal = ({
             setShowFriendsPage(true);
           }}
         >
-          <Ionicons name="person-add" size={14} color="#fff" style={{ marginRight: 5 }} />
+          <Ionicons name="person-add" size={14} color={colors.onPrimary} style={{ marginRight: 5 }} />
           <Text style={styles.headerAddFriendsText}>Add Friends</Text>
         </TouchableOpacity>
       </View>
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   myProfileButton: {
     flexDirection: 'row',
@@ -994,7 +994,7 @@ const styles = StyleSheet.create({
   myUsername: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   friendsBackButton: {
     position: 'absolute',
@@ -1014,7 +1014,7 @@ const styles = StyleSheet.create({
   headerAddFriendsText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   editProfileHint: {
     fontSize: 11,
@@ -1116,7 +1116,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   acceptButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   removeButtonText: {
-    color: colors.error || '#f44336',
+    color: colors.error || colors.error,
     fontSize: 13,
   },
   tapToViewText: {
@@ -1158,13 +1158,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   addButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
   friendBadge: {
     fontSize: 12,
-    color: colors.success || '#4CAF50',
+    color: colors.success || colors.success,
     fontWeight: '500',
   },
   notAccepting: {
@@ -1217,7 +1217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   importButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveNameButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1383,12 +1383,12 @@ const styles = StyleSheet.create({
   },
   availableIcon: {
     fontSize: 18,
-    color: colors.success || '#4CAF50',
+    color: colors.success || colors.success,
     marginLeft: 8,
   },
   unavailableIcon: {
     fontSize: 18,
-    color: colors.error || '#f44336',
+    color: colors.error || colors.error,
     marginLeft: 8,
   },
   usernameHint: {
@@ -1398,12 +1398,12 @@ const styles = StyleSheet.create({
   },
   availableText: {
     fontSize: 12,
-    color: colors.success || '#4CAF50',
+    color: colors.success || colors.success,
     marginTop: 4,
   },
   unavailableText: {
     fontSize: 12,
-    color: colors.error || '#f44336',
+    color: colors.error || colors.error,
     marginTop: 4,
   },
   buttonDisabled: {
@@ -1418,7 +1418,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addFriendsButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1451,7 +1451,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   searchButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1472,7 +1472,7 @@ const styles = StyleSheet.create({
   },
   alreadyFriendsText: {
     fontSize: 14,
-    color: colors.success || '#4CAF50',
+    color: colors.success || colors.success,
     fontWeight: '500',
   },
   requestSentText: {
@@ -1538,7 +1538,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   threadAvatarText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -1575,7 +1575,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   threadBadgeText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1667,7 +1667,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bulkImportButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1832,7 +1832,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     backgroundColor: colors.primary,
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -1896,7 +1896,7 @@ const styles = StyleSheet.create({
   copyCookbookButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,

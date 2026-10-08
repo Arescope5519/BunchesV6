@@ -720,10 +720,10 @@ export const SettingsScreen = ({
                 disabled={isSyncing}
               >
                 {isSyncing ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Ionicons name="refresh" size={15} color="#fff" style={{ marginRight: 6 }} />
+                    <Ionicons name="refresh" size={15} color={colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={styles.syncButtonText}>Sync Now</Text>
                   </>
                 )}
@@ -750,11 +750,11 @@ export const SettingsScreen = ({
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Ionicons name="flag" size={22} color={colors.primary} style={{ marginRight: 12 }} />
                 <View>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#000' }}>Moderation Queue</Text>
-                  <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Review pending reports</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Moderation Queue</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Review pending reports</Text>
                 </View>
               </View>
-              <Text style={{ fontSize: 18, color: '#999' }}>{'>'}</Text>
+              <Text style={{ fontSize: 18, color: colors.textLight }}>{'>'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -770,11 +770,11 @@ export const SettingsScreen = ({
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Ionicons name="ban" size={22} color={colors.primary} style={{ marginRight: 12 }} />
                 <View>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#000' }}>Blocked Users</Text>
-                  <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>Manage users you've blocked</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Blocked Users</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Manage users you've blocked</Text>
                 </View>
               </View>
-              <Text style={{ fontSize: 18, color: '#999' }}>{'>'}</Text>
+              <Text style={{ fontSize: 18, color: colors.textLight }}>{'>'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -829,7 +829,7 @@ export const SettingsScreen = ({
                         disabled={!usernameAvailable || savingUsername}
                       >
                         {savingUsername ? (
-                          <ActivityIndicator size="small" color="#fff" />
+                          <ActivityIndicator size="small" color={colors.onPrimary} />
                         ) : (
                           <Text style={styles.saveNameButtonText}>Save</Text>
                         )}
@@ -916,8 +916,8 @@ export const SettingsScreen = ({
                   style={styles.switchControl}
                   value={profile.isPrivate || false}
                   onValueChange={handlePrivateToggle}
-                  trackColor={{ false: '#D1D5DB', true: colors.primary }}
-                  thumbColor="#fff"
+                  trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                  thumbColor={colors.onPrimary}
                 />
               </View>
               <View style={[styles.settingRow, styles.settingRowBorder]}>
@@ -931,8 +931,8 @@ export const SettingsScreen = ({
                   style={styles.switchControl}
                   value={profile.acceptingFriendRequests || false}
                   onValueChange={handleAcceptingRequestsToggle}
-                  trackColor={{ false: '#D1D5DB', true: colors.primary }}
-                  thumbColor="#fff"
+                  trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                  thumbColor={colors.onPrimary}
                 />
               </View>
             </View>
@@ -954,8 +954,8 @@ export const SettingsScreen = ({
                 style={styles.switchControl}
                 value={showQuickLinkButton || false}
                 onValueChange={onToggleQuickLinkButton}
-                trackColor={{ false: '#D1D5DB', true: colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                thumbColor={colors.onPrimary}
               />
             </View>
             <View style={[styles.settingRow, styles.settingRowBorder]}>
@@ -969,8 +969,8 @@ export const SettingsScreen = ({
                 style={styles.switchControl}
                 value={showNutrition !== false}
                 onValueChange={onToggleShowNutrition}
-                trackColor={{ false: '#D1D5DB', true: colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                thumbColor={colors.onPrimary}
               />
             </View>
             <View style={[styles.settingRow, styles.settingRowBorder]}>
@@ -1039,7 +1039,7 @@ export const SettingsScreen = ({
                     }}
                   >
                     {active && (
-                      <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} />
+                      <Ionicons name="checkmark" size={13} color={colors.onPrimary} style={{ marginRight: 4 }} />
                     )}
                     <Text style={[styles.dietaryChipText, active && styles.dietaryChipTextActive]}>
                       {diet.label}
@@ -1069,7 +1069,7 @@ export const SettingsScreen = ({
                     }}
                   >
                     {active && (
-                      <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} />
+                      <Ionicons name="checkmark" size={13} color={colors.onPrimary} style={{ marginRight: 4 }} />
                     )}
                     <Text style={[styles.dietaryChipText, active && styles.dietaryChipTextActive]}>
                       {allergen.label}
@@ -1174,10 +1174,10 @@ export const SettingsScreen = ({
               disabled={isExportingPdf}
             >
               {isExportingPdf ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <>
-                  <Ionicons name="book-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Ionicons name="book-outline" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                   <Text style={styles.backupButtonText}>Export Cookbook (PDF)</Text>
                 </>
               )}
@@ -1227,7 +1227,7 @@ export const SettingsScreen = ({
                 disabled={deletingAccount}
               >
                 {deletingAccount ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.dangerButtonText}>Delete My Account</Text>
                 )}
@@ -1325,13 +1325,13 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   placeholder: {
     width: 60,
@@ -1414,7 +1414,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   dietaryChipActive: {
     backgroundColor: colors.primary,
@@ -1430,7 +1430,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   dietaryChipTextActive: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   dietaryDisclaimer: {
@@ -1441,10 +1441,10 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   infoCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1465,10 +1465,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1490,7 +1490,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1499,7 +1499,7 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   deleteAccountButton: {
     marginTop: 12,
@@ -1512,11 +1512,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cleanupButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: colors.warning,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1549,7 +1549,7 @@ const styles = StyleSheet.create({
   accountBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   syncButton: {
     flexDirection: 'row',
@@ -1565,7 +1565,7 @@ const styles = StyleSheet.create({
   syncButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   signOutButton: {
     marginTop: 10,
@@ -1578,13 +1578,13 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   profileButton: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1668,7 +1668,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   fontSizeOptionTextActive: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   profileItem: {
     paddingVertical: 12,
@@ -1699,7 +1699,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   shareProfileButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1715,7 +1715,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   editButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1744,12 +1744,12 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   availableIcon: {
-    color: '#4CAF50',
+    color: colors.success,
     fontSize: 20,
     marginLeft: 8,
   },
   unavailableIcon: {
-    color: '#f44336',
+    color: colors.error,
     fontSize: 20,
     marginLeft: 8,
   },
@@ -1760,12 +1760,12 @@ const styles = StyleSheet.create({
   },
   unavailableText: {
     fontSize: 12,
-    color: '#f44336',
+    color: colors.error,
     marginTop: 4,
   },
   availableText: {
     fontSize: 12,
-    color: '#4CAF50',
+    color: colors.success,
     marginTop: 4,
   },
   editNameActions: {
@@ -1781,7 +1781,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveNameButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1822,7 +1822,7 @@ const styles = StyleSheet.create({
   backupButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   restoreButton: {
     flexDirection: 'row',
@@ -1899,7 +1899,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -1956,7 +1956,7 @@ const styles = StyleSheet.create({
   modalRestoreText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
 });
 

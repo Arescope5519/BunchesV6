@@ -310,7 +310,7 @@ const MealTemplatesModal = ({ visible, onClose, userId, weekStart, recipes = [],
               disabled={saving || weekCooks.length === 0}
             >
               {saving ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <Text style={styles.saveButtonText}>Save</Text>
               )}
@@ -381,7 +381,7 @@ const MealTemplatesModal = ({ visible, onClose, userId, weekStart, recipes = [],
                       disabled={loadingId !== null}
                     >
                       {loadingId === template.id ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color={colors.onPrimary} size="small" />
                       ) : (
                         <Text style={styles.loadButtonText}>Load into This Week</Text>
                       )}
@@ -414,10 +414,10 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: colors.primary,
   },
-  headerAction: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  headerAction: { color: colors.onPrimary, fontSize: 16, fontWeight: '600' },
+  headerTitle: { color: colors.onPrimary, fontSize: 18, fontWeight: '700' },
   saveCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   saveRow: { flexDirection: 'row', alignItems: 'center' },
   nameInput: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.lightGray,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -442,9 +442,9 @@ const styles = StyleSheet.create({
     minWidth: 64,
     alignItems: 'center',
   },
-  saveButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  saveButtonText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 10,
   },
-  loadButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  loadButtonText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
   deleteButton: { padding: 6 },
 });
 

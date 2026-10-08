@@ -333,7 +333,7 @@ const MyProfile = ({
                   {recipe.title}
                 </Text>
                 <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                  {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  {isSelected && <Ionicons name="checkmark" size={14} color={colors.onPrimary} />}
                 </View>
               </TouchableOpacity>
             );
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   headerTitle: {
     fontSize: 18,
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 24,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   avatarContainer: {
     alignItems: 'center',
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   avatarPickerCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 20,
   },
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   followAvatarText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 16,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     marginTop: 20,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     paddingVertical: 12,
   },
   sectionTitle: {
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   toggleCircleActive: {
     alignSelf: 'flex-end',
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     padding: 16,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   featuredFolderChips: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     flexGrow: 0,
@@ -1066,7 +1066,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   featuredFolderChipTextActive: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
 
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
   recipeSelectItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
   recipeListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,

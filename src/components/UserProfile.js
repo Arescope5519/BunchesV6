@@ -669,7 +669,7 @@ const UserProfile = ({
                   style={{ padding: 8, marginLeft: 8 }}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={{ fontSize: 22, color: '#666' }}>⋯</Text>
+                  <Text style={{ fontSize: 22, color: colors.textSecondary }}>⋯</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   headerTitle: {
     fontSize: 18,
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   avatar: {
     width: 70,
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 16,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
   featuredTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   featuredBadge: {
     fontSize: 12,
@@ -982,7 +982,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -1095,7 +1095,7 @@ const styles = StyleSheet.create({
   recipeListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
   folderListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
@@ -1157,7 +1157,7 @@ const styles = StyleSheet.create({
   sampleRecipeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,

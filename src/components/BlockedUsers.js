@@ -128,7 +128,7 @@ const BlockedUsers = ({ visible, onClose, currentUserId }) => {
                   disabled={unblockingId === item.userId}
                 >
                   {unblockingId === item.userId ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
                   ) : (
                     <Text style={styles.unblockButtonText}>Unblock</Text>
                   )}
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingTop: 20,
   },
-  closeButton: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  title: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  closeButton: { color: colors.onPrimary, fontSize: 16, fontWeight: '600' },
+  title: { color: colors.onPrimary, fontSize: 18, fontWeight: '700' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 8 },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  avatarText: { color: colors.onPrimary, fontSize: 18, fontWeight: '700' },
   info: { flex: 1 },
   username: { fontSize: 15, fontWeight: '600', color: colors.text },
   date: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
     alignItems: 'center',
   },
-  unblockButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  unblockButtonText: { color: colors.onPrimary, fontSize: 14, fontWeight: '600' },
 });
 
 export default BlockedUsers;

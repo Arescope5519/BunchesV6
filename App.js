@@ -183,7 +183,7 @@ function MainApp() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Loading...</Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 10 }}>Loading...</Text>
       </View>
     );
   }
@@ -221,7 +221,7 @@ function MainApp() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Loading...</Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 10 }}>Loading...</Text>
       </View>
     );
   }

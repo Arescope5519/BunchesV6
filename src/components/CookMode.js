@@ -230,7 +230,7 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
                       activeOpacity={0.6}
                     >
                       <View style={[styles.checkCircle, checked && styles.checkCircleDone]}>
-                        {checked && <Ionicons name="checkmark" size={15} color="#fff" />}
+                        {checked && <Ionicons name="checkmark" size={15} color={colors.onPrimary} />}
                       </View>
                       <Text style={[styles.rowText, checked && styles.rowTextDone]}>
                         {row.text}
@@ -270,7 +270,7 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
                   >
                     <View style={[styles.stepNumber, checked && styles.stepNumberDone]}>
                       {checked ? (
-                        <Ionicons name="checkmark" size={16} color="#fff" />
+                        <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
                       ) : (
                         <Text style={styles.stepNumberText}>{idx + 1}</Text>
                       )}
@@ -307,7 +307,7 @@ const CookModeBody = ({
 
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.headerButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close" size={22} color="#fff" />
+          <Ionicons name="close" size={22} color={colors.onPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -318,7 +318,7 @@ const CookModeBody = ({
           </Text>
         </View>
         <TouchableOpacity onPress={onReset} style={styles.headerButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="refresh" size={20} color="#fff" />
+          <Ionicons name="refresh" size={20} color={colors.onPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -364,7 +364,7 @@ const CookModeBody = ({
 
       {allDone && (
         <View style={styles.doneBar}>
-          <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+          <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} style={{ marginRight: 8 }} />
           <Text style={styles.doneBarText}>All steps done</Text>
           <TouchableOpacity onPress={onFinish} style={styles.doneButton}>
             <Text style={styles.doneButtonText}>Finish</Text>
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
-  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  headerTitle: { color: colors.onPrimary, fontSize: 16, fontWeight: '700' },
   headerSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
   progressTrack: {
     height: 4,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
-  hideToggleTextActive: { color: '#fff' },
+  hideToggleTextActive: { color: colors.onPrimary },
   hideBadge: {
     marginLeft: 8,
     minWidth: 22,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   },
   hideBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
   hideBadgeText: { fontSize: 12, fontWeight: '700', color: colors.primary },
-  hideBadgeTextActive: { color: '#fff' },
+  hideBadgeTextActive: { color: colors.onPrimary },
   allClearText: {
     fontSize: 15,
     color: colors.textTertiary,
@@ -526,14 +526,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
   },
-  doneBarText: { flex: 1, color: '#fff', fontSize: 15, fontWeight: '700' },
+  doneBarText: { flex: 1, color: colors.onPrimary, fontSize: 15, fontWeight: '700' },
   doneButton: {
     backgroundColor: 'rgba(255,255,255,0.25)',
     paddingVertical: 8,
     paddingHorizontal: 18,
     borderRadius: 8,
   },
-  doneButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  doneButtonText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
 });
 
 export default CookMode;

@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 26,
     fontWeight: '700',
     marginBottom: 4,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   contentContainer: { padding: 20, paddingBottom: 40 },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -236,9 +236,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  acceptedButton: { backgroundColor: '#95a5a6' },
+  acceptedButton: { backgroundColor: colors.textTertiary },
   acceptButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },

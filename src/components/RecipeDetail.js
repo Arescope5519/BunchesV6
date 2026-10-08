@@ -972,7 +972,7 @@ export const RecipeDetail = ({
             style={styles.cookModeButton}
             onPress={() => setShowCookMode(true)}
           >
-            <Ionicons name="flame" size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Ionicons name="flame" size={18} color={colors.onPrimary} style={{ marginRight: 8 }} />
             <Text style={styles.cookModeButtonText}>Start Cooking</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1027,7 +1027,7 @@ export const RecipeDetail = ({
           style={styles.addToGroceryListMainButton}
           onPress={toggleSelectionMode}
         >
-          <Ionicons name="cart" size={16} color="#fff" style={{ marginRight: 6 }} />
+          <Ionicons name="cart" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.addToGroceryListMainButtonText}>Add Ingredients to Grocery List</Text>
         </TouchableOpacity>
       )}
@@ -1040,7 +1040,7 @@ export const RecipeDetail = ({
             <Text style={styles.selectAllButtonText}>Select All</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={addSelectedToGroceryList} style={styles.addToListButton}>
-            <Ionicons name="cart" size={14} color="#fff" style={{ marginRight: 4 }} />
+            <Ionicons name="cart" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
             <Text style={styles.addToListButtonText}>Add to List</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={toggleSelectionMode} style={styles.cancelSelectionButton}>
@@ -1166,7 +1166,7 @@ export const RecipeDetail = ({
                   autoFocus
                 />
                 <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
                   <Ionicons name="close" size={16} color={colors.textSecondary} />
@@ -1191,7 +1191,7 @@ export const RecipeDetail = ({
                     style={styles.checkboxContainer}
                   >
                     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                      {isSelected && <Ionicons name="checkmark" size={13} color="#fff" />}
+                      {isSelected && <Ionicons name="checkmark" size={13} color={colors.onPrimary} />}
                     </View>
                   </TouchableOpacity>
                 )}
@@ -1221,7 +1221,7 @@ export const RecipeDetail = ({
                       />
                       <View style={styles.editButtons}>
                         <TouchableOpacity onPress={saveEdit} style={styles.saveEditButton}>
-                          <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} /><Text style={styles.saveEditButtonText}>Save</Text>
+                          <Ionicons name="checkmark" size={13} color={colors.onPrimary} style={{ marginRight: 4 }} /><Text style={styles.saveEditButtonText}>Save</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.cancelEditButton}>
                           <Ionicons name="close" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} /><Text style={styles.cancelEditButtonText}>Cancel</Text>
@@ -1275,7 +1275,7 @@ export const RecipeDetail = ({
                     onSubmitEditing={saveNewItem}
                   />
                   <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
                     <Ionicons name="close" size={16} color={colors.textSecondary} />
@@ -1313,7 +1313,7 @@ export const RecipeDetail = ({
                   />
                   <View style={styles.editButtons}>
                     <TouchableOpacity onPress={saveEdit} style={styles.saveEditButton}>
-                      <Ionicons name="checkmark" size={13} color="#fff" style={{ marginRight: 4 }} /><Text style={styles.saveEditButtonText}>Save</Text>
+                      <Ionicons name="checkmark" size={13} color={colors.onPrimary} style={{ marginRight: 4 }} /><Text style={styles.saveEditButtonText}>Save</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setEditingItem(null)} style={styles.cancelEditButton}>
                       <Ionicons name="close" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} /><Text style={styles.cancelEditButtonText}>Cancel</Text>
@@ -1361,7 +1361,7 @@ export const RecipeDetail = ({
                 multiline
               />
               <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
-                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
                 <Ionicons name="close" size={16} color={colors.textSecondary} />
@@ -1534,8 +1534,8 @@ export const RecipeDetail = ({
                   onUpdate(updated);
                 }
               }}
-              trackColor={{ false: '#D1D5DB', true: colors.primary }}
-              thumbColor="#fff"
+              trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+              thumbColor={colors.onPrimary}
             />
           </View>
         </View>
@@ -1674,7 +1674,7 @@ export const RecipeDetail = ({
                       onPress={() => removeTag(tag)}
                     >
                       <Text style={styles.tagEditorChipText}>{tag}</Text>
-                      <Ionicons name="close" size={12} color="#fff" style={{ marginLeft: 4 }} />
+                      <Ionicons name="close" size={12} color={colors.onPrimary} style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -2045,10 +2045,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -2086,7 +2086,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   nutritionContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 10,
     padding: 12,
     marginHorizontal: 16,
@@ -2116,7 +2116,7 @@ const styles = StyleSheet.create({
   },
   nutritionItem: {
     width: '31%',
-    backgroundColor: '#f7f7f7',
+    backgroundColor: colors.lightGray,
     borderRadius: 8,
     padding: 8,
     marginBottom: 8,
@@ -2166,7 +2166,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     marginHorizontal: 4,
@@ -2190,7 +2190,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 8,
@@ -2208,7 +2208,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   variantPickerContainer: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     width: '85%',
@@ -2266,7 +2266,7 @@ const styles = StyleSheet.create({
   },
   editBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.lightBlue,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -2275,7 +2275,7 @@ const styles = StyleSheet.create({
   editBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0284c7',
+    color: colors.primary,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -2325,7 +2325,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -2347,7 +2347,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -2366,7 +2366,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   sectionHeaderClickable: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.lightBlue,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 4,
@@ -2477,7 +2477,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   saveButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -2488,7 +2488,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   cancelButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -2565,7 +2565,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textSecondary,
   },
   privacyToggleText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -2578,17 +2578,17 @@ const styles = StyleSheet.create({
   disclaimer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF9E6',
+    backgroundColor: colors.warningLight,
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
     marginBottom: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#FFA500',
+    borderLeftColor: colors.warning,
   },
   disclaimerText: {
     fontSize: 13,
-    color: '#8B6914',
+    color: colors.accentDark,
     fontWeight: '500',
   },
   // Add Section Modal styles
@@ -2599,7 +2599,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addSectionModalContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
     width: '85%',
@@ -2649,7 +2649,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   confirmSectionButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -2735,7 +2735,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   checkboxSelected: {
     backgroundColor: colors.primary,
@@ -2802,14 +2802,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
   swapModeText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: 'bold',
     fontSize: 14,
     flex: 1,
@@ -2821,7 +2821,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   cancelSwapText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -2836,7 +2836,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tagChipSimple: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: colors.darkGray,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -2857,7 +2857,7 @@ const styles = StyleSheet.create({
   conflictBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FBEAE8',
+    backgroundColor: colors.errorLight,
     borderWidth: 1,
     borderColor: colors.error,
     borderRadius: 8,
@@ -2883,7 +2883,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   allergenLine: {
-    backgroundColor: '#FBEAE8',
+    backgroundColor: colors.errorLight,
     borderRadius: 4,
   },
   metaRow: {
@@ -2930,7 +2930,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cookModeButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -2958,11 +2958,11 @@ const styles = StyleSheet.create({
   },
   tagChipSimpleText: {
     fontSize: 12,
-    color: '#555',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   tagExpandButton: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.darkGray,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -2996,7 +2996,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   tagEditorContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -3042,7 +3042,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addCustomTagButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -3073,7 +3073,7 @@ const styles = StyleSheet.create({
   },
   tagEditorChipText: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   tagEditorChipOutline: {
@@ -3081,7 +3081,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#999',
+    borderColor: colors.textLight,
     backgroundColor: 'transparent',
   },
   tagEditorChipOutlineSelected: {
@@ -3091,10 +3091,10 @@ const styles = StyleSheet.create({
   tagEditorChipOutlineText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
+    color: colors.textSecondary,
   },
   tagEditorChipOutlineTextSelected: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   predefinedTagsScroll: {
     paddingHorizontal: 16,

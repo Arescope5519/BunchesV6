@@ -74,7 +74,7 @@ const PendingDeletionScreen = ({ purgeAfter, onRestored, onSignOut }) => {
           disabled={restoring}
         >
           {restoring ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.primaryButtonText}>Restore My Account</Text>
           )}
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  primaryButtonText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700' },
   buttonDisabled: { opacity: 0.6 },
   secondaryButton: { paddingVertical: 14, alignSelf: 'stretch', alignItems: 'center' },
   secondaryButtonText: { color: colors.textSecondary, fontSize: 15, fontWeight: '600' },

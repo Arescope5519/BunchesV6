@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -1260,13 +1260,13 @@ const styles = StyleSheet.create({
     width: 220,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.primary,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -1280,7 +1280,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -1291,7 +1291,7 @@ const styles = StyleSheet.create({
   todayLink: { color: colors.primary, fontSize: 12, marginTop: 2 },
 
   dayCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
@@ -1310,7 +1310,7 @@ const styles = StyleSheet.create({
   mealItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryLight || '#e8f5f0',
+    backgroundColor: colors.primaryLight || colors.successLight,
     padding: 8,
     borderRadius: 6,
     marginBottom: 6,
@@ -1325,12 +1325,12 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.error || '#e74c3c',
+    backgroundColor: colors.error || colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
   },
-  removeButtonText: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: -2 },
+  removeButtonText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700', marginTop: -2 },
 
   addButton: {
     padding: 8,
@@ -1352,15 +1352,15 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: colors.primary,
   },
-  headerAction: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
+  headerAction: { color: colors.onPrimary, fontSize: 16, fontWeight: '600' },
+  headerTitle: { color: colors.onPrimary, fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
   chooseHelp: { fontSize: 14, color: colors.text, marginBottom: 12, marginTop: 8, fontWeight: '600' },
   backLink: { fontSize: 14, color: colors.primary, marginBottom: 12, fontWeight: '600' },
 
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 10,
     marginBottom: 10,
@@ -1375,7 +1375,7 @@ const styles = StyleSheet.create({
   fridgeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 10,
     borderRadius: 8,
     marginBottom: 8,
@@ -1391,7 +1391,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -1400,7 +1400,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   numberInput: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -1424,7 +1424,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  servingsButtonText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  servingsButtonText: { color: colors.onPrimary, fontSize: 24, fontWeight: '700' },
   servingsCount: { fontSize: 28, fontWeight: '700', color: colors.text },
   servingsHint: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   dayChip: {
@@ -1434,14 +1434,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
   },
   dayChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   dayChipText: { fontSize: 13, color: colors.text },
-  dayChipTextActive: { color: '#fff', fontWeight: '600' },
+  dayChipTextActive: { color: colors.onPrimary, fontWeight: '600' },
 
   // Edit meal modal
   editOverlay: {
@@ -1450,7 +1450,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
-  editCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20 },
+  editCard: { backgroundColor: colors.card, borderRadius: 16, padding: 20 },
   editTitle: { fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center' },
   editSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   editLabel: { fontSize: 14, fontWeight: '600', color: colors.text, textAlign: 'center' },
@@ -1460,10 +1460,10 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.error || '#e74c3c',
+    borderColor: colors.error || colors.error,
     alignItems: 'center',
   },
-  editDeleteText: { color: colors.error || '#e74c3c', fontSize: 14, fontWeight: '600' },
+  editDeleteText: { color: colors.error || colors.error, fontSize: 14, fontWeight: '600' },
   editCancel: {
     flex: 1,
     padding: 12,
@@ -1480,7 +1480,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
   },
-  editSaveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  editSaveText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
   helper: {
     fontSize: 12,
     color: colors.textSecondary,
@@ -1495,7 +1495,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  primaryButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: '700' },
 });
 
 export default EatSchedule;

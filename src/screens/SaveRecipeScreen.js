@@ -377,7 +377,7 @@ export const SaveRecipeScreen = ({ recipe, folders, onSave, onCancel }) => {
           onPress={handleSave}
           disabled={saving}
         >
-          <Ionicons name="save" size={16} color="#fff" style={{ marginRight: 6 }} />
+          <Ionicons name="save" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.saveButtonText}>{saving ? 'Saving...' : `Save to ${selectedFolder}`}</Text>
         </TouchableOpacity>
       </View>
@@ -438,18 +438,18 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   cancelButton: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   content: {
     flex: 1,
   },
   previewSection: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 20,
     marginBottom: 12,
     borderBottomWidth: 1,
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   folderSection: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 20,
     marginBottom: 12,
   },
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   detailSection: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 20,
     marginBottom: 12,
   },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
   },
   nutritionItem: {
     width: '31%',
-    backgroundColor: '#f7f7f7',
+    backgroundColor: colors.lightGray,
     borderRadius: 8,
     padding: 8,
     marginBottom: 8,
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   footer: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   modalOverlay: {
     flex: 1,
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   editModal: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   saveEditButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.onPrimary,
   },
 });
 

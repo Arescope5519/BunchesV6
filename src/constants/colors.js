@@ -1,11 +1,27 @@
 /**
  * FILENAME: src/constants/colors.js
  * PURPOSE: Centralized color definitions - Honey + Forest Theme
- * CHANGES: Forest green primary with honey accent; off-white surfaces
- * USED BY: All components and screens
+ *
+ * Light and dark palettes, chosen ONCE at startup from the system
+ * appearance (Appearance.getColorScheme() is synchronous, so the
+ * right palette exists before any StyleSheet.create runs). Styles
+ * are static, which is why a mid-session system theme change needs
+ * an app restart to apply - and why there is no in-app live toggle:
+ * that would require every stylesheet in the app to become dynamic.
+ *
+ * Token semantics (what flips in dark mode and what doesn't):
+ * - background/card/surface, text*, border*, navBar: flip.
+ * - onPrimary: text/icons sitting ON a colored fill (buttons, the
+ *   header). White in BOTH themes - never use it for text on a
+ *   plain background.
+ * - white/black/shadow: literal, same in both themes.
+ * - primary/accent flip only in brightness so they stay readable
+ *   against the dark background.
  */
 
-export const colors = {
+import { Appearance } from 'react-native';
+
+const light = {
   // Primary - Forest Green
   primary: '#2D6A4F',
   primaryDark: '#1B4332',
@@ -20,6 +36,9 @@ export const colors = {
   background: '#FAFAF7',
   white: '#fff',
   surface: '#FFFFFF',
+  card: '#FFFFFF',
+  onPrimary: '#fff',
+  black: '#000',
 
   // Text - Near-black for readability
   text: '#1B1F1D',
@@ -34,8 +53,11 @@ export const colors = {
 
   // Status
   success: '#2D6A4F',
+  successLight: '#E8F5F0',
   warning: '#E9B44C',
+  warningLight: '#FFF9E6',
   error: '#C0392B',
+  errorLight: '#FBEAE8',
   destructive: '#C0392B',
 
   // Special
@@ -43,6 +65,7 @@ export const colors = {
   shadow: '#000',
   overlay: 'rgba(27, 31, 29, 0.6)',
   highlightYellow: '#FBF0DA',
+  switchTrackOff: '#D1D5DB',
 
   // Nav bar - silvery frost
   navBar: '#F1F3F1',
@@ -54,5 +77,66 @@ export const colors = {
   lightGray: '#F3F6F4',
   darkGray: '#E9EEEA',
 };
+
+const dark = {
+  // Primary - Forest Green, lifted for contrast on dark surfaces
+  primary: '#4FA37A',
+  primaryDark: '#2D6A4F',
+  primaryLight: '#1E3329',
+
+  // Accent - Honey (already reads well on dark)
+  accent: '#E9B44C',
+  accentDark: '#C9962F',
+  accentLight: '#3A2F1B',
+
+  // Background - Deep green-tinted charcoal
+  background: '#121514',
+  white: '#fff',
+  surface: '#1C211F',
+  card: '#1C211F',
+  onPrimary: '#fff',
+  black: '#000',
+
+  // Text
+  text: '#E8ECEA',
+  textSecondary: '#B4BCB8',
+  textTertiary: '#8D9692',
+  textLight: '#6E7773',
+
+  // Borders
+  border: '#2E3531',
+  borderLight: '#272D2A',
+  borderVeryLight: '#222826',
+
+  // Status
+  success: '#4FA37A',
+  successLight: '#1E3329',
+  warning: '#E9B44C',
+  warningLight: '#3A2F1B',
+  error: '#E05D4D',
+  errorLight: '#3B211D',
+  destructive: '#E05D4D',
+
+  // Special
+  favorite: '#E9B44C',
+  shadow: '#000',
+  overlay: 'rgba(0, 0, 0, 0.65)',
+  highlightYellow: '#3A2F1B',
+  switchTrackOff: '#3A423E',
+
+  // Nav bar
+  navBar: '#181C1A',
+  navBarBorder: '#2E3531',
+
+  // Accent extras
+  purple: '#9A8CC4',
+  lightBlue: '#1E3329',
+  lightGray: '#232927',
+  darkGray: '#2C332F',
+};
+
+export const isDarkMode = Appearance.getColorScheme() === 'dark';
+
+export const colors = isDarkMode ? dark : light;
 
 export default colors;

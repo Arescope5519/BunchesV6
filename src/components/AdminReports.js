@@ -303,16 +303,16 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   closeButton: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   refreshButton: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
   },
   title: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   list: { flex: 1, padding: 16 },
   count: { fontSize: 13, color: colors.textSecondary, marginBottom: 12 },
   reportCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  previewButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  previewButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' },
   actionsHeader: {
     fontSize: 14,
     fontWeight: '600',
@@ -375,10 +375,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  dismissButton: { backgroundColor: '#95a5a6' },
-  deleteButton: { backgroundColor: '#e67e22' },
-  banButton: { backgroundColor: colors.error || '#e74c3c' },
-  actionButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  dismissButton: { backgroundColor: colors.textTertiary },
+  deleteButton: { backgroundColor: colors.warning },
+  banButton: { backgroundColor: colors.error || colors.error },
+  actionButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' },
 });
 
 export default AdminReports;
