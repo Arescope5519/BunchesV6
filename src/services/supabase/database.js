@@ -488,6 +488,7 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
   // sibling rows can reference the same global recipe under other ids
   // (the bug that left "deleted" recipes visible on profiles) - so
   // find every active row this recipe owns and delete them all.
+  let deletedRowIds = [];
   try {
     const { data: rows } = await supabase
       .from('user_recipes_v2')
@@ -516,6 +517,7 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
 
         if (!v2Err) {
           log(`✅ Marked deleted in user_recipes_v2: ${recipeId} (${matchingIds.length} rows incl. duplicates)`);
+          deletedRowIds = matchingIds;
           anySuccess = true;
         } else {
           console.error('❌ user_recipes_v2 delete failed:', v2Err);
@@ -524,6 +526,29 @@ export const deleteRecipeFromDatabase = async (userId, recipeId) => {
     }
   } catch (err) {
     console.error('❌ user_recipes_v2 delete error:', err);
+  }
+
+  // Deleting a recipe also un-features it: featured_recipes stores raw
+  // ids, and a stale id inflates the profile's featured count forever
+  // while viewers see nothing for it. Best-effort - a failure here
+  // never fails the delete.
+  try {
+    const { data: prof } = await supabase
+      .from('user_profiles')
+      .select('featured_recipes')
+      .eq('user_id', userId)
+      .single();
+    const featured = prof?.featured_recipes || [];
+    const next = featured.filter(id => id !== recipeId && !deletedRowIds.includes(id));
+    if (next.length !== featured.length) {
+      await supabase
+        .from('user_profiles')
+        .update({ featured_recipes: next })
+        .eq('user_id', userId);
+      log(`✅ Un-featured ${featured.length - next.length} deleted recipe(s)`);
+    }
+  } catch (err) {
+    console.error('❌ featured cleanup error:', err);
   }
 
   if (!anySuccess) {

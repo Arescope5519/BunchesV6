@@ -124,7 +124,10 @@ const MyProfile = ({
       if (prev.includes(recipeId)) {
         return prev.filter(id => id !== recipeId);
       }
-      if (prev.length >= 10) {
+      // Count only ids that still resolve to a recipe, so stale
+      // leftovers from deleted recipes never block the 10 slots
+      const liveCount = prev.filter(id => customRecipes.some(r => r.id === id)).length;
+      if (liveCount >= 10) {
         Alert.alert('Limit Reached', 'You can feature up to 10 recipes');
         return prev;
       }
@@ -135,9 +138,12 @@ const MyProfile = ({
   const saveFeaturedRecipes = async () => {
     setSaving(true);
     try {
+      // Persist only ids that still resolve - this is also what scrubs
+      // stale entries out of the profile on the next save
+      const pruned = featuredRecipeIds.filter(id => customRecipes.some(r => r.id === id));
       // If adding featured recipes, also make profile public
-      const updateData = { featured_recipes: featuredRecipeIds };
-      if (featuredRecipeIds.length > 0 && !profile?.isPublic) {
+      const updateData = { featured_recipes: pruned };
+      if (pruned.length > 0 && !profile?.isPublic) {
         updateData.is_public = true;
       }
 
@@ -187,6 +193,13 @@ const MyProfile = ({
     return !url || isOwnInternalRecipeUrl(url, userId);
   });
 
+  // featured_recipes keeps raw ids, so deleting a featured recipe used
+  // to leave a stale id behind - counts and saves only consider ids
+  // that still match a live recipe, matching what viewers actually see
+  const validFeaturedIds = featuredRecipeIds.filter(id =>
+    customRecipes.some(r => r.id === id)
+  );
+
   const handleClose = () => {
     setCurrentView('main');
     onClose();
@@ -205,7 +218,7 @@ const MyProfile = ({
       </View>
 
       <Text style={styles.helperText}>
-        Select up to 10 recipes to feature on your profile ({featuredRecipeIds.length}/10)
+        Select up to 10 recipes to feature on your profile ({validFeaturedIds.length}/10)
       </Text>
 
       <ScrollView style={styles.recipeSelectList}>
@@ -399,7 +412,7 @@ const MyProfile = ({
           <View style={styles.actionInfo}>
             <Text style={styles.actionTitle}>Featured Recipes</Text>
             <Text style={styles.actionSubtitle}>
-              {featuredRecipeIds.length} recipes featured
+              {validFeaturedIds.length} recipes featured
             </Text>
           </View>
           <Text style={styles.actionArrow}>{'>'}</Text>
