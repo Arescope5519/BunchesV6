@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Alert,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
@@ -45,6 +46,8 @@ const MyProfile = ({
   const [profile, setProfile] = useState(initialProfile);
   const [currentView, setCurrentView] = useState('main'); // 'main', 'featured', 'my-recipes', 'followers', 'following'
   const [featuredRecipeIds, setFeaturedRecipeIds] = useState([]);
+  const [featuredSearch, setFeaturedSearch] = useState('');
+  const [featuredFolderFilter, setFeaturedFolderFilter] = useState('All');
   const [saving, setSaving] = useState(false);
   const [followList, setFollowList] = useState([]);
   const [followListLoading, setFollowListLoading] = useState(false);
@@ -200,6 +203,35 @@ const MyProfile = ({
     customRecipes.some(r => r.id === id)
   );
 
+  // Cookbook filter chips for the featured editor: the folders these
+  // custom recipes already live in (their regular cookbooks)
+  const featuredFolders = ['All', ...[...new Set(
+    customRecipes.flatMap(r => Array.isArray(r.folders) ? r.folders : [])
+  )].sort((a, b) => a.localeCompare(b))];
+
+  const featuredMatchesSearch = (recipe) => {
+    const q = featuredSearch.trim().toLowerCase();
+    if (!q) return true;
+    if ((recipe.title || '').toLowerCase().includes(q)) return true;
+    const tags = [...(recipe.tags || []), ...(recipe.globalTags || [])];
+    return tags.some(t => String(t).toLowerCase().includes(q));
+  };
+
+  // Selected recipes sort first so the current picks stay visible
+  // however the list is filtered
+  const filteredFeaturedCandidates = customRecipes
+    .filter(r =>
+      (featuredFolderFilter === 'All' ||
+        (Array.isArray(r.folders) && r.folders.includes(featuredFolderFilter))) &&
+      featuredMatchesSearch(r)
+    )
+    .sort((a, b) => {
+      const aSel = featuredRecipeIds.includes(a.id) ? 0 : 1;
+      const bSel = featuredRecipeIds.includes(b.id) ? 0 : 1;
+      if (aSel !== bSel) return aSel - bSel;
+      return (a.title || '').localeCompare(b.title || '');
+    });
+
   const handleClose = () => {
     setCurrentView('main');
     onClose();
@@ -221,13 +253,65 @@ const MyProfile = ({
         Select up to 10 recipes to feature on your profile ({validFeaturedIds.length}/10)
       </Text>
 
+      {/* Search + cookbook filter so a big library stays navigable.
+          Folders here are the user's existing cookbooks - same
+          structure as everywhere else, no separate hierarchy. */}
+      {customRecipes.length > 0 && (
+        <>
+          <View style={styles.featuredSearchRow}>
+            <Ionicons name="search" size={16} color={colors.textSecondary} />
+            <TextInput
+              style={styles.featuredSearchInput}
+              placeholder="Search by title or tag"
+              placeholderTextColor={colors.textSecondary}
+              value={featuredSearch}
+              onChangeText={setFeaturedSearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {featuredSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setFeaturedSearch('')}>
+                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {featuredFolders.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.featuredFolderChips}
+              contentContainerStyle={styles.featuredFolderChipsContent}
+            >
+              {featuredFolders.map(folder => {
+                const active = featuredFolderFilter === folder;
+                return (
+                  <TouchableOpacity
+                    key={folder}
+                    style={[styles.featuredFolderChip, active && styles.featuredFolderChipActive]}
+                    onPress={() => setFeaturedFolderFilter(folder)}
+                  >
+                    <Text style={[styles.featuredFolderChipText, active && styles.featuredFolderChipTextActive]}>
+                      {folder}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </>
+      )}
+
       <ScrollView style={styles.recipeSelectList}>
         {customRecipes.length === 0 ? (
           <Text style={styles.emptyText}>
             No custom recipes yet. Create your own recipes to feature them!
           </Text>
+        ) : filteredFeaturedCandidates.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No recipes match this search
+          </Text>
         ) : (
-          customRecipes.map(recipe => {
+          filteredFeaturedCandidates.map(recipe => {
             const isSelected = featuredRecipeIds.includes(recipe.id);
             return (
               <TouchableOpacity
@@ -406,7 +490,11 @@ const MyProfile = ({
 
         <TouchableOpacity
           style={styles.actionItem}
-          onPress={() => setCurrentView('featured')}
+          onPress={() => {
+            setFeaturedSearch('');
+            setFeaturedFolderFilter('All');
+            setCurrentView('featured');
+          }}
         >
           <Ionicons name="star" size={20} color={colors.favorite} style={styles.actionIcon} />
           <View style={styles.actionInfo}>
@@ -930,6 +1018,54 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+
+  featuredSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  featuredSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    padding: 0,
+  },
+  featuredFolderChips: {
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexGrow: 0,
+  },
+  featuredFolderChipsContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  featuredFolderChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  featuredFolderChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  featuredFolderChipText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  featuredFolderChipTextActive: {
+    color: '#fff',
+    fontWeight: '600',
   },
 
   // Recipe Select List
