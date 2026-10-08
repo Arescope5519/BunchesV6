@@ -2996,12 +2996,6 @@ export const HomeScreen = ({ user }) => {
             >
               <Ionicons name="folder-open" size={22} color={colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionBarButton}
-              onPress={() => setViewMode(viewMode === 'list' ? 'photo' : 'list')}
-            >
-              <Ionicons name={viewMode === 'list' ? 'image' : 'list'} size={22} color={colors.primary} />
-            </TouchableOpacity>
           </View>
 
           {/* Sort + Tags Bar */}
