@@ -317,9 +317,11 @@ export const useFolders = (user) => {
    * Get user-visible folders (custom folders + My Creations, excluding system-only ones)
    */
   const getCustomFolders = () => {
-    const hiddenFolders = ['All Recipes', 'Favorites', 'Recently Deleted'];
+    // All system folders live in the cookbook page's System section,
+    // not among the user's own cookbooks. My Creations SUBfolders
+    // ("My Creations/x") are user-created and stay custom.
     return folders
-      .filter(f => !hiddenFolders.includes(f.name))
+      .filter(f => !SYSTEM_FOLDERS.includes(f.name))
       .map(f => f.name);
   };
 
@@ -330,7 +332,9 @@ export const useFolders = (user) => {
    * its place at the end.
    */
   const reorderFolders = async (orderedNames) => {
-    const hiddenFolders = ['All Recipes', 'Favorites', 'Recently Deleted'];
+    // Must match getCustomFolders' exclusions, or a reorder would
+    // silently DROP any folder in neither list
+    const hiddenFolders = SYSTEM_FOLDERS;
     const byName = {};
     folders.forEach(f => { byName[f.name] = f; });
 

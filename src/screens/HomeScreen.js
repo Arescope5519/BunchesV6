@@ -34,7 +34,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 
 // Hooks
 import { useRecipes } from '../hooks/useRecipes';
-import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER } from '../hooks/useFolders';
+import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER, SYSTEM_FOLDERS } from '../hooks/useFolders';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
@@ -3650,8 +3650,14 @@ export const HomeScreen = ({ user }) => {
           >
             <View style={styles.folderSection}>
               <Text style={styles.folderSectionTitle}>System Cookbooks</Text>
-              {folders.filter(f => f.name === 'All Recipes' || f.name === 'Favorites' || f.name === 'Recently Deleted').map((folderObj) => {
+              {folders.filter(f => SYSTEM_FOLDERS.includes(f.name)).map((folderObj) => {
                 const folder = folderObj.name;
+                const inFolder = (r) => {
+                  const recipeFolders = r.folders || [r.folder || 'All Recipes'];
+                  return recipeFolders.includes(folder) ||
+                    (folder === MY_CREATIONS_FOLDER &&
+                      recipeFolders.some(f => f.startsWith(MY_CREATIONS_FOLDER + '/')));
+                };
                 let icon = 'book';
                 let count = recipes.length;
 
@@ -3661,6 +3667,12 @@ export const HomeScreen = ({ user }) => {
                 } else if (folder === 'Recently Deleted') {
                   icon = 'trash';
                   count = recipes.filter(r => r.deletedAt).length;
+                } else if (folder === MY_CREATIONS_FOLDER) {
+                  icon = 'pencil';
+                  count = recipes.filter(r => !r.deletedAt && inFolder(r)).length;
+                } else if (folder === SCANNED_FOLDER) {
+                  icon = 'camera';
+                  count = recipes.filter(r => !r.deletedAt && inFolder(r)).length;
                 } else {
                   // All Recipes
                   count = recipes.filter(r => !r.deletedAt).length;
