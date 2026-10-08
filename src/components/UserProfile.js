@@ -141,7 +141,10 @@ const UserProfile = ({
           return !r.sourceUrl || isOwnInternalRecipeUrl(r.sourceUrl, targetUserId);
         };
         setOwnRecipes(visible.filter(isTheirOwnWork));
-        setCollectionRecipes(visible.filter(r => !isTheirOwnWork(r)));
+        // Collections shows a shuffled taste, not the full library
+        setCollectionRecipes(
+          visible.filter(r => !isTheirOwnWork(r)).sort(() => Math.random() - 0.5).slice(0, 9)
+        );
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -549,31 +552,32 @@ const UserProfile = ({
           </View>
         )}
 
-        {/* View All Recipes Button */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setCurrentView('folders')}
-          >
-            <Ionicons name="library" size={18} color={colors.primary} style={styles.actionButtonIcon} />
-            <View style={styles.actionButtonTextContainer}>
-              <Text style={styles.actionButtonTitle}>{profile?.username || 'User'}'s Cookbooks</Text>
-              <Text style={styles.actionButtonSubtitle}>Browse all cookbooks</Text>
-            </View>
-            <Text style={styles.actionButtonArrow}>{'>'}</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Collections: saved from the web, other users, or unclaimed
-            scans - recipes they keep, not ones they claim as theirs */}
-        {collectionRecipes.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Collections</Text>
-            <View style={styles.recipeGrid}>
-              {collectionRecipes.map(renderGridCard)}
-            </View>
+            scans - recipes they keep, not ones they claim as theirs.
+            Cookbooks live here too: a cookbook IS a collection. */}
+        <View style={styles.section}>
+          {collectionRecipes.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Collections</Text>
+              <View style={styles.recipeGrid}>
+                {collectionRecipes.map(renderGridCard)}
+              </View>
+            </>
+          )}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setCurrentView('folders')}
+            >
+              <Ionicons name="library" size={18} color={colors.primary} style={styles.actionButtonIcon} />
+              <View style={styles.actionButtonTextContainer}>
+                <Text style={styles.actionButtonTitle}>{profile?.username || 'User'}'s Cookbooks</Text>
+                <Text style={styles.actionButtonSubtitle}>Browse all cookbooks</Text>
+              </View>
+              <Text style={styles.actionButtonArrow}>{'>'}</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
       </ScrollView>
     );
   };
