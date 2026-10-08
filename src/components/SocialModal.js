@@ -75,6 +75,7 @@ export const SocialModal = ({
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showAddFriends, setShowAddFriends] = useState(false);
+  const [showFriendsPage, setShowFriendsPage] = useState(false);
   const [selectedThread, setSelectedThread] = useState(null); // For threaded inbox
   const [previewRecipe, setPreviewRecipe] = useState(null); // For recipe preview
 
@@ -234,28 +235,8 @@ export const SocialModal = ({
     }
   };
 
-  // Friends management - rendered inside the Account tab, below the
-  // profile card (as children of the embedded MyProfile scroll view)
-  const renderFriendsContent = () => (
-    <View style={styles.friendsSection}>
-      {/* Add Friends Button */}
-      <TouchableOpacity
-        style={styles.addFriendsButton}
-        onPress={() => {
-          setShowAddFriends(!showAddFriends);
-          if (!showAddFriends) {
-            setSearchQuery('');
-            setSearchResults([]);
-          }
-        }}
-      >
-        <Text style={styles.addFriendsButtonText}>
-          {showAddFriends ? 'Close Search' : '+ Add Friends'}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Add Friends Search UI */}
-      {showAddFriends && (
+  // Search-and-add UI, shared by the Friends page and the Account tab
+  const renderFriendSearch = () => (
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
             <TextInput
@@ -319,9 +300,11 @@ export const SocialModal = ({
             <Text style={styles.noResultsText}>No users found</Text>
           )}
         </View>
-      )}
+  );
 
-      {/* Friends List */}
+  // The friends list itself, shared the same way
+  const renderFriendsList = () => (
+    <>
       {friends.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>No friends yet</Text>
@@ -367,6 +350,30 @@ export const SocialModal = ({
           ))}
         </View>
       )}
+    </>
+  );
+
+  // Friends management - rendered inside the Account tab, below the
+  // profile card (as children of the embedded MyProfile scroll view)
+  const renderFriendsContent = () => (
+    <View style={styles.friendsSection}>
+      <TouchableOpacity
+        style={styles.addFriendsButton}
+        onPress={() => {
+          setShowAddFriends(!showAddFriends);
+          if (!showAddFriends) {
+            setSearchQuery('');
+            setSearchResults([]);
+          }
+        }}
+      >
+        <Text style={styles.addFriendsButtonText}>
+          {showAddFriends ? 'Close Search' : '+ Add Friends'}
+        </Text>
+      </TouchableOpacity>
+
+      {showAddFriends && renderFriendSearch()}
+      {renderFriendsList()}
     </View>
   );
 
@@ -789,6 +796,48 @@ export const SocialModal = ({
     );
   };
 
+  // Dedicated Friends page: search + add up top, friends list below.
+  // Replaces the header/tabs entirely until the user backs out.
+  if (showFriendsPage) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" hidden={true} />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.friendsBackButton}
+            onPress={() => setShowFriendsPage(false)}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Friends</Text>
+        </View>
+
+        <ScrollView style={styles.tabContent}>
+          <View style={styles.friendsSection}>
+            {renderFriendSearch()}
+            {renderFriendsList()}
+          </View>
+        </ScrollView>
+
+        {/* Tapping a friend opens their profile from here too */}
+        <UserProfile
+          visible={!!viewingProfileId}
+          onClose={() => setViewingProfileId(null)}
+          targetUserId={viewingProfileId}
+          currentUserId={currentUserId}
+          onRecipePress={(recipe) => {
+            setViewingProfileId(null);
+            onRecipePress?.(recipe);
+          }}
+          onReportProfile={({ userId, username }) => {
+            setViewingProfileId(null);
+            onReportProfile?.({ userId, username });
+          }}
+        />
+      </View>
+    );
+  }
+
   // Render thread list (main inbox view)
   return (
     <View style={styles.container}>
@@ -809,11 +858,10 @@ export const SocialModal = ({
         <TouchableOpacity
           style={styles.headerAddFriends}
           onPress={() => {
-            // Jump to the Account tab with the friend search open
-            setActiveTab('account');
-            setShowAddFriends(true);
+            // Open the dedicated Friends page with a fresh search
             setSearchQuery('');
             setSearchResults([]);
+            setShowFriendsPage(true);
           }}
         >
           <Ionicons name="person-add" size={14} color="#fff" style={{ marginRight: 5 }} />
@@ -947,6 +995,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: '#fff',
+  },
+  friendsBackButton: {
+    position: 'absolute',
+    left: 15,
+    bottom: 10,
+    padding: 4,
   },
   headerAddFriends: {
     flexDirection: 'row',
