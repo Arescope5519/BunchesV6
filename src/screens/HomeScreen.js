@@ -817,7 +817,9 @@ export const HomeScreen = ({ user }) => {
       // More scanned recipes waiting? Offer the next one instead of
       // opening the just-saved recipe
       if (!advanceScanQueue()) {
-        setSelectedRecipe(recipeWithFolder);
+        // Show the object saveRecipe returned, not the one we passed
+        // in - the photo may have been re-hosted during the save
+        setSelectedRecipe(saved && saved.id ? saved : recipeWithFolder);
         Alert.alert('Saved', `Recipe saved to ${recipeWithFolder.folder}!`);
       }
     } else {
@@ -940,7 +942,7 @@ export const HomeScreen = ({ user }) => {
     if (saved) {
       Alert.alert('Success', `Recipe "${recipe.title}" created!`);
       setCurrentScreen('recipes');
-      setSelectedRecipe(recipeWithCreator);
+      setSelectedRecipe(saved && saved.id ? saved : recipeWithCreator);
     } else {
       Alert.alert('Error', 'Failed to create recipe. Please try again.');
     }

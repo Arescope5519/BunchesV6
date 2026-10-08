@@ -122,7 +122,7 @@ export const useRecipes = (user) => {
       const existingByUrl = findRecipeByUrl(recipeUrl);
       if (existingByUrl) {
         log(`⚠️ Recipe already exists with URL: ${recipeUrl}`);
-        return true; // Already exists, consider it a success
+        return existingByUrl; // Already exists, consider it a success
       }
     }
 
@@ -215,7 +215,11 @@ export const useRecipes = (user) => {
         log('⚠️ No user logged in - recipe only saved locally');
       }
 
-      return true;
+      // Return the saved object (truthy, so boolean checks still
+      // work): it can differ from what the caller passed in - the
+      // photo may now point at our mirrored copy - and screens that
+      // display the recipe right away need THIS version
+      return recipeWithTimestamp;
     }
     return false;
   };
