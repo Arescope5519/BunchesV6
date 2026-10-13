@@ -30,9 +30,14 @@ ORDER BY source_url, created_at;
 2. For each report, Claude does BOTH halves:
    - **Fix the records**: produce the cleaned recipe JSON, then UPDATE
      SQL for `global_recipes` (title/ingredients/instructions) and the
-     affected `user_recipes_v2.local_recipe_data` - always bumping the
-     JSON `updatedAt` to epoch-ms-now so the repaired cloud copy wins
-     the newer-copy-wins sync merge. SQL goes in chat; Daniel runs it.
+     affected `user_recipes_v2.local_recipe_data`. For devices to
+     ADOPT the repair, bump BOTH timestamps: the JSON `updatedAt`
+     (epoch ms) AND the row's `updated_at` COLUMN (the sync merge in
+     database.js compares `row.updated_at`, not the JSON - learned
+     the hard way on the risotto fix). SQL goes in chat; Daniel runs
+     it. The device picks it up on the next full app restart, unless
+     the user edits that recipe locally first - a local edit after
+     the fix timestamp wins and re-uploads the old text.
    - **Fix the method**: diagnose WHY `src/RecipeExtractor.js` (or the
      extract-recipe Edge Function, for photo scans) produced that
      output, and patch it so future imports of that site family come

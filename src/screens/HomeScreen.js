@@ -779,9 +779,11 @@ export const HomeScreen = ({ user }) => {
     user?.uid // For auto-filing extraction-failure reports
   );
 
-  // Resume an interrupted Cook Mode session: if the OS killed the
-  // backgrounded app mid-cook, relaunch reopens the same recipe with
-  // Cook Mode up (CookMode itself restores the check-offs)
+  // Resume an interrupted Cook Mode session. A cold start cannot tell
+  // "the OS killed the backgrounded app" apart from "the user closed
+  // the app on purpose", so never auto-open - ASK. Resume reopens the
+  // recipe with Cook Mode up (CookMode restores the check-offs);
+  // Not Now clears the session so it never asks twice.
   const [resumeCookRecipeId, setResumeCookRecipeId] = useState(null);
   const cookResumeAttempted = useRef(false);
   useEffect(() => {
@@ -790,12 +792,28 @@ export const HomeScreen = ({ user }) => {
     loadCookSession().then(saved => {
       if (!saved) return;
       const recipe = recipes.find(r => r.id === saved.recipeId && !r.deletedAt);
-      if (recipe) {
-        setResumeCookRecipeId(recipe.id);
-        setSelectedRecipe(recipe);
-      } else {
+      if (!recipe) {
         clearCookSession();
+        return;
       }
+      Alert.alert(
+        'Resume Cooking?',
+        `You were in the middle of cooking "${recipe.title}". Pick up where you left off?`,
+        [
+          {
+            text: 'Not Now',
+            style: 'cancel',
+            onPress: () => clearCookSession(),
+          },
+          {
+            text: 'Resume',
+            onPress: () => {
+              setResumeCookRecipeId(recipe.id);
+              setSelectedRecipe(recipe);
+            },
+          },
+        ]
+      );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingRecipes]);
