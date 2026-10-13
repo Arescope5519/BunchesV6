@@ -129,6 +129,8 @@ export const RecipeDetail = ({
   frequentTags = [], // most-searched tags, passed down from HomeScreen
   userId = null, // for photo uploads on custom/scanned recipes
   showNutrition = true, // Settings preference - hides the nutrition panel
+  autoOpenCookMode = false, // resume an interrupted cook session on launch
+  onCookModeAutoOpened = null,
 }) => {
   const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
@@ -163,6 +165,16 @@ export const RecipeDetail = ({
     [dietaryAnalysis, dietaryPrefs]
   );
   const avoidedAllergens = dietaryPrefs?.avoid || [];
+
+  // Resuming an interrupted cook session: open Cook Mode as soon as
+  // this recipe mounts; CookMode restores the saved check-offs itself
+  useEffect(() => {
+    if (autoOpenCookMode) {
+      setShowCookMode(true);
+      onCookModeAutoOpened?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // A recipe can be reported once, ever. After ANY user reports it,
   // the report box becomes a status notice for everyone: 'open' =

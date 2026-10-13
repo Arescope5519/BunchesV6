@@ -25,6 +25,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
+import { saveCookSession, loadCookSession, clearCookSession } from '../utils/cookSession';
 
 import { log } from '../utils/log';
 // Keeping the screen awake is a convenience, not core to cooking. If the
@@ -83,6 +84,31 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
   const [checkedIngredients, setCheckedIngredients] = useState({});
   const [checkedSteps, setCheckedSteps] = useState({});
   const [hideChecked, setHideChecked] = useState(false);
+
+  // Survive the OS killing the backgrounded app mid-cook: restore a
+  // saved session for THIS recipe on mount, and save the place on
+  // every change while cooking. Deliberate exits clear it (finish).
+  useEffect(() => {
+    let cancelled = false;
+    loadCookSession().then(saved => {
+      if (cancelled || !saved || saved.recipeId !== recipe?.id) return;
+      setCheckedIngredients(saved.checkedIngredients || {});
+      setCheckedSteps(saved.checkedSteps || {});
+      setHideChecked(!!saved.hideChecked);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!visible || !recipe?.id) return;
+    saveCookSession({
+      recipeId: recipe.id,
+      checkedIngredients,
+      checkedSteps,
+      hideChecked,
+    });
+  }, [visible, recipe?.id, checkedIngredients, checkedSteps, hideChecked]);
   // Rows checked but still fading out - kept visible and tappable so a
   // mis-tap can be undone before the row disappears
   const [fadingIngredients, setFadingIngredients] = useState({});
@@ -163,6 +189,7 @@ export const CookMode = ({ visible, onClose, recipe, ingredients, instructions }
   };
 
   const finish = () => {
+    clearCookSession();
     reset();
     onClose();
   };

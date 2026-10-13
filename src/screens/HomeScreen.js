@@ -35,6 +35,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 // Hooks
 import { useRecipes } from '../hooks/useRecipes';
 import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER, SYSTEM_FOLDERS } from '../hooks/useFolders';
+import { loadCookSession, clearCookSession } from '../utils/cookSession';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
@@ -777,6 +778,27 @@ export const HomeScreen = ({ user }) => {
     recipes, // Pass recipes for deduplication check
     user?.uid // For auto-filing extraction-failure reports
   );
+
+  // Resume an interrupted Cook Mode session: if the OS killed the
+  // backgrounded app mid-cook, relaunch reopens the same recipe with
+  // Cook Mode up (CookMode itself restores the check-offs)
+  const [resumeCookRecipeId, setResumeCookRecipeId] = useState(null);
+  const cookResumeAttempted = useRef(false);
+  useEffect(() => {
+    if (loadingRecipes || cookResumeAttempted.current) return;
+    cookResumeAttempted.current = true;
+    loadCookSession().then(saved => {
+      if (!saved) return;
+      const recipe = recipes.find(r => r.id === saved.recipeId && !r.deletedAt);
+      if (recipe) {
+        setResumeCookRecipeId(recipe.id);
+        setSelectedRecipe(recipe);
+      } else {
+        clearCookSession();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingRecipes]);
 
   // Handle save from SaveRecipeScreen
   const handleSaveExtractedRecipe = async (selectedFolder, modifiedRecipe) => {
@@ -4047,6 +4069,8 @@ export const HomeScreen = ({ user }) => {
                 frequentTags={frequentTags}
                 userId={user?.uid}
                 showNutrition={showNutrition}
+                autoOpenCookMode={selectedRecipe.id === resumeCookRecipeId}
+                onCookModeAutoOpened={() => setResumeCookRecipeId(null)}
                 onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
                 allRecipes={recipes}
