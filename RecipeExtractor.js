@@ -556,11 +556,24 @@ export class RecipeExtractor {
    * unit-mismatched lines pass through untouched.
    */
   consolidateDuplicateIngredients(lines) {
+    // Plural-insensitive name key: "2 garlic cloves, minced" and
+    // "1 garlic clove, minced" are the same ingredient. Word-level
+    // trailing-s strip only (never -ss words), applied to BOTH sides,
+    // so it can only unite forms of the same words
+    // Punctuation must go before the plural check or "cloves," defeats
+    // the trailing-s test
+    const normBase = (name) => name
+      .trim().toLowerCase().replace(/[.,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const nameKey = (name) => normBase(name)
+      .split(' ')
+      .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) ? w.slice(0, -1) : w)
+      .join(' ');
+
     const entries = lines.map(line => {
       const p = parseIngredient(line);
       const mergeable = p.parsed && !p.midStringQuantity && p.quantity > 0;
       const key = mergeable
-        ? `${canonicalUnit(p.unit)}|${p.ingredient.trim().toLowerCase().replace(/\s+/g, ' ')}`
+        ? `${canonicalUnit(p.unit)}|${nameKey(p.ingredient)}`
         : null;
       return { line, parsed: p, key };
     });
@@ -580,11 +593,14 @@ export class RecipeExtractor {
       }
       if (emitted.has(e.key)) continue; // later duplicate, already merged
       emitted.add(e.key);
-      const total = entries
-        .filter(x => x.key === e.key)
-        .reduce((sum, x) => sum + x.parsed.quantity, 0);
+      const group = entries.filter(x => x.key === e.key);
+      const total = group.reduce((sum, x) => sum + x.parsed.quantity, 0);
+      // A multi-quantity merge reads best with the plural wording:
+      // prefer a group member whose name carries a plural form
+      const plural = group.find(x => nameKey(x.parsed.ingredient) !== normBase(x.parsed.ingredient));
+      const name = (total !== 1 && plural ? plural : e).parsed.ingredient;
       const unit = e.parsed.unit ? `${e.parsed.unit} ` : '';
-      out.push(`${formatQuantity(total)} ${unit}${e.parsed.ingredient}, divided`);
+      out.push(`${formatQuantity(total)} ${unit}${name}, divided`);
       console.log(`[RecipeExtractor] consolidated duplicate ingredient: ${e.parsed.ingredient}`);
     }
     return out;
