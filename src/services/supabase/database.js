@@ -902,21 +902,24 @@ export const findGlobalRecipeByUrl = async (sourceUrl) => {
  * Not moderation - that is submitContentReport in social.js.
  */
 /**
- * Whether ANYONE has an open extraction report for this source URL.
- * Backed by a SECURITY DEFINER RPC so the reports stay private.
- * Fails closed to false - the report button showing twice is better
- * than it never showing.
+ * Where this recipe's extraction report got to: 'open' | 'fixed' |
+ * 'dismissed', or null if nobody has reported it. A recipe can only be
+ * reported once, ever (sql/harden_extraction_reports.sql enforces it),
+ * so any non-null status means the report option is gone for good.
+ * Backed by a SECURITY DEFINER RPC so the reports stay private. Fails
+ * to null - showing the report option when we could not check is
+ * harmless, because the database refuses the duplicate anyway.
  */
-export const hasOpenExtractionReport = async (sourceUrl) => {
+export const getExtractionReportStatus = async (sourceUrl) => {
   try {
-    if (!sourceUrl) return false;
-    const { data, error } = await supabase.rpc('has_open_extraction_report', {
+    if (!sourceUrl) return null;
+    const { data, error } = await supabase.rpc('extraction_report_status', {
       p_source_url: sourceUrl,
     });
-    if (error) return false;
-    return data === true;
+    if (error) return null;
+    return data || null;
   } catch {
-    return false;
+    return null;
   }
 };
 
@@ -961,21 +964,13 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
   try {
     const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url || null;
 
-    // One report per recipe per user per day is plenty. Failed
-    // extractions have no reliable title, so dedupe on the URL when
-    // there is one.
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    let dupQuery = supabase
-      .from('extraction_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('reporter_id', reporterId)
-      .gte('created_at', oneDayAgo);
-    dupQuery = sourceUrl
-      ? dupQuery.eq('source_url', sourceUrl)
-      : dupQuery.eq('recipe_title', recipe.title || 'Untitled');
-    const { count: dupCount } = await dupQuery;
-    if (dupCount != null && dupCount > 0) {
-      return { success: false, duplicate: true };
+    // The database allows one user report per recipe, ever. Ask first
+    // so a duplicate doesn't spend up to 15s fetching the page for a
+    // report that will be refused. (Auto-filed failures skip this -
+    // they have their own slot, and the insert below refuses repeats.)
+    if (!issueNote && sourceUrl) {
+      const existing = await getExtractionReportStatus(sourceUrl);
+      if (existing) return { success: false, duplicate: true, status: existing };
     }
 
     const rawLdJson = await fetchRawLdJson(sourceUrl);
@@ -998,6 +993,9 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
       status: 'open',
     });
     if (error) {
+      // 23505 = the one-report-per-recipe unique index
+      if (error.code === '23505') return { success: false, duplicate: true, status: 'open' };
+      if (/rate_limited/.test(error.message || '')) return { success: false, rateLimited: true };
       console.error('❌ Failed to file extraction report:', error);
       return { success: false };
     }

@@ -13,7 +13,7 @@ import colors from '../constants/colors';
 import { TAG_CATEGORIES, getPredefinedTagNames, combineRecipeTags } from '../constants/tags';
 import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
 import { pickAndUploadRecipePhoto } from '../services/recipePhoto';
-import { reportExtractionIssue, hasOpenExtractionReport } from '../services/supabase/database';
+import { reportExtractionIssue, getExtractionReportStatus } from '../services/supabase/database';
 import CookMode from './CookMode';
 import {
   parseRecipeIngredients,
@@ -164,15 +164,16 @@ export const RecipeDetail = ({
   );
   const avoidedAllergens = dietaryPrefs?.avoid || [];
 
-  // Once ANY user reports this recipe, the report box becomes a
-  // "will be reviewed" notice for everyone until the report is closed
-  const [pendingReview, setPendingReview] = useState(false);
+  // A recipe can be reported once, ever. After ANY user reports it,
+  // the report box becomes a status notice for everyone: 'open' =
+  // waiting for review, 'fixed' / 'dismissed' = already reviewed.
+  const [reportStatus, setReportStatus] = useState(null);
   useEffect(() => {
     const sourceUrl = recipe?.url || recipe?.sourceUrl || recipe?.source_url;
     if (isReadOnly || !userId || !sourceUrl || isInternalUrl(sourceUrl)) return;
     let cancelled = false;
-    hasOpenExtractionReport(sourceUrl).then(open => {
-      if (!cancelled) setPendingReview(open);
+    getExtractionReportStatus(sourceUrl).then(status => {
+      if (!cancelled) setReportStatus(status);
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1634,10 +1635,18 @@ export const RecipeDetail = ({
       {!isReadOnly && userId && !!(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) &&
         !isInternalUrl(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) && (
         <View style={styles.reportExtractionRow}>
-          {pendingReview ? (
+          {reportStatus ? (
             <View style={styles.reportExtractionBox}>
-              <Ionicons name="hourglass-outline" size={15} color={colors.accentDark} />
-              <Text style={styles.reportExtractionText}>This recipe will be reviewed for accuracy</Text>
+              <Ionicons
+                name={reportStatus === 'open' ? 'hourglass-outline' : 'checkmark-circle-outline'}
+                size={15}
+                color={colors.accentDark}
+              />
+              <Text style={styles.reportExtractionText}>
+                {reportStatus === 'open'
+                  ? 'This recipe will be reviewed for accuracy'
+                  : 'This recipe has been reviewed for accuracy'}
+              </Text>
             </View>
           ) : (
             <TouchableOpacity
@@ -1653,10 +1662,12 @@ export const RecipeDetail = ({
                       onPress: async () => {
                         const res = await reportExtractionIssue(userId, localRecipe);
                         if (res.duplicate) {
-                          setPendingReview(true);
+                          setReportStatus(res.status || 'open');
                         } else if (res.success) {
-                          setPendingReview(true);
+                          setReportStatus('open');
                           Alert.alert('Thanks!', 'The problem was reported. The recipe will be reviewed for accuracy.');
+                        } else if (res.rateLimited) {
+                          Alert.alert('Too Many Reports', 'You have sent a lot of reports today. Please try again tomorrow.');
                         } else {
                           Alert.alert('Error', 'Could not send the report. Please try again.');
                         }
