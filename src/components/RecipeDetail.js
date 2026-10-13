@@ -1463,36 +1463,6 @@ export const RecipeDetail = ({
               }}>
                 <Text style={styles.sourceUrl}>{sourceUrl}</Text>
               </TouchableOpacity>
-              {!isReadOnly && userId && (
-                <TouchableOpacity
-                  style={styles.reportExtractionButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Report Formatting Problem?',
-                      'If this recipe imported with weird formatting - mangled headings, merged lines, odd text - send a snapshot to the developers so the importer can be improved.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Report',
-                          onPress: async () => {
-                            const res = await reportExtractionIssue(userId, localRecipe);
-                            if (res.duplicate) {
-                              Alert.alert('Already Reported', 'You already reported this recipe recently - thanks!');
-                            } else if (res.success) {
-                              Alert.alert('Thanks!', 'The formatting problem was reported.');
-                            } else {
-                              Alert.alert('Error', 'Could not send the report. Please try again.');
-                            }
-                          },
-                        },
-                      ]
-                    );
-                  }}
-                >
-                  <Ionicons name="flag-outline" size={12} color={colors.textTertiary} />
-                  <Text style={styles.reportExtractionText}>Formatting look wrong? Report it</Text>
-                </TouchableOpacity>
-              )}
             </View>
           );
         }
@@ -1643,6 +1613,43 @@ export const RecipeDetail = ({
           </View>
         );
       })()}
+
+      {/* Extraction-quality report: a quiet tag at the very bottom of
+          imported recipes. Snapshots the stored text (+ the page's raw
+          ld+json, fetched by this phone) into extraction_reports. */}
+      {!isReadOnly && userId && !!(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) &&
+        !isInternalUrl(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) && (
+        <View style={styles.reportExtractionRow}>
+          <TouchableOpacity
+            style={styles.reportExtractionTag}
+            onPress={() => {
+              Alert.alert(
+                'Report a Problem?',
+                'If this recipe imported with something wrong - weird formatting, repeated or missing ingredients, odd text - send a snapshot to the developers so the importer can be improved.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Report',
+                    onPress: async () => {
+                      const res = await reportExtractionIssue(userId, localRecipe);
+                      if (res.duplicate) {
+                        Alert.alert('Already Reported', 'You already reported this recipe recently - thanks!');
+                      } else if (res.success) {
+                        Alert.alert('Thanks!', 'The problem was reported.');
+                      } else {
+                        Alert.alert('Error', 'Could not send the report. Please try again.');
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Ionicons name="flag-outline" size={13} color={colors.textTertiary} />
+            <Text style={styles.reportExtractionText}>Something look wrong? Let us know</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Tag Editor Modal */}
       <Modal
@@ -2545,16 +2552,25 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontStyle: 'italic',
   },
-  reportExtractionButton: {
+  reportExtractionRow: {
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 6,
+  },
+  reportExtractionTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.lightGray,
   },
   reportExtractionText: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textTertiary,
-    textDecorationLine: 'underline',
   },
   ownWorkContainer: {
     marginTop: 15,
