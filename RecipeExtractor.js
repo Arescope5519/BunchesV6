@@ -501,7 +501,7 @@ export class RecipeExtractor {
       prep_time: prepTime,
       cook_time: cookTime,
       total_time: totalTime,
-      servings: recipe.recipeYield ? String(recipe.recipeYield) : null,
+      servings: this.parseYield(recipe.recipeYield),
       nutrition: nutrition,
       image: imageUrl,
       extraction_method: 'json_ld',
@@ -1055,7 +1055,51 @@ export class RecipeExtractor {
     if (!text) return '';
     text = decode(text);
     text = text.replace(/\s+/g, ' ');
+    text = this.unwrapCommaParens(text);
     return text.trim();
+  }
+
+  /**
+   * WP Recipe Maker (recipetineats.com and most WordPress recipe
+   * sites) wraps preparation notes as "garlic cloves (, minced)".
+   * Unwrap each such parenthetical into a plain ", minced", keeping
+   * any nested parens like "(Note 1)" intact.
+   */
+  unwrapCommaParens(text) {
+    let out = text;
+    let idx;
+    while ((idx = out.search(/\(\s*,/)) !== -1) {
+      let depth = 0;
+      let end = -1;
+      for (let i = idx; i < out.length; i++) {
+        if (out[i] === '(') depth++;
+        else if (out[i] === ')') {
+          depth--;
+          if (depth === 0) { end = i; break; }
+        }
+      }
+      if (end === -1) break; // unbalanced - leave as-is
+      const inner = out.slice(idx + 1, end).replace(/^\s*,\s*/, '');
+      out = `${out.slice(0, idx).trimEnd()}, ${inner}${out.slice(end + 1)}`;
+    }
+    return out;
+  }
+
+  /**
+   * recipeYield is frequently an array (["4", "4 - 5 people"]) -
+   * String() joined it into "4,4 - 5 people". Prefer the descriptive
+   * entry; fall back to the first.
+   */
+  parseYield(y) {
+    if (y == null) return null;
+    if (Array.isArray(y)) {
+      const entries = y.map(v => String(v).trim()).filter(Boolean);
+      if (!entries.length) return null;
+      const descriptive = entries.find(e => /[a-zA-Z]/.test(e));
+      return descriptive || entries[0];
+    }
+    const s = String(y).trim();
+    return s || null;
   }
 
   /**
