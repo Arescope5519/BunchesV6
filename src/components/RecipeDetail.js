@@ -1621,7 +1621,7 @@ export const RecipeDetail = ({
         !isInternalUrl(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) && (
         <View style={styles.reportExtractionRow}>
           <TouchableOpacity
-            style={styles.reportExtractionTag}
+            style={styles.reportExtractionBox}
             onPress={() => {
               Alert.alert(
                 'Report a Problem?',
@@ -1645,7 +1645,7 @@ export const RecipeDetail = ({
               );
             }}
           >
-            <Ionicons name="flag-outline" size={13} color={colors.textTertiary} />
+            <Ionicons name="flag-outline" size={15} color={colors.accentDark} />
             <Text style={styles.reportExtractionText}>Something look wrong? Let us know</Text>
           </TouchableOpacity>
         </View>
@@ -2553,24 +2553,25 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   reportExtractionRow: {
-    alignItems: 'center',
-    marginTop: 18,
+    marginTop: 15,
     marginBottom: 6,
   },
-  reportExtractionTag: {
+  // Its own section: a warning-tinted notice box, debug-banner style
+  reportExtractionBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    justifyContent: 'center',
+    gap: 7,
+    padding: 15,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.lightGray,
+    borderColor: colors.warning,
+    backgroundColor: colors.warningLight,
   },
   reportExtractionText: {
-    fontSize: 12,
-    color: colors.textTertiary,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.accentDark,
   },
   ownWorkContainer: {
     marginTop: 15,
