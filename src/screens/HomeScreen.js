@@ -657,40 +657,23 @@ export const HomeScreen = ({ user }) => {
                   // Convert RecipeExtractor format to app format
                   const extracted = result.data;
 
-                  // Handle ingredients - can be object with sections or string
-                  let ingredientsStr = '';
-                  if (typeof extracted.ingredients === 'object' && !Array.isArray(extracted.ingredients)) {
-                    // Convert sectioned ingredients to string
-                    ingredientsStr = Object.entries(extracted.ingredients)
-                      .map(([section, items]) => {
-                        if (section === 'main') return Array.isArray(items) ? items.join('\n') : String(items);
-                        return `${section}:\n${Array.isArray(items) ? items.join('\n') : String(items)}`;
-                      })
-                      .join('\n\n');
-                  } else if (Array.isArray(extracted.ingredients)) {
-                    ingredientsStr = extracted.ingredients.join('\n');
-                  } else if (typeof extracted.ingredients === 'string') {
-                    ingredientsStr = extracted.ingredients;
-                  }
-
-                  // Handle instructions - convert array to numbered string
-                  let instructionsStr = '';
-                  if (Array.isArray(extracted.instructions)) {
-                    instructionsStr = extracted.instructions
-                      .map((step, i) => `${i + 1}. ${step}`)
-                      .join('\n');
-                  } else if (typeof extracted.instructions === 'string') {
-                    instructionsStr = extracted.instructions;
-                  }
-
-                  // Store original data for version comparison
+                  // Pass the extractor's structure through unchanged, like
+                  // the in-app import (useRecipeExtraction) does. This path
+                  // used to flatten to strings, which baked "1. " into
+                  // every step (RecipeDetail numbers steps itself, so they
+                  // showed twice) and dropped total_time and nutrition.
+                  // Seen in extraction reports for allrecipes.com
+                  // (Chef John's Creamy Mushroom Soup) and budgetbytes.com
+                  // (Homemade Lasagna).
                   const originalData = {
                     title: extracted.title || item.preview_title || 'Untitled Recipe',
-                    ingredients: ingredientsStr,
-                    instructions: instructionsStr,
+                    ingredients: extracted.ingredients,
+                    instructions: extracted.instructions,
                     prep_time: extracted.prep_time || '',
                     cook_time: extracted.cook_time || '',
+                    total_time: extracted.total_time || '',
                     servings: extracted.servings || '',
+                    nutrition: extracted.nutrition || null,
                     image_url: extracted.image || item.preview_image || null,
                   };
 

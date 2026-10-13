@@ -157,8 +157,7 @@ export class RecipeExtractor {
 
   // ============================================================
   // Fitness selection helpers
-  // ============================================================
-
+  // =====================================================
   /**
    * Flatten an ingredients value (object of sections or array) into a
    * plain list of lines for scoring.
@@ -1056,6 +1055,28 @@ export class RecipeExtractor {
     text = decode(text);
     text = text.replace(/\s+/g, ' ');
     text = this.unwrapCommaParens(text);
+
+    // Budget Bytes appends a per-ingredient cost to every line:
+    // "1 lb. Italian sausage ($4.99)" - shopping math, not recipe text
+    text = text.replace(/\s*\(\s*\$\s?\d[\d.,]*\*?\s*\)/g, '');
+
+    // Allrecipes ld+json writes quantities as decimals: "0.25 cup
+    // unsalted butter", "1.5 tablespoons all-purpose flour". Only
+    // rewrite when the decimal maps to a kitchen fraction.
+    text = text.replace(/^(\d*\.\d+)(?=\s)/, (m) => {
+      const formatted = formatQuantity(parseFloat(m));
+      return formatted && !formatted.includes('.') ? formatted : m;
+    });
+
+    // Allrecipes also gives unquantified seasonings a quantity of 1:
+    // "1 salt and freshly ground black pepper to taste", "1 cooking spray"
+    if (/\b(to taste|as needed)\b/i.test(text) || /^1\s+cooking spray\b/i.test(text)) {
+      text = text.replace(
+        /^1\s+(?=(?:(?:kosher |sea |table )?salt|(?:freshly )?(?:ground )?(?:black |white )?pepper|cooking spray)\b)/i,
+        ''
+      );
+    }
+
     return text.trim();
   }
 

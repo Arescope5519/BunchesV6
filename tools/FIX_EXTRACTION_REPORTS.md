@@ -21,7 +21,7 @@ paste the page HTML into chat.
 
 ```sql
 SELECT id, created_at, recipe_title, source_url,
-       recipe_snapshot
+       recipe_snapshot, raw_ld_json
 FROM extraction_reports
 WHERE status = 'open'
 ORDER BY source_url, created_at;
