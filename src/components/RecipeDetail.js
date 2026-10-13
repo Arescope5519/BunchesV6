@@ -23,7 +23,7 @@ import {
 import { formatDuration, formatServings, buildNutritionItems } from '../utils/recipeFormat';
 
 import { log } from '../utils/log';
-import { isInternalUrl } from '../constants/app';
+import { isInternalUrl, FIX_RECIPE_EMAIL } from '../constants/app';
 import { MY_CREATIONS_FOLDER, SCANNED_FOLDER } from '../hooks/useFolders';
 import { printRecipe } from '../utils/printRecipe';
 import { imgSource } from '../utils/imageSource';
@@ -1635,19 +1635,32 @@ export const RecipeDetail = ({
       {!isReadOnly && userId && !!(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) &&
         !isInternalUrl(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) && (
         <View style={styles.reportExtractionRow}>
-          {reportStatus ? (
+          {reportStatus === 'open' ? (
             <View style={styles.reportExtractionBox}>
-              <Ionicons
-                name={reportStatus === 'open' ? 'hourglass-outline' : 'checkmark-circle-outline'}
-                size={15}
-                color={colors.accentDark}
-              />
-              <Text style={styles.reportExtractionText}>
-                {reportStatus === 'open'
-                  ? 'This recipe will be reviewed for accuracy'
-                  : 'This recipe has been reviewed for accuracy'}
-              </Text>
+              <Ionicons name="hourglass-outline" size={15} color={colors.accentDark} />
+              <Text style={styles.reportExtractionText}>This recipe will be reviewed for accuracy</Text>
             </View>
+          ) : reportStatus ? (
+            // Already reviewed - the one in-app report is used up, so
+            // anything still wrong comes in by email instead
+            <TouchableOpacity
+              style={styles.reportExtractionBox}
+              onPress={() => {
+                const sourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url;
+                const subject = encodeURIComponent(`Recipe still wrong: ${localRecipe.title || 'Untitled'}`);
+                const body = encodeURIComponent(`Recipe: ${localRecipe.title || 'Untitled'}\nSource: ${sourceUrl}\n\nWhat is still wrong:\n`);
+                Linking.openURL(`mailto:${FIX_RECIPE_EMAIL}?subject=${subject}&body=${body}`).catch(() =>
+                  Alert.alert('No Email App', `Email ${FIX_RECIPE_EMAIL} with what is still wrong.`)
+                );
+              }}
+            >
+              <Ionicons name="checkmark-circle-outline" size={15} color={colors.accentDark} />
+              <Text style={[styles.reportExtractionText, styles.reportExtractionTextWrap]}>
+                This recipe has been reviewed for accuracy. Still have an issue? Email{' '}
+                <Text style={styles.reportExtractionEmail}>{FIX_RECIPE_EMAIL}</Text>
+                {' '}with what is still wrong.
+              </Text>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.reportExtractionBox}
@@ -2605,6 +2618,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: colors.accentDark,
+  },
+  // The reviewed notice is a sentence, not a tag - let it wrap
+  reportExtractionTextWrap: {
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  reportExtractionEmail: {
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   ownWorkContainer: {
     marginTop: 15,

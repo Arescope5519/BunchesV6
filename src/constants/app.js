@@ -61,6 +61,10 @@ export const LEGACY_BACKUP_EXTS = ['bunches'];
 // Also set as the contact address in App Store Connect / Play Console.
 export const SUPPORT_EMAIL = 'hello@melibri.app';
 
+// Where users write when a recipe was already reviewed through the
+// in-app report (one report per recipe, ever) and is still wrong.
+export const FIX_RECIPE_EMAIL = 'fixrecipe@melibri.app';
+
 // TODO: replace with real hosted documents before launch (Phase 7)
 export const TERMS_URL = `https://${APP_DOMAIN}/terms`;
 export const PRIVACY_URL = `https://${APP_DOMAIN}/privacy`;
