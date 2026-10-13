@@ -116,7 +116,7 @@ function decimalToFraction(decimal) {
 /**
  * Format number as mixed fraction with unicode
  */
-function formatQuantity(num) {
+export function formatQuantity(num) {
   if (!num || num === 0) return '';
 
   const whole = Math.floor(num);

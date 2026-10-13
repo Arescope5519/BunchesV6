@@ -7,6 +7,25 @@
  */
 
 import { decode } from 'html-entities';
+import { parseIngredient, formatQuantity } from './src/utils/IngredientParser';
+
+// Canonical spellings so "2 cups flour" and "1 Cup flour" group together
+const CONSOLIDATE_UNIT_ALIASES = {
+  cups: 'cup',
+  tablespoons: 'tbsp', tablespoon: 'tbsp', tbs: 'tbsp', tb: 'tbsp',
+  teaspoons: 'tsp', teaspoon: 'tsp', ts: 'tsp',
+  ounces: 'oz', ounce: 'oz',
+  pounds: 'lb', lbs: 'lb', pound: 'lb',
+  grams: 'g', gram: 'g',
+  kilograms: 'kg', kilogram: 'kg',
+  milliliters: 'ml', milliliter: 'ml',
+  liters: 'l', liter: 'l',
+  pints: 'pint', quarts: 'quart', gallons: 'gallon',
+};
+const canonicalUnit = (unit) => {
+  const u = String(unit || '').toLowerCase().trim();
+  return CONSOLIDATE_UNIT_ALIASES[u] || u;
+};
 
 export class RecipeExtractor {
   constructor() {
@@ -517,7 +536,59 @@ export class RecipeExtractor {
       }
     }
 
+    // Sites that list an ingredient once per usage point produce
+    // duplicate lines ("1 cup flour" ... "2 tbsp flour"). Consolidate
+    // ONLY when the list has no subsections - duplicates across
+    // sections ("For the sauce" / "For the chicken") are intentional.
+    const sectionNames = Object.keys(ingredients);
+    if (sectionNames.length === 1 && sectionNames[0] === 'main') {
+      ingredients.main = this.consolidateDuplicateIngredients(ingredients.main);
+    }
+
     return ingredients;
+  }
+
+  /**
+   * Merge repeated ingredient lines into one "x TOTAL unit name,
+   * divided" line. Deliberately conservative: both lines must parse
+   * with a numeric quantity, carry the SAME unit (after canonical
+   * spelling) and the EXACT same ingredient text - so "1 onion,
+   * sliced" never merges with "1 onion, diced", and unparseable or
+   * unit-mismatched lines pass through untouched.
+   */
+  consolidateDuplicateIngredients(lines) {
+    const entries = lines.map(line => {
+      const p = parseIngredient(line);
+      const mergeable = p.parsed && !p.midStringQuantity && p.quantity > 0;
+      const key = mergeable
+        ? `${canonicalUnit(p.unit)}|${p.ingredient.trim().toLowerCase().replace(/\s+/g, ' ')}`
+        : null;
+      return { line, parsed: p, key };
+    });
+
+    const totals = new Map();
+    for (const e of entries) {
+      if (!e.key) continue;
+      totals.set(e.key, (totals.get(e.key) || 0) + 1);
+    }
+
+    const emitted = new Set();
+    const out = [];
+    for (const e of entries) {
+      if (!e.key || totals.get(e.key) < 2) {
+        out.push(e.line);
+        continue;
+      }
+      if (emitted.has(e.key)) continue; // later duplicate, already merged
+      emitted.add(e.key);
+      const total = entries
+        .filter(x => x.key === e.key)
+        .reduce((sum, x) => sum + x.parsed.quantity, 0);
+      const unit = e.parsed.unit ? `${e.parsed.unit} ` : '';
+      out.push(`${formatQuantity(total)} ${unit}${e.parsed.ingredient}, divided`);
+      console.log(`[RecipeExtractor] consolidated duplicate ingredient: ${e.parsed.ingredient}`);
+    }
+    return out;
   }
 
   /**

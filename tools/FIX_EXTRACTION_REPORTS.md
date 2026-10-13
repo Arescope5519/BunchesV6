@@ -57,3 +57,11 @@ WHERE id IN ('...');
 - Several reports from one domain = prioritize the extractor fix over
   record cleanup; the parser fix is what makes reports converge to
   zero as the same popular sites recur.
+- **Repeated ingredients**: sites that list an ingredient per usage
+  point produce duplicate lines. Consolidate to one "TOTAL unit name,
+  divided" line - UNLESS the list has subsections ("For the sauce"),
+  where repeats across sections are intentional, or the lines differ
+  in preparation ("sliced" vs "diced"). The extractor already does the
+  conservative version automatically
+  (consolidateDuplicateIngredients); a report means it missed a case -
+  fix the record AND teach the consolidator the pattern.
