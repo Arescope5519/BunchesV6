@@ -3463,10 +3463,32 @@ export const HomeScreen = ({ user }) => {
             <ScrollView style={styles.recipeList}>
           {sortedRecipes.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No recipes yet</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Share a recipe from your browser or paste a URL above
-              </Text>
+              {currentFolder === 'All Recipes' ? (
+                <>
+                  <Text style={styles.emptyStateText}>No recipes yet</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Share a recipe from your browser or paste a URL above
+                  </Text>
+                </>
+              ) : currentFolder === 'Favorites' ? (
+                <>
+                  <Text style={styles.emptyStateText}>No favorites yet</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Tap the star on any recipe to add it here
+                  </Text>
+                </>
+              ) : currentFolder === 'Recently Deleted' ? (
+                <Text style={styles.emptyStateText}>Recently Deleted is empty</Text>
+              ) : (
+                <>
+                  <Text style={styles.emptyStateText}>
+                    No recipes in {currentFolder}
+                  </Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Open a recipe and use its cookbook menu to add it here
+                  </Text>
+                </>
+              )}
             </View>
           ) : (
             <>
