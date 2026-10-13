@@ -8,6 +8,7 @@ import { useState, useRef } from 'react';
 import { Alert } from 'react-native';
 import RecipeExtractor from '../../RecipeExtractor';
 import { Ionicons } from '@expo/vector-icons';
+import { reportExtractionIssue } from '../services/supabase/database';
 
 import { log } from '../utils/log';
 /**
@@ -28,9 +29,23 @@ const normalizeUrl = (url) => {
   }
 };
 
-export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => {
+export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = [], userId = null) => {
   const [loading, setLoading] = useState(false);
   const extractor = useRef(new RecipeExtractor()).current;
+
+  // A failed extraction auto-files an extraction report (same table
+  // the "Something look wrong?" tag feeds), carrying the error and -
+  // when the page is reachable from this device - its raw ld+json,
+  // so fix sessions see exactly what defeated the parser.
+  // Fire-and-forget: reporting must never delay or break the UX.
+  const fileFailureReport = (recipeUrl, errorMsg) => {
+    if (!userId || !recipeUrl) return;
+    reportExtractionIssue(
+      userId,
+      { title: 'Extraction failed', url: recipeUrl },
+      `auto: extraction failed - ${errorMsg || 'no structured recipe data found'}`
+    ).catch(() => {});
+  };
 
   /**
    * Check if a URL has already been imported
@@ -152,19 +167,22 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = []) => 
         }
         return { action: 'extracted', recipe };
       } else {
+        fileFailureReport(recipeUrl, result.error);
         Alert.alert(
           'Extraction Failed',
-          `Could not extract a recipe from that URL.\n\n${result.error || 'The site may not have structured recipe data.'}\n\nTry a different recipe URL.`,
+          `Could not extract a recipe from that URL.\n\n${result.error || 'The site may not have structured recipe data.'}\n\nThis failure was reported so the importer can be improved.`,
         );
         return { action: 'failed', error: result.error };
       }
     } catch (error) {
       console.error('❌ Extraction error:', error);
+      const timedOut = error.message === 'Extraction timed out after 30 seconds';
+      if (!timedOut) fileFailureReport(recipeUrl, error.message);
       Alert.alert(
         'Extraction Error',
-        error.message === 'Extraction timed out after 30 seconds'
+        timedOut
           ? 'The site took too long to respond. Check your internet or try again.'
-          : `Failed to extract recipe: ${error.message}`,
+          : `Failed to extract recipe: ${error.message}\n\nThis failure was reported so the importer can be improved.`,
       );
       return { action: 'error', error: error.message };
     } finally {

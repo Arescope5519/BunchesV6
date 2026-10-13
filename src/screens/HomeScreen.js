@@ -791,7 +791,8 @@ export const HomeScreen = ({ user }) => {
         setCurrentScreen('saveRecipe');
       }
     },
-    recipes // Pass recipes for deduplication check
+    recipes, // Pass recipes for deduplication check
+    user?.uid // For auto-filing extraction-failure reports
   );
 
   // Handle save from SaveRecipeScreen

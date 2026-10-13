@@ -938,18 +938,23 @@ const fetchRawLdJson = async (sourceUrl) => {
   }
 };
 
-export const reportExtractionIssue = async (reporterId, recipe) => {
+export const reportExtractionIssue = async (reporterId, recipe, issueNote = null) => {
   try {
     const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url || null;
 
-    // One report per recipe per user per day is plenty
+    // One report per recipe per user per day is plenty. Failed
+    // extractions have no reliable title, so dedupe on the URL when
+    // there is one.
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: dupCount } = await supabase
+    let dupQuery = supabase
       .from('extraction_reports')
       .select('id', { count: 'exact', head: true })
       .eq('reporter_id', reporterId)
-      .eq('recipe_title', recipe.title || 'Untitled')
       .gte('created_at', oneDayAgo);
+    dupQuery = sourceUrl
+      ? dupQuery.eq('source_url', sourceUrl)
+      : dupQuery.eq('recipe_title', recipe.title || 'Untitled');
+    const { count: dupCount } = await dupQuery;
     if (dupCount != null && dupCount > 0) {
       return { success: false, duplicate: true };
     }
@@ -961,7 +966,7 @@ export const reportExtractionIssue = async (reporterId, recipe) => {
       global_recipe_id: recipe.global_recipe_id || recipe.globalRecipeId || null,
       source_url: sourceUrl,
       recipe_title: recipe.title || 'Untitled',
-      issue_note: null,
+      issue_note: issueNote,
       raw_ld_json: rawLdJson,
       recipe_snapshot: {
         title: recipe.title || null,

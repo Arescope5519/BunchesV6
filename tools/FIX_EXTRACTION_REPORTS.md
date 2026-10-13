@@ -47,6 +47,21 @@ WHERE id IN ('...');
 -- or 'dismissed' for reports that aren't real problems
 ```
 
+## Auto-filed failure reports
+
+Total extraction failures file themselves - `issue_note` starts with
+`auto: extraction failed`, `recipe_title` is "Extraction failed" and
+there is no snapshot. The interesting evidence is `raw_ld_json`:
+- **Present** = the device could fetch the page but the parser lost -
+  a real extractor bug with the failing input attached. Highest-value
+  reports; fix the extractor (there is no record to repair - the user
+  never got a recipe).
+- **Null** = the device couldn't fetch the page either (bot wall,
+  dead link, paywall). Usually dismiss, unless several users hit the
+  same popular domain - then it's a fetch-strategy problem worth
+  solving (see the WebView precedent for images).
+Timeouts are NOT auto-filed (almost always the user's connection).
+
 ## Judgment calls
 
 - A grammar oddity that faithfully matches the SOURCE site is not an
