@@ -9,9 +9,11 @@ reports".
 
 Each report carries a `recipe_snapshot` of the stored text, so most
 fixes need NO page fetch - the mangled formatting is right there in
-the snapshot. Only reach for the original HTML (paste it into chat, or
-save the page from a browser) when the snapshot is missing content
-rather than formatting it badly.
+the snapshot. For MISSING-content cases, `raw_ld_json` holds the
+source page's raw ld+json blocks, re-fetched by the reporter's phone
+at report time (device fetches pass the bot walls that block
+servers). Only when that column is null does fixing require Daniel to
+paste the page HTML into chat.
 
 ## Session flow
 

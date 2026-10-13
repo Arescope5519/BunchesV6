@@ -16,8 +16,16 @@ create table if not exists extraction_reports (
   recipe_title text,
   issue_note text,
   recipe_snapshot jsonb,
+  -- Raw ld+json blocks re-fetched from the source page by the
+  -- reporter's phone at report time (JSON array of block strings,
+  -- capped at 150KB) - evidence for MISSING content, which the
+  -- post-extraction snapshot cannot show. Null when the fetch fails.
+  raw_ld_json text,
   status text not null default 'open' -- open | fixed | dismissed
 );
+
+-- If the table was created before raw_ld_json existed:
+alter table extraction_reports add column if not exists raw_ld_json text;
 
 alter table extraction_reports enable row level security;
 

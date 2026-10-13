@@ -901,6 +901,43 @@ export const findGlobalRecipeByUrl = async (sourceUrl) => {
  * records and improve RecipeExtractor without re-fetching the page.
  * Not moderation - that is submitContentReport in social.js.
  */
+// Best-effort grab of the source page's raw ld+json blocks at REPORT
+// time, so a report about MISSING content (dropped subheadings, lost
+// sections) carries what the page actually said - the app only stores
+// post-extraction text. Device fetches pass the bot walls that block
+// our servers. Returns null on any failure; the report files anyway.
+const fetchRawLdJson = async (sourceUrl) => {
+  if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch(sourceUrl, {
+      headers: { ...MIRROR_FETCH_HEADERS, Accept: 'text/html,*/*;q=0.8' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      dbg('REPORT', 'ld+json fetch failed HTTP', res.status);
+      return null;
+    }
+    const html = await res.text();
+    const blocks = [];
+    const re = /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) blocks.push(m[1].trim());
+    if (blocks.length === 0) {
+      dbg('REPORT', 'no ld+json blocks on page');
+      return null;
+    }
+    // Cap so a pathological page can't bloat the report row
+    const joined = JSON.stringify(blocks);
+    return joined.length > 150000 ? joined.slice(0, 150000) : joined;
+  } catch (err) {
+    dbg('REPORT', 'ld+json fetch error:', err?.message);
+    return null;
+  }
+};
+
 export const reportExtractionIssue = async (reporterId, recipe) => {
   try {
     const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url || null;
@@ -917,12 +954,15 @@ export const reportExtractionIssue = async (reporterId, recipe) => {
       return { success: false, duplicate: true };
     }
 
+    const rawLdJson = await fetchRawLdJson(sourceUrl);
+
     const { error } = await supabase.from('extraction_reports').insert({
       reporter_id: reporterId,
       global_recipe_id: recipe.global_recipe_id || recipe.globalRecipeId || null,
       source_url: sourceUrl,
       recipe_title: recipe.title || 'Untitled',
       issue_note: null,
+      raw_ld_json: rawLdJson,
       recipe_snapshot: {
         title: recipe.title || null,
         servings: recipe.servings || null,
