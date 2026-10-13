@@ -1056,6 +1056,11 @@ export class RecipeExtractor {
     text = text.replace(/\s+/g, ' ');
     text = this.unwrapCommaParens(text);
 
+    // WPRM double-wraps plain notes: "wine ((Note 2))" -> "(Note 2)"
+    text = text.replace(/\(\s*\(([^()]*)\)\s*\)/g, '($1)');
+    // Missing space before a parenthetical: "recommended(Note 4)"
+    text = text.replace(/([A-Za-z])\(/g, '$1 (');
+
     // Budget Bytes appends a per-ingredient cost to every line:
     // "1 lb. Italian sausage ($4.99)" - shopping math, not recipe text
     text = text.replace(/\s*\(\s*\$\s?\d[\d.,]*\*?\s*\)/g, '');
