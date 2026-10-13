@@ -332,6 +332,15 @@ Current shortlist: Melibri, Melibee, Melarca, Melcella, Melcori.
 Plan is to use Indie Law for a real clearance opinion - ask specifically
 for phonetic analysis against famous marks, not just a knockout search.
 
+## Extraction-quality reports
+
+Users flag badly-formatted imports from the recipe page; reports land
+in `extraction_reports` with a snapshot of the stored text. Nothing
+runs automatically - when Daniel asks to "work through the extraction
+reports", follow `tools/FIX_EXTRACTION_REPORTS.md`: fix the records
+(SQL in chat) AND patch RecipeExtractor so that mistake stops
+happening.
+
 ## See also
 
 - `WHERE_WE_LEFT_OFF.md` - current state snapshot + immediate next steps

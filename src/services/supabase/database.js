@@ -894,6 +894,56 @@ export const findGlobalRecipeByUrl = async (sourceUrl) => {
  * @param {string} globalRecipeId
  * @returns {Promise<Object|null>}
  */
+/**
+ * File an extraction-quality report: the imported text came out weird
+ * (mangled subheadings, merged lines, grammar artifacts). Snapshots
+ * the recipe's stored text so the occasional cleanup session can fix
+ * records and improve RecipeExtractor without re-fetching the page.
+ * Not moderation - that is submitContentReport in social.js.
+ */
+export const reportExtractionIssue = async (reporterId, recipe) => {
+  try {
+    const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url || null;
+
+    // One report per recipe per user per day is plenty
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: dupCount } = await supabase
+      .from('extraction_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('reporter_id', reporterId)
+      .eq('recipe_title', recipe.title || 'Untitled')
+      .gte('created_at', oneDayAgo);
+    if (dupCount != null && dupCount > 0) {
+      return { success: false, duplicate: true };
+    }
+
+    const { error } = await supabase.from('extraction_reports').insert({
+      reporter_id: reporterId,
+      global_recipe_id: recipe.global_recipe_id || recipe.globalRecipeId || null,
+      source_url: sourceUrl,
+      recipe_title: recipe.title || 'Untitled',
+      issue_note: null,
+      recipe_snapshot: {
+        title: recipe.title || null,
+        servings: recipe.servings || null,
+        total_time: recipe.total_time || recipe.totalTime || null,
+        ingredients: recipe.ingredients || null,
+        instructions: recipe.instructions || null,
+        nutrition: recipe.nutrition || null,
+      },
+      status: 'open',
+    });
+    if (error) {
+      console.error('❌ Failed to file extraction report:', error);
+      return { success: false };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('❌ reportExtractionIssue error:', err);
+    return { success: false };
+  }
+};
+
 export const getGlobalRecipeById = async (globalRecipeId) => {
   if (!globalRecipeId) return null;
   try {
@@ -1436,6 +1486,7 @@ export default {
   loadRecipesFromDatabase,
   saveRecipeToDatabase,
   deleteRecipeFromDatabase,
+  reportExtractionIssue,
   deleteAllRecipesFromDatabase,
   syncRecipes,
   saveFoldersToDatabase,
