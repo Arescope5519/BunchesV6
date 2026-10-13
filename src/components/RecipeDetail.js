@@ -13,7 +13,7 @@ import colors from '../constants/colors';
 import { TAG_CATEGORIES, getPredefinedTagNames, combineRecipeTags } from '../constants/tags';
 import { dietLabel, allergenLabel, analyzeRecipe, lineAllergens, getConflicts } from '../utils/dietaryAnalysis';
 import { pickAndUploadRecipePhoto } from '../services/recipePhoto';
-import { reportExtractionIssue } from '../services/supabase/database';
+import { reportExtractionIssue, hasOpenExtractionReport } from '../services/supabase/database';
 import CookMode from './CookMode';
 import {
   parseRecipeIngredients,
@@ -163,6 +163,20 @@ export const RecipeDetail = ({
     [dietaryAnalysis, dietaryPrefs]
   );
   const avoidedAllergens = dietaryPrefs?.avoid || [];
+
+  // Once ANY user reports this recipe, the report box becomes a
+  // "will be reviewed" notice for everyone until the report is closed
+  const [pendingReview, setPendingReview] = useState(false);
+  useEffect(() => {
+    const sourceUrl = recipe?.url || recipe?.sourceUrl || recipe?.source_url;
+    if (isReadOnly || !userId || !sourceUrl || isInternalUrl(sourceUrl)) return;
+    let cancelled = false;
+    hasOpenExtractionReport(sourceUrl).then(open => {
+      if (!cancelled) setPendingReview(open);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipe?.id]);
 
   // Scaling and conversion state
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -1620,34 +1634,42 @@ export const RecipeDetail = ({
       {!isReadOnly && userId && !!(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) &&
         !isInternalUrl(localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url) && (
         <View style={styles.reportExtractionRow}>
-          <TouchableOpacity
-            style={styles.reportExtractionBox}
-            onPress={() => {
-              Alert.alert(
-                'Report a Problem?',
-                'If this recipe imported with something wrong - weird formatting, repeated or missing ingredients, odd text - send a snapshot to the developers so the importer can be improved.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Report',
-                    onPress: async () => {
-                      const res = await reportExtractionIssue(userId, localRecipe);
-                      if (res.duplicate) {
-                        Alert.alert('Already Reported', 'You already reported this recipe recently - thanks!');
-                      } else if (res.success) {
-                        Alert.alert('Thanks!', 'The problem was reported.');
-                      } else {
-                        Alert.alert('Error', 'Could not send the report. Please try again.');
-                      }
+          {pendingReview ? (
+            <View style={styles.reportExtractionBox}>
+              <Ionicons name="hourglass-outline" size={15} color={colors.accentDark} />
+              <Text style={styles.reportExtractionText}>This recipe will be reviewed for accuracy</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.reportExtractionBox}
+              onPress={() => {
+                Alert.alert(
+                  'Report a Problem?',
+                  'If this recipe imported with something wrong - weird formatting, repeated or missing ingredients, odd text - send a snapshot to the developers so the importer can be improved.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Report',
+                      onPress: async () => {
+                        const res = await reportExtractionIssue(userId, localRecipe);
+                        if (res.duplicate) {
+                          setPendingReview(true);
+                        } else if (res.success) {
+                          setPendingReview(true);
+                          Alert.alert('Thanks!', 'The problem was reported. The recipe will be reviewed for accuracy.');
+                        } else {
+                          Alert.alert('Error', 'Could not send the report. Please try again.');
+                        }
+                      },
                     },
-                  },
-                ]
-              );
-            }}
-          >
-            <Ionicons name="flag-outline" size={15} color={colors.accentDark} />
-            <Text style={styles.reportExtractionText}>Something look wrong? Let us know</Text>
-          </TouchableOpacity>
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="flag-outline" size={15} color={colors.accentDark} />
+              <Text style={styles.reportExtractionText}>Something look wrong? Let us know</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

@@ -901,6 +901,25 @@ export const findGlobalRecipeByUrl = async (sourceUrl) => {
  * records and improve RecipeExtractor without re-fetching the page.
  * Not moderation - that is submitContentReport in social.js.
  */
+/**
+ * Whether ANYONE has an open extraction report for this source URL.
+ * Backed by a SECURITY DEFINER RPC so the reports stay private.
+ * Fails closed to false - the report button showing twice is better
+ * than it never showing.
+ */
+export const hasOpenExtractionReport = async (sourceUrl) => {
+  try {
+    if (!sourceUrl) return false;
+    const { data, error } = await supabase.rpc('has_open_extraction_report', {
+      p_source_url: sourceUrl,
+    });
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+};
+
 // Best-effort grab of the source page's raw ld+json blocks at REPORT
 // time, so a report about MISSING content (dropped subheadings, lost
 // sections) carries what the page actually said - the app only stores
