@@ -302,6 +302,82 @@ export const getLikesForRecipes = async (userId, globalRecipeIds) => {
   return { counts, likedByMe };
 };
 
+/**
+ * Everything the user has liked, newest like first. Likes store the
+ * global id, but the privacy rule holds: cards resolve through
+ * user_recipes_v2 (RLS decides what this viewer may still see), never
+ * global_recipes directly - a liked recipe whose owners all went
+ * private quietly drops out.
+ */
+export const getLikedFeed = async (userId, { offset = 0, limit = DISCOVER_PAGE_SIZE } = {}) => {
+  try {
+    const { data: likes, error } = await supabase
+      .from('recipe_likes')
+      .select('global_recipe_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) throw error;
+
+    const likedIds = (likes || []).map(l => l.global_recipe_id);
+    if (!likedIds.length) return [];
+    const likedAt = {};
+    likes.forEach(l => { likedAt[l.global_recipe_id] = l.created_at; });
+
+    const { data: rows, error: rowErr } = await supabase
+      .from('user_recipes_v2')
+      .select(`
+        id,
+        user_id,
+        local_recipe_data,
+        global_recipe_id,
+        created_at,
+        global_recipes (
+          id,
+          title,
+          image_url,
+          source_url,
+          ingredients,
+          tags
+        )
+      `)
+      .in('global_recipe_id', likedIds)
+      .is('deleted_at', null);
+    if (rowErr) throw rowErr;
+
+    // RLS already decided we may see these rows, so any readable
+    // owner profile serves for attribution (no is_public filter -
+    // a friend's shared recipe is legitimately visible here)
+    const ownerIds = [...new Set((rows || []).map(r => r.user_id))];
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, username, avatar_url')
+      .in('user_id', ownerIds);
+    const profileMap = {};
+    (profiles || []).forEach(p => { profileMap[p.user_id] = p; });
+
+    // One card per liked recipe (prefer a copy whose owner resolves),
+    // in the order the likes happened
+    const byGlobal = new Map();
+    (rows || []).forEach(r => {
+      const existing = byGlobal.get(r.global_recipe_id);
+      if (!existing || (!profileMap[existing.user_id] && profileMap[r.user_id])) {
+        byGlobal.set(r.global_recipe_id, r);
+      }
+    });
+
+    const cards = likedIds
+      .map(gid => byGlobal.get(gid))
+      .filter(Boolean)
+      .map(row => ({ ...mapRowToCard(row, profileMap), likedAt: likedAt[row.global_recipe_id] }));
+    log(`🧭 Liked feed: ${cards.length} of ${likedIds.length} likes still visible`);
+    return cards;
+  } catch (err) {
+    console.error('❌ getLikedFeed error:', err);
+    throw err;
+  }
+};
+
 export const likeRecipe = async (userId, globalRecipeId) => {
   const { error } = await supabase
     .from('recipe_likes')
@@ -326,6 +402,7 @@ export default {
   getDiscoverFollowingFeed,
   getDiscoverPublicFeed,
   getFeedShelves,
+  getLikedFeed,
   getLikesForRecipes,
   likeRecipe,
   unlikeRecipe,

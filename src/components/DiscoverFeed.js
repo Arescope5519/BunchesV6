@@ -29,6 +29,7 @@ import { LetterPlaceholder } from './LetterPlaceholder';
 import {
   getDiscoverFollowingFeed,
   getDiscoverPublicFeed,
+  getLikedFeed,
   getFeedShelves,
   getLikesForRecipes,
   likeRecipe,
@@ -42,6 +43,7 @@ import { imgSource } from '../utils/imageSource';
 const TABS = [
   { key: 'following', label: 'Following' },
   { key: 'everyone', label: 'Discover' },
+  { key: 'liked', label: 'Liked' },
 ];
 
 const EMPTY_COPY = {
@@ -54,6 +56,11 @@ const EMPTY_COPY = {
     icon: 'compass-outline',
     title: 'Nothing here yet',
     body: 'Recipes from public profiles will show up here as the community grows.',
+  },
+  liked: {
+    icon: 'heart-outline',
+    title: 'No likes yet',
+    body: 'Recipes you like will be collected here, newest first.',
   },
 };
 
@@ -106,9 +113,12 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
   const feedSeedRef = useRef((Math.random() * 0xffffffff) >>> 0);
 
   const fetchPage = useCallback(async (tab, offset) => {
-    const fetcher = tab === 'following' ? getDiscoverFollowingFeed : getDiscoverPublicFeed;
+    const fetcher = tab === 'following' ? getDiscoverFollowingFeed
+      : tab === 'liked' ? getLikedFeed
+      : getDiscoverPublicFeed;
     const [cards, blockedIds] = await Promise.all([
-      fetcher(userId, { offset, limit: DISCOVER_PAGE_SIZE, seed: feedSeedRef.current }),
+      // Liked is chronological by like time - no shuffle seed
+      fetcher(userId, { offset, limit: DISCOVER_PAGE_SIZE, seed: tab === 'liked' ? undefined : feedSeedRef.current }),
       getBlockedIds(),
     ]);
 
@@ -234,7 +244,7 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
       return out;
     }
 
-    // Discover collage: chunk into rows of 3
+    // Discover/Liked collage: chunk into rows of 3
     const rows = [];
     for (let i = 0; i < items.length; i += 3) {
       const tiles = items.slice(i, i + 3);
@@ -244,7 +254,8 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
         tiles,
       });
     }
-    if (shelves.length) {
+    // Liked is the user's own chronological collection - no shelves
+    if (shelves.length && activeTab !== 'liked') {
       const positions = [2, 5];
       shelves.forEach((shelf, i) => {
         const at = positions[i] != null ? Math.min(positions[i] + i, rows.length) : rows.length;
