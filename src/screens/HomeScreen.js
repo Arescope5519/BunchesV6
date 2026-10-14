@@ -36,6 +36,8 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useRecipes } from '../hooks/useRecipes';
 import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER, SYSTEM_FOLDERS } from '../hooks/useFolders';
 import { loadCookSession, clearCookSession } from '../utils/cookSession';
+import { mirrorImageToStorage } from '../services/supabase/database';
+import { dbg } from '../utils/debugLog';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
 import { useRecipeExtraction } from '../hooks/useRecipeExtraction';
@@ -815,6 +817,46 @@ export const HomeScreen = ({ user }) => {
         ]
       );
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingRecipes]);
+
+  // Self-heal legacy photos: recipes imported before mirroring still
+  // point at external CDNs, which refuse the app's image loads one
+  // hostile host at a time (the whole reason mirroring exists).
+  // Re-host a few per launch through the device/WebView chain,
+  // quietly, after startup settles.
+  const imageHealAttempted = useRef(false);
+  useEffect(() => {
+    if (loadingRecipes || !user?.uid || imageHealAttempted.current) return;
+    imageHealAttempted.current = true;
+    const timer = setTimeout(async () => {
+      const candidates = recipes
+        .filter(r => {
+          const img = r.image_url || r.imageUrl;
+          return !r.deletedAt && img && /^https?:\/\//i.test(img) && !img.includes('.supabase.co/');
+        })
+        .slice(0, 3);
+      for (const r of candidates) {
+        try {
+          const img = r.image_url || r.imageUrl;
+          dbg('HEAL', 'mirroring legacy photo for', r.title);
+          const mirrored = await mirrorImageToStorage(img);
+          if (mirrored && mirrored !== img) {
+            await updateRecipe({
+              ...r,
+              image_url: mirrored,
+              ...(r.imageUrl ? { imageUrl: mirrored } : {}),
+            });
+            dbg('HEAL', 'healed:', r.title);
+          } else {
+            dbg('HEAL', 'could not mirror:', r.title);
+          }
+        } catch (e) {
+          dbg('HEAL', 'error:', e?.message);
+        }
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingRecipes]);
 
