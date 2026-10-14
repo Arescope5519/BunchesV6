@@ -6,14 +6,12 @@
 import React, { useState, useEffect, Component } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, ScrollView, TextInput } from 'react-native';
 
-// Cap how far app text follows the system font-size setting. iOS
-// Dynamic Type at large settings scales text 1.3x+ and pushes fixed-row
-// layouts (settings switches, dietary chips) off the screen edge. 1.2
-// keeps accessibility scaling meaningful while layouts stay intact.
-if (Text.defaultProps == null) Text.defaultProps = {};
-Text.defaultProps.maxFontSizeMultiplier = 1.2;
-if (TextInput.defaultProps == null) TextInput.defaultProps = {};
-TextInput.defaultProps.maxFontSizeMultiplier = 1.2;
+// Cap how far app text follows the system font-size setting (1.2x),
+// and host the in-app Text Size setting. NOTE: the old
+// Text.defaultProps route is silently IGNORED on React 19 - this
+// install wraps element creation instead (see utils/textScale.js).
+import { applyTextSize } from './src/utils/textScale';
+applyTextSize('system');
 
 // iOS: keep the focused text box visible above the keyboard in every
 // ScrollView (FlatLists inherit this too). Android ignores the prop and
