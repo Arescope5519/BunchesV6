@@ -437,6 +437,12 @@ export const HomeScreen = ({ user }) => {
 
   // Save app settings when they change
   const updateAppSetting = async (key, value) => {
+    // Text size must take effect BEFORE any render this tap triggers -
+    // applying it after the awaits painted one tap behind
+    if (key === 'textSize') {
+      applyTextSize(value);
+      setTextSize(value);
+    }
     const currentSettings = await loadAppSettings(user?.uid);
     const newSettings = { ...currentSettings, [key]: value };
     await saveAppSettings(newSettings, user?.uid);
@@ -448,10 +454,6 @@ export const HomeScreen = ({ user }) => {
     }
     if (key === 'showNutrition') {
       setShowNutrition(value);
-    }
-    if (key === 'textSize') {
-      setTextSize(value);
-      applyTextSize(value);
     }
   };
 
