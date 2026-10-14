@@ -51,7 +51,6 @@ export const SettingsScreen = ({
   recipes,
   folders,
   onRestoreBackup,
-  onSyncNow,
   showQuickLinkButton,
   onToggleQuickLinkButton,
   printFontSize,
@@ -74,23 +73,8 @@ export const SettingsScreen = ({
   const [savingUsername, setSavingUsername] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [showDebugLog, setShowDebugLog] = useState(false);
   const [debugLogText, setDebugLogText] = useState('');
-  const handleSyncNow = async () => {
-    if (!onSyncNow || !user) return;
-
-    setIsSyncing(true);
-    try {
-      await onSyncNow();
-      Alert.alert('Sync Complete', 'Your recipes have been synced to the cloud.');
-    } catch (error) {
-      console.error('Sync failed:', error);
-      Alert.alert('Sync Failed', 'Unable to sync recipes. Please try again later.');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleClearAllData = () => {
     Alert.alert(
@@ -717,20 +701,6 @@ export const SettingsScreen = ({
                   </Text>
                 </View>
               )}
-              <TouchableOpacity
-                style={[styles.syncButton, isSyncing && styles.buttonDisabled]}
-                onPress={handleSyncNow}
-                disabled={isSyncing}
-              >
-                {isSyncing ? (
-                  <ActivityIndicator color={colors.onPrimary} />
-                ) : (
-                  <>
-                    <Ionicons name="refresh" size={15} color={colors.onPrimary} style={{ marginRight: 6 }} />
-                    <Text style={styles.syncButtonText}>Sync Now</Text>
-                  </>
-                )}
-              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.signOutButton}
                 onPress={handleSignOut}

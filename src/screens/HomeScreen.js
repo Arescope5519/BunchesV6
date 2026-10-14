@@ -3430,7 +3430,6 @@ export const HomeScreen = ({ user }) => {
           recipes={recipes}
           folders={folders}
           onRestoreBackup={handleRestoreBackup}
-          onSyncNow={handleSyncNow}
           showQuickLinkButton={showQuickLinkButton}
           onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
           printFontSize={printFontSize}
@@ -3675,14 +3674,6 @@ export const HomeScreen = ({ user }) => {
                     <View style={styles.recipeCardContent}>
                       <View style={styles.recipeCardHeader}>
                         <Text style={styles.recipeTitle}>{recipe.title}</Text>
-                        {dietConflicts.length > 0 && (
-                          <Ionicons
-                            name="alert-circle"
-                            size={16}
-                            color={colors.error}
-                            style={{ marginLeft: 4, marginTop: 2 }}
-                          />
-                        )}
                         {!multiselectMode && (
                           <TouchableOpacity
                             onPress={(e) => {
@@ -3701,8 +3692,16 @@ export const HomeScreen = ({ user }) => {
                         )}
                       </View>
                       {/* Tag chips on recipe card - below title */}
-                      {cardTags.length > 0 && (
+                      {(cardTags.length > 0 || dietConflicts.length > 0) && (
                         <View style={styles.recipeCardTags}>
+                          {/* Dietary warnings lead the tag row in red -
+                              always visible, never hidden behind "+N" */}
+                          {dietConflicts.map(conflict => (
+                            <View key={conflict} style={styles.recipeCardConflictChip}>
+                              <Ionicons name="alert-circle" size={10} color={colors.error} style={{ marginRight: 3 }} />
+                              <Text style={styles.recipeCardConflictText}>{conflict}</Text>
+                            </View>
+                          ))}
                           {(expandedTagsRecipeId === recipe.id ? cardTags : cardTags.slice(0, 3)).map(tag => (
                             <View
                               key={tag}
@@ -5735,6 +5734,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 10,
     backgroundColor: colors.darkGray,
+  },
+  recipeCardConflictChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: colors.errorLight,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  recipeCardConflictText: {
+    fontSize: 11,
+    color: colors.error,
+    fontWeight: '700',
   },
   recipeCardTagText: {
     fontSize: 11,
