@@ -60,13 +60,41 @@ const mapRowToCard = (row, profileMap) => {
   };
 };
 
+// Seeded shuffle so the feed is randomized per LOAD, not per page:
+// every page of one session agrees on the same arrangement (no
+// duplicates while scrolling), and pull-to-refresh rolls a new seed.
+// The future ranking algorithm replaces this in the same slot.
+const mulberry32 = (a) => () => {
+  a |= 0; a = (a + 0x6D2B79F5) | 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+const seededShuffle = (arr, seed) => {
+  const rand = mulberry32(seed);
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
+
+// Only the newest N recipes compete for the shuffled feed, so it
+// stays loosely recent without being a strict timeline
+const SHUFFLE_WINDOW = 150;
+
 /**
- * Shared recipe-page query for a set of owner ids.
+ * Shared recipe-page query for a set of owner ids. With a `seed`, the
+ * newest SHUFFLE_WINDOW rows are shuffled deterministically and paged
+ * from that arrangement; without one, plain newest-first.
  */
-const fetchRecipesForUsers = async (userIds, profileMap, offset, limit) => {
+const fetchRecipesForUsers = async (userIds, profileMap, offset, limit, seed = null) => {
   if (!userIds.length) return [];
 
-  const { data, error } = await supabase
+  const windowed = seed != null;
+  const query = supabase
     .from('user_recipes_v2')
     .select(`
       id,
@@ -86,10 +114,13 @@ const fetchRecipesForUsers = async (userIds, profileMap, offset, limit) => {
     .in('user_id', userIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(windowed ? 0 : offset, windowed ? SHUFFLE_WINDOW - 1 : offset + limit - 1);
 
+  const { data, error } = await query;
   if (error) throw error;
-  return (data || []).map(row => mapRowToCard(row, profileMap));
+  const cards = (data || []).map(row => mapRowToCard(row, profileMap));
+  if (!windowed) return cards;
+  return seededShuffle(cards, seed).slice(offset, offset + limit);
 };
 
 /**
@@ -116,7 +147,7 @@ const fetchPublicProfileMap = async (userIds) => {
  * whose profile has since gone private stops showing their recipes,
  * matching the profile viewer's behavior.
  */
-export const getDiscoverFollowingFeed = async (userId, { offset = 0, limit = DISCOVER_PAGE_SIZE } = {}) => {
+export const getDiscoverFollowingFeed = async (userId, { offset = 0, limit = DISCOVER_PAGE_SIZE, seed = null } = {}) => {
   try {
     const { data: follows, error } = await supabase
       .from('user_followers')
@@ -129,7 +160,7 @@ export const getDiscoverFollowingFeed = async (userId, { offset = 0, limit = DIS
     const profileMap = await fetchPublicProfileMap(followedIds);
     const publicIds = Object.keys(profileMap);
 
-    const cards = await fetchRecipesForUsers(publicIds, profileMap, offset, limit);
+    const cards = await fetchRecipesForUsers(publicIds, profileMap, offset, limit, seed);
     log(`🧭 Discover following feed: ${cards.length} recipes from ${publicIds.length} followed users`);
     return cards;
   } catch (err) {
@@ -146,7 +177,7 @@ export const getDiscoverFollowingFeed = async (userId, { offset = 0, limit = DIS
  * ranking. The algorithmic version replaces the ordering here without
  * touching the UI.
  */
-export const getDiscoverPublicFeed = async (userId, { offset = 0, limit = DISCOVER_PAGE_SIZE } = {}) => {
+export const getDiscoverPublicFeed = async (userId, { offset = 0, limit = DISCOVER_PAGE_SIZE, seed = null } = {}) => {
   try {
     const { data: profiles, error } = await supabase
       .from('user_profiles')
@@ -161,7 +192,7 @@ export const getDiscoverPublicFeed = async (userId, { offset = 0, limit = DISCOV
     (profiles || []).forEach(p => { profileMap[p.user_id] = p; });
     const publicIds = Object.keys(profileMap);
 
-    const cards = await fetchRecipesForUsers(publicIds, profileMap, offset, limit);
+    const cards = await fetchRecipesForUsers(publicIds, profileMap, offset, limit, seed);
     log(`🧭 Discover public feed: ${cards.length} recipes from ${publicIds.length} public users`);
     return cards;
   } catch (err) {
@@ -192,7 +223,8 @@ const SHELF_MIN = 3;
  */
 export const getFeedShelves = async (userId) => {
   try {
-    const sample = await getDiscoverPublicFeed(userId, { offset: 0, limit: 60 });
+    // Fresh seed per load: shelf composition varies too, not just order
+    const sample = await getDiscoverPublicFeed(userId, { offset: 0, limit: 60, seed: Date.now() >>> 0 });
     const shelves = [];
 
     // User shelf: whoever has the most recipes in the sample

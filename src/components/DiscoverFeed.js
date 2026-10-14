@@ -101,10 +101,14 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
     }
   }, [userId]);
 
+  // One shuffle seed per feed load: pages agree on the arrangement
+  // while scrolling, and a refresh deals a new one
+  const feedSeedRef = useRef((Math.random() * 0xffffffff) >>> 0);
+
   const fetchPage = useCallback(async (tab, offset) => {
     const fetcher = tab === 'following' ? getDiscoverFollowingFeed : getDiscoverPublicFeed;
     const [cards, blockedIds] = await Promise.all([
-      fetcher(userId, { offset, limit: DISCOVER_PAGE_SIZE }),
+      fetcher(userId, { offset, limit: DISCOVER_PAGE_SIZE, seed: feedSeedRef.current }),
       getBlockedIds(),
     ]);
 
@@ -121,7 +125,12 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
   }, [userId, getBlockedIds]);
 
   const load = useCallback(async (tab, { refresh = false } = {}) => {
-    if (refresh) setRefreshing(true); else setLoading(true);
+    if (refresh) {
+      setRefreshing(true);
+      feedSeedRef.current = (Math.random() * 0xffffffff) >>> 0;
+    } else {
+      setLoading(true);
+    }
     setFeedError(null);
     try {
       const cards = await fetchPage(tab, 0);
