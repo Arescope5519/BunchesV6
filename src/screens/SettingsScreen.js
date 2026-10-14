@@ -980,7 +980,7 @@ export const SettingsScreen = ({
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Text Size</Text>
                 <Text style={styles.settingDescription}>
-                  System follows your phone's text size; the rest set it manually
+                  Auto follows your phone's text size; S-XL set it in the app
                 </Text>
               </View>
               <View style={styles.fontSizeOptions}>

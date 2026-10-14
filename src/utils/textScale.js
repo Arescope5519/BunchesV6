@@ -22,7 +22,7 @@
 import { Text, TextInput, StyleSheet } from 'react-native';
 
 export const TEXT_SIZE_OPTIONS = [
-  { key: 'system', label: 'System' },
+  { key: 'system', label: 'Auto' },
   { key: 0.9, label: 'S' },
   { key: 1, label: 'M' },
   { key: 1.1, label: 'L' },
