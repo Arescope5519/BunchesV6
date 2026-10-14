@@ -1123,7 +1123,9 @@ export const RecipeDetail = ({
         <View style={styles.disclaimer}>
           <Ionicons name="warning-outline" size={14} color={colors.warning} style={{ marginRight: 6 }} />
           <Text style={styles.disclaimerText}>
-            Note: Cooking times may vary when modifying quantities
+            Scaled ×{scaleFactor}: amounts are multiplied automatically - double-check
+            portions before cooking, and expect cooking times to vary (pans, ovens and
+            simmer times don't scale with quantity)
           </Text>
         </View>
       )}

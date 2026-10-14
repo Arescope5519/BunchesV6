@@ -32,6 +32,7 @@ import { USERNAME_INPUT_PROPS } from '../components/UsernameSetupModal';
 import { cookbookToPdf } from '../utils/printRecipe';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { getDebugLog, clearDebugLog } from '../utils/debugLog';
+import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -57,6 +58,8 @@ export const SettingsScreen = ({
   onChangePrintFontSize,
   showNutrition,
   onToggleShowNutrition,
+  textSize,
+  onChangeTextSize,
   isAdmin,
   onOpenAdminReports,
   onOpenBlockedUsers,
@@ -972,6 +975,30 @@ export const SettingsScreen = ({
                 trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
                 thumbColor={colors.onPrimary}
               />
+            </View>
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Text Size</Text>
+                <Text style={styles.settingDescription}>
+                  System follows your phone's text size; the rest set it manually
+                </Text>
+              </View>
+              <View style={styles.fontSizeOptions}>
+                {TEXT_SIZE_OPTIONS.map(opt => {
+                  const active = (textSize ?? 'system') === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={String(opt.key)}
+                      style={[styles.fontSizeOption, active && styles.fontSizeOptionActive]}
+                      onPress={() => onChangeTextSize?.(opt.key)}
+                    >
+                      <Text style={[styles.fontSizeOptionText, active && styles.fontSizeOptionTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
             <View style={[styles.settingRow, styles.settingRowBorder]}>
               <View style={styles.settingInfo}>

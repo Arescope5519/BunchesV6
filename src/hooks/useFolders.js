@@ -168,6 +168,18 @@ export const useFolders = (user) => {
       return false;
     }
 
+    // A name collision with a soft-deleted cookbook restores it -
+    // the user gets their cookbook back, contents and all
+    const deleted = folders.find(f => f.deletedAt && f.name === folderName.trim());
+    if (deleted) {
+      const success = await restoreFolder(deleted.name);
+      if (success) {
+        Alert.alert('Restored', `"${deleted.name}" was in Recently Deleted - it has been restored with its recipes.`);
+        return true;
+      }
+      return false;
+    }
+
     const folderNames = getFolderNames();
     if (folderNames.includes(folderName.trim())) {
       Alert.alert('Error', 'A folder with this name already exists');
@@ -287,21 +299,24 @@ export const useFolders = (user) => {
 
     return new Promise((resolve) => {
       Alert.alert(
-        'Delete Folder?',
-        `This will delete "${folderName}" and move ${recipeCount} recipe(s) to "All Recipes". Continue?`,
+        'Delete Cookbook?',
+        `"${folderName}" moves to Recently Deleted, where it can be restored. Its ${recipeCount} recipe(s) stay in your library.`,
         [
           { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
           {
             text: 'Delete',
             style: 'destructive',
             onPress: async () => {
-              // Remove folder
-              const updatedFolders = folders.filter(f => f.name !== folderName);
+              // Soft delete: keep the entry (and every recipe's
+              // membership) so a restore brings the cookbook back whole
+              const updatedFolders = folders.map(f =>
+                f.name === folderName ? { ...f, deletedAt: Date.now() } : f
+              );
               const success = await saveFolders(updatedFolders);
 
               if (success) {
                 setFolders(updatedFolders);
-                Alert.alert('Deleted', `Folder "${folderName}" deleted`);
+                Alert.alert('Deleted', `"${folderName}" moved to Recently Deleted`);
                 resolve(true);
               } else {
                 resolve(false);
@@ -319,10 +334,34 @@ export const useFolders = (user) => {
   const getCustomFolders = () => {
     // All system folders live in the cookbook page's System section,
     // not among the user's own cookbooks. My Creations SUBfolders
-    // ("My Creations/x") are user-created and stay custom.
+    // ("My Creations/x") are user-created and stay custom. Soft-
+    // deleted cookbooks are hidden everywhere until restored.
     return folders
-      .filter(f => !SYSTEM_FOLDERS.includes(f.name))
+      .filter(f => !SYSTEM_FOLDERS.includes(f.name) && !f.deletedAt)
       .map(f => f.name);
+  };
+
+  // Soft-deleted cookbooks, for the Recently Deleted view
+  const getDeletedFolders = () =>
+    folders.filter(f => f.deletedAt).map(f => ({ name: f.name, deletedAt: f.deletedAt }));
+
+  const restoreFolder = async (folderName) => {
+    const updatedFolders = folders.map(f => {
+      if (f.name !== folderName) return f;
+      const { deletedAt, ...rest } = f;
+      return rest;
+    });
+    const success = await saveFolders(updatedFolders);
+    if (success) setFolders(updatedFolders);
+    return success;
+  };
+
+  // Permanent removal - the caller strips recipe memberships
+  const purgeFolder = async (folderName) => {
+    const updatedFolders = folders.filter(f => f.name !== folderName);
+    const success = await saveFolders(updatedFolders);
+    if (success) setFolders(updatedFolders);
+    return success;
   };
 
   /**
@@ -380,6 +419,9 @@ export const useFolders = (user) => {
     addFolder,
     renameFolder,
     deleteFolder,
+    getDeletedFolders,
+    restoreFolder,
+    purgeFolder,
     getCustomFolders,
     reorderFolders,
     getFolderNames,

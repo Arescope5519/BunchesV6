@@ -37,6 +37,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER, SYSTEM_FOLDERS } from '../hooks/useFolders';
 import { loadCookSession, clearCookSession } from '../utils/cookSession';
 import { mirrorImageToStorage } from '../services/supabase/database';
+import { applyTextSize } from '../utils/textScale';
 import { dbg } from '../utils/debugLog';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
@@ -204,6 +205,7 @@ export const HomeScreen = ({ user }) => {
   const [showQuickLinkButton, setShowQuickLinkButton] = useState(false);
   const [printFontSize, setPrintFontSize] = useState(14);
   const [showNutrition, setShowNutrition] = useState(true);
+  const [textSize, setTextSize] = useState('system');
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
   const [quickLinkUrl, setQuickLinkUrl] = useState('');
   const [quickLinkLoading, setQuickLinkLoading] = useState(false);
@@ -257,6 +259,9 @@ export const HomeScreen = ({ user }) => {
     addFolder: addFolderBase,
     renameFolder: renameFolderBase,
     deleteFolder: deleteFolderBase,
+    getDeletedFolders,
+    restoreFolder,
+    purgeFolder,
     getCustomFolders,
     reorderFolders,
     isFolderPrivate,
@@ -399,6 +404,10 @@ export const HomeScreen = ({ user }) => {
       if (settings.showNutrition !== undefined) {
         setShowNutrition(settings.showNutrition);
       }
+      if (settings.textSize !== undefined) {
+        setTextSize(settings.textSize);
+        applyTextSize(settings.textSize);
+      }
       // Check if user has seen welcome modal
       if (!hasCheckedWelcome && user && !settings.hasSeenWelcome) {
         setShowWelcomeModal(true);
@@ -439,6 +448,10 @@ export const HomeScreen = ({ user }) => {
     }
     if (key === 'showNutrition') {
       setShowNutrition(value);
+    }
+    if (key === 'textSize') {
+      setTextSize(value);
+      applyTextSize(value);
     }
   };
 
@@ -2630,14 +2643,38 @@ export const HomeScreen = ({ user }) => {
       const recipeFolders = r.folders || [r.folder || 'All Recipes'];
       return recipeFolders.includes(folderName);
     });
-    const success = await deleteFolderBase(folderName, recipesInFolder.length);
+    // Soft delete: recipes KEEP their membership so restoring the
+    // cookbook from Recently Deleted brings it back with contents
+    await deleteFolderBase(folderName, recipesInFolder.length);
+    if (currentFolder === folderName) setCurrentFolder('All Recipes');
+  };
 
-    if (success) {
-      // Remove folder from all recipes (they stay in other folders or go to All Recipes)
-      for (const recipe of recipesInFolder) {
-        await removeFromFolder(recipe.id, folderName, true);
-      }
-    }
+  // Permanent cookbook removal from Recently Deleted - only now do
+  // recipes lose the membership
+  const purgeDeletedFolder = (folderName) => {
+    Alert.alert(
+      'Delete Forever?',
+      `"${folderName}" will be permanently deleted. Its recipes stay in your library but leave this cookbook.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            const recipesInFolder = recipes.filter(r => {
+              const recipeFolders = r.folders || [r.folder || 'All Recipes'];
+              return recipeFolders.includes(folderName);
+            });
+            const success = await purgeFolder(folderName);
+            if (success) {
+              for (const recipe of recipesInFolder) {
+                await removeFromFolder(recipe.id, folderName, true);
+              }
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Handle move to folder (legacy - replaces all folders)
@@ -3398,6 +3435,8 @@ export const HomeScreen = ({ user }) => {
           onChangePrintFontSize={(value) => updateAppSetting('printFontSize', value)}
           showNutrition={showNutrition}
           onToggleShowNutrition={(value) => updateAppSetting('showNutrition', value)}
+          textSize={textSize}
+          onChangeTextSize={(value) => updateAppSetting('textSize', value)}
           isAdmin={isAdmin}
           onOpenAdminReports={() => setShowAdminReports(true)}
           onOpenBlockedUsers={() => setShowBlockedUsers(true)}
@@ -3521,6 +3560,30 @@ export const HomeScreen = ({ user }) => {
               </View>
             )}
             <ScrollView style={styles.recipeList}>
+          {/* Deleted cookbooks live in Recently Deleted too */}
+          {currentFolder === 'Recently Deleted' && getDeletedFolders().length > 0 && (
+            <View style={styles.deletedFoldersSection}>
+              <Text style={styles.deletedFoldersTitle}>Deleted Cookbooks</Text>
+              {getDeletedFolders().map(f => (
+                <View key={f.name} style={styles.deletedFolderRow}>
+                  <Ionicons name="book-outline" size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                  <Text style={styles.deletedFolderName} numberOfLines={1}>{f.name}</Text>
+                  <TouchableOpacity
+                    style={styles.deletedFolderRestore}
+                    onPress={() => restoreFolder(f.name)}
+                  >
+                    <Text style={styles.deletedFolderRestoreText}>Restore</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deletedFolderPurge}
+                    onPress={() => purgeDeletedFolder(f.name)}
+                  >
+                    <Ionicons name="trash" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
           {sortedRecipes.length === 0 ? (
             <View style={styles.emptyState}>
               {currentFolder === 'All Recipes' ? (
@@ -3538,7 +3601,11 @@ export const HomeScreen = ({ user }) => {
                   </Text>
                 </>
               ) : currentFolder === 'Recently Deleted' ? (
-                <Text style={styles.emptyStateText}>Recently Deleted is empty</Text>
+                <Text style={styles.emptyStateText}>
+                  {getDeletedFolders().length > 0
+                    ? 'No recently deleted recipes'
+                    : 'Recently Deleted is empty'}
+                </Text>
               ) : (
                 <>
                   <Text style={styles.emptyStateText}>
@@ -4916,6 +4983,48 @@ const styles = StyleSheet.create({
   recipeList: {
     flex: 1,
     paddingHorizontal: 15,
+  },
+  deletedFoldersSection: {
+    marginBottom: 14,
+  },
+  deletedFoldersTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginLeft: 2,
+  },
+  deletedFolderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  deletedFolderName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  deletedFolderRestore: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.primaryLight,
+    marginRight: 8,
+  },
+  deletedFolderRestoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  deletedFolderPurge: {
+    padding: 6,
   },
   emptyState: {
     paddingVertical: 60,
