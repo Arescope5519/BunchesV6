@@ -12,9 +12,10 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
+import { loadAppSettings, saveAppSettings } from '../utils/storage';
 import {
   getMealEvents,
   getCookEvents,
@@ -37,8 +38,28 @@ const NutritionStats = ({ userId, recipes }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [mealEvents, setMealEvents] = useState([]);
   const [cookEvents, setCookEvents] = useState([]);
+  // Daily calorie goal: an awareness marker, stored in app settings.
+  // Covered by the already-declared "Nutrition and weight management"
+  // health category - see CLAUDE.md before extending goals further.
+  const [calorieGoal, setCalorieGoal] = useState(null);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState('');
 
   const todayStr = toDateString(new Date());
+
+  useEffect(() => {
+    loadAppSettings(userId).then(s => {
+      if (s.dailyCalorieGoal) setCalorieGoal(s.dailyCalorieGoal);
+    });
+  }, [userId]);
+
+  const saveGoal = async (value) => {
+    const goal = value ? Math.max(0, Math.round(Number(value))) || null : null;
+    setCalorieGoal(goal);
+    setEditingGoal(false);
+    const settings = await loadAppSettings(userId);
+    await saveAppSettings({ ...settings, dailyCalorieGoal: goal }, userId);
+  };
 
   const load = useCallback(async (isRefresh = false) => {
     if (!userId) return;
@@ -116,11 +137,48 @@ const NutritionStats = ({ userId, recipes }) => {
     >
       {/* Today */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today</Text>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>Today</Text>
+          <TouchableOpacity
+            style={styles.goalEdit}
+            onPress={() => {
+              setGoalDraft(calorieGoal ? String(calorieGoal) : '');
+              setEditingGoal(true);
+            }}
+          >
+            <Ionicons name={calorieGoal ? 'pencil' : 'add-circle-outline'} size={14} color={colors.primary} />
+            <Text style={styles.goalEditText}>{calorieGoal ? 'Edit goal' : 'Set goal'}</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.todayRow}>
           <Text style={styles.todayCalories}>{Math.round(today?.totals?.calories || 0)}</Text>
-          <Text style={styles.todayCaloriesUnit}>cal</Text>
+          <Text style={styles.todayCaloriesUnit}>
+            {calorieGoal ? `/ ${calorieGoal} cal` : 'cal'}
+          </Text>
         </View>
+        {calorieGoal ? (() => {
+          const eaten = today?.totals?.calories || 0;
+          const pct = Math.min(eaten / calorieGoal, 1);
+          const over = eaten > calorieGoal;
+          return (
+            <View style={styles.goalBlock}>
+              <View style={styles.goalTrack}>
+                <View
+                  style={[
+                    styles.goalFill,
+                    { width: `${pct * 100}%` },
+                    over && styles.goalFillOver,
+                  ]}
+                />
+              </View>
+              <Text style={[styles.goalRemaining, over && styles.goalRemainingOver]}>
+                {over
+                  ? `${Math.round(eaten - calorieGoal)} over goal`
+                  : `${Math.round(calorieGoal - eaten)} left`}
+              </Text>
+            </View>
+          );
+        })() : null}
         <View style={styles.macroRow}>
           {MACRO_KEYS.map(key => {
             const n = TRACKED_NUTRIENTS.find(t => t.key === key);
@@ -215,6 +273,36 @@ const NutritionStats = ({ userId, recipes }) => {
         </View>
       )}
 
+      {/* Goal editor */}
+      <Modal visible={editingGoal} transparent animationType="fade" onRequestClose={() => setEditingGoal(false)}>
+        <View style={styles.goalModalOverlay}>
+          <View style={styles.goalModalCard}>
+            <Text style={styles.goalModalTitle}>Daily Calorie Goal</Text>
+            <Text style={styles.goalModalHint}>
+              A personal awareness marker, not dietary advice. Leave empty to remove.
+            </Text>
+            <TextInput
+              style={styles.goalInput}
+              value={goalDraft}
+              onChangeText={setGoalDraft}
+              keyboardType="number-pad"
+              placeholder="e.g. 2000"
+              placeholderTextColor={colors.textLight}
+              autoFocus
+              maxLength={5}
+            />
+            <View style={styles.goalModalButtons}>
+              <TouchableOpacity style={styles.goalModalCancel} onPress={() => setEditingGoal(false)}>
+                <Text style={styles.goalModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.goalModalSave} onPress={() => saveGoal(goalDraft)}>
+                <Text style={styles.goalModalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle-outline" size={14} color={colors.textTertiary} style={{ marginRight: 5, marginTop: 1 }} />
         <Text style={styles.disclaimerText}>
@@ -255,6 +343,65 @@ const styles = StyleSheet.create({
   macroValue: { fontSize: 15, fontWeight: '700', color: colors.text },
   macroLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 1 },
   coverageText: { fontSize: 11, color: colors.textTertiary },
+  goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 4 },
+  goalEditText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  goalBlock: { marginBottom: 10 },
+  goalTrack: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.lightGray,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  goalFill: { height: '100%', borderRadius: 5, backgroundColor: colors.primary },
+  goalFillOver: { backgroundColor: colors.error },
+  goalRemaining: { fontSize: 11, color: colors.textSecondary },
+  goalRemainingOver: { color: colors.error, fontWeight: '600' },
+  goalModalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  goalModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 18,
+  },
+  goalModalTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 },
+  goalModalHint: { fontSize: 12, color: colors.textSecondary, marginBottom: 12, lineHeight: 16 },
+  goalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    backgroundColor: colors.background,
+    marginBottom: 14,
+  },
+  goalModalButtons: { flexDirection: 'row', gap: 10 },
+  goalModalCancel: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.lightGray,
+  },
+  goalModalCancelText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  goalModalSave: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  goalModalSaveText: { fontSize: 14, fontWeight: '600', color: colors.onPrimary },
   chartRow: { flexDirection: 'row', alignItems: 'flex-end', height: 150, gap: 6 },
   barColumn: { flex: 1, alignItems: 'center', height: '100%' },
   barValue: { fontSize: 9, color: colors.textTertiary, marginBottom: 2 },

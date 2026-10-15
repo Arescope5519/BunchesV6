@@ -205,10 +205,15 @@ the Stats tab (see the ACTIVE blocker in Working agreements):
 - Apple: update App Privacy if answers change (no gating declaration
   equivalent, but honesty applies).
 
+Also inside the declared category (15 Oct 2026): a user-set **daily
+calorie goal** on the Stats tab - an awareness marker with progress
+bar, stored in app settings as `dailyCalorieGoal`. Covered by the
+same pending declaration; no further filing needed.
+
 Lines still NOT crossed - each needs its own decision + same-sitting
 declaration review before building:
 
-- Calorie/macro/weight GOALS or targets
+- Macro or WEIGHT goals (the calorie goal above is the ceiling)
 - Nutrition-driven recommendations ("recipes under 500 calories")
 - **Computing** nutrition from ingredients rather than passing through
   what the source gave us - that turns a quotation into a health claim.
