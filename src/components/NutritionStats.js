@@ -24,6 +24,25 @@ import {
 } from '../services/supabase/kitchen';
 import { aggregateNutrition, formatNutrientValue, TRACKED_NUTRIENTS } from '../utils/nutritionMath';
 
+// Goal-adherence gradient: at/under goal = full green, sliding
+// through honey to full red at 2x the goal ("horribly missed").
+const hexToRgb = (hex) => {
+  const h = hex.replace('#', '');
+  const v = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  return [parseInt(v.slice(0, 2), 16), parseInt(v.slice(2, 4), 16), parseInt(v.slice(4, 6), 16)];
+};
+const mixRgb = (a, b, t) => a.map((av, i) => Math.round(av + (b[i] - av) * t));
+const GRADE_GREEN = hexToRgb(colors.success);
+const GRADE_MID = hexToRgb(colors.warning);
+const GRADE_RED = hexToRgb(colors.error);
+const gradeColor = (ratio) => {
+  const t = Math.min(Math.max(ratio - 1, 0), 1); // 0 at goal, 1 at 2x goal
+  const rgb = t <= 0.5
+    ? mixRgb(GRADE_GREEN, GRADE_MID, t * 2)
+    : mixRgb(GRADE_MID, GRADE_RED, (t - 0.5) * 2);
+  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+};
+
 const RANGE_OPTIONS = [
   { key: 7, label: '7 days' },
   { key: 28, label: '28 days' },
@@ -98,6 +117,42 @@ const NutritionStats = ({ userId, recipes }) => {
     return aggregateNutrition(inRange, cooksById, recipesById);
   }, [mealEvents, cookEvents, recipes, rangeDays, todayStr]);
 
+  // Full 28-day aggregate for the goal calendar, independent of the
+  // 7/28 averages toggle
+  const aggAll = useMemo(() => {
+    const cooksById = {};
+    cookEvents.forEach(c => { cooksById[c.id] = c; });
+    const recipesById = {};
+    (recipes || []).forEach(r => { recipesById[r.id] = r; });
+    return aggregateNutrition(mealEvents, cooksById, recipesById);
+  }, [mealEvents, cookEvents, recipes]);
+
+  // Calendar: last 28 days ending today, padded to Sunday columns
+  const calendarWeeks = useMemo(() => {
+    if (!calorieGoal) return [];
+    const cells = [];
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = toDateString(d);
+      const day = aggAll.byDate[dateStr];
+      const eaten = day?.mealsCounted > 0 ? (day.totals.calories || 0) : null;
+      cells.push({
+        dateStr,
+        dayNum: parseLocalDate(dateStr).getDate(),
+        ratio: eaten != null && calorieGoal > 0 ? eaten / calorieGoal : null,
+        isToday: dateStr === todayStr,
+      });
+    }
+    // Pad the front so columns align to weekdays
+    const firstDow = parseLocalDate(cells[0].dateStr).getDay();
+    const padded = [...Array(firstDow).fill(null), ...cells];
+    while (padded.length % 7 !== 0) padded.push(null);
+    const weeks = [];
+    for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+    return weeks;
+  }, [aggAll, calorieGoal, todayStr]);
+
   // Last 7 calendar days for the bars, oldest first, zero-filled
   const barDays = useMemo(() => {
     const days = [];
@@ -139,16 +194,18 @@ const NutritionStats = ({ userId, recipes }) => {
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>Today</Text>
-          <TouchableOpacity
-            style={styles.goalEdit}
-            onPress={() => {
-              setGoalDraft(calorieGoal ? String(calorieGoal) : '');
-              setEditingGoal(true);
-            }}
-          >
-            <Ionicons name={calorieGoal ? 'pencil' : 'add-circle-outline'} size={14} color={colors.primary} />
-            <Text style={styles.goalEditText}>{calorieGoal ? 'Edit goal' : 'Set goal'}</Text>
-          </TouchableOpacity>
+          {calorieGoal ? (
+            <TouchableOpacity
+              style={styles.goalEdit}
+              onPress={() => {
+                setGoalDraft(String(calorieGoal));
+                setEditingGoal(true);
+              }}
+            >
+              <Ionicons name="pencil" size={15} color={colors.primary} />
+              <Text style={styles.goalEditText}>Edit goal</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View style={styles.todayRow}>
           <Text style={styles.todayCalories}>{Math.round(today?.totals?.calories || 0)}</Text>
@@ -178,7 +235,18 @@ const NutritionStats = ({ userId, recipes }) => {
               </Text>
             </View>
           );
-        })() : null}
+        })() : (
+          <TouchableOpacity
+            style={styles.setGoalButton}
+            onPress={() => {
+              setGoalDraft('');
+              setEditingGoal(true);
+            }}
+          >
+            <Ionicons name="flag-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.setGoalButtonText}>Set a Daily Calorie Goal</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.macroRow}>
           {MACRO_KEYS.map(key => {
             const n = TRACKED_NUTRIENTS.find(t => t.key === key);
@@ -273,6 +341,51 @@ const NutritionStats = ({ userId, recipes }) => {
         </View>
       )}
 
+      {/* Goal calendar - green hit it, red horribly over */}
+      {calorieGoal ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Goal Calendar</Text>
+          <View style={styles.calHeaderRow}>
+            {DAY_LETTERS.map((l, i) => (
+              <Text key={i} style={styles.calHeaderText}>{l}</Text>
+            ))}
+          </View>
+          {calendarWeeks.map((week, wi) => (
+            <View key={wi} style={styles.calWeekRow}>
+              {week.map((cell, ci) => {
+                if (!cell) return <View key={ci} style={styles.calCell} />;
+                const graded = cell.ratio != null;
+                return (
+                  <View
+                    key={ci}
+                    style={[
+                      styles.calCell,
+                      styles.calCellDay,
+                      graded && { backgroundColor: gradeColor(cell.ratio), borderColor: 'transparent' },
+                      cell.isToday && styles.calCellToday,
+                    ]}
+                  >
+                    <Text style={[styles.calCellText, graded && styles.calCellTextGraded]}>
+                      {cell.dayNum}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+          <View style={styles.calLegendRow}>
+            <View style={[styles.calLegendDot, { backgroundColor: gradeColor(1) }]} />
+            <Text style={styles.calLegendText}>goal hit</Text>
+            <View style={[styles.calLegendDot, { backgroundColor: gradeColor(1.5), marginLeft: 12 }]} />
+            <Text style={styles.calLegendText}>over</Text>
+            <View style={[styles.calLegendDot, { backgroundColor: gradeColor(2), marginLeft: 12 }]} />
+            <Text style={styles.calLegendText}>far over</Text>
+            <View style={[styles.calLegendDot, { backgroundColor: colors.lightGray, marginLeft: 12 }]} />
+            <Text style={styles.calLegendText}>no data</Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* Goal editor */}
       <Modal visible={editingGoal} transparent animationType="fade" onRequestClose={() => setEditingGoal(false)}>
         <View style={styles.goalModalOverlay}>
@@ -343,8 +456,46 @@ const styles = StyleSheet.create({
   macroValue: { fontSize: 15, fontWeight: '700', color: colors.text },
   macroLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 1 },
   coverageText: { fontSize: 11, color: colors.textTertiary },
-  goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 4 },
-  goalEditText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  goalEdit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: colors.primaryLight,
+  },
+  goalEditText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  setGoalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+    marginBottom: 12,
+  },
+  setGoalButtonText: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  calHeaderRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
+  calHeaderText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600', color: colors.textTertiary },
+  calWeekRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
+  calCell: { flex: 1, aspectRatio: 1 },
+  calCellDay: {
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.lightGray,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  calCellToday: { borderWidth: 2, borderColor: colors.text },
+  calCellText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  calCellTextGraded: { color: '#fff', fontWeight: '700' },
+  calLegendRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  calLegendDot: { width: 12, height: 12, borderRadius: 4, marginRight: 4 },
+  calLegendText: { fontSize: 11, color: colors.textSecondary },
   goalBlock: { marginBottom: 10 },
   goalTrack: {
     height: 10,
