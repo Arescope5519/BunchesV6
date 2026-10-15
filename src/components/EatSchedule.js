@@ -33,6 +33,7 @@ import {
   updateMealEvent,
   deleteMealEvent,
   getFridgeInventory,
+  createFridgeAdjustment,
   createCookEvent,
   getCookEvents,
   getWeekStart,
@@ -118,6 +119,40 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
 
   const findRecipe = (id) => recipes.find(r => r.id === id && !r.deletedAt);
   const findCookEvent = (id) => inventory.find(i => i.cookEvent.id === id)?.cookEvent;
+
+  // Long-press portion management - the Fridge tab's toss flow, folded
+  // into the Eat picker since the tab went away. Deliberately scoped to
+  // UNCLAIMED servings (entry.remaining) so planned future meals are
+  // never touched; the full adjust/reconcile math stays in FridgeView.
+  const manageFridgeEntry = (entry, title) => {
+    const remaining = entry.remaining || 0;
+    if (remaining <= 0) return;
+    const toss = async (n) => {
+      const ok = await createFridgeAdjustment(userId, {
+        cookEventId: entry.cookEvent.id,
+        adjustmentType: 'spoiled',
+        servings: Math.min(n, remaining),
+      });
+      if (!ok) {
+        Alert.alert('Error', 'Could not update.');
+        return;
+      }
+      await load();
+      if (addingTo) {
+        const list = await getFridgeInventory(userId, 10, { includePlannedUntil: addingTo.date });
+        setPickInventory(list);
+      }
+    };
+    Alert.alert(
+      title,
+      `${remaining} serving${remaining !== 1 ? 's' : ''} in the fridge. Toss what's gone?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        ...(remaining > 1 ? [{ text: 'Toss 1 Serving', onPress: () => toss(1) }] : []),
+        { text: `Toss All (${remaining})`, style: 'destructive', onPress: () => toss(remaining) },
+      ]
+    );
+  };
 
   // Map of cook_event_id → cook event, so we can display meals whose cook events
   // no longer have any remaining servings (and thus aren't in the fridge).
@@ -617,6 +652,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
         inventory={addingTo ? pickInventory : inventory}
         recipes={recipes}
         eatDate={addingTo?.date}
+        onManageEntry={manageFridgeEntry}
         onPickFromFridge={handleAddFromFridge}
         onAddTakeout={handleAddTakeout}
         onAddCook={handleAddCook}
@@ -741,7 +777,7 @@ const buildCookDayOptions = (eatDateStr) => {
   return days;
 };
 
-const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate, onPickFromFridge, onAddTakeout, onAddCook }) => {
+const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate, onPickFromFridge, onAddTakeout, onAddCook, onManageEntry }) => {
   const [mode, setMode] = useState('choose'); // 'choose', 'fridge', 'takeout', 'cook'
   const [pickedFridgeItem, setPickedFridgeItem] = useState(null);
   const [servingsToEat, setServingsToEat] = useState(1); // numeric, using +/- buttons
@@ -885,6 +921,8 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                         setPickedFridgeItem(entry);
                         setServingsToEat('1');
                       }}
+                      onLongPress={() => onManageEntry?.(entry, title)}
+                      delayLongPress={400}
                     >
                       {recipe?.image_url ? (
                         <Image source={imgSource(recipe.image_url)} style={styles.thumb} />

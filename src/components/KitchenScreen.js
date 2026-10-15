@@ -19,14 +19,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from './GroceryList';
 import CookSchedule from './CookSchedule';
 import EatSchedule from './EatSchedule';
-import FridgeView from './FridgeView';
+import NutritionStats from './NutritionStats';
 import { getWeekStart } from '../services/supabase/kitchen';
 
+// The Fridge tab folded into Eat (long-press a fridge item to manage
+// portions); its slot now holds nutrition Stats. FridgeView and the
+// fridge ledger live on underneath - only the tab went away.
 const TABS = [
-  { key: 'cook',   label: 'Cook',   icon: 'flame',      premium: true },
-  { key: 'eat',    label: 'Eat',    icon: 'restaurant', premium: true },
-  { key: 'shop',   label: 'Shop',   icon: 'cart',       premium: false },
-  { key: 'fridge', label: 'Fridge', icon: 'snow',       premium: true },
+  { key: 'cook',  label: 'Cook',  icon: 'flame',       premium: true },
+  { key: 'eat',   label: 'Eat',   icon: 'restaurant',  premium: true },
+  { key: 'shop',  label: 'Shop',  icon: 'cart',        premium: false },
+  { key: 'stats', label: 'Stats', icon: 'stats-chart', premium: true },
 ];
 
 const showPremiumPrompt = () => {
@@ -99,7 +102,7 @@ const KitchenScreen = ({
           <Ionicons name="lock-closed" size={48} color={colors.primary} style={{ marginBottom: 16 }} />
           <Text style={styles.premiumTitle}>Premium Feature</Text>
           <Text style={styles.premiumText}>
-            Upgrade to unlock cook planning, leftover tracking, and fridge inventory.
+            Upgrade to unlock cook planning, leftover tracking, and nutrition stats.
             {'\n\n'}I need to pay for a wedding... try out Premium?
           </Text>
           <TouchableOpacity style={styles.premiumButton} onPress={showPremiumPrompt}>
@@ -132,12 +135,11 @@ const KitchenScreen = ({
         />
       );
     }
-    if (activeTab === 'fridge') {
+    if (activeTab === 'stats') {
       return (
-        <FridgeView
+        <NutritionStats
           userId={userId}
           recipes={recipes}
-          onOpenRecipe={onOpenRecipe}
         />
       );
     }

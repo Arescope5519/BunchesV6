@@ -119,6 +119,16 @@ Traps that burned real time:
 
 ## Working agreements
 
+- **🚨 PLAY UPLOAD BLOCKER (ACTIVE): the health declaration is NOT
+  FILED YET.** The Kitchen Stats tab ships daily nutrition totals, so
+  the Play "Health features" answer flipped to **"Nutrition and
+  weight management"**. Until Daniel confirms he has filed it (App
+  content -> Health, plus the Data safety and Privacy Policy updates
+  in the health section below), EVERY reply that gives a Play
+  build/upload command MUST begin with a large, unmissable warning to
+  file the declaration before uploading. When he confirms it is
+  filed, delete this agreement and update the health section.
+
 - **All work lives on `master`.** Session branches must be created FROM
   master and merged back when done.
 - **Show SQL in chat**, never only in a file - Daniel runs it by hand in
@@ -172,45 +182,44 @@ describe the app in detail, so they go wrong the same way.
 
 Content rating can be re-taken any time from the Content rating page.
 
-### The health-features line (planned work sits right on it)
+### The health-features line (CROSSED on 14 Oct 2026 - declaration pending)
 
-Play asks separately whether the app has health features. Today the
-answer is **No**, and the reasoning is narrow enough to be worth writing
-down, because the app is already closer to the line than it looks:
+Play asks separately whether the app has health features. The answer
+is now **YES - "Nutrition and weight management"**: the Kitchen
+`Stats` tab (`src/components/NutritionStats.js`,
+`src/utils/nutritionMath.js`) sums daily/weekly calorie and macro
+intake across `meal_events`, which was the first bullet on the
+flips-it list. Daniel chose this knowingly (session 14 Oct 2026).
+What has to be filed in the SAME release as the first upload carrying
+the Stats tab (see the ACTIVE blocker in Working agreements):
 
-- `RecipeDetail` **displays** a nutrition panel (`recipeFormat.js`
-  `NUTRIENT_KEYS` - calories, fat, carbs, protein...), but only passes
-  through whatever the source recipe supplied. Nothing is computed.
-- The Kitchen `Eat` tab **does log consumption** - `meal_events` records
-  what was eaten and `servings_consumed`. That is real meal logging, but
-  the servings are arithmetic against fridge inventory
-  (`remaining = produced - consumed - adjustments`), for food waste. No
-  nutrition is read, summed or shown anywhere in the Kitchen tab.
+- Play Console -> App content -> **Health**: declare "Nutrition and
+  weight management" (routes the app into Google's health policy
+  review - expect extra listing requirements).
+- **Data safety**: Health info is already declared (allergens); add
+  that the app tracks nutrition/eating habits if the form asks at
+  that granularity.
+- **Privacy Policy + Terms** (`site/`): describe nutrition tracking -
+  what is summed (source-provided nutrition x servings eaten), stored
+  in the user's account (`meal_events` + recipe data), never shared.
+- Apple: update App Privacy if answers change (no gating declaration
+  equivalent, but honesty applies).
 
-So: the app tracks *servings of food*, never *nutrition*. That
-distinction is the entire basis of the "No" answer.
+Lines still NOT crossed - each needs its own decision + same-sitting
+declaration review before building:
 
-Ticking "Nutrition and weight management" is not free - it pulls the app
-into Google's health policy review with its own requirements. But
-declaring late is worse than declaring early. Any of these flips the
-answer to Yes, and it should be flipped in the same sitting:
-
-- Daily/weekly nutrition totals, or summing nutrition across meal events
-- Calorie, macro, or weight goals and targets
+- Calorie/macro/weight GOALS or targets
 - Nutrition-driven recommendations ("recipes under 500 calories")
 - **Computing** nutrition from ingredients rather than passing through
-  what the source gave us - that turns a quotation into a health claim
+  what the source gave us - that turns a quotation into a health claim.
+  The Stats tab deliberately keeps pass-through-only and shows a
+  coverage line ("N of M meals had nutrition data") plus a
+  not-medical-advice disclaimer - keep both.
 - Anything about body weight at all
 
-Related: Data safety already declares **Health info** (the allergen
-settings in `dietary_preferences`). That is a separate question - what
-data is *collected* vs what the app *does* - so the two answers can
-legitimately differ, and a reviewer seeing Health info declared is not
-evidence the health-features answer is wrong.
-
-Keep user-facing copy honest about this too. The Kitchen upsell used to
-say "meal tracking", which oversells a leftovers ledger and reads to a
-reviewer like diet tracking; it says "leftover tracking" now.
+Keep user-facing copy honest: the Kitchen upsell says "leftover
+tracking" and now "nutrition stats" - never "diet tracking" or
+anything implying health outcomes.
 
 ## Feature flags (shipping features dark)
 
