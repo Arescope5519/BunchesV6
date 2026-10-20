@@ -871,17 +871,19 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
     });
   };
 
-  const adjustServings = (setter, current, delta, min = 0.5) => {
+  const adjustServings = (setter, current, delta, min = 0.5, max = Infinity) => {
+    // Coerce in case a stale string value sneaks in ('1' + 1 === '11')
+    const cur = Number(current) || min;
     let next;
     if (delta < 0) {
-      if (current <= 0.5) next = 0.5;
-      else if (current === 1) next = 0.5;
-      else next = current - 1;
+      if (cur <= 0.5) next = 0.5;
+      else if (cur === 1) next = 0.5;
+      else next = cur - 1;
     } else {
-      if (current === 0.5) next = 1;
-      else next = current + 1;
+      if (cur === 0.5) next = 1;
+      else next = cur + 1;
     }
-    setter(Math.max(min, next));
+    setter(Math.min(max, Math.max(min, next)));
   };
 
   return (
@@ -919,7 +921,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                       style={styles.fridgeItem}
                       onPress={() => {
                         setPickedFridgeItem(entry);
-                        setServingsToEat('1');
+                        setServingsToEat(1);
                       }}
                       onLongPress={() => onManageEntry?.(entry, title)}
                       delayLongPress={400}
@@ -1142,7 +1144,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                   </View>
                   <TouchableOpacity
                     style={[styles.servingsButton, cookEatServings >= produced && { opacity: 0.4 }]}
-                    onPress={() => adjustServings(setCookEatServings, cookEatServings, 1)}
+                    onPress={() => adjustServings(setCookEatServings, cookEatServings, 1, 0.5, produced)}
                     disabled={cookEatServings >= produced}
                   >
                     <Text style={styles.servingsButtonText}>+</Text>
@@ -1185,7 +1187,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 </View>
                 <TouchableOpacity
                   style={[styles.servingsButton, servingsToEat >= pickedFridgeItem.remaining && { opacity: 0.4 }]}
-                  onPress={() => adjustServings(setServingsToEat, servingsToEat, 1)}
+                  onPress={() => adjustServings(setServingsToEat, servingsToEat, 1, 0.5, Number(pickedFridgeItem.remaining) || 1)}
                   disabled={servingsToEat >= pickedFridgeItem.remaining}
                 >
                   <Text style={styles.servingsButtonText}>+</Text>
@@ -1247,7 +1249,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                 </View>
                 <TouchableOpacity
                   style={[styles.servingsButton, takeoutEaten >= takeoutOrdered && { opacity: 0.4 }]}
-                  onPress={() => adjustServings(setTakeoutEaten, takeoutEaten, 1)}
+                  onPress={() => adjustServings(setTakeoutEaten, takeoutEaten, 1, 0.5, takeoutOrdered)}
                   disabled={takeoutEaten >= takeoutOrdered}
                 >
                   <Text style={styles.servingsButtonText}>+</Text>

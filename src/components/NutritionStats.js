@@ -296,7 +296,12 @@ const NutritionStats = ({ userId, recipes }) => {
         <Text style={styles.cardTitle}>Last 7 Days</Text>
         <View style={styles.chartRow}>
           {barDays.map(d => (
-            <View key={d.dateStr} style={styles.barColumn}>
+            <TouchableOpacity
+              key={d.dateStr}
+              style={styles.barColumn}
+              onPress={() => setSelectedDay(d.dateStr)}
+              activeOpacity={0.6}
+            >
               <Text style={styles.barValue}>{d.calories > 0 ? Math.round(d.calories) : ''}</Text>
               <View style={styles.barTrack}>
                 <View
@@ -308,7 +313,7 @@ const NutritionStats = ({ userId, recipes }) => {
                 />
               </View>
               <Text style={[styles.barLabel, d.isToday && styles.barLabelToday]}>{d.letter}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </View>
