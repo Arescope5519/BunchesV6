@@ -33,6 +33,7 @@ import { cookbookToPdf } from '../utils/printRecipe';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { getDebugLog, clearDebugLog } from '../utils/debugLog';
 import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
+import { FRIDGE_EXPIRE_OPTIONS, DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -59,6 +60,8 @@ export const SettingsScreen = ({
   onToggleShowNutrition,
   textSize,
   onChangeTextSize,
+  fridgeExpireDays,
+  onChangeFridgeExpireDays,
   isAdmin,
   onOpenAdminReports,
   onOpenBlockedUsers,
@@ -964,6 +967,30 @@ export const SettingsScreen = ({
                     >
                       <Text style={[styles.fontSizeOptionText, active && styles.fontSizeOptionTextActive]}>
                         {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Fridge Expiry</Text>
+                <Text style={styles.settingDescription}>
+                  Leftovers leave your fridge after this many days
+                </Text>
+              </View>
+              <View style={styles.fontSizeOptions}>
+                {FRIDGE_EXPIRE_OPTIONS.map(days => {
+                  const active = (fridgeExpireDays || DEFAULT_FRIDGE_EXPIRE_DAYS) === days;
+                  return (
+                    <TouchableOpacity
+                      key={days}
+                      style={[styles.fontSizeOption, active && styles.fontSizeOptionActive]}
+                      onPress={() => onChangeFridgeExpireDays?.(days)}
+                    >
+                      <Text style={[styles.fontSizeOptionText, active && styles.fontSizeOptionTextActive]}>
+                        {days}d
                       </Text>
                     </TouchableOpacity>
                   );

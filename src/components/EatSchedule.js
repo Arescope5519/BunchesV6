@@ -74,7 +74,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
     if (!addingTo || !userId) return;
     let cancelled = false;
     setPickInventory(inventory);
-    getFridgeInventory(userId, 10, { includePlannedUntil: addingTo.date })
+    getFridgeInventory(userId, null, { includePlannedUntil: addingTo.date })
       .then(list => { if (!cancelled) setPickInventory(list); });
     return () => { cancelled = true; };
   }, [addingTo?.date, addingTo?.slot, userId]);
@@ -102,7 +102,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
 
       const [meals, fridge, cooks] = await Promise.all([
         getMealEvents(userId, weekStart, weekEnd),
-        getFridgeInventory(userId, 10),
+        getFridgeInventory(userId),
         getCookEvents(userId, lookbackStr, weekEnd),
       ]);
       setMealEvents(meals);
@@ -139,7 +139,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
       }
       await load();
       if (addingTo) {
-        const list = await getFridgeInventory(userId, 10, { includePlannedUntil: addingTo.date });
+        const list = await getFridgeInventory(userId, null, { includePlannedUntil: addingTo.date });
         setPickInventory(list);
       }
     };
@@ -372,7 +372,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
     if (created) {
       setMealEvents([...mealEvents, created]);
       // Reload inventory to update remaining counts
-      const fresh = await getFridgeInventory(userId, 10);
+      const fresh = await getFridgeInventory(userId);
       setInventory(fresh);
     }
     setAddingTo(null);
@@ -431,7 +431,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
       setMealEvents([...mealEvents, meal]);
     }
     // Refresh inventory (leftovers may have appeared)
-    const fresh = await getFridgeInventory(userId, 10);
+    const fresh = await getFridgeInventory(userId);
     setInventory(fresh);
     setAddingTo(null);
   };
@@ -456,7 +456,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
         m.id === editingMeal.id ? { ...m, servings_consumed: editServings } : m
       ));
       // Refresh fridge counts
-      const fresh = await getFridgeInventory(userId, 10);
+      const fresh = await getFridgeInventory(userId);
       setInventory(fresh);
     } else {
       Alert.alert('Error', 'Could not save changes.');
@@ -477,7 +477,7 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
             const ok = await deleteMealEvent(mealEvent.id);
             if (ok) {
               setMealEvents(mealEvents.filter(m => m.id !== mealEvent.id));
-              const fresh = await getFridgeInventory(userId, 10);
+              const fresh = await getFridgeInventory(userId);
               setInventory(fresh);
             }
           },

@@ -20,6 +20,28 @@
 import { supabase } from './config';
 
 // -----------------------------------------------------------------------------
+// Fridge expiry
+// -----------------------------------------------------------------------------
+
+// How many days a cooked item stays in the fridge before it ages out of
+// the inventory window. User-configurable from Settings (stored in app
+// settings as `fridgeExpireDays`); HomeScreen pushes the value here on
+// load and on change so every fridge read honors it without prop-drilling.
+export const DEFAULT_FRIDGE_EXPIRE_DAYS = 10;
+export const FRIDGE_EXPIRE_OPTIONS = [3, 5, 7, 10, 14];
+
+let fridgeExpireDays = DEFAULT_FRIDGE_EXPIRE_DAYS;
+
+export const setFridgeExpireDays = (days) => {
+  const n = Number(days);
+  if (Number.isFinite(n) && n >= 1) {
+    fridgeExpireDays = Math.round(n);
+  }
+};
+
+export const getFridgeExpireDays = () => fridgeExpireDays;
+
+// -----------------------------------------------------------------------------
 // Cook Events
 // -----------------------------------------------------------------------------
 
@@ -294,10 +316,10 @@ export const getCookEventBalance = async (cookEventId) => {
  *   already nets out any servings pre-planned against them, so when
  *   the cook happens it lands in the fridge pre-decremented.
  */
-export const getFridgeInventory = async (userId, lookbackDays = 10, { includePlannedUntil = null } = {}) => {
+export const getFridgeInventory = async (userId, lookbackDays = null, { includePlannedUntil = null } = {}) => {
   try {
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - lookbackDays);
+    startDate.setDate(startDate.getDate() - (lookbackDays ?? fridgeExpireDays));
     const startDateStr = toDateString(startDate);
 
     // Fetch all cook events in window
@@ -553,6 +575,8 @@ export default {
   deleteMealEvent,
   createFridgeAdjustment,
   getFridgeInventory,
+  setFridgeExpireDays,
+  getFridgeExpireDays,
   getCookEventBalance,
   reconcilePlannedMeals,
   getWeekStart,

@@ -38,6 +38,7 @@ import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER, SYSTEM_FOLDERS } from 
 import { loadCookSession, clearCookSession } from '../utils/cookSession';
 import { mirrorImageToStorage } from '../services/supabase/database';
 import { applyTextSize } from '../utils/textScale';
+import { setFridgeExpireDays, DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 import { dbg } from '../utils/debugLog';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
@@ -206,6 +207,7 @@ export const HomeScreen = ({ user }) => {
   const [printFontSize, setPrintFontSize] = useState(14);
   const [showNutrition, setShowNutrition] = useState(true);
   const [textSize, setTextSize] = useState('system');
+  const [fridgeExpireDays, setFridgeExpireDaysState] = useState(DEFAULT_FRIDGE_EXPIRE_DAYS);
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
   const [quickLinkUrl, setQuickLinkUrl] = useState('');
   const [quickLinkLoading, setQuickLinkLoading] = useState(false);
@@ -408,6 +410,10 @@ export const HomeScreen = ({ user }) => {
         setTextSize(settings.textSize);
         applyTextSize(settings.textSize);
       }
+      if (settings.fridgeExpireDays !== undefined) {
+        setFridgeExpireDaysState(settings.fridgeExpireDays);
+        setFridgeExpireDays(settings.fridgeExpireDays);
+      }
       // Check if user has seen welcome modal
       if (!hasCheckedWelcome && user && !settings.hasSeenWelcome) {
         setShowWelcomeModal(true);
@@ -454,6 +460,10 @@ export const HomeScreen = ({ user }) => {
     }
     if (key === 'showNutrition') {
       setShowNutrition(value);
+    }
+    if (key === 'fridgeExpireDays') {
+      setFridgeExpireDaysState(value);
+      setFridgeExpireDays(value);
     }
   };
 
@@ -3438,6 +3448,8 @@ export const HomeScreen = ({ user }) => {
           onToggleShowNutrition={(value) => updateAppSetting('showNutrition', value)}
           textSize={textSize}
           onChangeTextSize={(value) => updateAppSetting('textSize', value)}
+          fridgeExpireDays={fridgeExpireDays}
+          onChangeFridgeExpireDays={(value) => updateAppSetting('fridgeExpireDays', value)}
           isAdmin={isAdmin}
           onOpenAdminReports={() => setShowAdminReports(true)}
           onOpenBlockedUsers={() => setShowBlockedUsers(true)}

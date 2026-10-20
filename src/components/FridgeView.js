@@ -41,7 +41,7 @@ const FridgeView = ({ userId, recipes, onOpenRecipe }) => {
     if (!userId) return;
     setLoading(true);
     try {
-      const items = await getFridgeInventory(userId, 10);
+      const items = await getFridgeInventory(userId);
       setInventory(items);
     } finally {
       setLoading(false);
