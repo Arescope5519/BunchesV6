@@ -482,7 +482,7 @@ const NutritionStats = ({ userId, recipes }) => {
             ) : (
               <Text style={styles.goalModalHint}>No meals logged this day.</Text>
             )}
-            <TouchableOpacity style={[styles.goalModalSave, { marginTop: 14 }]} onPress={() => setSelectedDay(null)}>
+            <TouchableOpacity style={styles.dayCloseBtn} onPress={() => setSelectedDay(null)}>
               <Text style={styles.goalModalSaveText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -670,6 +670,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   goalModalSaveText: { fontSize: 14, fontWeight: '600', color: colors.onPrimary },
+  // Standalone Close - goalModalSave's flex:1 is for the Cancel/Save row
+  // and collapses the label when the button sits alone in a column (iOS)
+  dayCloseBtn: {
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    marginTop: 14,
+  },
   chartRow: { flexDirection: 'row', alignItems: 'flex-end', height: 150, gap: 6 },
   barColumn: { flex: 1, alignItems: 'center', height: '100%' },
   barValue: { fontSize: 9, color: colors.textTertiary, marginBottom: 2 },
