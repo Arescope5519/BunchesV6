@@ -135,8 +135,27 @@ const dark = {
   darkGray: '#2C332F',
 };
 
-export const isDarkMode = Appearance.getColorScheme() === 'dark';
+// Default to the system scheme at module evaluation. App.js reads the
+// stored override (utils/theme.js) and calls applyThemePreference
+// BEFORE requiring the rest of the app, so every StyleSheet.create
+// still copies final values - which is why colors is a mutable object
+// now, and why theme changes keep their restart-to-apply semantics.
+export let isDarkMode = Appearance.getColorScheme() === 'dark';
 
-export const colors = isDarkMode ? dark : light;
+export const colors = { ...(isDarkMode ? dark : light) };
+
+export const applyThemePreference = (pref) => {
+  const scheme =
+    pref === 'light' || pref === 'dark' ? pref : Appearance.getColorScheme() || 'light';
+  isDarkMode = scheme === 'dark';
+  Object.assign(colors, isDarkMode ? dark : light);
+  // Keep NATIVE surfaces (alerts, keyboard, share sheet) on the same
+  // scheme as the override; null hands control back to the system.
+  try {
+    Appearance.setColorScheme(pref === 'light' || pref === 'dark' ? pref : null);
+  } catch (e) {
+    // Older RN without setColorScheme - native surfaces follow the system
+  }
+};
 
 export default colors;

@@ -263,10 +263,15 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
   UI (native `Alert` text is plain too).
 - **Colors**: everything from `src/constants/colors.js` (Honey + Forest
   theme). No hardcoded hex in components. The file holds light AND
-  dark palettes, picked once at startup from the system appearance
-  (styles are static `StyleSheet.create`, so theme changes apply on
-  app restart; a live in-app toggle would need every stylesheet to
-  become dynamic - decided against). Semantics: `card`/`surface`
+  dark palettes, picked once at startup: system appearance, unless the
+  user set an override (Settings -> Appearance: Auto/Light/Dark,
+  device-level key in `src/utils/theme.js`). App.js is a boot gate
+  that applies the stored preference BEFORE `require`-ing
+  `src/AppRoot.js` (the real app), because every static
+  `StyleSheet.create` copies from `colors` at module evaluation - do
+  not convert that require into a top-level import. Theme changes
+  apply on app restart; a live in-app toggle would need every
+  stylesheet to become dynamic - decided against. Semantics: `card`/`surface`
   flip; `onPrimary` is white-on-colored-fill in BOTH themes - never
   use it on a plain background; `white`/`black`/`shadow` stay
   literal. Theme-FIXED files (hex allowed): UserAvatar palette data,

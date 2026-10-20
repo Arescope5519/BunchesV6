@@ -34,6 +34,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { getDebugLog, clearDebugLog } from '../utils/debugLog';
 import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
 import { FRIDGE_EXPIRE_OPTIONS, DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
+import { THEME_OPTIONS, loadThemePreference, saveThemePreference } from '../utils/theme';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -78,6 +79,17 @@ export const SettingsScreen = ({
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showDebugLog, setShowDebugLog] = useState(false);
   const [debugLogText, setDebugLogText] = useState('');
+  // Device-level (read pre-sign-in at boot), so not part of appSettings
+  const [themePref, setThemePref] = useState('system');
+
+  useEffect(() => {
+    loadThemePreference().then(setThemePref);
+  }, []);
+
+  const changeTheme = (key) => {
+    setThemePref(key);
+    saveThemePreference(key);
+  };
 
   const handleClearAllData = () => {
     Alert.alert(
@@ -948,6 +960,30 @@ export const SettingsScreen = ({
                 trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
                 thumbColor={colors.onPrimary}
               />
+            </View>
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Appearance</Text>
+                <Text style={styles.settingDescription}>
+                  Auto follows your phone's dark mode. Restart the app to apply
+                </Text>
+              </View>
+              <View style={styles.fontSizeOptions}>
+                {THEME_OPTIONS.map(opt => {
+                  const active = themePref === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[styles.fontSizeOption, active && styles.fontSizeOptionActive]}
+                      onPress={() => changeTheme(opt.key)}
+                    >
+                      <Text style={[styles.fontSizeOptionText, active && styles.fontSizeOptionTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
             <View style={[styles.settingRow, styles.settingRowBorder]}>
               <View style={styles.settingInfo}>
