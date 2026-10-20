@@ -22,7 +22,7 @@ import {
   parseLocalDate,
   toDateString,
 } from '../services/supabase/kitchen';
-import { aggregateNutrition, formatNutrientValue, TRACKED_NUTRIENTS } from '../utils/nutritionMath';
+import { aggregateNutrition, perServingNutrition, formatNutrientValue, TRACKED_NUTRIENTS } from '../utils/nutritionMath';
 
 // Goal-adherence gradient: at/under goal = full green, sliding
 // through honey to full red at 2x the goal ("horribly missed").
@@ -63,6 +63,7 @@ const NutritionStats = ({ userId, recipes }) => {
   const [calorieGoal, setCalorieGoal] = useState(null);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalDraft, setGoalDraft] = useState('');
+  const [selectedDay, setSelectedDay] = useState(null); // date string from the calendar
 
   const todayStr = toDateString(new Date());
 
@@ -104,42 +105,45 @@ const NutritionStats = ({ userId, recipes }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  const agg = useMemo(() => {
+  const lookups = useMemo(() => {
     const cooksById = {};
     cookEvents.forEach(c => { cooksById[c.id] = c; });
     const recipesById = {};
     (recipes || []).forEach(r => { recipesById[r.id] = r; });
+    return { cooksById, recipesById };
+  }, [cookEvents, recipes]);
 
+  const agg = useMemo(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - (rangeDays - 1));
     const cutoffStr = toDateString(cutoff);
     const inRange = mealEvents.filter(m => m.meal_date >= cutoffStr && m.meal_date <= todayStr);
-    return aggregateNutrition(inRange, cooksById, recipesById);
-  }, [mealEvents, cookEvents, recipes, rangeDays, todayStr]);
+    return aggregateNutrition(inRange, lookups.cooksById, lookups.recipesById);
+  }, [mealEvents, lookups, rangeDays, todayStr]);
 
-  // Full 28-day aggregate for the goal calendar, independent of the
+  // Full 28-day aggregate for the calendar, independent of the
   // 7/28 averages toggle
-  const aggAll = useMemo(() => {
-    const cooksById = {};
-    cookEvents.forEach(c => { cooksById[c.id] = c; });
-    const recipesById = {};
-    (recipes || []).forEach(r => { recipesById[r.id] = r; });
-    return aggregateNutrition(mealEvents, cooksById, recipesById);
-  }, [mealEvents, cookEvents, recipes]);
+  const aggAll = useMemo(
+    () => aggregateNutrition(mealEvents, lookups.cooksById, lookups.recipesById),
+    [mealEvents, lookups]
+  );
 
-  // Calendar: last 28 days ending today, padded to Sunday columns
+  // Calendar: last 28 days ending today, padded to Sunday columns.
+  // Always built - days with data get the goal gradient when a goal
+  // exists (a flat logged-day tint otherwise), empty days stay gray
   const calendarWeeks = useMemo(() => {
-    if (!calorieGoal) return [];
     const cells = [];
     for (let i = 27; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = toDateString(d);
       const day = aggAll.byDate[dateStr];
+      const hasMeals = (day?.mealsTotal || 0) > 0;
       const eaten = day?.mealsCounted > 0 ? (day.totals.calories || 0) : null;
       cells.push({
         dateStr,
         dayNum: parseLocalDate(dateStr).getDate(),
+        hasMeals,
         ratio: eaten != null && calorieGoal > 0 ? eaten / calorieGoal : null,
         isToday: dateStr === todayStr,
       });
@@ -170,6 +174,28 @@ const NutritionStats = ({ userId, recipes }) => {
     }
     return days;
   }, [agg, todayStr]);
+
+  // Meals eaten on the calendar-selected day, with per-meal calories
+  // where the recipe's source provided nutrition
+  const selectedDayDetail = useMemo(() => {
+    if (!selectedDay) return null;
+    const meals = mealEvents
+      .filter(m => m.meal_date === selectedDay)
+      .map(m => {
+        const cook = lookups.cooksById[m.cook_event_id];
+        const recipe = cook && !cook.is_takeout ? lookups.recipesById[cook.recipe_id] : null;
+        const per = recipe ? perServingNutrition(recipe.nutrition) : null;
+        const servings = Number(m.servings_consumed) || 1;
+        return {
+          id: m.id,
+          title: cook?.is_takeout ? (cook.takeout_name || 'Takeout') : (recipe?.title || 'Unknown recipe'),
+          isTakeout: !!cook?.is_takeout,
+          servings,
+          calories: per?.calories != null ? per.calories * servings : null,
+        };
+      });
+    return { meals, day: aggAll.byDate[selectedDay] || null };
+  }, [selectedDay, mealEvents, lookups, aggAll]);
 
   const today = agg.byDate[todayStr];
   const daysWithData = Object.values(agg.byDate).filter(d => d.mealsCounted > 0).length;
@@ -341,38 +367,41 @@ const NutritionStats = ({ userId, recipes }) => {
         </View>
       )}
 
-      {/* Goal calendar - green hit it, red horribly over */}
-      {calorieGoal ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Goal Calendar</Text>
-          <View style={styles.calHeaderRow}>
-            {DAY_LETTERS.map((l, i) => (
-              <Text key={i} style={styles.calHeaderText}>{l}</Text>
-            ))}
-          </View>
-          {calendarWeeks.map((week, wi) => (
-            <View key={wi} style={styles.calWeekRow}>
-              {week.map((cell, ci) => {
-                if (!cell) return <View key={ci} style={styles.calCell} />;
-                const graded = cell.ratio != null;
-                return (
-                  <View
-                    key={ci}
-                    style={[
-                      styles.calCell,
-                      styles.calCellDay,
-                      graded && { backgroundColor: gradeColor(cell.ratio), borderColor: 'transparent' },
-                      cell.isToday && styles.calCellToday,
-                    ]}
-                  >
-                    <Text style={[styles.calCellText, graded && styles.calCellTextGraded]}>
-                      {cell.dayNum}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+      {/* Calendar - tap a day for its meals; gradient when a goal exists */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Calendar</Text>
+        <View style={styles.calHeaderRow}>
+          {DAY_LETTERS.map((l, i) => (
+            <Text key={i} style={styles.calHeaderText}>{l}</Text>
           ))}
+        </View>
+        {calendarWeeks.map((week, wi) => (
+          <View key={wi} style={styles.calWeekRow}>
+            {week.map((cell, ci) => {
+              if (!cell) return <View key={ci} style={styles.calCell} />;
+              const graded = cell.ratio != null;
+              return (
+                <TouchableOpacity
+                  key={ci}
+                  style={[
+                    styles.calCell,
+                    styles.calCellDay,
+                    graded
+                      ? { backgroundColor: gradeColor(cell.ratio), borderColor: 'transparent' }
+                      : cell.hasMeals && styles.calCellLogged,
+                    cell.isToday && styles.calCellToday,
+                  ]}
+                  onPress={() => setSelectedDay(cell.dateStr)}
+                >
+                  <Text style={[styles.calCellText, graded && styles.calCellTextGraded]}>
+                    {cell.dayNum}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+        {calorieGoal ? (
           <View style={styles.calLegendRow}>
             <View style={[styles.calLegendDot, { backgroundColor: gradeColor(1) }]} />
             <Text style={styles.calLegendText}>goal hit</Text>
@@ -383,8 +412,77 @@ const NutritionStats = ({ userId, recipes }) => {
             <View style={[styles.calLegendDot, { backgroundColor: colors.lightGray, marginLeft: 12 }]} />
             <Text style={styles.calLegendText}>no data</Text>
           </View>
+        ) : (
+          <Text style={styles.coverageText}>
+            Tap a day to see its meals. Set a daily goal to color-grade your days.
+          </Text>
+        )}
+      </View>
+
+      {/* Day detail - what you ate + that day's breakdown */}
+      <Modal visible={!!selectedDay} transparent animationType="fade" onRequestClose={() => setSelectedDay(null)}>
+        <View style={styles.goalModalOverlay}>
+          <View style={styles.goalModalCard}>
+            <Text style={styles.goalModalTitle}>
+              {selectedDay ? parseLocalDate(selectedDay).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''}
+            </Text>
+            {selectedDayDetail?.meals.length ? (
+              <>
+                <View style={styles.dayTotalsRow}>
+                  <Text style={styles.dayCalories}>
+                    {Math.round(selectedDayDetail.day?.totals?.calories || 0)}
+                  </Text>
+                  <Text style={styles.dayCaloriesUnit}>
+                    {calorieGoal ? `/ ${calorieGoal} cal` : 'cal'}
+                  </Text>
+                </View>
+                <View style={styles.macroRow}>
+                  {MACRO_KEYS.map(key => {
+                    const n = TRACKED_NUTRIENTS.find(t => t.key === key);
+                    return (
+                      <View key={key} style={styles.macroChip}>
+                        <Text style={styles.macroValue}>
+                          {formatNutrientValue(selectedDayDetail.day?.totals?.[key] || 0, n.unit)}
+                        </Text>
+                        <Text style={styles.macroLabel}>{n.label}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+                {selectedDayDetail.meals.map(meal => (
+                  <View key={meal.id} style={styles.dayMealRow}>
+                    <Ionicons
+                      name={meal.isTakeout ? 'fast-food-outline' : 'restaurant-outline'}
+                      size={16}
+                      color={colors.textSecondary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dayMealTitle} numberOfLines={1}>{meal.title}</Text>
+                      <Text style={styles.dayMealMeta}>
+                        {meal.servings} serving{meal.servings !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                    <Text style={styles.dayMealCalories}>
+                      {meal.calories != null ? `${Math.round(meal.calories)} cal` : 'no data'}
+                    </Text>
+                  </View>
+                ))}
+                {selectedDayDetail.day && selectedDayDetail.day.mealsCounted < selectedDayDetail.day.mealsTotal && (
+                  <Text style={[styles.coverageText, { marginTop: 8 }]}>
+                    {selectedDayDetail.day.mealsCounted} of {selectedDayDetail.day.mealsTotal} meals had nutrition data - totals cover those only
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text style={styles.goalModalHint}>No meals logged this day.</Text>
+            )}
+            <TouchableOpacity style={[styles.goalModalSave, { marginTop: 14 }]} onPress={() => setSelectedDay(null)}>
+              <Text style={styles.goalModalSaveText}>Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : null}
+      </Modal>
 
       {/* Goal editor */}
       <Modal visible={editingGoal} transparent animationType="fade" onRequestClose={() => setEditingGoal(false)}>
@@ -491,6 +589,20 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
   },
   calCellToday: { borderWidth: 2, borderColor: colors.text },
+  calCellLogged: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+  dayTotalsRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 },
+  dayCalories: { fontSize: 32, fontWeight: '800', color: colors.primary, lineHeight: 36 },
+  dayCaloriesUnit: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginLeft: 6, marginBottom: 4 },
+  dayMealRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  dayMealTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
+  dayMealMeta: { fontSize: 11, color: colors.textTertiary, marginTop: 1 },
+  dayMealCalories: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginLeft: 10 },
   calCellText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   calCellTextGraded: { color: '#fff', fontWeight: '700' },
   calLegendRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
