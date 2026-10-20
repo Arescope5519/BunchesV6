@@ -33,7 +33,7 @@ import { cookbookToPdf } from '../utils/printRecipe';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { getDebugLog, clearDebugLog } from '../utils/debugLog';
 import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
-import { FRIDGE_EXPIRE_OPTIONS, DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
+import { DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 import { THEME_OPTIONS, loadThemePreference, saveThemePreference } from '../utils/theme';
 
 import { log } from '../utils/log';
@@ -87,8 +87,31 @@ export const SettingsScreen = ({
   }, []);
 
   const changeTheme = (key) => {
+    if (key === themePref) return;
     setThemePref(key);
     saveThemePreference(key);
+    // Styles are baked at startup (see colors.js), so the switch cannot
+    // happen live - say so instead of looking like a dead button
+    Alert.alert('Theme Saved', `Your choice applies the next time you open ${APP_NAME}.`);
+  };
+
+  // Fridge expiry is typed in; commit on blur, empty = default
+  const [fridgeDraft, setFridgeDraft] = useState(
+    fridgeExpireDays != null ? String(fridgeExpireDays) : ''
+  );
+
+  useEffect(() => {
+    // Settings load async in HomeScreen; adopt the stored value when it
+    // arrives (prop only changes on load or our own commit, so this
+    // never clobbers in-progress typing)
+    setFridgeDraft(fridgeExpireDays != null ? String(fridgeExpireDays) : '');
+  }, [fridgeExpireDays]);
+
+  const commitFridgeDays = () => {
+    const n = parseInt(fridgeDraft, 10);
+    const days = Number.isFinite(n) && n >= 1 ? Math.min(n, 365) : DEFAULT_FRIDGE_EXPIRE_DAYS;
+    setFridgeDraft(String(days));
+    if (days !== fridgeExpireDays) onChangeFridgeExpireDays?.(days);
   };
 
   const handleClearAllData = () => {
@@ -1013,24 +1036,21 @@ export const SettingsScreen = ({
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Fridge Expiry</Text>
                 <Text style={styles.settingDescription}>
-                  Leftovers leave your fridge after this many days
+                  Leftovers leave your fridge after this many days (default {DEFAULT_FRIDGE_EXPIRE_DAYS})
                 </Text>
               </View>
-              <View style={styles.fontSizeOptions}>
-                {FRIDGE_EXPIRE_OPTIONS.map(days => {
-                  const active = (fridgeExpireDays || DEFAULT_FRIDGE_EXPIRE_DAYS) === days;
-                  return (
-                    <TouchableOpacity
-                      key={days}
-                      style={[styles.fontSizeOption, active && styles.fontSizeOptionActive]}
-                      onPress={() => onChangeFridgeExpireDays?.(days)}
-                    >
-                      <Text style={[styles.fontSizeOptionText, active && styles.fontSizeOptionTextActive]}>
-                        {days}d
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={styles.fridgeDaysWrap}>
+                <TextInput
+                  style={styles.fridgeDaysInput}
+                  value={fridgeDraft}
+                  onChangeText={(t) => setFridgeDraft(t.replace(/[^0-9]/g, ''))}
+                  onEndEditing={commitFridgeDays}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  placeholder={String(DEFAULT_FRIDGE_EXPIRE_DAYS)}
+                  placeholderTextColor={colors.textLight}
+                />
+                <Text style={styles.fridgeDaysSuffix}>days</Text>
               </View>
             </View>
             <View style={[styles.settingRow, styles.settingRowBorder]}>
@@ -1706,6 +1726,28 @@ const styles = StyleSheet.create({
   },
   fontSizeOptions: {
     flexDirection: 'row',
+  },
+  fridgeDaysWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  // Explicit sizes for the same iOS flex-row reason as switchControl
+  fridgeDaysInput: {
+    width: 56,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    textAlign: 'center',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  fridgeDaysSuffix: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginLeft: 6,
   },
   // Explicit sizes for the same iOS flex-row reason as switchControl
   fontSizeOption: {

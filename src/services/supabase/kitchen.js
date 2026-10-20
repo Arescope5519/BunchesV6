@@ -28,7 +28,6 @@ import { supabase } from './config';
 // settings as `fridgeExpireDays`); HomeScreen pushes the value here on
 // load and on change so every fridge read honors it without prop-drilling.
 export const DEFAULT_FRIDGE_EXPIRE_DAYS = 10;
-export const FRIDGE_EXPIRE_OPTIONS = [3, 5, 7, 10, 14];
 
 let fridgeExpireDays = DEFAULT_FRIDGE_EXPIRE_DAYS;
 
