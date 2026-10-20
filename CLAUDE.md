@@ -269,8 +269,10 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
   that applies the stored preference BEFORE `require`-ing
   `src/AppRoot.js` (the real app), because every static
   `StyleSheet.create` copies from `colors` at module evaluation - do
-  not convert that require into a top-level import. Theme changes
-  apply on app restart; a live in-app toggle would need every
+  not convert that require into a top-level import. The Settings
+  toggle applies instantly by reloading the JS bundle
+  (`reloadAppAsync` from `expo`); a mid-session SYSTEM theme change
+  still needs an app restart. True live theming would need every
   stylesheet to become dynamic - decided against. Semantics: `card`/`surface`
   flip; `onPrimary` is white-on-colored-fill in BOTH themes - never
   use it on a plain background; `white`/`black`/`shadow` stay

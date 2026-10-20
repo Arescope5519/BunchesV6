@@ -35,6 +35,7 @@ import { getDebugLog, clearDebugLog } from '../utils/debugLog';
 import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
 import { DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 import { THEME_OPTIONS, loadThemePreference, saveThemePreference } from '../utils/theme';
+import { reloadAppAsync } from 'expo';
 
 import { log } from '../utils/log';
 export const SettingsScreen = ({
@@ -86,13 +87,18 @@ export const SettingsScreen = ({
     loadThemePreference().then(setThemePref);
   }, []);
 
-  const changeTheme = (key) => {
+  const changeTheme = async (key) => {
     if (key === themePref) return;
     setThemePref(key);
-    saveThemePreference(key);
-    // Styles are baked at startup (see colors.js), so the switch cannot
-    // happen live - say so instead of looking like a dead button
-    Alert.alert('Theme Saved', `Your choice applies the next time you open ${APP_NAME}.`);
+    // Must be persisted BEFORE the reload - the boot gate reads it
+    await saveThemePreference(key);
+    // Styles are baked at startup (see colors.js), so apply by reloading
+    // the JS bundle: same as closing and reopening the app, but instant
+    try {
+      await reloadAppAsync('theme change');
+    } catch (e) {
+      Alert.alert('Theme Saved', `Your choice applies the next time you open ${APP_NAME}.`);
+    }
   };
 
   // Fridge expiry is typed in; commit on blur, empty = default
@@ -988,7 +994,7 @@ export const SettingsScreen = ({
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Appearance</Text>
                 <Text style={styles.settingDescription}>
-                  Auto follows your phone's dark mode. Restart the app to apply
+                  Auto follows your phone's dark mode. The app refreshes when changed
                 </Text>
               </View>
               <View style={styles.fontSizeOptions}>
