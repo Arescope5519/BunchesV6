@@ -2456,9 +2456,9 @@ export const HomeScreen = ({ user }) => {
     if (!name || creatingShared) return;
     setCreatingShared(true);
     try {
-      // Same name rules as local cookbooks
-      const bad = await containsProfanityAsync(name);
-      if (bad) {
+      // Same name rules as local cookbooks - returns {safe, reason}
+      const check = await containsProfanityAsync(name);
+      if (!check.safe) {
         Alert.alert('Name Not Allowed', 'Please choose a different cookbook name.');
         return;
       }
