@@ -332,6 +332,18 @@ Recipes are stored twice on purpose:
 The app displays the union. The legacy `recipes` table is still
 dual-written.
 
+**Shared cookbooks** (`sql/shared_folders.sql`): server-side folders
+several accounts add recipes to - a separate world from the local
+folders in `user_settings`. Three tables (`shared_folders`,
+`shared_folder_members`, `shared_folder_recipes`) with RLS as the
+access control: the owner invites/removes members and any recipe;
+every member adds recipes and removes their own additions. Content is
+references to `global_recipes` only, so members see the shared layer -
+personal notes/edits in `user_recipes_v2` are never exposed. UI:
+`src/components/SharedFolderView.js` + the Shared Cookbooks section of
+the folder manager in HomeScreen; service
+`src/services/supabase/sharedFolders.js`.
+
 ## Naming (decided: Melibri)
 
 Melibri came back clean on USPTO across all classes. melibri.com is
