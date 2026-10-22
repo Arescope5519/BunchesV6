@@ -30,6 +30,7 @@ import {
   inviteToSharedFolder,
   removeSharedFolderMember,
   addRecipeToSharedFolder,
+  addRecipesToSharedFolder,
   removeRecipeFromSharedFolder,
   deleteSharedFolder,
 } from '../services/supabase/sharedFolders';
@@ -83,6 +84,50 @@ const SharedFolderView = ({
       .filter(r => !r.deletedAt && r.globalRecipeId && !inFolderIds.has(r.globalRecipeId))
       .filter(r => !q || (r.title || '').toLowerCase().includes(q));
   }, [recipes, inFolderIds, pickerSearch]);
+
+  // My cookbooks as bulk-import candidates: name -> recipes still
+  // addable from it (Favorites counts as a cookbook here)
+  const importableFolders = useMemo(() => {
+    const groups = {};
+    (recipes || []).forEach(r => {
+      if (r.deletedAt || !r.globalRecipeId || inFolderIds.has(r.globalRecipeId)) return;
+      const rf = r.folders || [r.folder || 'All Recipes'];
+      rf.forEach(f => {
+        if (f === 'All Recipes' || f === 'Recently Deleted') return;
+        (groups[f] = groups[f] || []).push(r);
+      });
+      if (r.isFavorite) (groups['Favorites'] = groups['Favorites'] || []).push(r);
+    });
+    return Object.keys(groups)
+      .sort((a, b) => a.localeCompare(b))
+      .map(name => ({ name, recipes: groups[name] }));
+  }, [recipes, inFolderIds]);
+
+  const handleImportFolder = (group) => {
+    Alert.alert(
+      `Add "${group.name}"?`,
+      `All ${group.recipes.length} recipe${group.recipes.length !== 1 ? 's' : ''} still missing from this shared cookbook will be added. Members will be able to see them.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add All',
+          onPress: async () => {
+            const res = await addRecipesToSharedFolder(
+              folder.id,
+              group.recipes.map(r => r.globalRecipeId),
+              userId
+            );
+            if (res.success) {
+              await load();
+              onChanged?.();
+            } else {
+              Alert.alert('Error', 'Could not add the cookbook. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleAdd = async (recipe) => {
     setBusyIds(b => ({ ...b, [recipe.globalRecipeId]: true }));
@@ -292,6 +337,31 @@ const SharedFolderView = ({
                 Members can see any recipe you add - even from a private cookbook. Your personal notes and edits stay private.
               </Text>
             </View>
+            {importableFolders.length > 0 && (
+              <View style={styles.importFoldersWrap}>
+                <Text style={styles.importFoldersTitle}>Add a whole cookbook</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {importableFolders.map(g => (
+                    <TouchableOpacity
+                      key={g.name}
+                      style={styles.importFolderChip}
+                      onPress={() => handleImportFolder(g)}
+                    >
+                      <Ionicons
+                        name={g.name === 'Favorites' ? 'star' : 'book'}
+                        size={13}
+                        color={colors.primary}
+                        style={{ marginRight: 5 }}
+                      />
+                      <Text style={styles.importFolderChipText} numberOfLines={1}>
+                        {g.name}
+                      </Text>
+                      <Text style={styles.importFolderChipCount}>{g.recipes.length}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
             <TextInput
               style={styles.searchInput}
               value={pickerSearch}
@@ -486,6 +556,47 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickerNoteText: { flex: 1, fontSize: 12, color: colors.accentDark, lineHeight: 17 },
+  importFoldersWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  importFoldersTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  importFolderChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    marginRight: 8,
+    maxWidth: 190,
+  },
+  importFolderChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    flexShrink: 1,
+  },
+  importFolderChipCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.onPrimary,
+    backgroundColor: colors.primary,
+    borderRadius: 9,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 6,
+    overflow: 'hidden',
+  },
   searchInput: {
     margin: 12,
     marginTop: 8,

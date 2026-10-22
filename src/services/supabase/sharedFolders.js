@@ -283,6 +283,34 @@ export const addRecipeToSharedFolder = async (folderId, globalRecipeId, userId) 
   }
 };
 
+/**
+ * Bulk add (importing a whole local cookbook). Duplicates - recipes
+ * someone already added - are silently skipped via ON CONFLICT DO
+ * NOTHING, so re-importing a folder is safe.
+ */
+export const addRecipesToSharedFolder = async (folderId, globalRecipeIds, userId) => {
+  try {
+    const rows = [...new Set(globalRecipeIds.filter(Boolean))].map(gid => ({
+      folder_id: folderId,
+      global_recipe_id: gid,
+      added_by: userId,
+    }));
+    if (rows.length === 0) return { success: true, added: 0 };
+    const { error } = await supabase
+      .from('shared_folder_recipes')
+      .upsert(rows, { onConflict: 'folder_id,global_recipe_id', ignoreDuplicates: true });
+    if (error) {
+      console.error('❌ addRecipesToSharedFolder error:', error);
+      return { success: false };
+    }
+    log('📁 Bulk-added', rows.length, 'recipes to shared folder', folderId);
+    return { success: true, added: rows.length };
+  } catch (err) {
+    console.error('❌ addRecipesToSharedFolder error:', err);
+    return { success: false };
+  }
+};
+
 export const removeRecipeFromSharedFolder = async (folderId, globalRecipeId) => {
   try {
     const { error } = await supabase
