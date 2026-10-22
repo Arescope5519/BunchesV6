@@ -89,6 +89,13 @@ import {
   getBlockStatus,
 } from '../services/supabase/social';
 import DiscoverFeed from '../components/DiscoverFeed';
+import SharedFolderView from '../components/SharedFolderView';
+import {
+  getMySharedFolders,
+  createSharedFolder,
+  respondToSharedInvite,
+} from '../services/supabase/sharedFolders';
+import { containsProfanityAsync } from '../services/profanityFilter';
 import ReorderFolderList from '../components/ReorderFolderList';
 import { getLikesForRecipes, likeRecipe, unlikeRecipe } from '../services/supabase/discover';
 import AdminReports from '../components/AdminReports';
@@ -208,6 +215,16 @@ export const HomeScreen = ({ user }) => {
   const [showNutrition, setShowNutrition] = useState(true);
   const [textSize, setTextSize] = useState('system');
   const [fridgeExpireDays, setFridgeExpireDaysState] = useState(DEFAULT_FRIDGE_EXPIRE_DAYS);
+
+  // Shared cookbooks (sql/shared_folders.sql): server-side folders
+  // several accounts add to - separate world from the local folders in
+  // user_settings
+  const [sharedFolders, setSharedFolders] = useState([]);
+  const [sharedInvites, setSharedInvites] = useState([]);
+  const [activeSharedFolder, setActiveSharedFolder] = useState(null);
+  const [showNewSharedInput, setShowNewSharedInput] = useState(false);
+  const [newSharedName, setNewSharedName] = useState('');
+  const [creatingShared, setCreatingShared] = useState(false);
   const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
   const [quickLinkUrl, setQuickLinkUrl] = useState('');
   const [quickLinkLoading, setQuickLinkLoading] = useState(false);
@@ -2421,6 +2438,62 @@ export const HomeScreen = ({ user }) => {
 
   // Start the save-to-cookbook flow for someone else's recipe (used by
   // the read-only recipe header and the Feed's save button)
+  // --- Shared cookbooks ---
+  const refreshSharedFolders = async () => {
+    if (!user?.uid) return;
+    const res = await getMySharedFolders(user.uid);
+    setSharedFolders(res.folders);
+    setSharedInvites(res.invites);
+  };
+
+  useEffect(() => {
+    if (showFolderManager && user?.uid) refreshSharedFolders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFolderManager, user?.uid]);
+
+  const handleCreateSharedFolder = async () => {
+    const name = newSharedName.trim();
+    if (!name || creatingShared) return;
+    setCreatingShared(true);
+    try {
+      // Same name rules as local cookbooks
+      const bad = await containsProfanityAsync(name);
+      if (bad) {
+        Alert.alert('Name Not Allowed', 'Please choose a different cookbook name.');
+        return;
+      }
+      const res = await createSharedFolder(name);
+      if (res.success) {
+        setNewSharedName('');
+        setShowNewSharedInput(false);
+        refreshSharedFolders();
+      } else {
+        Alert.alert('Error', 'Could not create the shared cookbook. Please try again.');
+      }
+    } finally {
+      setCreatingShared(false);
+    }
+  };
+
+  const handleSharedInvite = async (invite, accept) => {
+    const ok = await respondToSharedInvite(invite.folderId, user?.uid, accept);
+    if (ok) refreshSharedFolders();
+    else Alert.alert('Error', 'Could not update the invite. Please try again.');
+  };
+
+  const openSharedFolder = (folder) => {
+    // Close the manager first (iOS modal stacking), then present
+    setShowFolderManager(false);
+    setTimeout(() => setActiveSharedFolder(folder), 150);
+  };
+
+  const saveSharedFolderCopy = (recipe) => {
+    // The import flow runs its own folder-picker modal, which cannot
+    // stack above the SharedFolderView modal on iOS - close it first
+    setActiveSharedFolder(null);
+    setTimeout(() => startImportFlow(recipe), 300);
+  };
+
   const startImportFlow = (recipe) => {
     const importableFolders = getCustomFolders()
       .filter(f => f !== MY_CREATIONS_FOLDER && !f.startsWith(MY_CREATIONS_FOLDER + '/') && f !== SCANNED_FOLDER);
@@ -3886,6 +3959,81 @@ export const HomeScreen = ({ user }) => {
               })}
             </View>
 
+            {user && (
+              <View style={styles.folderSection}>
+                <View style={styles.folderSectionHeader}>
+                  <Text style={styles.folderSectionTitle}>Shared Cookbooks</Text>
+                  <TouchableOpacity onPress={() => setShowNewSharedInput(v => !v)}>
+                    <Text style={styles.addFolderHeaderButton}>{showNewSharedInput ? 'Cancel' : '+ New'}</Text>
+                  </TouchableOpacity>
+                </View>
+                {showNewSharedInput && (
+                  <View style={styles.sharedCreateRow}>
+                    <TextInput
+                      style={styles.sharedCreateInput}
+                      value={newSharedName}
+                      onChangeText={setNewSharedName}
+                      placeholder="Shared cookbook name"
+                      placeholderTextColor={colors.textLight}
+                      maxLength={60}
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      style={[styles.sharedCreateBtn, (!newSharedName.trim() || creatingShared) && { opacity: 0.4 }]}
+                      disabled={!newSharedName.trim() || creatingShared}
+                      onPress={handleCreateSharedFolder}
+                    >
+                      <Text style={styles.sharedCreateBtnText}>{creatingShared ? '...' : 'Create'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {sharedInvites.map(inv => (
+                  <View key={inv.folderId} style={styles.folderManagerItem}>
+                    <View style={styles.folderManagerItemLeft}>
+                      <Ionicons name="mail-unread-outline" size={18} color={colors.accentDark} style={styles.folderManagerIcon} />
+                      <View style={{ flexShrink: 1 }}>
+                        <Text style={styles.folderManagerItemText}>{inv.name}</Text>
+                        <Text style={styles.sharedRowSub}>
+                          invited by @{inv.invitedByUsername || 'a friend'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TouchableOpacity style={styles.sharedInviteAccept} onPress={() => handleSharedInvite(inv, true)}>
+                        <Text style={styles.sharedInviteAcceptText}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.sharedInviteDecline} onPress={() => handleSharedInvite(inv, false)}>
+                        <Ionicons name="close" size={18} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+                {sharedFolders.map(sf => (
+                  <TouchableOpacity
+                    key={sf.id}
+                    style={styles.folderManagerItem}
+                    onPress={() => openSharedFolder(sf)}
+                  >
+                    <View style={styles.folderManagerItemLeft}>
+                      <Ionicons name="people" size={18} color={colors.primary} style={styles.folderManagerIcon} />
+                      <View style={{ flexShrink: 1 }}>
+                        <Text style={styles.folderManagerItemText}>{sf.name}</Text>
+                        <Text style={styles.sharedRowSub}>
+                          {sf.memberCount} member{sf.memberCount !== 1 ? 's' : ''}{sf.isOwner ? ' · yours' : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.folderManagerCount}>{sf.recipeCount}</Text>
+                  </TouchableOpacity>
+                ))}
+                {sharedFolders.length === 0 && sharedInvites.length === 0 && !showNewSharedInput && (
+                  <Text style={styles.sharedEmptyHint}>
+                    Cookbooks you build together with friends - everyone can add recipes.
+                  </Text>
+                )}
+              </View>
+            )}
+
             <View style={styles.folderSection}>
               <View style={styles.folderSectionHeader}>
                 <Text style={styles.folderSectionTitle}>My Cookbooks</Text>
@@ -4033,6 +4181,25 @@ export const HomeScreen = ({ user }) => {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Shared cookbook viewer - BEFORE the Recipe Detail modal in the
+          tree so a tapped recipe presents on top of it (iOS stacking) */}
+      {activeSharedFolder && (
+        <SharedFolderView
+          visible={!!activeSharedFolder}
+          folder={activeSharedFolder}
+          userId={user?.uid}
+          friends={friends}
+          recipes={recipes}
+          onClose={() => {
+            setActiveSharedFolder(null);
+            refreshSharedFolders();
+          }}
+          onOpenRecipe={(r) => setSelectedRecipe(r)}
+          onSaveCopy={saveSharedFolderCopy}
+          onChanged={refreshSharedFolders}
+        />
+      )}
 
       {/* Recipe Detail Modal */}
       {selectedRecipe && (
@@ -5294,6 +5461,60 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  sharedCreateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sharedCreateInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
+  sharedCreateBtn: {
+    marginLeft: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  sharedCreateBtnText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sharedRowSub: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    marginTop: 1,
+  },
+  sharedInviteAccept: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  sharedInviteAcceptText: {
+    color: colors.onPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sharedInviteDecline: {
+    padding: 6,
+    marginLeft: 6,
+  },
+  sharedEmptyHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    lineHeight: 17,
+    paddingVertical: 4,
   },
   folderFilters: {
     flexDirection: 'row',
