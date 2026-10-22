@@ -963,7 +963,7 @@ export const RecipeDetail = ({
         </View>
       )}
 
-      {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.servings) && (
+      {(localRecipe.prep_time || localRecipe.cook_time || localRecipe.total_time || localRecipe.servings) && (
         <View style={styles.metaContainer}>
           {localRecipe.prep_time && (
             <View style={styles.metaRow}>
@@ -978,6 +978,17 @@ export const RecipeDetail = ({
               <Ionicons name="flame-outline" size={14} color={colors.textSecondary} style={styles.metaIcon} />
               <Text style={styles.metaText}>
                 Cook Time: {formatDuration(localRecipe.cook_time)}
+              </Text>
+            </View>
+          )}
+          {/* Slow-cooker and resting recipes often put the long part
+              only in totalTime (thepioneerwoman.com taco soup: cook 0,
+              total 4h 20m), so prep + cook alone undersells them */}
+          {localRecipe.total_time && (
+            <View style={styles.metaRow}>
+              <Ionicons name="hourglass-outline" size={14} color={colors.textSecondary} style={styles.metaIcon} />
+              <Text style={styles.metaText}>
+                Total Time: {formatDuration(localRecipe.total_time)}
               </Text>
             </View>
           )}

@@ -216,6 +216,7 @@ export const loadRecipesFromDatabase = async (userId) => {
         notes: row.notes,
         prep_time: globalRecipe?.prep_time || localData?.prep_time || null,
         cook_time: globalRecipe?.cook_time || localData?.cook_time || null,
+        total_time: globalRecipe?.total_time || localData?.total_time || null,
         servings: globalRecipe?.servings || localData?.servings || null,
         nutrition: globalRecipe?.nutrition || localData?.nutrition || null,
         tags: row.tags || [],                       // user's own tags (editable)
@@ -349,6 +350,7 @@ export const loadRecipesFromDatabaseLegacy = async (userId) => {
         nutrition: row.nutrition || null,
         prep_time: row.prep_time || null,
         cook_time: row.cook_time || null,
+        total_time: row.total_time || null,
         servings: row.servings || null,
         tags: row.tags || [],
         isPrivate: row.is_private || false,

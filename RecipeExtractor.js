@@ -644,6 +644,9 @@ export class RecipeExtractor {
 
     const cleaned = [];
     for (let instruction of instructions) {
+      // ld+json step text can carry HTML entities - thepioneerwoman.com
+      // ends steps with a literal "&nbsp;" ("...stir to combine.&nbsp;")
+      instruction = decode(instruction).replace(/[ \u00a0]+/g, ' ');
       instruction = instruction.replace(/^(Step\s+)?\d+[.:\s]+/i, '').trim();
       if (instruction && instruction.length > 10) {
         cleaned.push(instruction);
@@ -1214,6 +1217,8 @@ export class RecipeExtractor {
       .replace(/<script[^>]*>.*?<\/script>/gis, '')
       .replace(/<style[^>]*>.*?<\/style>/gis, '')
       .replace(/<[^>]+>/g, ' ')
+      // Entities too, or "&nbsp;" / "&amp;" reach the stored text
+      .replace(/&[a-z0-9#]+;/gi, (m) => decode(m))
       .replace(/\s+/g, ' ')
       .trim();
   }
