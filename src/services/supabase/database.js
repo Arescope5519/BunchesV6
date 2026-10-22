@@ -968,9 +968,10 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
 
     // The database allows one user report per recipe, ever. Ask first
     // so a duplicate doesn't spend up to 15s fetching the page for a
-    // report that will be refused. (Auto-filed failures skip this -
-    // they have their own slot, and the insert below refuses repeats.)
-    if (!issueNote && sourceUrl) {
+    // report that will be refused. (Auto-filed failures - issue_note
+    // prefixed 'auto:' - skip this: they have their own slot, and the
+    // insert below refuses repeats.)
+    if (!(issueNote && issueNote.startsWith('auto:')) && sourceUrl) {
       const existing = await getExtractionReportStatus(sourceUrl);
       if (existing) return { success: false, duplicate: true, status: existing };
     }

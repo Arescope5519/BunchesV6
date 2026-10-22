@@ -52,6 +52,16 @@ WHERE id IN ('...');
 -- or 'dismissed' for reports that aren't real problems
 ```
 
+## User reports carry what kind of problem
+
+Since Oct 2026 the in-app report flow asks what is wrong before
+sending, so `issue_note` on user reports reads `user: text`,
+`user: image`, or `user: text, image`. Use it to aim the fix:
+`image` means check the stored `image_url` (dead external host ->
+point at a mirrored copy, see the Tuscan Chicken Skillet fix) rather
+than hunting through ingredients. Reports older than that have
+`issue_note` null - assume text.
+
 ## Auto-filed failure reports
 
 Total extraction failures file themselves - `issue_note` starts with

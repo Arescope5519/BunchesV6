@@ -191,6 +191,35 @@ export const RecipeDetail = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipe?.id]);
 
+  // Report follow-up: what kind of problem (text and/or image) before
+  // the one-shot report is spent
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTextIssue, setReportTextIssue] = useState(false);
+  const [reportImageIssue, setReportImageIssue] = useState(false);
+  const [reportSending, setReportSending] = useState(false);
+
+  const submitExtractionReport = async () => {
+    if (reportSending) return;
+    const parts = [];
+    if (reportTextIssue) parts.push('text');
+    if (reportImageIssue) parts.push('image');
+    if (parts.length === 0) return;
+    setReportSending(true);
+    const res = await reportExtractionIssue(userId, localRecipe, `user: ${parts.join(', ')}`);
+    setReportSending(false);
+    setShowReportModal(false);
+    if (res.duplicate) {
+      setReportStatus(res.status || 'open');
+    } else if (res.success) {
+      setReportStatus('open');
+      Alert.alert('Thanks!', 'The problem was reported. The recipe will be reviewed for accuracy.');
+    } else if (res.rateLimited) {
+      Alert.alert('Too Many Reports', 'You have sent a lot of reports today. Please try again tomorrow.');
+    } else {
+      Alert.alert('Error', 'Could not send the report. Please try again.');
+    }
+  };
+
   // Scaling and conversion state
   const [scaleFactor, setScaleFactor] = useState(1);
   const [useMetric, setUseMetric] = useState(false);
@@ -1690,29 +1719,9 @@ export const RecipeDetail = ({
             <TouchableOpacity
               style={styles.reportExtractionBox}
               onPress={() => {
-                Alert.alert(
-                  'Report a Problem?',
-                  'If this recipe imported with something wrong - weird formatting, repeated or missing ingredients, odd text - send a snapshot to the developers so the importer can be improved.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Report',
-                      onPress: async () => {
-                        const res = await reportExtractionIssue(userId, localRecipe);
-                        if (res.duplicate) {
-                          setReportStatus(res.status || 'open');
-                        } else if (res.success) {
-                          setReportStatus('open');
-                          Alert.alert('Thanks!', 'The problem was reported. The recipe will be reviewed for accuracy.');
-                        } else if (res.rateLimited) {
-                          Alert.alert('Too Many Reports', 'You have sent a lot of reports today. Please try again tomorrow.');
-                        } else {
-                          Alert.alert('Error', 'Could not send the report. Please try again.');
-                        }
-                      },
-                    },
-                  ]
-                );
+                setReportTextIssue(false);
+                setReportImageIssue(false);
+                setShowReportModal(true);
               }}
             >
               <Ionicons name="flag-outline" size={15} color={colors.accentDark} />
@@ -1721,6 +1730,76 @@ export const RecipeDetail = ({
           )}
         </View>
       )}
+
+      {/* Report follow-up: pick what is wrong before the one-shot
+          report is spent */}
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModalCard}>
+            <Text style={styles.reportModalTitle}>Report a Problem</Text>
+            <Text style={styles.reportModalHint}>
+              What looks wrong? A snapshot goes to the developers so the importer can be improved.
+            </Text>
+            <TouchableOpacity
+              style={styles.reportCheckRow}
+              onPress={() => setReportTextIssue(v => !v)}
+            >
+              <Ionicons
+                name={reportTextIssue ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={reportTextIssue ? colors.primary : colors.textSecondary}
+              />
+              <View style={styles.reportCheckInfo}>
+                <Text style={styles.reportCheckLabel}>The text</Text>
+                <Text style={styles.reportCheckDesc}>
+                  Weird formatting, repeated or missing ingredients, odd wording
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.reportCheckRow}
+              onPress={() => setReportImageIssue(v => !v)}
+            >
+              <Ionicons
+                name={reportImageIssue ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={reportImageIssue ? colors.primary : colors.textSecondary}
+              />
+              <View style={styles.reportCheckInfo}>
+                <Text style={styles.reportCheckLabel}>The image</Text>
+                <Text style={styles.reportCheckDesc}>
+                  Missing, broken, or the wrong picture
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.reportModalButtons}>
+              <TouchableOpacity
+                style={styles.reportModalCancel}
+                onPress={() => setShowReportModal(false)}
+              >
+                <Text style={styles.reportModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.reportModalSend,
+                  (!(reportTextIssue || reportImageIssue) || reportSending) && styles.reportModalSendDisabled,
+                ]}
+                disabled={!(reportTextIssue || reportImageIssue) || reportSending}
+                onPress={submitExtractionReport}
+              >
+                <Text style={styles.reportModalSendText}>
+                  {reportSending ? 'Sending...' : 'Report'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Tag Editor Modal */}
       <Modal
@@ -2652,6 +2731,77 @@ const styles = StyleSheet.create({
   reportExtractionEmail: {
     fontWeight: '700',
     textDecorationLine: 'underline',
+  },
+  reportModalCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  reportModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  reportModalHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  reportCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  reportCheckInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  reportCheckLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  reportCheckDesc: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+    marginTop: 1,
+  },
+  reportModalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  reportModalCancel: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.lightGray,
+  },
+  reportModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  reportModalSend: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  reportModalSendDisabled: {
+    opacity: 0.4,
+  },
+  reportModalSendText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.onPrimary,
   },
   ownWorkContainer: {
     marginTop: 15,
