@@ -113,6 +113,20 @@ const normalizeRecipe = (recipe) => {
   return normalized;
 };
 
+// The user-editable nutrition fields (per serving). Units are appended
+// on save so recipeFormat and nutritionMath parse them like source data;
+// alts are legacy key spellings that must be cleared when the canonical
+// key is written, or they would resurface in the panel.
+const NUTRITION_EDIT_FIELDS = [
+  { key: 'calories', label: 'Calories', unit: '' },
+  { key: 'proteinContent', label: 'Protein', unit: 'g', alts: ['protein'] },
+  { key: 'carbohydrateContent', label: 'Carbs', unit: 'g', alts: ['carbs', 'carbohydrates'] },
+  { key: 'fatContent', label: 'Fat', unit: 'g', alts: ['fat'] },
+  { key: 'sugarContent', label: 'Sugar', unit: 'g', alts: ['sugar'] },
+  { key: 'fiberContent', label: 'Fiber', unit: 'g', alts: ['fiber'] },
+  { key: 'sodiumContent', label: 'Sodium', unit: 'mg', alts: ['sodium'] },
+];
+
 export const RecipeDetail = ({
   recipe,
   onUpdate,
@@ -135,6 +149,60 @@ export const RecipeDetail = ({
   const isReadOnly = !!recipe?.isReadOnly;
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
+
+  // User-entered nutrition: scans and custom recipes only. Imported web
+  // recipes stay pass-through-only (the store-compliance line: we quote
+  // nutrition, we never produce it - but the AUTHOR of a recipe may
+  // state their own). Values are per serving, same as source nutrition.
+  const nutritionSourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url || null;
+  const canEditNutrition =
+    !isReadOnly && !!onUpdate &&
+    (!nutritionSourceUrl || isInternalUrl(nutritionSourceUrl) ||
+      localRecipe.source === 'manual' || localRecipe.source === 'scan');
+  const [showNutritionEditor, setShowNutritionEditor] = useState(false);
+  const [nutritionDraft, setNutritionDraft] = useState({});
+
+  const openNutritionEditor = () => {
+    const existing = localRecipe.nutrition || {};
+    const draft = {};
+    NUTRITION_EDIT_FIELDS.forEach(f => {
+      const raw = existing[f.key] ?? (f.alts || []).map(a => existing[a]).find(v => v != null);
+      const num = raw != null ? String(raw).match(/[\d.]+/) : null;
+      draft[f.key] = num ? num[0] : '';
+    });
+    draft.servingSize = existing.servingSize ? String(existing.servingSize) : '';
+    setNutritionDraft(draft);
+    setShowNutritionEditor(true);
+  };
+
+  const saveNutritionEdits = () => {
+    const next = { ...(localRecipe.nutrition || {}) };
+    NUTRITION_EDIT_FIELDS.forEach(f => {
+      (f.alts || []).forEach(a => delete next[a]);
+      const v = (nutritionDraft[f.key] || '').trim();
+      const n = parseFloat(v);
+      if (!v || !Number.isFinite(n) || n < 0) {
+        delete next[f.key];
+      } else {
+        next[f.key] = f.unit ? `${n} ${f.unit}` : String(n);
+      }
+    });
+    const ss = (nutritionDraft.servingSize || '').trim();
+    if (ss) next.servingSize = ss;
+    else delete next.servingSize;
+
+    const hasValues = NUTRITION_EDIT_FIELDS.some(f => next[f.key] != null);
+    const finalNutrition = hasValues ? next : null;
+    const updated = {
+      ...localRecipe,
+      nutrition: finalNutrition,
+      // Rides in local_edits so it persists on global-linked rows
+      customNutrition: finalNutrition,
+    };
+    setLocalRecipe(updated);
+    if (onUpdate) onUpdate(updated);
+    setShowNutritionEditor(false);
+  };
 
   // Get all custom tags from user's recipes (tags not in predefined list)
   const predefinedTagNames = getPredefinedTagNames().map(t => t.toLowerCase());
@@ -1445,7 +1513,16 @@ export const RecipeDetail = ({
       {(() => {
         if (!showNutrition) return null;
         const items = buildNutritionItems(localRecipe.nutrition, scaleFactor);
-        if (items.length === 0) return null;
+        if (items.length === 0) {
+          // Own work without nutrition: offer to enter it
+          if (!canEditNutrition) return null;
+          return (
+            <TouchableOpacity style={styles.addNutritionBtn} onPress={openNutritionEditor}>
+              <Ionicons name="stats-chart-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.addNutritionText}>Add Nutrition</Text>
+            </TouchableOpacity>
+          );
+        }
 
         const perServing = localRecipe.nutrition?.servingSize || null;
         // Source nutrition is per serving; scaling multiplies those
@@ -1461,6 +1538,11 @@ export const RecipeDetail = ({
               <View style={styles.nutritionTitleRow}>
                 <Ionicons name="stats-chart" size={15} color={colors.text} style={{ marginRight: 6 }} />
                 <Text style={styles.nutritionTitle}>Nutrition</Text>
+                {canEditNutrition && (
+                  <TouchableOpacity onPress={openNutritionEditor} style={styles.nutritionEditBtn}>
+                    <Ionicons name="pencil" size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
               <Text style={styles.nutritionSub}>{perLabel}</Text>
             </View>
@@ -1730,6 +1812,63 @@ export const RecipeDetail = ({
           )}
         </View>
       )}
+
+      {/* Nutrition editor - own scans/customs only, values per serving */}
+      <Modal
+        visible={showNutritionEditor}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNutritionEditor(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.nutritionModalCard}>
+            <Text style={styles.nutritionModalTitle}>Nutrition (per serving)</Text>
+            <Text style={styles.nutritionModalHint}>
+              Optional - fill in what you know. Leave a field empty to skip it. These values show on the recipe and count in your Kitchen Stats.
+            </Text>
+            <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
+              {NUTRITION_EDIT_FIELDS.map(f => (
+                <View key={f.key} style={styles.nutritionEditRow}>
+                  <Text style={styles.nutritionEditLabel}>
+                    {f.label}{f.unit ? ` (${f.unit})` : ''}
+                  </Text>
+                  <TextInput
+                    style={styles.nutritionEditInput}
+                    value={nutritionDraft[f.key] || ''}
+                    onChangeText={(t) => setNutritionDraft(d => ({ ...d, [f.key]: t.replace(/[^0-9.]/g, '') }))}
+                    keyboardType="decimal-pad"
+                    maxLength={7}
+                    placeholder="-"
+                    placeholderTextColor={colors.textLight}
+                  />
+                </View>
+              ))}
+              <View style={styles.nutritionEditRow}>
+                <Text style={styles.nutritionEditLabel}>One serving is</Text>
+                <TextInput
+                  style={[styles.nutritionEditInput, styles.nutritionEditInputWide]}
+                  value={nutritionDraft.servingSize || ''}
+                  onChangeText={(t) => setNutritionDraft(d => ({ ...d, servingSize: t }))}
+                  maxLength={40}
+                  placeholder="e.g. 1 slice"
+                  placeholderTextColor={colors.textLight}
+                />
+              </View>
+            </ScrollView>
+            <View style={styles.nutritionModalButtons}>
+              <TouchableOpacity
+                style={styles.nutritionModalCancel}
+                onPress={() => setShowNutritionEditor(false)}
+              >
+                <Text style={styles.nutritionModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.nutritionModalSave} onPress={saveNutritionEdits}>
+                <Text style={styles.nutritionModalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Report follow-up: pick what is wrong before the one-shot
           report is spent */}
@@ -2732,6 +2871,75 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
+  addNutritionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 15,
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    backgroundColor: colors.primaryLight,
+  },
+  addNutritionText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  nutritionEditBtn: { marginLeft: 8, padding: 3 },
+  nutritionModalCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  nutritionModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  nutritionModalHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  nutritionEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  nutritionEditLabel: { fontSize: 14, color: colors.text, fontWeight: '500' },
+  nutritionEditInput: {
+    width: 90,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    textAlign: 'center',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  nutritionEditInputWide: { width: 150, textAlign: 'left', paddingHorizontal: 10 },
+  nutritionModalButtons: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  nutritionModalCancel: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.lightGray,
+  },
+  nutritionModalCancelText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  nutritionModalSave: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  nutritionModalSaveText: { fontSize: 14, fontWeight: '600', color: colors.onPrimary },
   reportModalCard: {
     backgroundColor: colors.card,
     borderRadius: 12,

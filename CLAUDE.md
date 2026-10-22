@@ -210,6 +210,14 @@ calorie goal** on the Stats tab - an awareness marker with progress
 bar, stored in app settings as `dailyCalorieGoal`. Covered by the
 same pending declaration; no further filing needed.
 
+Also inside it (22 Oct 2026): **user-entered nutrition** on scans and
+custom recipes (RecipeDetail editor, stored as
+`local_edits.customNutrition`). Still pass-through - the recipe's
+AUTHOR states the values, the app never computes them - and web
+imports deliberately stay source-only (`canEditNutrition` gates on
+internal/no source URL). site/ privacy + terms describe it ("or that
+you entered yourself"). No further filing needed.
+
 Lines still NOT crossed - each needs its own decision + same-sitting
 declaration review before building:
 

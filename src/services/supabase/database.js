@@ -218,7 +218,11 @@ export const loadRecipesFromDatabase = async (userId) => {
         cook_time: globalRecipe?.cook_time || localData?.cook_time || null,
         total_time: globalRecipe?.total_time || localData?.total_time || null,
         servings: globalRecipe?.servings || localData?.servings || null,
-        nutrition: globalRecipe?.nutrition || localData?.nutrition || null,
+        // User-entered nutrition (scans/custom recipes) wins over the
+        // global layer - it lives in local_edits because global-linked
+        // rows have no local_recipe_data
+        nutrition: localEdits.customNutrition || globalRecipe?.nutrition || localData?.nutrition || null,
+        customNutrition: localEdits.customNutrition || null,
         tags: row.tags || [],                       // user's own tags (editable)
         globalTags: globalRecipe?.tags || [],       // shared auto-tags (read-only)
         source: localData?.source || null,          // 'manual' | 'scan' | null
@@ -1403,6 +1407,12 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null,
         // Preserve edit history for migration
         editHistory: recipe.editHistory || [],
       };
+    }
+
+    // User-entered nutrition rides in local_edits so it survives on
+    // global-linked rows (scans/customs), where local_recipe_data is null
+    if (recipe.customNutrition) {
+      localEdits = { ...(localEdits || {}), customNutrition: recipe.customNutrition };
     }
 
     const { error } = await supabase
