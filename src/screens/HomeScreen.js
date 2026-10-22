@@ -3964,7 +3964,7 @@ export const HomeScreen = ({ user }) => {
                 <View style={styles.folderSectionHeader}>
                   <Text style={styles.folderSectionTitle}>Shared Cookbooks</Text>
                   <TouchableOpacity onPress={() => setShowNewSharedInput(v => !v)}>
-                    <Text style={styles.addFolderHeaderButton}>{showNewSharedInput ? 'Cancel' : '+ New'}</Text>
+                    <Text style={styles.sharedNewButton}>{showNewSharedInput ? 'Cancel' : '+ New'}</Text>
                   </TouchableOpacity>
                 </View>
                 {showNewSharedInput && (
@@ -5461,6 +5461,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  // On the page background, not the green header - onPrimary would be
+  // white-on-white in light mode
+  sharedNewButton: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
   },
   sharedCreateRow: {
     flexDirection: 'row',
