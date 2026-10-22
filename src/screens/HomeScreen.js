@@ -3967,8 +3967,15 @@ export const HomeScreen = ({ user }) => {
               <View style={styles.folderSection}>
                 <View style={styles.folderSectionHeader}>
                   <Text style={styles.folderSectionTitle}>Shared Cookbooks</Text>
-                  <TouchableOpacity onPress={() => setShowNewSharedInput(v => !v)}>
-                    <Text style={styles.sharedNewButton}>{showNewSharedInput ? 'Cancel' : '+ New'}</Text>
+                  <TouchableOpacity
+                    style={styles.sharedNewButton}
+                    onPress={() => setShowNewSharedInput(v => !v)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {!showNewSharedInput && (
+                      <Ionicons name="add" size={16} color={colors.onPrimary} style={{ marginRight: 2 }} />
+                    )}
+                    <Text style={styles.sharedNewButtonText}>{showNewSharedInput ? 'Cancel' : 'New'}</Text>
                   </TouchableOpacity>
                 </View>
                 {showNewSharedInput && (
@@ -5466,11 +5473,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  // On the page background, not the green header - onPrimary would be
-  // white-on-white in light mode
+  // A real pill, not bare text - the bare link was too small a target
   sharedNewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  sharedNewButtonText: {
     fontSize: 14,
-    color: colors.primary,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   sharedCreateRow: {
