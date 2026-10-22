@@ -28,6 +28,8 @@ export const SocialModal = ({
   friends,
   friendRequests,
   sharedItems,
+  sharedFolderInvites = [],
+  onRespondSharedInvite,
   onSearchUsers,
   onSendFriendRequest,
   onAcceptFriendRequest,
@@ -387,7 +389,8 @@ export const SocialModal = ({
       return renderThreadDetail();
     }
 
-    const nothingAtAll = friendRequests.length === 0 && threadedInbox.length === 0;
+    const nothingAtAll = friendRequests.length === 0 && threadedInbox.length === 0 &&
+      sharedFolderInvites.length === 0;
 
     return (
       <ScrollView style={styles.tabContent}>
@@ -395,7 +398,7 @@ export const SocialModal = ({
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No notifications</Text>
             <Text style={styles.emptyStateSubtext}>
-              Friend requests and recipes shared with you will appear here
+              Friend requests, shared cookbook invites, and recipes shared with you will appear here
             </Text>
           </View>
         ) : (
@@ -418,6 +421,38 @@ export const SocialModal = ({
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => onDeclineFriendRequest(request.id)}
+                        style={styles.declineButton}
+                      >
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {sharedFolderInvites.length > 0 && (
+              <>
+                <Text style={styles.notifSectionTitle}>Shared Cookbook Invites</Text>
+                {sharedFolderInvites.map(inv => (
+                  <View key={inv.folderId} style={styles.listItem}>
+                    <View style={styles.sharedInviteIcon}>
+                      <Ionicons name="people" size={18} color={colors.primary} />
+                    </View>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.usernameText}>{inv.name}</Text>
+                      <Text style={styles.sharedInviteSub}>
+                        invited by @{inv.invitedByUsername || 'a friend'}
+                      </Text>
+                    </View>
+                    <View style={styles.requestActions}>
+                      <TouchableOpacity
+                        onPress={() => onRespondSharedInvite?.(inv, true)}
+                        style={styles.acceptButton}
+                      >
+                        <Text style={styles.acceptButtonText}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => onRespondSharedInvite?.(inv, false)}
                         style={styles.declineButton}
                       >
                         <Text style={styles.declineButtonText}>Decline</Text>
@@ -873,7 +908,7 @@ export const SocialModal = ({
         <View style={styles.tabs}>
           {[
             { key: 'discover', label: 'Feed', icon: 'compass' },
-            { key: 'notifications', label: 'Notifications', icon: 'notifications', count: friendRequests.length + sharedItems.length },
+            { key: 'notifications', label: 'Notifications', icon: 'notifications', count: friendRequests.length + sharedItems.length + sharedFolderInvites.length },
             { key: 'account', label: 'Account', icon: 'person-circle' },
           ].map(tab => {
             const active = activeTab === tab.key;
@@ -1519,6 +1554,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 16,
     marginBottom: 8,
+  },
+  sharedInviteIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  sharedInviteSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   threadItem: {
     flexDirection: 'row',

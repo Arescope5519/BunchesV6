@@ -580,14 +580,22 @@ export const getNotificationCounts = async (userId) => {
       .eq('to_user_id', userId)
       .eq('status', 'pending');
 
+    // Pending shared-cookbook invites count toward the badge too
+    const { count: sharedFolderInvites } = await supabase
+      .from('shared_folder_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'invited');
+
     return {
       friendRequests: friendRequests || 0,
       sharedItems: sharedItems || 0,
-      total: (friendRequests || 0) + (sharedItems || 0),
+      sharedFolderInvites: sharedFolderInvites || 0,
+      total: (friendRequests || 0) + (sharedItems || 0) + (sharedFolderInvites || 0),
     };
   } catch (error) {
     console.error('Error getting notification counts:', error);
-    return { friendRequests: 0, sharedItems: 0, total: 0 };
+    return { friendRequests: 0, sharedItems: 0, sharedFolderInvites: 0, total: 0 };
   }
 };
 

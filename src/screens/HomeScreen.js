@@ -2447,9 +2447,11 @@ export const HomeScreen = ({ user }) => {
   };
 
   useEffect(() => {
-    if (showFolderManager && user?.uid) refreshSharedFolders();
+    // Invites surface in two places: the Cookbooks page and the social
+    // Notifications tab - refresh on either opening
+    if ((showFolderManager || currentScreen === 'social') && user?.uid) refreshSharedFolders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFolderManager, user?.uid]);
+  }, [showFolderManager, currentScreen, user?.uid]);
 
   const handleCreateSharedFolder = async () => {
     const name = newSharedName.trim();
@@ -3440,6 +3442,8 @@ export const HomeScreen = ({ user }) => {
           friends={friends}
           friendRequests={friendRequests}
           sharedItems={sharedItems}
+          sharedFolderInvites={sharedInvites}
+          onRespondSharedInvite={handleSharedInvite}
           onSearchUsers={searchUsers}
           onSendFriendRequest={sendFriendRequest}
           onAcceptFriendRequest={acceptFriendRequest}
