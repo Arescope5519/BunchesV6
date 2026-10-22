@@ -17,7 +17,11 @@
 const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',
-  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+  // No image/avif: CDNs that negotiate formats (hips.hearstapps.com
+  // for thepioneerwoman.com) then send AVIF, which React Native's
+  // Android image pipeline (Fresco) cannot decode - the photo renders
+  // blank. WebP and JPEG display everywhere.
+  Accept: 'image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8',
 };
 
 export const imgSource = (uri) => {

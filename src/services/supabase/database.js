@@ -1032,7 +1032,11 @@ export const getGlobalRecipeById = async (globalRecipeId) => {
 const MIRROR_FETCH_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36',
-  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+  // No image/avif: CDNs that negotiate formats (hips.hearstapps.com
+  // for thepioneerwoman.com) then send AVIF, which React Native's
+  // Android image pipeline (Fresco) cannot decode - the photo renders
+  // blank. WebP and JPEG display everywhere.
+  Accept: 'image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8',
 };
 
 const MIRROR_EXT_BY_TYPE = {
@@ -1040,7 +1044,6 @@ const MIRROR_EXT_BY_TYPE = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
-  'image/avif': 'avif',
 };
 
 const MIRROR_MAX_BYTES = 10 * 1024 * 1024;
@@ -1086,6 +1089,13 @@ const uploadMirrorBase64 = async (base64, rawContentType) => {
     String(rawContentType || '').split(';')[0].trim().toLowerCase() || 'image/jpeg';
   if (!contentType.startsWith('image/')) {
     dbg('MIRROR', 'not an image:', contentType);
+    return null;
+  }
+  // A CDN can ignore our Accept header. Never store a format Android
+  // cannot show - returning null moves the mirror chain on to its next
+  // method instead of saving a photo that renders blank.
+  if (contentType === 'image/avif' || contentType === 'image/heic' || contentType === 'image/heif') {
+    dbg('MIRROR', 'refusing undisplayable format:', contentType);
     return null;
   }
 
@@ -1204,7 +1214,8 @@ export const mirrorImageToStorage = async (imageUrl) => {
     // 3. Device download through a public image proxy (long shot:
     // Food Network geo-blocks wsrv's EU servers with 451, but other
     // CDNs may let it through).
-    const proxied = `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}`;
+    // output=jpg so the proxy transcodes whatever the CDN hands it
+    const proxied = `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}&output=jpg`;
     const proxyUrl = await mirrorImageFromDevice(proxied, 'proxy');
     if (proxyUrl) {
       dbg('MIRROR', 'SUCCESS via wsrv proxy:', proxyUrl);

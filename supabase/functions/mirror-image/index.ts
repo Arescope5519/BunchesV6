@@ -36,7 +36,11 @@ const FETCH_TIMEOUT_MS = 15000;
 const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-  Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+  // No image/avif: CDNs that negotiate formats (hips.hearstapps.com
+  // for thepioneerwoman.com) then send AVIF, which React Native's
+  // Android image pipeline (Fresco) cannot decode - the photo renders
+  // blank. WebP and JPEG display everywhere.
+  Accept: 'image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8',
 };
 
 const EXT_BY_TYPE: Record<string, string> = {
@@ -44,7 +48,6 @@ const EXT_BY_TYPE: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
-  'image/avif': 'avif',
 };
 
 Deno.serve(async (req: Request) => {
@@ -93,6 +96,10 @@ Deno.serve(async (req: Request) => {
     const contentType = (res.headers.get('content-type') || '').split(';')[0].trim();
     if (!contentType.startsWith('image/')) {
       return json({ success: false, error: 'not_an_image' }, 200);
+    }
+    // Android's image pipeline cannot decode AVIF/HEIC - see BROWSER_HEADERS
+    if (['image/avif', 'image/heic', 'image/heif'].includes(contentType)) {
+      return json({ success: false, error: 'undisplayable_format' }, 200);
     }
 
     const buf = await res.arrayBuffer();

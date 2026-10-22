@@ -34,7 +34,12 @@ const INJECTED = `
 (function () {
   function send(o) { window.ReactNativeWebView.postMessage(JSON.stringify(o)); }
   try {
-    fetch(location.href, { credentials: 'include' })
+    // Explicit Accept without AVIF - Chromium's default asks for AVIF
+    // first, and Android's image pipeline cannot display it
+    fetch(location.href, {
+      credentials: 'include',
+      headers: { Accept: 'image/webp,image/apng,image/jpeg,image/png,image/*;q=0.8' },
+    })
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.blob();
