@@ -28,10 +28,22 @@ import { dbg } from '../utils/debugLog';
 // connection left the scanning spinner running forever.
 const SCAN_TIMEOUT_MS = 90000;
 
+// Mirrors the Edge Function's per-image cap. Checking here fails fast
+// with a real message instead of a 90s upload stall and a timeout.
+const MAX_BASE64_LENGTH = 5_500_000;
+
 export const scanRecipeImages = async (base64Images) => {
   try {
     dbg('[SCAN]', 'start:', base64Images.length, 'image(s),',
       base64Images.map(i => Math.round(i.length / 1024) + 'KB').join(', '));
+    if (base64Images.some(i => i.length > MAX_BASE64_LENGTH)) {
+      dbg('[SCAN]', 'aborted: an image exceeds the upload cap');
+      return {
+        success: false,
+        error: 'image_too_large',
+        message: 'One of the photos is too large to upload. Retake it with the in-app camera and try again.',
+      };
+    }
     const started = Date.now();
     const raced = await Promise.race([
       supabase.functions.invoke('extract-recipe', {

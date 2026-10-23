@@ -2090,10 +2090,16 @@ export const HomeScreen = ({ user }) => {
   const prepareScanImage = async (asset) => {
     try {
       const landscape = (asset.width || 0) >= (asset.height || 0);
-      const needsResize = Math.max(asset.width || 0, asset.height || 0) > 1600;
+      // Resize when the photo is big OR when its dimensions are unknown
+      // (some picker paths omit them) - skipping the resize for an
+      // unknown-size photo meant uploading the full-resolution original,
+      // which stalls for 90s and dies as "the scan is taking too long"
+      const dimsKnown = (asset.width || 0) > 0 && (asset.height || 0) > 0;
+      const needsResize = !dimsKnown || Math.max(asset.width || 0, asset.height || 0) > 1600;
       const actions = needsResize
         ? [landscape ? { resize: { width: 1536 } } : { resize: { height: 1536 } }]
         : [];
+      dbg('[SCAN]', 'prep:', asset.width || '?', 'x', asset.height || '?', needsResize ? '-> resize' : '-> as-is');
       const out = await ImageManipulator.manipulateAsync(asset.uri, actions, {
         compress: 0.6,
         format: ImageManipulator.SaveFormat.JPEG,
