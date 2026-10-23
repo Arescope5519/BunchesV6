@@ -226,12 +226,12 @@ export const getSharedFolderDetail = async (folderId) => {
   }
 };
 
-export const inviteToSharedFolder = async (folderId, inviterId, inviteeId) => {
+export const inviteToSharedFolder = async (folderId, inviterId, inviteeId, role = 'editor') => {
   try {
     const { error } = await supabase.from('shared_folder_members').insert({
       folder_id: folderId,
       user_id: inviteeId,
-      role: 'editor',
+      role,
       status: 'invited',
       invited_by: inviterId,
     });
@@ -244,6 +244,29 @@ export const inviteToSharedFolder = async (folderId, inviterId, inviteeId) => {
   } catch (err) {
     console.error('❌ inviteToSharedFolder error:', err);
     return { success: false };
+  }
+};
+
+/**
+ * Owner-only: change a member's access level. Enforced server-side by
+ * the set_shared_folder_member_role RPC (sql/shared_folder_roles.sql).
+ * @param {'manager'|'editor'|'viewer'} role
+ */
+export const setSharedFolderMemberRole = async (folderId, userId, role) => {
+  try {
+    const { data, error } = await supabase.rpc('set_shared_folder_member_role', {
+      p_folder: folderId,
+      p_user: userId,
+      p_role: role,
+    });
+    if (error) {
+      console.error('❌ setSharedFolderMemberRole error:', error);
+      return false;
+    }
+    return data === true;
+  } catch (err) {
+    console.error('❌ setSharedFolderMemberRole error:', err);
+    return false;
   }
 };
 

@@ -29,11 +29,21 @@ import {
   getSharedFolderDetail,
   inviteToSharedFolder,
   removeSharedFolderMember,
+  setSharedFolderMemberRole,
   addRecipeToSharedFolder,
   addRecipesToSharedFolder,
   removeRecipeFromSharedFolder,
   deleteSharedFolder,
 } from '../services/supabase/sharedFolders';
+
+// What each access level means in people-words (sql/shared_folder_roles.sql)
+const ROLE_LABELS = {
+  owner: 'Owner',
+  manager: 'Can add & remove',
+  editor: 'Can add',
+  viewer: 'View only',
+};
+const ROLE_OPTIONS = ['viewer', 'editor', 'manager'];
 
 const SharedFolderView = ({
   visible,
@@ -71,6 +81,14 @@ const SharedFolderView = ({
 
   const folderRecipes = detail?.recipes || [];
   const members = detail?.members || [];
+  // My access level: live from the loaded roster, falling back to what
+  // the cookbook list knew
+  const myRole =
+    members.find(m => m.userId === userId)?.role ||
+    folder?.role ||
+    (folder?.isOwner ? 'owner' : 'editor');
+  const canAdd = ['owner', 'manager', 'editor'].includes(myRole);
+  const canRemoveAny = ['owner', 'manager'].includes(myRole);
   const inFolderIds = useMemo(
     () => new Set(folderRecipes.map(r => r.globalRecipeId)),
     [folderRecipes]
@@ -142,7 +160,7 @@ const SharedFolderView = ({
   };
 
   const handleRecipeLongPress = (recipe) => {
-    const canRemove = folder?.isOwner || recipe.addedBy === userId;
+    const canRemove = canRemoveAny || (canAdd && recipe.addedBy === userId);
     const buttons = [
       { text: 'Save to My Cookbook', onPress: () => onSaveCopy?.(recipe) },
     ];
@@ -176,6 +194,26 @@ const SharedFolderView = ({
     } else {
       Alert.alert('Error', 'Could not send the invite.');
     }
+  };
+
+  const handleChangeRole = (member) => {
+    if (!folder?.isOwner || member.role === 'owner' || member.userId === userId) return;
+    Alert.alert(
+      `Access for @${member.username || 'member'}`,
+      'What can they do in this cookbook?',
+      [
+        ...ROLE_OPTIONS.map(r => ({
+          text: ROLE_LABELS[r] + (member.role === r ? ' (current)' : ''),
+          onPress: async () => {
+            if (r === member.role) return;
+            const ok = await setSharedFolderMemberRole(folder.id, member.userId, r);
+            if (ok) await load();
+            else Alert.alert('Error', 'Could not change their access.');
+          },
+        })),
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handleRemoveMember = (member) => {
@@ -304,19 +342,22 @@ const SharedFolderView = ({
               </View>
             )}
             <Text style={styles.holdHint}>
-              Tap a recipe to view it. Hold one to save a copy{folder.isOwner ? ' or remove it' : ' or remove your own additions'}.
+              Tap a recipe to view it. Hold one to save a copy
+              {canRemoveAny ? ' or remove it' : canAdd ? ' or remove your own additions' : ''}.
             </Text>
           </ScrollView>
         )}
 
-        {/* Add recipes */}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => { setPickerSearch(''); setShowPicker(true); }}
-        >
-          <Ionicons name="add" size={20} color={colors.onPrimary} />
-          <Text style={styles.addButtonText}>Add Recipes</Text>
-        </TouchableOpacity>
+        {/* Add recipes - not for view-only members */}
+        {canAdd && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => { setPickerSearch(''); setShowPicker(true); }}
+          >
+            <Ionicons name="add" size={20} color={colors.onPrimary} />
+            <Text style={styles.addButtonText}>Add Recipes</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Recipe picker */}
         <Modal visible={showPicker} animationType="slide" onRequestClose={() => setShowPicker(false)}>
@@ -417,29 +458,46 @@ const SharedFolderView = ({
               <View style={styles.headerSide} />
             </View>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-              {[...activeMembers, ...invitedMembers].map(m => (
-                <View key={m.userId} style={styles.memberRow}>
-                  <Ionicons
-                    name={m.role === 'owner' ? 'key' : 'person'}
-                    size={18}
-                    color={colors.primary}
-                    style={{ marginRight: 10 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.memberName}>
-                      @{m.username || 'unknown'}{m.userId === userId ? ' (you)' : ''}
-                    </Text>
-                    <Text style={styles.memberRole}>
-                      {m.role === 'owner' ? 'Owner' : m.status === 'invited' ? 'Invited - not accepted yet' : 'Member'}
-                    </Text>
-                  </View>
-                  {folder.isOwner && m.userId !== userId && (
-                    <TouchableOpacity onPress={() => handleRemoveMember(m)}>
-                      <Ionicons name="remove-circle-outline" size={22} color={colors.error} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+              {folder.isOwner && (
+                <Text style={styles.roleHint}>
+                  Tap a member to change what they can do.
+                </Text>
+              )}
+              {[...activeMembers, ...invitedMembers].map(m => {
+                const roleEditable = folder.isOwner && m.role !== 'owner' && m.userId !== userId;
+                return (
+                  <TouchableOpacity
+                    key={m.userId}
+                    style={styles.memberRow}
+                    disabled={!roleEditable}
+                    onPress={() => handleChangeRole(m)}
+                  >
+                    <Ionicons
+                      name={m.role === 'owner' ? 'key' : m.role === 'viewer' ? 'eye' : 'person'}
+                      size={18}
+                      color={colors.primary}
+                      style={{ marginRight: 10 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.memberName}>
+                        @{m.username || 'unknown'}{m.userId === userId ? ' (you)' : ''}
+                      </Text>
+                      <Text style={styles.memberRole}>
+                        {ROLE_LABELS[m.role] || 'Member'}
+                        {m.status === 'invited' ? ' · invited, not accepted yet' : ''}
+                      </Text>
+                    </View>
+                    {roleEditable && (
+                      <Ionicons name="chevron-expand" size={16} color={colors.textLight} style={{ marginRight: 8 }} />
+                    )}
+                    {folder.isOwner && m.userId !== userId && (
+                      <TouchableOpacity onPress={() => handleRemoveMember(m)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="remove-circle-outline" size={22} color={colors.error} />
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
 
               {folder.isOwner && (
                 <>
@@ -628,6 +686,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerAddText: { color: colors.onPrimary, fontSize: 13, fontWeight: '700' },
+  roleHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginBottom: 4,
+  },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',

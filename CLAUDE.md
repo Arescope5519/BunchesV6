@@ -344,8 +344,12 @@ dual-written.
 several accounts add recipes to - a separate world from the local
 folders in `user_settings`. Three tables (`shared_folders`,
 `shared_folder_members`, `shared_folder_recipes`) with RLS as the
-access control: the owner invites/removes members and any recipe;
-every member adds recipes and removes their own additions. Content is
+access control. Per-member roles (`sql/shared_folder_roles.sql`):
+owner (everything), manager (add + remove any recipe), editor (add +
+remove own additions - the invite default), viewer (look and save
+copies only). The owner changes roles via the
+`set_shared_folder_member_role` RPC; a trigger stops members changing
+their own role while accepting an invite. Content is
 references to `global_recipes` only, so members see the shared layer -
 personal notes/edits in `user_recipes_v2` are never exposed. UI:
 `src/components/SharedFolderView.js` + the Shared Cookbooks section of
