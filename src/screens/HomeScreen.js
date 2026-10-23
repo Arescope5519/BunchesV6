@@ -36,7 +36,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useRecipes } from '../hooks/useRecipes';
 import { useFolders, MY_CREATIONS_FOLDER, SCANNED_FOLDER, SYSTEM_FOLDERS } from '../hooks/useFolders';
 import { loadCookSession, clearCookSession } from '../utils/cookSession';
-import { mirrorImageToStorage } from '../services/supabase/database';
+import { mirrorImageToStorage, healGlobalRecipeImage } from '../services/supabase/database';
 import { applyTextSize } from '../utils/textScale';
 import { setFridgeExpireDays, DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 import { dbg } from '../utils/debugLog';
@@ -890,6 +890,13 @@ export const HomeScreen = ({ user }) => {
               ...(r.imageUrl ? { imageUrl: mirrored } : {}),
             });
             dbg('HEAL', 'healed:', r.title);
+            // Promote the fix to the shared global record so shared
+            // cookbooks / profiles / feed stop showing the dead URL too
+            if (r.globalRecipeId) {
+              healGlobalRecipeImage(r.globalRecipeId, mirrored).then(ok => {
+                if (ok) dbg('HEAL', 'global healed too:', r.title);
+              }).catch(() => {});
+            }
           } else {
             dbg('HEAL', 'could not mirror:', r.title);
           }

@@ -1235,6 +1235,29 @@ const mirrorImageFromDevice = async (downloadUrl, label = 'direct') => {
  * Best-effort: any failure returns the original URL unchanged.
  * Local file:// and data: URIs pass through.
  */
+/**
+ * Promote a freshly mirrored image to the shared global record, so one
+ * phone's heal fixes the photo for shared cookbooks, profiles and the
+ * feed too. Server-guarded (sql/heal_global_recipe_image.sql): storage
+ * URLs only, never overwrites an already-mirrored image, holder only.
+ */
+export const healGlobalRecipeImage = async (globalRecipeId, mirroredUrl) => {
+  try {
+    const { data, error } = await supabase.rpc('heal_global_recipe_image', {
+      p_global_id: globalRecipeId,
+      p_image_url: mirroredUrl,
+    });
+    if (error) {
+      log('🩹 Global image heal refused:', error.message);
+      return false;
+    }
+    return data === true;
+  } catch (err) {
+    console.error('❌ healGlobalRecipeImage error:', err);
+    return false;
+  }
+};
+
 export const mirrorImageToStorage = async (imageUrl) => {
   try {
     if (!imageUrl || typeof imageUrl !== 'string') return imageUrl;
