@@ -62,6 +62,15 @@ point at a mirrored copy, see the Tuscan Chicken Skillet fix) rather
 than hunting through ingredients. Reports older than that have
 `issue_note` null - assume text.
 
+For image reports, `recipe_snapshot.image_url` is the image the
+REPORTER'S app was displaying (23 Oct 2026 builds onward; reports
+filed by older builds lack it - look the stored image up by
+source_url across global_recipes / user_recipes_v2 / legacy recipes
+instead). Compare it against the ld+json's `image` and check
+reachability; remember the Akamai rule - a URL this session cannot
+fetch may still load on-device, so judge by host reputation (sndimg
+etc.) and the mirror options, not only by a 403 here.
+
 ## Auto-filed failure reports
 
 Total extraction failures file themselves - `issue_note` starts with

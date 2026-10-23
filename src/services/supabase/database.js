@@ -993,6 +993,9 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
         title: recipe.title || null,
         servings: recipe.servings || null,
         total_time: recipe.total_time || recipe.totalTime || null,
+        // What the reporter's app is actually displaying - without it an
+        // image report says "wrong image" but not WHICH image
+        image_url: recipe.image_url || recipe.imageUrl || null,
         ingredients: recipe.ingredients || null,
         instructions: recipe.instructions || null,
         nutrition: recipe.nutrition || null,
