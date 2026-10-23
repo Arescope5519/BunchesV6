@@ -58,7 +58,7 @@
       },
       "usesAppleSignIn": true,
       "appleTeamId": "7GR63UZM2Y",
-      "buildNumber": "6"
+      "buildNumber": "7"
     },
     "android": {
       "package": "app.melibri",
@@ -66,7 +66,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2D6A4F"
       },
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/favicon.png"
