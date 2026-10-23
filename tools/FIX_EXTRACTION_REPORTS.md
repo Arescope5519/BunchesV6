@@ -71,6 +71,22 @@ reachability; remember the Akamai rule - a URL this session cannot
 fetch may still load on-device, so judge by host reputation (sndimg
 etc.) and the mirror options, not only by a 403 here.
 
+Image reports also carry a **fresh copy** (builds after 23 Oct 2026):
+at report time the reporter's phone reads the photo the source page
+names in its ld+json (`recipe_snapshot.source_image_url`), downloads it
+through the current mirror chain, and uploads it to `recipe-images`
+(`recipe_snapshot.fresh_image_url`). When that is set and the picture
+is right, the record fix is just:
+
+```sql
+UPDATE global_recipes SET image_url = '<fresh_image_url>', updated_at = now()
+WHERE id = '<global_recipe_id>';
+-- and the same on legacy `recipes` rows WHERE image_url = '<old url>'
+```
+
+`fresh_image_url` null means every mirror method failed on the
+reporter's device - fall back to the manual route above.
+
 ## Auto-filed failure reports
 
 Total extraction failures file themselves - `issue_note` starts with

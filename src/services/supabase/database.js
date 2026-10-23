@@ -13,6 +13,7 @@ import { dbg } from '../../utils/debugLog';
 import { getWebViewImageFetcher } from '../../utils/webviewImageFetcher';
 import { buildInternalRecipeUrl, isInternalUrl } from '../../constants/app';
 import { APP_NAME } from '../../constants/app';
+import { RecipeExtractor } from '../../../RecipeExtractor';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
 
 /**
@@ -957,11 +958,51 @@ const fetchRawLdJson = async (sourceUrl) => {
       dbg('REPORT', 'no ld+json blocks on page');
       return null;
     }
-    // Cap so a pathological page can't bloat the report row
+    // Cap so a pathological page can't bloat the report row. The
+    // uncapped blocks ride along for refetchReportImage - the capped
+    // string can end mid-block and stop parsing.
     const joined = JSON.stringify(blocks);
-    return joined.length > 150000 ? joined.slice(0, 150000) : joined;
+    return {
+      json: joined.length > 150000 ? joined.slice(0, 150000) : joined,
+      blocks,
+    };
   } catch (err) {
     dbg('REPORT', 'ld+json fetch error:', err?.message);
+    return null;
+  }
+};
+
+// For IMAGE reports: download the photo the source page names right
+// now, through the current mirror chain, so the report arrives with a
+// working copy already in our bucket. Fixing it is then one UPDATE
+// pointing image_url at fresh_image_url - no hand-converting and
+// uploading files (the AVIF Taco Soup photo needed exactly that).
+// Falls back to re-mirroring the image the app was showing, when it is
+// still an external URL. Returns { source, fresh } or null.
+const refetchReportImage = async (ldBlocks, displayedUrl) => {
+  try {
+    let source = null;
+    const extractor = new RecipeExtractor();
+    for (const block of ldBlocks || []) {
+      try {
+        const recipe = extractor.findRecipeInJSON(JSON.parse(block));
+        source = recipe ? extractor.extractImageURL(recipe.image) : null;
+        if (source) break;
+      } catch {
+        // one malformed block doesn't sink the rest
+      }
+    }
+    if (!source && displayedUrl && /^https?:\/\//i.test(displayedUrl) && !displayedUrl.includes('.supabase.co/')) {
+      source = displayedUrl;
+    }
+    if (!source) return null;
+
+    const mirrored = await mirrorImageToStorage(source);
+    const fresh = mirrored && mirrored.includes('.supabase.co/') ? mirrored : null;
+    dbg('REPORT', 'image refetch', fresh ? 'ok' : 'failed', 'from', source);
+    return { source, fresh };
+  } catch (err) {
+    dbg('REPORT', 'image refetch error:', err?.message);
     return null;
   }
 };
@@ -980,7 +1021,12 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
       if (existing) return { success: false, duplicate: true, status: existing };
     }
 
-    const rawLdJson = await fetchRawLdJson(sourceUrl);
+    const ld = await fetchRawLdJson(sourceUrl);
+    const rawLdJson = ld?.json || null;
+
+    const displayedImage = recipe.image_url || recipe.imageUrl || null;
+    const imageReport = !!issueNote && issueNote.startsWith('user:') && /\bimage\b/.test(issueNote);
+    const refetched = imageReport ? await refetchReportImage(ld?.blocks, displayedImage) : null;
 
     const { error } = await supabase.from('extraction_reports').insert({
       reporter_id: reporterId,
@@ -995,7 +1041,14 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
         total_time: recipe.total_time || recipe.totalTime || null,
         // What the reporter's app is actually displaying - without it an
         // image report says "wrong image" but not WHICH image
-        image_url: recipe.image_url || recipe.imageUrl || null,
+        image_url: displayedImage,
+        // Image reports only: the page's current photo URL, and a fresh
+        // copy of it already uploaded to our bucket (null if every
+        // mirror method failed)
+        ...(imageReport ? {
+          source_image_url: refetched?.source || null,
+          fresh_image_url: refetched?.fresh || null,
+        } : {}),
         ingredients: recipe.ingredients || null,
         instructions: recipe.instructions || null,
         nutrition: recipe.nutrition || null,
