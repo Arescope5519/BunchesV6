@@ -61,6 +61,7 @@ async function discoverFlashModels(apiKey: string): Promise<string[]> {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${apiKey}`,
+      { signal: AbortSignal.timeout(15_000) },
     );
     if (!res.ok) {
       console.error('ListModels failed:', res.status);
@@ -267,14 +268,22 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const callModel = (name: string) => fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: requestBody,
-      },
-    );
+    // Hard deadline on each Gemini call. Without it a hang at Google's
+    // end left the function silently stuck past the app's 90s timeout -
+    // the user saw "scan is taking too long" and the logs saw nothing.
+    const GEMINI_TIMEOUT_MS = 50_000;
+    const callModel = (name: string) => {
+      console.log('Calling Gemini:', name, '- payload', requestBody.length, 'bytes');
+      return fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${name}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+          signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+        },
+      );
+    };
 
     let geminiRes: Response | null = null;
     let model = candidateModels[0];
@@ -311,7 +320,20 @@ Deno.serve(async (req: Request) => {
     };
 
     for (const candidate of candidateModels) {
-      const res = await callModel(candidate);
+      let res: Response;
+      try {
+        res = await callModel(candidate);
+      } catch (fetchErr) {
+        // Abort (deadline) or network failure reaching Google - answer
+        // the app honestly instead of hanging past its timeout
+        console.error('Gemini fetch failed for', candidate, ':', String(fetchErr));
+        return json({
+          success: false,
+          error: 'ai_timeout',
+          message: 'The AI service did not answer in time. Please try again in a moment.',
+          detail: String(fetchErr).substring(0, 200),
+        }, 200);
+      }
       if (res.ok) {
         geminiRes = res;
         model = candidate;
@@ -328,7 +350,18 @@ Deno.serve(async (req: Request) => {
       console.log('Discovered candidates:', discovered.join(', ') || '(none)');
 
       for (const candidate of discovered.filter(m => !candidateModels.includes(m)).slice(0, 3)) {
-        const res = await callModel(candidate);
+        let res: Response;
+        try {
+          res = await callModel(candidate);
+        } catch (fetchErr) {
+          console.error('Gemini fetch failed for', candidate, ':', String(fetchErr));
+          return json({
+            success: false,
+            error: 'ai_timeout',
+            message: 'The AI service did not answer in time. Please try again in a moment.',
+            detail: String(fetchErr).substring(0, 200),
+          }, 200);
+        }
         if (res.ok) {
           geminiRes = res;
           model = candidate;
