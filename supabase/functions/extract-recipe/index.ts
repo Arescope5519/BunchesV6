@@ -246,6 +246,10 @@ Deno.serve(async (req: Request) => {
     // 2. if every name 404s, ask the API which models THIS key can use
     //    (ListModels) and try the best vision-capable flash model
     const configuredModel = Deno.env.get('GEMINI_MODEL');
+    // Free-tier capacity comes and goes PER MODEL - when the headline
+    // flash model answers 503 "high demand" (or just hangs), a sibling
+    // or the lite models usually still have room. The list is walked
+    // until one answers, inside an overall time budget.
     const staticCandidates = configuredModel
       ? [configuredModel]
       : [
@@ -253,6 +257,8 @@ Deno.serve(async (req: Request) => {
           'gemini-flash-latest',
           'gemini-3-flash',
           'gemini-2.5-flash',
+          'gemini-flash-lite-latest',
+          'gemini-2.5-flash-lite',
         ];
     const candidateModels = [...new Set(staticCandidates)];
 
@@ -271,7 +277,14 @@ Deno.serve(async (req: Request) => {
     // Hard deadline on each Gemini call. Without it a hang at Google's
     // end left the function silently stuck past the app's 90s timeout -
     // the user saw "scan is taking too long" and the logs saw nothing.
-    const GEMINI_TIMEOUT_MS = 50_000;
+    // Short enough that several candidates fit inside the app's budget.
+    const GEMINI_TIMEOUT_MS = 25_000;
+    // Stop STARTING new candidates once a started call could no longer
+    // finish before the app (90s) gives up
+    const geminiStartedAt = Date.now();
+    const outOfTime = () =>
+      Date.now() - geminiStartedAt > 60_000 - GEMINI_TIMEOUT_MS;
+
     const callModel = (name: string) => {
       console.log('Calling Gemini:', name, '- payload', requestBody.length, 'bytes');
       return fetch(
@@ -289,21 +302,16 @@ Deno.serve(async (req: Request) => {
     let model = candidateModels[0];
     let lastError = '';
 
-    // Returns 'retry' to try the next model, otherwise a terminal Response
+    // Returns 'retry' to try the next model, otherwise a terminal Response.
+    // Overload (503), rate limit (429) and retired names (404) all move
+    // on to the next candidate - capacity and quotas are per model.
+    // Only a rejected key/request (400/401/403) is terminal.
     const handleFailure = async (name: string, res: Response): Promise<'retry' | Response> => {
       const errText = await res.text();
       lastError = `${res.status}: ${errText.substring(0, 300)}`;
       console.error(`Gemini error for model ${name}:`, lastError);
 
-      if (res.status === 404) return 'retry';
-      if (res.status === 429) {
-        return json({
-          success: false,
-          error: 'ai_busy',
-          message: 'The AI service is briefly at capacity (free-tier limit). Wait a minute and try again.',
-        }, 200);
-      }
-      if (res.status === 400 || res.status === 403) {
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
         return json({
           success: false,
           error: 'ai_error',
@@ -311,74 +319,65 @@ Deno.serve(async (req: Request) => {
           detail: lastError,
         }, 200);
       }
+      return 'retry';
+    };
+
+    // Everything retryable failed - say whether it was capacity or weirder
+    const allModelsFailed = () => {
+      const busy = /503|429|UNAVAILABLE|high demand|overload|quota|exhaust/i.test(lastError);
       return json({
         success: false,
-        error: 'ai_error',
-        message: 'The AI service had a problem. Please try again.',
+        error: busy ? 'ai_busy' : 'ai_error',
+        message: busy
+          ? 'The AI service is at capacity right now (free tier gets no priority). Try again in a minute.'
+          : 'No available AI model accepted the request. You can pin one by setting the GEMINI_MODEL secret.',
         detail: lastError,
       }, 200);
     };
 
-    for (const candidate of candidateModels) {
-      let res: Response;
-      try {
-        res = await callModel(candidate);
-      } catch (fetchErr) {
-        // Abort (deadline) or network failure reaching Google - answer
-        // the app honestly instead of hanging past its timeout
-        console.error('Gemini fetch failed for', candidate, ':', String(fetchErr));
-        return json({
-          success: false,
-          error: 'ai_timeout',
-          message: 'The AI service did not answer in time. Please try again in a moment.',
-          detail: String(fetchErr).substring(0, 200),
-        }, 200);
-      }
-      if (res.ok) {
-        geminiRes = res;
-        model = candidate;
-        break;
-      }
-      const outcome = await handleFailure(candidate, res);
-      if (outcome !== 'retry') return outcome;
-    }
-
-    // Every known name 404'd - discover what this key can actually use
-    if (!geminiRes) {
-      console.log('All static model names 404d - discovering available models...');
-      const discovered = await discoverFlashModels(apiKey);
-      console.log('Discovered candidates:', discovered.join(', ') || '(none)');
-
-      for (const candidate of discovered.filter(m => !candidateModels.includes(m)).slice(0, 3)) {
+    const tryCandidates = async (names: string[]) => {
+      for (const candidate of names) {
+        if (outOfTime()) {
+          console.log('Out of time budget before trying', candidate);
+          break;
+        }
         let res: Response;
         try {
           res = await callModel(candidate);
         } catch (fetchErr) {
+          // Deadline hit or network failure - that model is hanging,
+          // the next one may answer instantly
+          lastError = `timeout/${String(fetchErr).substring(0, 120)}`;
           console.error('Gemini fetch failed for', candidate, ':', String(fetchErr));
-          return json({
-            success: false,
-            error: 'ai_timeout',
-            message: 'The AI service did not answer in time. Please try again in a moment.',
-            detail: String(fetchErr).substring(0, 200),
-          }, 200);
+          continue;
         }
         if (res.ok) {
           geminiRes = res;
           model = candidate;
-          break;
+          return null;
         }
         const outcome = await handleFailure(candidate, res);
         if (outcome !== 'retry') return outcome;
       }
+      return null;
+    };
+
+    const terminal = await tryCandidates(candidateModels);
+    if (terminal) return terminal;
+
+    // Every known name failed - discover what this key can actually use
+    if (!geminiRes && !outOfTime()) {
+      console.log('All static model names failed - discovering available models...');
+      const discovered = await discoverFlashModels(apiKey);
+      console.log('Discovered candidates:', discovered.join(', ') || '(none)');
+
+      const fresh = discovered.filter(m => !candidateModels.includes(m)).slice(0, 3);
+      const terminal2 = await tryCandidates(fresh);
+      if (terminal2) return terminal2;
     }
 
     if (!geminiRes) {
-      return json({
-        success: false,
-        error: 'ai_error',
-        message: 'No available AI model accepted the request. You can pin one by setting the GEMINI_MODEL secret.',
-        detail: lastError,
-      }, 200);
+      return allModelsFailed();
     }
 
     cachedWorkingModel = model;
