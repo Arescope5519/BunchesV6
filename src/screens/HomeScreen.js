@@ -2095,6 +2095,7 @@ export const HomeScreen = ({ user }) => {
       return out.base64 || null;
     } catch (e) {
       console.error('📷 Scan downscale failed, using original:', e);
+      dbg('[SCAN]', 'downscale failed:', e?.message, '- original base64', asset.base64 ? 'present' : 'MISSING');
       return asset.base64 || null;
     }
   };
@@ -2111,6 +2112,7 @@ export const HomeScreen = ({ user }) => {
         if (b64) base64Images.push(b64);
       }
       if (base64Images.length === 0) {
+        dbg('[SCAN]', 'no usable images after prep -', pages.length, 'page(s) captured');
         Alert.alert('Scan Failed', 'Could not read the captured photos. Please try again.');
         return;
       }

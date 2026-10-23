@@ -8,6 +8,7 @@
  */
 
 import { supabase } from './supabase/config';
+import { dbg } from '../utils/debugLog';
 
 /**
  * Scan 1-3 photos and get back every recipe found in them.
@@ -29,6 +30,9 @@ const SCAN_TIMEOUT_MS = 90000;
 
 export const scanRecipeImages = async (base64Images) => {
   try {
+    dbg('[SCAN]', 'start:', base64Images.length, 'image(s),',
+      base64Images.map(i => Math.round(i.length / 1024) + 'KB').join(', '));
+    const started = Date.now();
     const raced = await Promise.race([
       supabase.functions.invoke('extract-recipe', {
         body: { images: base64Images, mimeType: 'image/jpeg' },
@@ -39,6 +43,7 @@ export const scanRecipeImages = async (base64Images) => {
     ]);
 
     if (raced.__timeout) {
+      dbg('[SCAN]', 'TIMEOUT after', Math.round((Date.now() - started) / 1000) + 's');
       return {
         success: false,
         error: 'timeout',
@@ -58,9 +63,11 @@ export const scanRecipeImages = async (base64Images) => {
       } catch (_e) { /* ignore */ }
 
       if (body?.error) {
+        dbg('[SCAN]', 'server error:', body.error, '-', (body.detail || body.message || '').substring(0, 200));
         return { success: false, ...body };
       }
       console.error('📷 [SCAN] Edge Function error:', error);
+      dbg('[SCAN]', 'invoke failed (no body):', error?.name || '', (error?.message || String(error)).substring(0, 200));
       return {
         success: false,
         error: 'network',
@@ -69,8 +76,10 @@ export const scanRecipeImages = async (base64Images) => {
     }
 
     if (!data?.success) {
+      dbg('[SCAN]', 'no result:', data?.error, '-', (data?.detail || data?.message || '').substring(0, 200));
       return { success: false, ...data };
     }
+    dbg('[SCAN]', 'SUCCESS:', (data.recipes || []).length, 'recipe(s) in', Math.round((Date.now() - started) / 1000) + 's');
 
     // Convert Edge Function shape -> app recipe shape, per recipe
     const results = (data.recipes || []).map(raw => {
