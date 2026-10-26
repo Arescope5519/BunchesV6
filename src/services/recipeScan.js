@@ -1,54 +1,36 @@
 /**
  * FILENAME: src/services/recipeScan.js
- * PURPOSE: AI recipe scanning via the extract-recipe Edge Function.
+ * PURPOSE: AI recipe extraction via the extract-recipe Edge Function -
+ * photos (cookbook scans) and text (Instagram captions) share one
+ * pipeline and one server-side allowance.
  *
  * The Gemini API key lives in Supabase secrets - the app only sends
- * photos (base64) with the signed-in user's token. Rate limits are
+ * photos/text with the signed-in user's token. Rate limits are
  * enforced server-side; this service just surfaces the results.
  */
 
 import { supabase } from './supabase/config';
 import { dbg } from '../utils/debugLog';
 
-/**
- * Scan 1-3 photos and get back every recipe found in them.
- * Photos can be pages of one recipe (merged into one result) or contain
- * several distinct recipes (each returned separately).
- * @param {string[]} base64Images - JPEG base64 strings (no data: prefix)
- * @returns {Promise<{
- *   success: boolean,
- *   results?: Array<{ recipe: object, confidence: string, warnings: string[] }>,
- *   scansUsed?: number,
- *   scanLimit?: number,
- *   error?: string,         // limit_reached | no_recipe | ...
- *   message?: string,
- * }>}
- */
-// Generous ceiling: upload + Gemini on 3 pages. Without it, a stalled
-// connection left the scanning spinner running forever.
+// Generous ceiling: upload + Gemini walking its model list. Without it,
+// a stalled connection left the scanning spinner running forever.
 const SCAN_TIMEOUT_MS = 90000;
 
 // Mirrors the Edge Function's per-image cap. Checking here fails fast
 // with a real message instead of a 90s upload stall and a timeout.
 const MAX_BASE64_LENGTH = 5_500_000;
 
-export const scanRecipeImages = async (base64Images) => {
+/**
+ * Shared invoke + result shaping. `sourceTag` lands on each recipe's
+ * `source` field: 'scan' marks the user's own-work scans; null leaves
+ * the recipe an ordinary import (Instagram captions - someone else's
+ * writing).
+ */
+const runExtract = async (body, sourceTag) => {
   try {
-    dbg('[SCAN]', 'start:', base64Images.length, 'image(s),',
-      base64Images.map(i => Math.round(i.length / 1024) + 'KB').join(', '));
-    if (base64Images.some(i => i.length > MAX_BASE64_LENGTH)) {
-      dbg('[SCAN]', 'aborted: an image exceeds the upload cap');
-      return {
-        success: false,
-        error: 'image_too_large',
-        message: 'One of the photos is too large to upload. Retake it with the in-app camera and try again.',
-      };
-    }
     const started = Date.now();
     const raced = await Promise.race([
-      supabase.functions.invoke('extract-recipe', {
-        body: { images: base64Images, mimeType: 'image/jpeg' },
-      }),
+      supabase.functions.invoke('extract-recipe', { body }),
       new Promise(resolve =>
         setTimeout(() => resolve({ __timeout: true }), SCAN_TIMEOUT_MS)
       ),
@@ -67,16 +49,16 @@ export const scanRecipeImages = async (base64Images) => {
 
     if (error) {
       // Non-2xx responses land here - the body still has our shape
-      let body = null;
+      let errBody = null;
       try {
         if (error.context && typeof error.context.json === 'function') {
-          body = await error.context.json();
+          errBody = await error.context.json();
         }
       } catch (_e) { /* ignore */ }
 
-      if (body?.error) {
-        dbg('[SCAN]', 'server error:', body.error, '-', (body.detail || body.message || '').substring(0, 200));
-        return { success: false, ...body };
+      if (errBody?.error) {
+        dbg('[SCAN]', 'server error:', errBody.error, '-', (errBody.detail || errBody.message || '').substring(0, 200));
+        return { success: false, ...errBody };
       }
       console.error('📷 [SCAN] Edge Function error:', error);
       dbg('[SCAN]', 'invoke failed (no body):', error?.name || '', (error?.message || String(error)).substring(0, 200));
@@ -120,7 +102,7 @@ export const scanRecipeImages = async (base64Images) => {
           notes: raw.notes || '',
           image_url: '',
           source_url: '',
-          source: 'scan', // attribution: shown as "Scanned by @user"
+          source: sourceTag, // 'scan' = own work ("Scanned by @user"); null = import
         },
         confidence: raw.confidence,
         warnings: raw.warnings || [],
@@ -131,7 +113,7 @@ export const scanRecipeImages = async (base64Images) => {
       return {
         success: false,
         error: 'no_recipe',
-        message: 'No recipe was found in the photo.',
+        message: 'No recipe was found.',
         scansUsed: data.scansUsed,
         scanLimit: data.scanLimit,
       };
@@ -153,4 +135,43 @@ export const scanRecipeImages = async (base64Images) => {
   }
 };
 
-export default { scanRecipeImages };
+/**
+ * Scan 1-3 photos and get back every recipe found in them.
+ * Photos can be pages of one recipe (merged into one result) or contain
+ * several distinct recipes (each returned separately).
+ * @param {string[]} base64Images - JPEG base64 strings (no data: prefix)
+ */
+export const scanRecipeImages = async (base64Images) => {
+  dbg('[SCAN]', 'start:', base64Images.length, 'image(s),',
+    base64Images.map(i => Math.round(i.length / 1024) + 'KB').join(', '));
+  if (base64Images.some(i => i.length > MAX_BASE64_LENGTH)) {
+    dbg('[SCAN]', 'aborted: an image exceeds the upload cap');
+    return {
+      success: false,
+      error: 'image_too_large',
+      message: 'One of the photos is too large to upload. Retake it with the in-app camera and try again.',
+    };
+  }
+  return runExtract({ images: base64Images, mimeType: 'image/jpeg' }, 'scan');
+};
+
+/**
+ * Extract recipes from freeform TEXT (an Instagram caption). Same
+ * server pipeline, same allowance; the result is an ordinary import,
+ * not own work.
+ * @param {string} text
+ */
+export const scanRecipeText = async (text) => {
+  const trimmed = String(text || '').trim();
+  dbg('[SCAN]', 'text start:', trimmed.length, 'chars');
+  if (trimmed.length < 20) {
+    return {
+      success: false,
+      error: 'no_recipe',
+      message: 'The post text is too short to contain a recipe.',
+    };
+  }
+  return runExtract({ text: trimmed }, null);
+};
+
+export default { scanRecipeImages, scanRecipeText };

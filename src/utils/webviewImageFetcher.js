@@ -17,3 +17,13 @@ export const setWebViewImageFetcher = (fn) => {
 };
 
 export const getWebViewImageFetcher = () => fetcher;
+
+// Same hidden WebView, different job: load a PAGE and extract its
+// caption/meta (Instagram imports). Resolves to { caption, image }.
+let pageFetcher = null;
+
+export const setWebViewPageFetcher = (fn) => {
+  pageFetcher = fn;
+};
+
+export const getWebViewPageFetcher = () => pageFetcher;

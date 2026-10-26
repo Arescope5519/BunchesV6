@@ -306,7 +306,17 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
   ingredients (keyword matching, no external service)
 - `src/utils/autoTag.js` - high-confidence tags for new global recipes
 - Edge Functions in `supabase/functions/` - moderate-image,
-  moderate-text, moderation-webhook, extract-recipe (AI scanning)
+  moderate-text, moderation-webhook, extract-recipe (AI scanning:
+  photos AND caption text - both spend the same scan allowance)
+- `src/utils/instagramImport.js` - share an Instagram post to Melibri:
+  the hidden WebView (page mode, HiddenImageFetcher) reads the caption
+  off the post's public embed page on-device, extract-recipe's text
+  mode structures it, and it saves as a NORMAL import (source_url =
+  the post, never own-work). Private posts and recipes that live in
+  the comments / "link in bio" can't import. This is markup-scraping -
+  when Instagram changes their pages it breaks quietly, but failures
+  auto-file extraction reports, so a broken week shows up in the
+  report queue.
 
 ### Data model
 

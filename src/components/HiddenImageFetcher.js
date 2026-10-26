@@ -19,7 +19,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { setWebViewImageFetcher } from '../utils/webviewImageFetcher';
+import { setWebViewImageFetcher, setWebViewPageFetcher } from '../utils/webviewImageFetcher';
 import { dbg } from '../utils/debugLog';
 
 const TIMEOUT_MS = 25000;
@@ -62,6 +62,50 @@ const INJECTED = `
 true;
 `;
 
+// Page-extraction jobs (Instagram imports): poll the rendered DOM for a
+// caption - the embed pages render it into .Caption; regular post pages
+// carry it in og:description. Content renders late, so retry for ~8s.
+const INJECTED_PAGE = `
+(function () {
+  function send(o) { window.ReactNativeWebView.postMessage(JSON.stringify(o)); }
+  var tries = 0;
+  function grab() {
+    try {
+      var caption = '';
+      var image = '';
+      var cap = document.querySelector('.Caption');
+      if (cap) {
+        var clone = cap.cloneNode(true);
+        var strip = clone.querySelectorAll('.CaptionUsername, .CaptionComments, .ViewMoreLink');
+        for (var i = 0; i < strip.length; i++) strip[i].remove();
+        caption = (clone.innerText || '').trim();
+      }
+      var img = document.querySelector('.EmbeddedMediaImage, img[class*="Media"]');
+      if (img && img.src) image = img.src;
+      if (!caption) {
+        var og = document.querySelector('meta[property="og:description"]');
+        if (og && og.content) caption = og.content.trim();
+      }
+      if (!image) {
+        var ogi = document.querySelector('meta[property="og:image"]');
+        if (ogi && ogi.content) image = ogi.content;
+      }
+      if (caption && caption.length > 40) {
+        send({ ok: true, caption: caption.slice(0, 12000), image: image });
+        return;
+      }
+      if (++tries < 16) { setTimeout(grab, 500); return; }
+      if (caption) send({ ok: true, caption: caption.slice(0, 12000), image: image });
+      else send({ ok: false, error: 'no caption found on page' });
+    } catch (e) {
+      send({ ok: false, error: String(e) });
+    }
+  }
+  grab();
+})();
+true;
+`;
+
 let jobSeq = 0;
 
 const HiddenImageFetcher = () => {
@@ -92,16 +136,17 @@ const HiddenImageFetcher = () => {
   };
 
   useEffect(() => {
-    setWebViewImageFetcher(
-      (url) =>
-        new Promise((resolve, reject) => {
-          const next = { id: ++jobSeq, url, resolve, reject };
-          if (jobRef.current) queueRef.current.push(next);
-          else start(next);
-        })
-    );
+    const enqueue = (url, kind) =>
+      new Promise((resolve, reject) => {
+        const next = { id: ++jobSeq, url, kind, resolve, reject };
+        if (jobRef.current) queueRef.current.push(next);
+        else start(next);
+      });
+    setWebViewImageFetcher((url) => enqueue(url, 'image'));
+    setWebViewPageFetcher((url) => enqueue(url, 'page'));
     return () => {
       setWebViewImageFetcher(null);
+      setWebViewPageFetcher(null);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,7 +163,7 @@ const HiddenImageFetcher = () => {
         key={job.id}
         source={{ uri: job.url }}
         userAgent={CHROME_UA}
-        injectedJavaScript={INJECTED}
+        injectedJavaScript={job.kind === 'page' ? INJECTED_PAGE : INJECTED}
         javaScriptEnabled
         domStorageEnabled
         thirdPartyCookiesEnabled
@@ -127,7 +172,10 @@ const HiddenImageFetcher = () => {
         onMessage={(e) => {
           try {
             const msg = JSON.parse(e.nativeEvent.data);
-            if (msg.ok && msg.base64) {
+            if (msg.ok && job.kind === 'page') {
+              dbg('WEBVIEW', 'page extracted:', `${(msg.caption || '').length} chars`, msg.image ? '+image' : 'no image');
+              finish({ caption: msg.caption || '', image: msg.image || '' });
+            } else if (msg.ok && msg.base64) {
               dbg('WEBVIEW', 'fetched', msg.type || 'no type', `${msg.base64.length} b64 chars`);
               finish({ base64: msg.base64, contentType: msg.type || '' });
             } else {

@@ -54,7 +54,9 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { scanRecipeImages } from '../services/recipeScan';
+import { scanRecipeImages, scanRecipeText } from '../services/recipeScan';
+import { isInstagramUrl, fetchInstagramPost } from '../utils/instagramImport';
+import { reportExtractionIssue } from '../services/supabase/database';
 import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { GroceryList } from '../components/GroceryList';
@@ -1353,7 +1355,18 @@ export const HomeScreen = ({ user }) => {
   };
 
   // iOS batch auto-save: Extract all recipes first, then save all at once
-  const extractAndAutoSaveBatch = async (urls) => {
+  const extractAndAutoSaveBatch = async (allUrls) => {
+    // Instagram posts can't silently auto-save - the caption extraction
+    // needs the review step - so they divert to the interactive flow
+    const igUrls = (allUrls || []).filter(isInstagramUrl);
+    const urls = (allUrls || []).filter(u => !isInstagramUrl(u));
+    if (igUrls.length > 0) {
+      importInstagramRecipe(igUrls[0]);
+      if (igUrls.length > 1) {
+        Alert.alert('One at a Time', 'Instagram posts import one at a time - share the next post after saving this one.');
+      }
+      if (urls.length === 0) return;
+    }
     log(`🍎 [iOS] Processing batch of ${urls.length} recipes...`);
 
     // Step 1: Extract all recipes first (no saving yet)
@@ -1443,6 +1456,13 @@ export const HomeScreen = ({ user }) => {
           } },
         ]
       );
+      return;
+    }
+
+    // Instagram posts have no structured recipe data - the caption goes
+    // through the AI text pipeline instead of the web extractor
+    if (isInstagramUrl(url)) {
+      importInstagramRecipe(url);
       return;
     }
 
@@ -2181,6 +2201,78 @@ export const HomeScreen = ({ user }) => {
           { text: 'Enter Manually', onPress: () => setCurrentScreen('create') },
         ]
       );
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Instagram share: pull the caption via the hidden WebView, run it
+  // through the AI text extractor, then the same preview flow photo
+  // scans use. The result is an ordinary import (source_url = the
+  // post), never "own work".
+  const importInstagramRecipe = async (postUrl) => {
+    if (!user?.uid) {
+      Alert.alert('Sign In Required', 'Sign in to import recipes from Instagram.');
+      return;
+    }
+    setScanning(true);
+    try {
+      dbg('[IG]', 'import start:', postUrl);
+      let post;
+      try {
+        post = await fetchInstagramPost(postUrl);
+      } catch (e) {
+        dbg('[IG]', 'caption fetch failed:', e?.message);
+        reportExtractionIssue(user.uid, { title: 'Instagram import', url: postUrl },
+          `auto: instagram caption fetch failed - ${e?.message || 'unknown'}`).catch(() => {});
+        Alert.alert(
+          'Could Not Read the Post',
+          'The caption could not be read - the post may be private, or Instagram may be blocking the lookup right now.'
+        );
+        return;
+      }
+
+      const result = await scanRecipeText(post.caption);
+
+      if (result.success) {
+        const items = result.results.map(item => ({
+          ...item,
+          recipe: {
+            ...item.recipe,
+            url: postUrl,
+            source_url: postUrl,
+            image_url: post.imageUrl || '',
+          },
+        }));
+        const [first, ...rest] = items;
+        scanQueueRef.current = rest;
+        if (rest.length > 0) {
+          Alert.alert(
+            'Multiple Recipes Found',
+            `Found ${items.length} recipes in the post. You'll preview and save them one at a time.`
+          );
+        }
+        previewScanResult(first);
+        return;
+      }
+
+      if (result.error === 'limit_reached') {
+        Alert.alert('Scan Limit Reached', result.message);
+        return;
+      }
+      if (result.detail) {
+        console.error('📸 [IG] AI failure detail:', result.detail);
+      }
+      if (result.error === 'no_recipe') {
+        reportExtractionIssue(user.uid, { title: 'Instagram import', url: postUrl },
+          'auto: instagram caption had no extractable recipe').catch(() => {});
+        Alert.alert(
+          'No Recipe in the Caption',
+          'This post\'s caption does not contain the recipe itself. Many posts keep the recipe in the comments or behind "link in bio" - those cannot be imported.'
+        );
+        return;
+      }
+      Alert.alert('Import Failed', result.message || 'Could not read a recipe from the post. Please try again.');
     } finally {
       setScanning(false);
     }
@@ -4781,7 +4873,14 @@ export const HomeScreen = ({ user }) => {
                         );
                         return;
                       }
-                      // It's a URL, use extraction
+                      // It's a URL, use extraction (Instagram captions
+                      // go through the AI text pipeline)
+                      if (isInstagramUrl(pasted)) {
+                        setImportText('');
+                        setShowImport(false);
+                        importInstagramRecipe(pasted);
+                        return;
+                      }
                       await extractRecipe(pasted);
                       setImportText('');
                       setShowImport(false);

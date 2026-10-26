@@ -122,6 +122,41 @@ Rules:
 - confidence per recipe: "high" if everything was clearly legible, "medium" if some parts were hard to read, "low" if you had to guess significantly.
 - warnings per recipe: short strings for anything the user should double-check (e.g. "step 6 partially cut off", "quantity for butter unclear"). If a recipe appears to continue onto a page that was NOT photographed, add a warning like "recipe may continue on another page".`;
 
+// Text mode: the same extraction, but the source is a social-media
+// caption (Instagram imports) instead of photos.
+const TEXT_PROMPT = `You are a recipe extraction system. Below is the text of a social media post (an Instagram caption or similar) that may contain one or more recipes, mixed with chatter, emojis, hashtags and calls to follow.
+
+Extract every distinct recipe and reply with ONLY a JSON object in exactly this shape:
+{
+  "found": true,
+  "recipes": [
+    {
+      "title": "Recipe name",
+      "ingredient_sections": [
+        { "name": "main", "items": ["1 cup flour", "2 eggs"] }
+      ],
+      "instructions": ["Step one...", "Step two..."],
+      "prep_time": "15 min",
+      "cook_time": "30 min",
+      "total_time": "45 min",
+      "servings": "4",
+      "notes": "",
+      "confidence": "high",
+      "warnings": []
+    }
+  ]
+}
+
+Rules:
+- Reply {"found": false} ONLY when the text contains no recipe content at all (e.g. just "recipe in comments" or "link in bio" - add nothing you cannot see).
+- A PARTIAL recipe still counts as found: extract exactly what IS present, set confidence to "low", and add a warning starting with "Partial recipe:" describing what is missing. Never invent the missing parts.
+- Preserve exact quantities and wording. Strip emojis, hashtags and decorative symbols from the output, but keep the cooking content intact.
+- Use ingredient section names from the text when present (e.g. "For the sauce"); otherwise one section named "main".
+- Times/servings: only fill what the text states; leave "" when absent.
+- notes: tips/variations stated with the recipe, else "".
+- confidence per recipe: "high" when the recipe was stated clearly and completely, "medium" when parts were ambiguous, "low" when you had to guess significantly.
+- warnings per recipe: short strings for anything worth double-checking (e.g. "no quantities given for spices").`;
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
@@ -226,9 +261,11 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const images: string[] = Array.isArray(body?.images) ? body.images : [];
     const mimeType: string = typeof body?.mimeType === 'string' ? body.mimeType : 'image/jpeg';
+    // Text mode (Instagram captions): `text` instead of `images`
+    const captionText: string = typeof body?.text === 'string' ? body.text.trim().slice(0, 10000) : '';
 
-    if (images.length === 0) {
-      return json({ success: false, error: 'no_images', message: 'No photos were provided.' }, 400);
+    if (images.length === 0 && !captionText) {
+      return json({ success: false, error: 'no_images', message: 'No photos or text were provided.' }, 400);
     }
     if (images.length > MAX_IMAGES) {
       return json({ success: false, error: 'too_many_images', message: `Up to ${MAX_IMAGES} photos per scan.` }, 400);
@@ -262,9 +299,13 @@ Deno.serve(async (req: Request) => {
         ];
     const candidateModels = [...new Set(staticCandidates)];
 
-    const parts: any[] = [{ text: PROMPT }];
-    for (const img of images) {
-      parts.push({ inline_data: { mime_type: mimeType, data: img } });
+    const parts: any[] = captionText
+      ? [{ text: `${TEXT_PROMPT}\n\n--- POST TEXT ---\n${captionText}` }]
+      : [{ text: PROMPT }];
+    if (!captionText) {
+      for (const img of images) {
+        parts.push({ inline_data: { mime_type: mimeType, data: img } });
+      }
     }
     const requestBody = JSON.stringify({
       contents: [{ parts }],
