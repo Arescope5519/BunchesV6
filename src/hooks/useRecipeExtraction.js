@@ -161,9 +161,37 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = [], use
           editHistory: [], // Track edit history for sharing
         };
 
+        // Roundup pages: the extractor found several distinct recipes.
+        // Each gets a distinguishing ?recipe= query param on its URL -
+        // saveRecipe dedupes by URL, and a fragment would be stripped
+        // by normalization, so a query param is what keeps N recipes
+        // from one page from collapsing into one.
+        let multiRecipes = null;
+        if (Array.isArray(result.allRecipes) && result.allRecipes.length > 1) {
+          const sep = recipeUrl.includes('?') ? '&' : '?';
+          multiRecipes = result.allRecipes.map((d, i) => {
+            const slug = String(d.title || i)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '')
+              .slice(0, 40) || String(i);
+            const img = d.image || d.image_url || null;
+            return {
+              ...d,
+              id: `${Date.now()}-${i}-${Math.random().toString(36).substr(2, 6)}`,
+              url: `${recipeUrl}${sep}recipe=${slug}`,
+              image_url: img,
+              extractedAt: new Date().toISOString(),
+              source: result.source,
+              folder: 'All Recipes',
+              isFavorite: false,
+            };
+          });
+        }
+
         // Call callback with extracted recipe
         if (onRecipeExtracted) {
-          onRecipeExtracted(recipe, { isExisting: false });
+          onRecipeExtracted(recipe, { isExisting: false, multiRecipes });
         }
         return { action: 'extracted', recipe };
       } else {

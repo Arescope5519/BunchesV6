@@ -64,6 +64,7 @@ export class RecipeExtractor {
    */
   async extract(url) {
     try {
+      this._lastMultiRecipes = null;
       const html = await this.fetchHTML(url);
 
       if (!html) {
@@ -147,7 +148,18 @@ export class RecipeExtractor {
 
       this.stats[best.statKey]++;
       delete best.data._repairs;
-      return { success: true, data: best.data, source: best.source, fitness: best.fitness };
+      const response = { success: true, data: best.data, source: best.source, fitness: best.fitness };
+
+      // Roundup pages: hand back EVERY distinct recipe the ld+json
+      // carried so the app can offer a pick-and-import
+      if (this._lastMultiRecipes && this._lastMultiRecipes.length > 1) {
+        response.allRecipes = this._lastMultiRecipes.map(d => {
+          const n = this.normalizeCandidate(d);
+          delete n._repairs;
+          return n;
+        });
+      }
+      return response;
 
     } catch (error) {
       this.stats.failed++;
@@ -386,12 +398,16 @@ export class RecipeExtractor {
 
       // Pages carry several ld+json blocks, and some (foodnetwork.com)
       // include stub Recipe objects besides the full one - taking the
-      // first match lost the instructions. Parse them all, keep the
-      // richest.
+      // first match lost the instructions. Parse them all. Roundup
+      // pages ("12 best soups") legitimately carry SEVERAL distinct
+      // recipes: dedupe by title (richest copy wins), keep page order,
+      // and stash the full list on the instance so extract() can offer
+      // a multi-import. The single richest recipe stays the return
+      // value, so single-recipe pages behave exactly as before.
       let blocks = 0;
       let parsed = 0;
-      let best = null;
-      let bestRichness = -1;
+      const byTitle = new Map(); // title key -> { candidate, richness, order }
+      let order = 0;
       for (const match of matches) {
         const jsonText = match[1];
         if (!jsonText || !jsonText.trim()) continue;
@@ -418,25 +434,79 @@ export class RecipeExtractor {
         if (!data) continue;
         parsed++;
 
-        const recipe = this.findRecipeInJSON(data);
-        if (!recipe) continue;
-        const candidate = this.parseJSONLDRecipe(recipe, url);
-        if (!candidate) continue;
-        const richness =
-          this.flattenIngredientLines(candidate.ingredients).length +
-          (candidate.instructions || []).length * 2;
-        if (richness > bestRichness) {
-          bestRichness = richness;
-          best = candidate;
+        const nodes = [];
+        this.findAllRecipesInJSON(data, nodes);
+        for (const node of nodes) {
+          const candidate = this.parseJSONLDRecipe(node, url);
+          if (!candidate || !candidate.title) continue;
+          const richness =
+            this.flattenIngredientLines(candidate.ingredients).length +
+            (candidate.instructions || []).length * 2;
+          const key = String(candidate.title).trim().toLowerCase();
+          const prev = byTitle.get(key);
+          if (!prev) {
+            byTitle.set(key, { candidate, richness, order: order++ });
+          } else if (richness > prev.richness) {
+            byTitle.set(key, { candidate, richness, order: prev.order });
+          }
+        }
+      }
+
+      const unique = [...byTitle.values()].sort((a, b) => a.order - b.order);
+      // Only REAL recipes count toward multi-detect - roundups also
+      // carry stub Recipe nodes with no body
+      let real = unique.filter(u => u.richness >= 3);
+      // Exactly two where one title contains the other ("Lasagna" vs
+      // "Lasagna Recipe") is the same recipe published twice, not a
+      // roundup - keep the richer copy and stay single
+      if (real.length === 2) {
+        const k0 = String(real[0].candidate.title).trim().toLowerCase();
+        const k1 = String(real[1].candidate.title).trim().toLowerCase();
+        if (k0.includes(k1) || k1.includes(k0)) {
+          real = [real[0].richness >= real[1].richness ? real[0] : real[1]];
+        }
+      }
+      this._lastMultiRecipes = real.length > 1 ? real.map(u => u.candidate) : null;
+
+      let best = null;
+      let bestRichness = -1;
+      for (const u of unique) {
+        if (u.richness > bestRichness) {
+          bestRichness = u.richness;
+          best = u.candidate;
         }
       }
 
       if (blocks > 0 && (parsed < blocks || !best)) {
         console.log(`[RecipeExtractor] ld+json: ${blocks} blocks, ${parsed} parsed, recipe: ${best ? 'yes' : 'no'}`);
       }
+      if (real.length > 1) {
+        console.log(`[RecipeExtractor] multi-recipe page: ${real.length} distinct recipes`);
+      }
       return best;
     } catch (error) {
       return null;
+    }
+  }
+
+  /**
+   * Recursively collect EVERY Recipe object in JSON-LD data (roundup
+   * pages carry one per listed recipe). A Recipe's own nested objects
+   * are not descended into - they never hold further recipes.
+   */
+  findAllRecipesInJSON(data, out) {
+    if (!data || typeof data !== 'object') return;
+    if (Array.isArray(data)) {
+      for (const item of data) this.findAllRecipesInJSON(item, out);
+      return;
+    }
+    const type = data['@type'];
+    if (type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'))) {
+      out.push(data);
+      return;
+    }
+    for (const value of Object.values(data)) {
+      if (typeof value === 'object') this.findAllRecipesInJSON(value, out);
     }
   }
 

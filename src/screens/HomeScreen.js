@@ -815,6 +815,12 @@ export const HomeScreen = ({ user }) => {
         // User chose to view existing recipe
         setSelectedRecipe(recipe);
         setCurrentScreen('recipes');
+      } else if (options.multiRecipes && options.multiRecipes.length > 1) {
+        // Roundup page - pick which recipes to import
+        setMultiExtract({
+          recipes: options.multiRecipes,
+          selected: new Set(options.multiRecipes.map(r => r.id)),
+        });
       } else {
         // Navigate to save recipe screen with extracted recipe
         setExtractedRecipe(recipe);
@@ -824,6 +830,35 @@ export const HomeScreen = ({ user }) => {
     recipes, // Pass recipes for deduplication check
     user?.uid // For auto-filing extraction-failure reports
   );
+
+  // Multi-recipe pages: {recipes: [...], selected: Set<id>}
+  const [multiExtract, setMultiExtract] = useState(null);
+
+  const toggleMultiRecipe = (id) => {
+    setMultiExtract(prev => {
+      if (!prev) return prev;
+      const selected = new Set(prev.selected);
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      return { ...prev, selected };
+    });
+  };
+
+  const importSelectedMulti = async () => {
+    if (!multiExtract) return;
+    const chosen = multiExtract.recipes.filter(r => multiExtract.selected.has(r.id));
+    if (chosen.length === 0) return;
+    setMultiExtract(null);
+    const ok = await saveRecipesBatch(chosen);
+    if (ok) {
+      Alert.alert(
+        'Imported',
+        `${chosen.length} recipe${chosen.length !== 1 ? 's' : ''} saved to All Recipes.`
+      );
+    } else {
+      Alert.alert('Error', 'Could not import the recipes. Please try again.');
+    }
+  };
 
   // Resume an interrupted Cook Mode session. A cold start cannot tell
   // "the OS killed the backgrounded app" apart from "the user closed
@@ -4318,6 +4353,86 @@ export const HomeScreen = ({ user }) => {
         </View>
       </Modal>
 
+      {/* Multi-recipe page picker - BEFORE the Recipe Detail modal so
+          Preview can stack a read-only detail on top of it */}
+      {multiExtract && (
+        <Modal
+          visible={!!multiExtract}
+          animationType="slide"
+          onRequestClose={() => setMultiExtract(null)}
+        >
+          <View style={styles.modalContainer}>
+            <StatusBar style="light" hidden={true} />
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setMultiExtract(null)} style={styles.modalCloseRow}>
+                <Ionicons name="close" size={18} color={colors.onPrimary} style={{ marginRight: 4 }} />
+                <Text style={styles.modalCloseButton}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>
+                {multiExtract.recipes.length} Recipes Found
+              </Text>
+              <View style={{ width: 70 }} />
+            </View>
+            <Text style={styles.multiExtractHint}>
+              This page contains several recipes. Pick which to import - tap the eye to preview one first.
+            </Text>
+            <ScrollView contentContainerStyle={{ paddingBottom: 90 }}>
+              {multiExtract.recipes.map(r => {
+                const checked = multiExtract.selected.has(r.id);
+                const ingredientCount = Object.values(r.ingredients || {}).flat().length;
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={styles.multiExtractRow}
+                    onPress={() => toggleMultiRecipe(r.id)}
+                  >
+                    <Ionicons
+                      name={checked ? 'checkbox' : 'square-outline'}
+                      size={24}
+                      color={checked ? colors.primary : colors.textSecondary}
+                      style={{ marginRight: 10 }}
+                    />
+                    {r.image_url ? (
+                      <Image source={imgSource(r.image_url)} style={styles.multiExtractThumb} />
+                    ) : (
+                      <View style={[styles.multiExtractThumb, styles.multiExtractThumbEmpty]}>
+                        <Ionicons name="restaurant" size={16} color={colors.primary} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1, marginHorizontal: 10 }}>
+                      <Text style={styles.multiExtractTitle} numberOfLines={2}>{r.title}</Text>
+                      <Text style={styles.multiExtractSub}>
+                        {ingredientCount} ingredient{ingredientCount !== 1 ? 's' : ''} · {(r.instructions || []).length} step{(r.instructions || []).length !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setSelectedRecipe({ ...r, isReadOnly: true })}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ padding: 6 }}
+                    >
+                      <Ionicons name="eye-outline" size={22} color={colors.primary} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={[
+                styles.multiExtractImportBtn,
+                multiExtract.selected.size === 0 && { opacity: 0.4 },
+              ]}
+              disabled={multiExtract.selected.size === 0}
+              onPress={importSelectedMulti}
+            >
+              <Ionicons name="download-outline" size={18} color={colors.onPrimary} style={{ marginRight: 6 }} />
+              <Text style={styles.multiExtractImportText}>
+                Import {multiExtract.selected.size} Recipe{multiExtract.selected.size !== 1 ? 's' : ''}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      )}
+
       {/* Shared cookbook viewer - BEFORE the Recipe Detail modal in the
           tree so a tapped recipe presents on top of it (iOS stacking) */}
       {activeSharedFolder && (
@@ -5614,6 +5729,62 @@ const styles = StyleSheet.create({
   sharedNewButtonText: {
     fontSize: 14,
     color: colors.onPrimary,
+    fontWeight: '700',
+  },
+  multiExtractHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  multiExtractRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  multiExtractThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: colors.lightGray,
+  },
+  multiExtractThumbEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  multiExtractTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  multiExtractSub: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  multiExtractImportBtn: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderRadius: 26,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  multiExtractImportText: {
+    color: colors.onPrimary,
+    fontSize: 15,
     fontWeight: '700',
   },
   sharedCreateRow: {
