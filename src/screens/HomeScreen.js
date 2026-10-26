@@ -56,6 +56,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { scanRecipeImages, scanRecipeText } from '../services/recipeScan';
 import { isInstagramUrl, fetchInstagramPost } from '../utils/instagramImport';
+import { isPinterestUrl, fetchPinterestPin } from '../utils/pinterestImport';
 import { reportExtractionIssue } from '../services/supabase/database';
 import UserProfile from '../components/UserProfile';
 import { Ionicons } from '@expo/vector-icons';
@@ -1391,14 +1392,16 @@ export const HomeScreen = ({ user }) => {
 
   // iOS batch auto-save: Extract all recipes first, then save all at once
   const extractAndAutoSaveBatch = async (allUrls) => {
-    // Instagram posts can't silently auto-save - the caption extraction
-    // needs the review step - so they divert to the interactive flow
-    const igUrls = (allUrls || []).filter(isInstagramUrl);
-    const urls = (allUrls || []).filter(u => !isInstagramUrl(u));
-    if (igUrls.length > 0) {
-      importInstagramRecipe(igUrls[0]);
-      if (igUrls.length > 1) {
-        Alert.alert('One at a Time', 'Instagram posts import one at a time - share the next post after saving this one.');
+    // Social posts can't silently auto-save - caption extraction needs
+    // the review step - so they divert to the interactive flow
+    const isSocial = (u) => isInstagramUrl(u) || isPinterestUrl(u);
+    const socialUrls = (allUrls || []).filter(isSocial);
+    const urls = (allUrls || []).filter(u => !isSocial(u));
+    if (socialUrls.length > 0) {
+      if (isInstagramUrl(socialUrls[0])) importInstagramRecipe(socialUrls[0]);
+      else importPinterestRecipe(socialUrls[0]);
+      if (socialUrls.length > 1) {
+        Alert.alert('One at a Time', 'Social posts import one at a time - share the next one after saving this.');
       }
       if (urls.length === 0) return;
     }
@@ -1498,6 +1501,12 @@ export const HomeScreen = ({ user }) => {
     // through the AI text pipeline instead of the web extractor
     if (isInstagramUrl(url)) {
       importInstagramRecipe(url);
+      return;
+    }
+    // Pinterest pins: follow the pin's source link into the normal
+    // extractor, or fall back to its description
+    if (isPinterestUrl(url)) {
+      importPinterestRecipe(url);
       return;
     }
 
@@ -2285,47 +2294,118 @@ export const HomeScreen = ({ user }) => {
         return;
       }
 
-      const result = await scanRecipeText(post.caption);
+      await runCaptionImport(
+        postUrl,
+        post.caption,
+        post.imageUrl,
+        'This post\'s caption does not contain the recipe itself. Many posts keep the recipe in the comments or behind "link in bio" - those cannot be imported.'
+      );
+    } finally {
+      setScanning(false);
+    }
+  };
 
-      if (result.success) {
-        const items = result.results.map(item => ({
-          ...item,
-          recipe: {
-            ...item.recipe,
-            url: postUrl,
-            source_url: postUrl,
-            image_url: post.imageUrl || '',
-          },
-        }));
-        const [first, ...rest] = items;
-        scanQueueRef.current = rest;
-        if (rest.length > 0) {
-          Alert.alert(
-            'Multiple Recipes Found',
-            `Found ${items.length} recipes in the post. You'll preview and save them one at a time.`
-          );
-        }
-        previewScanResult(first);
-        return;
-      }
+  // Shared tail of a caption-based import (Instagram, Pinterest): run
+  // the AI text extractor and route the result through the scan
+  // preview flow
+  const runCaptionImport = async (sourceUrl, caption, imageUrl, noRecipeCopy) => {
+    const result = await scanRecipeText(caption);
 
-      if (result.error === 'limit_reached') {
-        Alert.alert('Scan Limit Reached', result.message);
-        return;
-      }
-      if (result.detail) {
-        console.error('📸 [IG] AI failure detail:', result.detail);
-      }
-      if (result.error === 'no_recipe') {
-        reportExtractionIssue(user.uid, { title: 'Instagram import', url: postUrl },
-          'auto: instagram caption had no extractable recipe').catch(() => {});
+    if (result.success) {
+      const items = result.results.map(item => ({
+        ...item,
+        recipe: {
+          ...item.recipe,
+          url: sourceUrl,
+          source_url: sourceUrl,
+          image_url: imageUrl || '',
+        },
+      }));
+      const [first, ...rest] = items;
+      scanQueueRef.current = rest;
+      if (rest.length > 0) {
         Alert.alert(
-          'No Recipe in the Caption',
-          'This post\'s caption does not contain the recipe itself. Many posts keep the recipe in the comments or behind "link in bio" - those cannot be imported.'
+          'Multiple Recipes Found',
+          `Found ${items.length} recipes in the post. You'll preview and save them one at a time.`
+        );
+      }
+      previewScanResult(first);
+      return;
+    }
+
+    if (result.error === 'limit_reached') {
+      Alert.alert('Scan Limit Reached', result.message);
+      return;
+    }
+    if (result.detail) {
+      console.error('📸 [SOCIAL] AI failure detail:', result.detail);
+    }
+    if (result.error === 'no_recipe') {
+      reportExtractionIssue(user.uid, { title: 'Social import', url: sourceUrl },
+        'auto: social caption had no extractable recipe').catch(() => {});
+      Alert.alert('No Recipe Found', noRecipeCopy);
+      return;
+    }
+    Alert.alert('Import Failed', result.message || 'Could not read a recipe from the post. Please try again.');
+  };
+
+  // Pinterest share: most pins LINK to a recipe site - follow it into
+  // the normal structured-data extractor (no AI, multi-detect works).
+  // Pins whose description holds the recipe go through the caption
+  // pipeline like Instagram.
+  const importPinterestRecipe = async (rawUrl) => {
+    if (!user?.uid) {
+      Alert.alert('Sign In Required', 'Sign in to import recipes from Pinterest.');
+      return;
+    }
+    setScanning(true);
+    try {
+      dbg('[PIN]', 'import start:', rawUrl);
+      let pin;
+      try {
+        pin = await fetchPinterestPin(rawUrl);
+      } catch (e) {
+        dbg('[PIN]', 'pin fetch failed:', e?.message);
+        reportExtractionIssue(user.uid, { title: 'Pinterest import', url: rawUrl },
+          `auto: pinterest pin fetch failed - ${e?.message || 'unknown'}`).catch(() => {});
+        Alert.alert(
+          'Could Not Read the Pin',
+          'Nothing importable was found on the pin - it may be private, or Pinterest may be blocking the lookup right now.'
         );
         return;
       }
-      Alert.alert('Import Failed', result.message || 'Could not read a recipe from the post. Please try again.');
+
+      if (pin.link) {
+        // Best case: the pin points at a recipe site
+        setScanning(false);
+        dbg('[PIN]', 'following source link:', pin.link);
+        await extractRecipe(normalizeRecipeUrl(pin.link) || pin.link);
+        return;
+      }
+
+      const pinUrl = normalizeRecipeUrl(rawUrl) || rawUrl;
+      const existing = findRecipeByUrl(pinUrl);
+      if (existing) {
+        Alert.alert(
+          'Already Saved',
+          `"${existing.title}" was already imported from this pin.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'View Recipe', onPress: () => {
+              setCurrentScreen('recipes');
+              setSelectedRecipe(existing);
+            } },
+          ]
+        );
+        return;
+      }
+
+      await runCaptionImport(
+        pinUrl,
+        pin.caption,
+        pin.imageUrl,
+        'This pin\'s description does not contain the recipe itself, and the pin does not link to a recipe page.'
+      );
     } finally {
       setScanning(false);
     }
@@ -5007,11 +5087,13 @@ export const HomeScreen = ({ user }) => {
                         return;
                       }
                       // It's a URL, use extraction (Instagram captions
-                      // go through the AI text pipeline)
-                      if (isInstagramUrl(pasted)) {
+                      // go through the AI text pipeline; Pinterest pins
+                      // resolve to their source link first)
+                      if (isInstagramUrl(pasted) || isPinterestUrl(pasted)) {
                         setImportText('');
                         setShowImport(false);
-                        importInstagramRecipe(pasted);
+                        if (isInstagramUrl(pasted)) importInstagramRecipe(pasted);
+                        else importPinterestRecipe(pasted);
                         return;
                       }
                       await extractRecipe(pasted);

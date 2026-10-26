@@ -194,7 +194,7 @@ Deno.serve(async (req: Request) => {
     // Text mode (Instagram captions): `text` instead of `images`
     const captionText: string = typeof body?.text === 'string' ? body.text.trim().slice(0, 10000) : '';
     const scanKind: 'photo' | 'text' = captionText ? 'text' : 'photo';
-    const kindLabel = scanKind === 'text' ? 'Instagram imports' : 'photo scans';
+    const kindLabel = scanKind === 'text' ? 'social imports' : 'photo scans';
 
     if (images.length === 0 && !captionText) {
       return json({ success: false, error: 'no_images', message: 'No photos or text were provided.' }, 400);

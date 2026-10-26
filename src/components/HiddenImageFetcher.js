@@ -62,9 +62,12 @@ const INJECTED = `
 true;
 `;
 
-// Page-extraction jobs (Instagram imports): poll the rendered DOM for a
-// caption - the embed pages render it into .Caption; regular post pages
-// carry it in og:description. Content renders late, so retry for ~8s.
+// Page-extraction jobs (Instagram / Pinterest imports): poll the
+// rendered DOM for a caption (Instagram embeds render it into
+// .Caption; other pages carry it in og:description), the lead image,
+// and - Pinterest pins - the OUTBOUND source link (og:see_also, the
+// /offsite/ anchor, or the "link" field in the page's state JSON).
+// Content renders late, so retry for ~8s.
 const INJECTED_PAGE = `
 (function () {
   function send(o) { window.ReactNativeWebView.postMessage(JSON.stringify(o)); }
@@ -73,6 +76,7 @@ const INJECTED_PAGE = `
     try {
       var caption = '';
       var image = '';
+      var link = '';
       var cap = document.querySelector('.Caption');
       if (cap) {
         var clone = cap.cloneNode(true);
@@ -90,12 +94,34 @@ const INJECTED_PAGE = `
         var ogi = document.querySelector('meta[property="og:image"]');
         if (ogi && ogi.content) image = ogi.content;
       }
-      if (caption && caption.length > 40) {
-        send({ ok: true, caption: caption.slice(0, 12000), image: image });
+      var sa = document.querySelector('meta[property="og:see_also"]');
+      if (sa && sa.content) link = sa.content;
+      if (!link) {
+        var off = document.querySelector('a[href*="/offsite/"]');
+        if (off && off.href) {
+          var qi = off.href.indexOf('url=');
+          if (qi > -1) link = decodeURIComponent(off.href.slice(qi + 4).split('&')[0]);
+        }
+      }
+      if (!link) {
+        var scs = document.querySelectorAll('script');
+        for (var si = 0; si < scs.length && !link; si++) {
+          var tx = scs[si].textContent || '';
+          var lm = tx.match(/"link":"(https?:[^"]{5,500}?)"/);
+          if (lm) link = lm[1].split('\\\\/').join('/').split('\\\\u002F').join('/');
+        }
+      }
+      // Early exits: a long caption (Instagram embeds), or link+caption
+      // settled (Pinterest pins have both in the initial HTML). A bare
+      // link match alone never exits early - Instagram state JSON can
+      // contain stray "link" fields while the caption is still rendering.
+      var done = (caption && caption.length > 40) || (link && caption && tries >= 3);
+      if (done) {
+        send({ ok: true, caption: caption.slice(0, 12000), image: image, link: link });
         return;
       }
       if (++tries < 16) { setTimeout(grab, 500); return; }
-      if (caption) send({ ok: true, caption: caption.slice(0, 12000), image: image });
+      if (caption || link) send({ ok: true, caption: caption.slice(0, 12000), image: image, link: link });
       else send({ ok: false, error: 'no caption found on page' });
     } catch (e) {
       send({ ok: false, error: String(e) });
@@ -173,8 +199,8 @@ const HiddenImageFetcher = () => {
           try {
             const msg = JSON.parse(e.nativeEvent.data);
             if (msg.ok && job.kind === 'page') {
-              dbg('WEBVIEW', 'page extracted:', `${(msg.caption || '').length} chars`, msg.image ? '+image' : 'no image');
-              finish({ caption: msg.caption || '', image: msg.image || '' });
+              dbg('WEBVIEW', 'page extracted:', `${(msg.caption || '').length} chars`, msg.image ? '+image' : 'no image', msg.link ? '+link' : '');
+              finish({ caption: msg.caption || '', image: msg.image || '', link: msg.link || '' });
             } else if (msg.ok && msg.base64) {
               dbg('WEBVIEW', 'fetched', msg.type || 'no type', `${msg.base64.length} b64 chars`);
               finish({ base64: msg.base64, contentType: msg.type || '' });

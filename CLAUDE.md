@@ -317,6 +317,13 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
   when Instagram changes their pages it breaks quietly, but failures
   auto-file extraction reports, so a broken week shows up in the
   report queue.
+- `src/utils/pinterestImport.js` - same share flow for Pinterest pins
+  (pin.it short links included). Preferred path: the pin's OUTBOUND
+  source link (og:see_also / offsite anchor / state-JSON "link") goes
+  through the normal web extractor - no AI spent. Only link-less pins
+  with a recipe in their description use the caption pipeline (and the
+  'text' scan bucket). Same scraping caveat and auto-reports as
+  Instagram.
 
 ### Data model
 

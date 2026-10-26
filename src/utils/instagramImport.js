@@ -32,7 +32,7 @@ const stripOgWrapper = (text) => {
   return text;
 };
 
-const cleanCaption = (text) => {
+export const cleanCaption = (text) => {
   let t = String(text || '').replace(/\r/g, '').trim();
   // Collapse runs of blank lines; drop a pure-hashtag tail wall
   t = t.replace(/\n{3,}/g, '\n\n');
