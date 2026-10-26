@@ -5194,9 +5194,6 @@ export const HomeScreen = ({ user }) => {
             <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text }}>
               Reading your recipe…
             </Text>
-            <Text style={{ marginTop: 4, fontSize: 12, color: colors.textSecondary, textAlign: 'center' }}>
-              The AI is extracting it from your photo
-            </Text>
           </View>
         </View>
       )}
