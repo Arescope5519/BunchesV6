@@ -2210,9 +2210,27 @@ export const HomeScreen = ({ user }) => {
   // through the AI text extractor, then the same preview flow photo
   // scans use. The result is an ordinary import (source_url = the
   // post), never "own work".
-  const importInstagramRecipe = async (postUrl) => {
+  const importInstagramRecipe = async (rawPostUrl) => {
     if (!user?.uid) {
       Alert.alert('Sign In Required', 'Sign in to import recipes from Instagram.');
+      return;
+    }
+    // Normalize + dedupe HERE so every entry door (Android share, iOS
+    // share extension, pasted link) gets the same check
+    const postUrl = normalizeRecipeUrl(rawPostUrl) || rawPostUrl;
+    const existing = findRecipeByUrl(postUrl);
+    if (existing) {
+      Alert.alert(
+        'Already Saved',
+        `"${existing.title}" was already imported from this post.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'View Recipe', onPress: () => {
+            setCurrentScreen('recipes');
+            setSelectedRecipe(existing);
+          } },
+        ]
+      );
       return;
     }
     setScanning(true);
