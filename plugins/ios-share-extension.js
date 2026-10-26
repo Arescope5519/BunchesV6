@@ -176,7 +176,14 @@ class ShareViewController: UIViewController {
     private func fetchRecipe(from urlString: String) {
         guard let url = URL(string: urlString) else { return }
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self, let data = data, let html = String(data: data, encoding: .utf8) else { return }
+            guard let self = self else { return }
+            // Social pages (Instagram, Pinterest) and bot-walled sites
+            // cannot be previewed here - the MAIN APP does the real
+            // import, so a failed preview must still allow saving
+            guard let data = data, let html = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async { self.showNoPreview() }
+                return
+            }
             let recipe = self.parseRecipe(from: html, url: urlString)
             DispatchQueue.main.async {
                 self.loadingIndicator.stopAnimating()
@@ -184,10 +191,18 @@ class ShareViewController: UIViewController {
                     self.recipeData = recipe
                     self.displayRecipe(recipe)
                 } else {
-                    self.showError("Could not find recipe")
+                    self.showNoPreview()
                 }
             }
         }.resume()
+    }
+
+    private func showNoPreview() {
+        loadingIndicator.stopAnimating()
+        recipeNameLabel.text = "No Preview Available"
+        ingredientsTextView.text = "This page can't be previewed here. Tap Save anyway - Melibri will import it the next time you open the app."
+        instructionsTextView.text = ""
+        saveButton.isEnabled = (sharedURL != nil)
     }
 
     private func parseRecipe(from html: String, url: String) -> [String: Any]? {
