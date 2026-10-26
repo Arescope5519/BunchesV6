@@ -2342,7 +2342,7 @@ export const HomeScreen = ({ user }) => {
     }
     if (result.error === 'no_recipe') {
       reportExtractionIssue(user.uid, { title: 'Social import', url: sourceUrl },
-        'auto: social caption had no extractable recipe').catch(() => {});
+        'auto: social caption had no extractable recipe', caption).catch(() => {});
       Alert.alert('No Recipe Found', noRecipeCopy);
       return;
     }

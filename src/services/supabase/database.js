@@ -14,6 +14,7 @@ import { getWebViewImageFetcher } from '../../utils/webviewImageFetcher';
 import { buildInternalRecipeUrl, isInternalUrl } from '../../constants/app';
 import { APP_NAME } from '../../constants/app';
 import { RecipeExtractor } from '../../../RecipeExtractor';
+import { isInstagramUrl, fetchInstagramPost } from '../../utils/instagramImport';
 const LAST_SYNC_KEY = '@last_sync_timestamp';
 
 /**
@@ -1007,7 +1008,25 @@ const refetchReportImage = async (ldBlocks, displayedUrl) => {
   }
 };
 
-export const reportExtractionIssue = async (reporterId, recipe, issueNote = null) => {
+// Caption-based imports (Instagram) keep no source text - the caption
+// goes through the AI extractor and is gone. Reports carry it instead,
+// or a fix session has nothing to compare the recipe against.
+const fetchReportCaption = async (sourceUrl) => {
+  if (!isInstagramUrl(sourceUrl)) return null;
+  try {
+    const post = await fetchInstagramPost(sourceUrl);
+    return post?.caption || null;
+  } catch (err) {
+    dbg('REPORT', 'caption refetch failed:', err?.message);
+    return null;
+  }
+};
+
+/**
+ * @param {string|null} sourceCaption - the caption a caption import
+ *   already has in hand (saves refetching it)
+ */
+export const reportExtractionIssue = async (reporterId, recipe, issueNote = null, sourceCaption = null) => {
   try {
     const sourceUrl = recipe.url || recipe.sourceUrl || recipe.source_url || null;
 
@@ -1021,7 +1040,9 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
       if (existing) return { success: false, duplicate: true, status: existing };
     }
 
-    const ld = await fetchRawLdJson(sourceUrl);
+    const caption = sourceCaption || await fetchReportCaption(sourceUrl);
+    // Instagram pages carry no recipe ld+json - skip that fetch
+    const ld = caption ? null : await fetchRawLdJson(sourceUrl);
     const rawLdJson = ld?.json || null;
 
     const displayedImage = recipe.image_url || recipe.imageUrl || null;
@@ -1042,6 +1063,7 @@ export const reportExtractionIssue = async (reporterId, recipe, issueNote = null
         // What the reporter's app is actually displaying - without it an
         // image report says "wrong image" but not WHICH image
         image_url: displayedImage,
+        ...(caption ? { source_caption: String(caption).slice(0, 9000) } : {}),
         // Image reports only: the page's current photo URL, and a fresh
         // copy of it already uploaded to our bucket (null if every
         // mirror method failed)

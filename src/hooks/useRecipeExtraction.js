@@ -194,6 +194,10 @@ export const useRecipeExtraction = (onRecipeExtracted, existingRecipes = [], use
           onRecipeExtracted(recipe, { isExisting: false, multiRecipes });
         }
         return { action: 'extracted', recipe };
+      } else if (result.roundup) {
+        // A list-of-links article - the importer did its job, so no report
+        Alert.alert('This Is a Recipe List', result.error);
+        return { action: 'failed', error: result.error };
       } else {
         fileFailureReport(recipeUrl, result.error);
         Alert.alert(

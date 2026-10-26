@@ -106,6 +106,20 @@ export class RecipeExtractor {
 
       if (candidates.length === 0) {
         this.stats.failed++;
+        // "25 Lazy Dinner Recipes" gallery articles (thepioneerwoman.com
+        // /g73956324/) carry an ItemList of slides that only LINK to
+        // recipes - nothing on the page is importable. Say so plainly
+        // instead of a generic failure (and it is not an importer bug,
+        // so the app skips the auto-report).
+        const listed = this.countRoundupLinks(html);
+        if (listed) {
+          return {
+            success: false,
+            roundup: true,
+            error: 'This page is a roundup that links to other recipes - it has no recipe of its own. Open the one you want from the article, then import that page.',
+            data: null
+          };
+        }
         return {
           success: false,
           error: 'Unable to extract recipe from this URL',
@@ -391,6 +405,30 @@ export class RecipeExtractor {
    * TIER 1: Extract from JSON-LD structured data
    * Handles 60% of recipe sites
    */
+  /**
+   * Number of entries in a link-roundup page's ld+json ItemList, or 0.
+   * Only consulted when no recipe was found at all, so a recipe page's
+   * own carousels never matter here.
+   */
+  countRoundupLinks(html) {
+    let best = 0;
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      const type = node['@type'];
+      const isList = type === 'ItemList' || (Array.isArray(type) && type.includes('ItemList'));
+      if (isList && Array.isArray(node.itemListElement)) {
+        best = Math.max(best, node.itemListElement.length);
+      }
+      Object.values(node).forEach(walk);
+    };
+    const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gis;
+    for (const m of html.matchAll(re)) {
+      try { walk(JSON.parse(m[1])); } catch { /* unparseable block */ }
+    }
+    return best >= 3 ? best : 0;
+  }
+
   extractJSONLD(html, url) {
     try {
       const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gis;

@@ -102,6 +102,26 @@ there is no snapshot. The interesting evidence is `raw_ld_json`:
   solving (see the WebView precedent for images).
 Timeouts are NOT auto-filed (almost always the user's connection).
 
+## Caption imports (Instagram)
+
+Instagram imports run the post caption through the AI extractor and
+keep no source text, and this session's network cannot reach
+instagram.com. So reports carry the caption instead, in
+`recipe_snapshot.source_caption` (builds after 26 Oct 2026): user
+reports re-read it on the reporter's phone, and the "caption had no
+extractable recipe" auto-report attaches the caption it failed on.
+Compare the stored recipe against that. An auto no-recipe report
+whose caption really has no recipe (recipe in comments, "link in
+bio") is working as intended - dismiss it.
+
+## Roundup pages
+
+Gallery/listicle articles ("25 Lazy Dinner Recipes") hold an ld+json
+ItemList of links and no Recipe. Since 26 Oct 2026 the extractor
+recognizes them (countRoundupLinks), tells the user to open a recipe
+from the article, and files NO report. An older-build auto-report for
+such a page is not an importer bug - dismiss it.
+
 ## Judgment calls
 
 - A grammar oddity that faithfully matches the SOURCE site is not an
