@@ -8,8 +8,10 @@
  * Supabase secrets (GEMINI_API_KEY), never in the app.
  *
  * Rate limits (enforced here, not in the app):
- *   Free    - 3 SUCCESSFUL scans lifetime (8 attempts)
- *   Premium - 100 SUCCESSFUL scans per calendar month (150 attempts)
+ *   Free    - 5 SUCCESSFUL photo scans AND 5 successful Instagram
+ *             imports, lifetime - separate buckets (12 attempts each)
+ *   Premium - 100 SUCCESSFUL extractions per calendar month, combined
+ *             (150 attempts)
  *   Admin   - unlimited
  *
  * Only scans that actually returned a recipe spend the allowance;
@@ -32,13 +34,16 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const FREE_LIFETIME_LIMIT = 3;
+// Free allowances are PER KIND ('photo' scans and 'text'/Instagram
+// imports are separate buckets); premium's monthly pool is combined.
+const FREE_LIFETIME_LIMIT = 5;
 const PREMIUM_MONTHLY_LIMIT = 100;
 
 // Ceilings on TOTAL attempts, successful or not. Failed scans do not
 // spend the allowance above, so these are what stop that generosity
-// being farmed with deliberately unreadable images.
-const FREE_ATTEMPT_CEILING = 8;
+// being farmed with deliberately unreadable images. Also per kind for
+// free accounts.
+const FREE_ATTEMPT_CEILING = 12;
 const PREMIUM_MONTHLY_ATTEMPT_CEILING = 150;
 
 const SUPPORT_EMAIL = 'hello@melibri.app';
@@ -181,6 +186,28 @@ Deno.serve(async (req: Request) => {
       return json({ success: false, error: 'unauthorized', message: 'You must be signed in to scan recipes.' }, 401);
     }
 
+    // --- Validate input (before rate limiting - the limits are
+    // per KIND, so the kind must be known first) ---
+    const body = await req.json();
+    const images: string[] = Array.isArray(body?.images) ? body.images : [];
+    const mimeType: string = typeof body?.mimeType === 'string' ? body.mimeType : 'image/jpeg';
+    // Text mode (Instagram captions): `text` instead of `images`
+    const captionText: string = typeof body?.text === 'string' ? body.text.trim().slice(0, 10000) : '';
+    const scanKind: 'photo' | 'text' = captionText ? 'text' : 'photo';
+    const kindLabel = scanKind === 'text' ? 'Instagram imports' : 'photo scans';
+
+    if (images.length === 0 && !captionText) {
+      return json({ success: false, error: 'no_images', message: 'No photos or text were provided.' }, 400);
+    }
+    if (images.length > MAX_IMAGES) {
+      return json({ success: false, error: 'too_many_images', message: `Up to ${MAX_IMAGES} photos per scan.` }, 400);
+    }
+    for (const img of images) {
+      if (typeof img !== 'string' || img.length === 0 || img.length > MAX_BASE64_LENGTH) {
+        return json({ success: false, error: 'image_too_large', message: 'One of the photos is too large.' }, 400);
+      }
+    }
+
     // --- Rate limiting ---
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -221,6 +248,9 @@ Deno.serve(async (req: Request) => {
           .from('scan_usage')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id);
+        // Free allowances are separate buckets per kind (5 photo scans
+        // AND 5 Instagram imports); premium's monthly pool is combined
+        if (!premiumActive) q = q.eq('kind', scanKind);
         if (successOnly) q = q.eq('success', true);
         if (windowStart) q = q.gte('created_at', windowStart);
         const { count } = await q;
@@ -235,8 +265,8 @@ Deno.serve(async (req: Request) => {
           success: false,
           error: 'limit_reached',
           message: premiumActive
-            ? `You've used all ${scanLimit} scans for this month.`
-            : `You've used all ${scanLimit} free scans. Premium includes ${PREMIUM_MONTHLY_LIMIT} scans every month.`,
+            ? `You've used all ${scanLimit} AI extractions for this month.`
+            : `You've used all ${scanLimit} free ${kindLabel}. Premium includes ${PREMIUM_MONTHLY_LIMIT} AI extractions every month.`,
           scansUsed,
           scanLimit,
           premium: premiumActive,
@@ -254,25 +284,6 @@ Deno.serve(async (req: Request) => {
           scanLimit,
           premium: premiumActive,
         }, 429);
-      }
-    }
-
-    // --- Validate input ---
-    const body = await req.json();
-    const images: string[] = Array.isArray(body?.images) ? body.images : [];
-    const mimeType: string = typeof body?.mimeType === 'string' ? body.mimeType : 'image/jpeg';
-    // Text mode (Instagram captions): `text` instead of `images`
-    const captionText: string = typeof body?.text === 'string' ? body.text.trim().slice(0, 10000) : '';
-
-    if (images.length === 0 && !captionText) {
-      return json({ success: false, error: 'no_images', message: 'No photos or text were provided.' }, 400);
-    }
-    if (images.length > MAX_IMAGES) {
-      return json({ success: false, error: 'too_many_images', message: `Up to ${MAX_IMAGES} photos per scan.` }, 400);
-    }
-    for (const img of images) {
-      if (typeof img !== 'string' || img.length === 0 || img.length > MAX_BASE64_LENGTH) {
-        return json({ success: false, error: 'image_too_large', message: 'One of the photos is too large.' }, 400);
       }
     }
 
@@ -452,6 +463,7 @@ Deno.serve(async (req: Request) => {
       user_id: user.id,
       success: found,
       model,
+      kind: scanKind,
     });
     if (found) scansUsed += 1;
 
