@@ -15,9 +15,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { extractUrlFromText } from '../utils/urlExtractor';
 
 import { log } from '../utils/log';
+import { dbg } from '../utils/debugLog';
 import { APP_SCHEME, LEGACY_SCHEMES } from '../constants/app';
-// iOS App Groups storage module
-const { AppGroupStorage } = NativeModules;
+// iOS App Groups storage modules. NOTE: the share extension queues
+// into "pendingRecipes" (read via PendingRecipesModule) - the older
+// "sharedURLs" key (AppGroupStorage) is kept as a fallback, but
+// nothing writes it today. Reading only sharedURLs was why iOS shares
+// vanished: saved by the extension, never seen by the app.
+const { AppGroupStorage, PendingRecipesModule } = NativeModules;
 
 /**
  * The launch intent sticks around for the life of the Activity, so
@@ -183,41 +188,58 @@ export const useShareIntent = (onUrlReceived) => {
         }
       }
 
-      // Check App Groups for queued URLs
-      if (AppGroupStorage) {
-        log('🍎 [iOS] Checking Share Extension via App Groups...');
+      // Check App Groups for queued shares. The share extension writes
+      // the "pendingRecipes" queue; "sharedURLs" is a legacy fallback.
+      const urls = [];
 
-        // Try to get all URLs (new method)
-        let sharedURLs = [];
+      try {
+        if (PendingRecipesModule?.getPendingRecipes) {
+          const raw = await PendingRecipesModule.getPendingRecipes();
+          const items = JSON.parse(raw || '[]');
+          for (const item of items) {
+            if (item && typeof item.url === 'string' && item.url) urls.push(item.url);
+          }
+          if (items.length > 0) dbg('[SHARE]', 'iOS pending queue:', items.length, 'item(s)');
+        }
+      } catch (e) {
+        dbg('[SHARE]', 'pending queue read failed:', e?.message);
+      }
+
+      try {
+        if (AppGroupStorage?.getSharedURLs) {
+          const legacy = await AppGroupStorage.getSharedURLs();
+          if (Array.isArray(legacy)) {
+            for (const u of legacy) {
+              if (u && !urls.includes(u)) urls.push(u);
+            }
+          }
+        }
+      } catch (e) {
+        // legacy path only - ignore
+      }
+
+      if (urls.length > 0) {
+        dbg('[SHARE]', 'iOS shares to import:', urls.length);
+
+        // Pass all URLs at once for batch processing (callback receives array)
+        if (onUrlReceivedRef.current) {
+          onUrlReceivedRef.current(urls, true); // true = isBatch
+        }
+
+        // Clear both queues after handing the URLs over
         try {
-          if (AppGroupStorage.getSharedURLs) {
-            sharedURLs = await AppGroupStorage.getSharedURLs();
+          if (PendingRecipesModule?.clearPendingRecipes) {
+            await PendingRecipesModule.clearPendingRecipes();
           }
-        } catch (e) {
-          // Fallback to single URL method
-          const singleURL = await AppGroupStorage.getSharedURL();
-          if (singleURL) {
-            sharedURLs = [singleURL];
+        } catch (e) { /* ignore */ }
+        try {
+          if (AppGroupStorage?.clearSharedURL) {
+            await AppGroupStorage.clearSharedURL();
           }
-        }
-
-        if (sharedURLs && sharedURLs.length > 0) {
-          log(`🍎 [iOS] Found ${sharedURLs.length} shared URL(s) from extension`);
-
-          // Pass all URLs at once for batch processing (callback receives array)
-          // This allows the caller to process all and show one summary alert
-          if (onUrlReceivedRef.current) {
-            onUrlReceivedRef.current(sharedURLs, true); // true = isBatch
-          }
-
-          // Clear all URLs after processing
-          await AppGroupStorage.clearSharedURL();
-          log('🍎 [iOS] Cleared all shared URLs from App Groups');
-        } else {
-          log('🍎 [iOS] No shared URLs found in App Groups');
-        }
+        } catch (e) { /* ignore */ }
+        log('🍎 [iOS] Cleared shared queues');
       } else {
-        log('🍎 [iOS] AppGroupStorage not available');
+        log('🍎 [iOS] No shared URLs found in App Groups');
       }
     } catch (error) {
       log('🍎 [iOS] Error checking for shared URLs:', error.message);
