@@ -19,6 +19,7 @@
     ],
     "plugins": [
       "./plugins/ios-share-extension.js",
+      "./plugins/ios-min-deployment.js",
       "./plugins/android-share-intent.js",
       "./plugins/android-release-signing.js",
       "./plugins/android-on-new-intent.js",
