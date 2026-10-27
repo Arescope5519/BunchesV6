@@ -97,6 +97,9 @@ import {
   getMySharedFolders,
   createSharedFolder,
   respondToSharedInvite,
+  getSharedFoldersContainingRecipe,
+  addRecipeToSharedFolder,
+  removeRecipeFromSharedFolder,
 } from '../services/supabase/sharedFolders';
 import { containsProfanityAsync } from '../services/profanityFilter';
 import ReorderFolderList from '../components/ReorderFolderList';
@@ -2729,6 +2732,49 @@ export const HomeScreen = ({ user }) => {
     setTimeout(() => setActiveSharedFolder(folder), 150);
   };
 
+  // Which shared cookbooks already hold the recipe open in the
+  // Add-to-Cookbooks modal (by its global id)
+  const [sharedContaining, setSharedContaining] = useState(new Set());
+
+  useEffect(() => {
+    if (!showMoveToFolder || !selectedRecipe || !user?.uid) return;
+    refreshSharedFolders();
+    const gid = selectedRecipe.globalRecipeId;
+    if (gid) {
+      getSharedFoldersContainingRecipe(gid).then(ids => setSharedContaining(new Set(ids)));
+    } else {
+      setSharedContaining(new Set());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMoveToFolder, selectedRecipe?.id]);
+
+  const toggleSharedFolderForRecipe = async (sf) => {
+    const gid = selectedRecipe?.globalRecipeId;
+    if (!gid) {
+      Alert.alert('Not Ready Yet', 'This recipe has no shared version yet - it syncs shortly after saving. Try again in a moment.');
+      return;
+    }
+    if (sharedContaining.has(sf.id)) {
+      const ok = await removeRecipeFromSharedFolder(sf.id, gid);
+      if (ok) {
+        setSharedContaining(prev => {
+          const next = new Set(prev);
+          next.delete(sf.id);
+          return next;
+        });
+      } else {
+        Alert.alert('Cannot Remove', 'Only the member who added it, a manager, or the owner can remove a recipe from a shared cookbook.');
+      }
+    } else {
+      const res = await addRecipeToSharedFolder(sf.id, gid, user.uid);
+      if (res.success) {
+        setSharedContaining(prev => new Set(prev).add(sf.id));
+      } else {
+        Alert.alert('Error', 'Could not add to the shared cookbook. Please try again.');
+      }
+    }
+  };
+
   const saveSharedFolderCopy = (recipe) => {
     // The import flow runs its own folder-picker modal, which cannot
     // stack above the SharedFolderView modal on iOS - close it first
@@ -4776,6 +4822,39 @@ export const HomeScreen = ({ user }) => {
                         </TouchableOpacity>
                       );
                     })}
+                    {(() => {
+                      // Shared cookbooks I can add to (viewers can't).
+                      // Toggles apply IMMEDIATELY - members see them.
+                      const addable = sharedFolders.filter(sf =>
+                        ['owner', 'manager', 'editor'].includes(sf.role));
+                      if (addable.length === 0) return null;
+                      return (
+                        <>
+                          <Text style={styles.sharedPickSectionLabel}>Shared Cookbooks</Text>
+                          <Text style={styles.sharedPickHint}>
+                            Applies right away - members can see any recipe you add
+                          </Text>
+                          {addable.map(sf => {
+                            const inIt = sharedContaining.has(sf.id);
+                            return (
+                              <TouchableOpacity
+                                key={sf.id}
+                                style={[styles.folderItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                                onPress={() => toggleSharedFolderForRecipe(sf)}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                  <Ionicons name="people" size={15} color={colors.primary} style={{ marginRight: 7 }} />
+                                  <Text style={styles.folderItemText} numberOfLines={1}>{sf.name}</Text>
+                                </View>
+                                <View style={[styles.folderCheckbox, inIt && styles.folderCheckboxChecked]}>
+                                  {inIt && <Ionicons name="checkmark" size={14} color={colors.white} />}
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
                     <View style={styles.addFolderButtons}>
                       <TouchableOpacity
                         style={[styles.addFolderButton, styles.cancelButton]}
@@ -5896,6 +5975,20 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '700',
+  },
+  sharedPickSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 14,
+    marginBottom: 2,
+  },
+  sharedPickHint: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    marginBottom: 6,
   },
   sharedRowSub: {
     fontSize: 11,

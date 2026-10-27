@@ -307,6 +307,25 @@ export const addRecipeToSharedFolder = async (folderId, globalRecipeId, userId) 
 };
 
 /**
+ * Which of MY shared folders already contain this recipe? RLS scopes
+ * the rows to folders the caller is an active member of.
+ * @returns {Promise<string[]>} folder ids
+ */
+export const getSharedFoldersContainingRecipe = async (globalRecipeId) => {
+  try {
+    const { data, error } = await supabase
+      .from('shared_folder_recipes')
+      .select('folder_id')
+      .eq('global_recipe_id', globalRecipeId);
+    if (error || !data) return [];
+    return data.map(r => r.folder_id);
+  } catch (err) {
+    console.error('❌ getSharedFoldersContainingRecipe error:', err);
+    return [];
+  }
+};
+
+/**
  * Bulk add (importing a whole local cookbook). Duplicates - recipes
  * someone already added - are silently skipped via ON CONFLICT DO
  * NOTHING, so re-importing a folder is safe.
