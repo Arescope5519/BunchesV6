@@ -25,6 +25,7 @@ import { checkFieldsAsync } from '../services/profanityFilter';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { imgSource } from '../utils/imageSource';
+import { TRACKED_NUTRIENTS } from '../utils/nutritionMath';
 
 export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   const [title, setTitle] = useState('');
@@ -45,6 +46,10 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
   // Instructions: ['instruction 1', 'instruction 2', ...]
   const [instructions, setInstructions] = useState(['']);
   const [selectedInstructionIndex, setSelectedInstructionIndex] = useState(0);
+  // Optional per-serving nutrition, user-stated (same fields as the
+  // RecipeDetail editor; feeds the Kitchen Stats tab)
+  const [showNutrition, setShowNutrition] = useState(false);
+  const [nutritionDraft, setNutritionDraft] = useState({});
 
   // Run moderation check and set image state if it passes
   const processPickedImage = async (asset) => {
@@ -282,6 +287,21 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
         setUploadingImage(false);
       }
 
+      // Build the nutrition object from whatever was filled in, with
+      // units appended so display and Stats parse it like source data
+      const nutrition = {};
+      let hasNutrition = false;
+      for (const n of TRACKED_NUTRIENTS) {
+        const v = (nutritionDraft[n.key] || '').trim();
+        const num = parseFloat(v);
+        if (v && Number.isFinite(num) && num >= 0) {
+          nutrition[n.key] = n.unit ? `${num} ${n.unit}` : String(num);
+          hasNutrition = true;
+        }
+      }
+      const servingSize = (nutritionDraft.servingSize || '').trim();
+      if (hasNutrition && servingSize) nutrition.servingSize = servingSize;
+
       const recipe = {
         id: recipeId,
         title: title.trim(),
@@ -294,6 +314,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
         source: 'manual',
         createdAt: Date.now(),
         isFavorite: false,
+        ...(hasNutrition ? { nutrition, customNutrition: nutrition } : {}),
       };
 
       onSave(recipe);
@@ -483,6 +504,52 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
               />
             </View>
           ))}
+        </View>
+
+        {/* Nutrition - optional, per serving, user-stated */}
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.sectionHeader} onPress={() => setShowNutrition(v => !v)}>
+            <Text style={styles.label}>Nutrition (optional)</Text>
+            <Ionicons
+              name={showNutrition ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+          {showNutrition && (
+            <>
+              <Text style={styles.nutritionHint}>
+                Per serving - fill in what you know. These values show on the recipe and count in your Kitchen Stats.
+              </Text>
+              {TRACKED_NUTRIENTS.map(n => (
+                <View key={n.key} style={styles.nutritionRow}>
+                  <Text style={styles.nutritionLabel}>
+                    {n.label}{n.unit ? ` (${n.unit})` : ''}
+                  </Text>
+                  <TextInput
+                    style={styles.nutritionInput}
+                    value={nutritionDraft[n.key] || ''}
+                    onChangeText={(t) => setNutritionDraft(d => ({ ...d, [n.key]: t.replace(/[^0-9.]/g, '') }))}
+                    keyboardType="decimal-pad"
+                    maxLength={7}
+                    placeholder="-"
+                    placeholderTextColor={colors.textLight}
+                  />
+                </View>
+              ))}
+              <View style={styles.nutritionRow}>
+                <Text style={styles.nutritionLabel}>One serving is</Text>
+                <TextInput
+                  style={[styles.nutritionInput, styles.nutritionInputWide]}
+                  value={nutritionDraft.servingSize || ''}
+                  onChangeText={(t) => setNutritionDraft(d => ({ ...d, servingSize: t }))}
+                  maxLength={40}
+                  placeholder="e.g. 1 slice"
+                  placeholderTextColor={colors.textLight}
+                />
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -682,6 +749,40 @@ const styles = StyleSheet.create({
   instructionInputSelected: {
     borderColor: colors.primary,
     borderWidth: 2,
+  },
+  nutritionHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  nutritionLabel: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  nutritionInput: {
+    width: 90,
+    height: 36,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    textAlign: 'center',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  nutritionInputWide: {
+    width: 150,
+    textAlign: 'left',
+    paddingHorizontal: 10,
   },
   bottomSpacer: {
     height: 60,
