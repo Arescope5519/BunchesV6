@@ -1311,6 +1311,7 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
           source_url,
           ingredients,
           instructions,
+          nutrition,
           author
         )
       `)
@@ -1335,6 +1336,7 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
           sourceUrl: global.source_url || null,
           ingredients: parseIngredients(local.ingredients || global.ingredients),
           instructions: parseInstructions(local.instructions || global.instructions),
+          nutrition: local.nutrition || global.nutrition || null,
           folders: match.folders || local.folders || [],
           folder: match.folder || local.folder || 'All Recipes',
           author: global.author || null,
@@ -1372,6 +1374,7 @@ export const getFullPublicRecipe = async (targetUserId, recipeId) => {
       sourceUrl: data.source_url || null,
       ingredients: parseIngredients(rd.ingredients || data.ingredients),
       instructions: parseInstructions(rd.instructions || data.instructions),
+      nutrition: rd.nutrition || data.nutrition || null,
       folders: rd.folders || (data.folder ? [data.folder] : []),
       folder: data.folder || rd.folder || 'All Recipes',
       notes: data.notes || rd.notes || null,

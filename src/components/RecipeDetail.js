@@ -199,6 +199,9 @@ export const RecipeDetail = ({
     else delete next.servingSize;
 
     const hasValues = NUTRITION_EDIT_FIELDS.some(f => next[f.key] != null);
+    // Mark as user-stated so other viewers get an accuracy caveat
+    if (hasValues) next.userProvided = true;
+    else delete next.userProvided;
     const finalNutrition = hasValues ? next : null;
     const updated = {
       ...localRecipe,
@@ -1566,6 +1569,16 @@ export const RecipeDetail = ({
                 <Ionicons name="warning-outline" size={14} color={colors.warning} style={{ marginRight: 6 }} />
                 <Text style={styles.disclaimerText}>
                   Note: Estimated - the source's per-serving values multiplied by {scaleFactor}
+                </Text>
+              </View>
+            )}
+            {/* Someone else's hand-entered numbers deserve a caveat; the
+                person who can edit them (owner / copy holder) needs none */}
+            {localRecipe.nutrition?.userProvided && !canEditNutrition && (
+              <View style={[styles.disclaimer, { marginBottom: 0 }]}>
+                <Ionicons name="information-circle-outline" size={14} color={colors.warning} style={{ marginRight: 6 }} />
+                <Text style={styles.disclaimerText}>
+                  Entered by the recipe's author - not verified and may be inaccurate. Save a copy to adjust the values for yourself.
                 </Text>
               </View>
             )}

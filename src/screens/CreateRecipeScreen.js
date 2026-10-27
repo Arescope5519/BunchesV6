@@ -301,6 +301,8 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
       }
       const servingSize = (nutritionDraft.servingSize || '').trim();
       if (hasNutrition && servingSize) nutrition.servingSize = servingSize;
+      // Mark as user-stated so other viewers get an accuracy caveat
+      if (hasNutrition) nutrition.userProvided = true;
 
       const recipe = {
         id: recipeId,
