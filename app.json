@@ -24,6 +24,7 @@
       "./plugins/android-on-new-intent.js",
       "expo-file-system",
       "expo-document-picker",
+      "expo-notifications",
       "expo-apple-authentication",
       "@react-native-google-signin/google-signin",
       [

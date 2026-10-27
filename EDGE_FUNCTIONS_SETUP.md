@@ -121,3 +121,32 @@ requests on Android while the same URL loads in Chrome.
 2. Deploy: `supabase functions deploy mirror-image`
 
 No extra secrets - it uses the built-in `SUPABASE_*` env vars.
+
+## send-push (social push notifications)
+
+Deploy WITHOUT JWT verification (database webhooks carry no user token;
+the function checks its own shared secret instead):
+
+```bash
+npx supabase functions deploy send-push --no-verify-jwt
+npx supabase secrets set PUSH_WEBHOOK_SECRET=<a long random string>
+```
+
+Then create THREE database webhooks (Dashboard -> Database -> Webhooks
+-> Create): one each for `shared_items`, `friend_requests`, and
+`shared_folder_members`, all configured the same way:
+
+- Events: **INSERT** only
+- Type: HTTP request, method POST
+- URL: `https://azdhiunzwslogbaiwtgi.supabase.co/functions/v1/send-push`
+- HTTP headers: add `x-webhook-secret` = the same random string
+
+Platform credentials (one-time):
+
+- **Android**: Firebase console -> add Android app (package
+  `app.melibri`) to the existing Google Cloud project -> download
+  `google-services.json` into the repo root; app.json must reference it
+  (`android.googleServicesFile`). Without it, builds still work and
+  registration quietly no-ops.
+- **iOS**: `npx eas credentials` -> iOS -> Push Notifications -> let
+  EAS create/upload the APNs key.

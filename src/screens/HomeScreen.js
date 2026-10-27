@@ -39,6 +39,11 @@ import { loadCookSession, clearCookSession } from '../utils/cookSession';
 import { mirrorImageToStorage, healGlobalRecipeImage } from '../services/supabase/database';
 import { applyTextSize } from '../utils/textScale';
 import { setFridgeExpireDays, DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
+import {
+  registerForPushNotifications,
+  unregisterPushNotifications,
+  addNotificationTapListener,
+} from '../services/pushNotifications';
 import { dbg } from '../utils/debugLog';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
@@ -1262,8 +1267,31 @@ export const HomeScreen = ({ user }) => {
     }
   };
 
+  // Social push notifications: register this device after sign-in
+  // (first run shows the OS permission prompt), route notification
+  // taps to the social screen, and drop the token on sign-out.
+  useEffect(() => {
+    if (!user?.uid) return;
+    const timer = setTimeout(() => {
+      registerForPushNotifications(user.uid);
+    }, 4000); // let startup settle before any permission prompt
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const sub = addNotificationTapListener(() => {
+      // All three kinds (share / friend request / cookbook invite)
+      // live on the social screen's Notifications tab
+      setCurrentScreen('social');
+    });
+    return () => sub?.remove?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSignOut = async () => {
     try {
+      await unregisterPushNotifications(user?.uid);
       await supabaseSignOut();
       Alert.alert('Signed Out', 'You have been successfully signed out');
     } catch (error) {

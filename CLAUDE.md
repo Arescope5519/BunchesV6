@@ -171,6 +171,7 @@ describe the app in detail, so they go wrong the same way.
 | Add analytics, crash reporting or any tracking SDK | Data safety form; Privacy Policy "no analytics SDK" paragraph becomes FALSE; store listing short description says "no tracking" |
 | Add an ad network | Ads declaration -> Yes ("Contains ads" label appears); same listing/policy copy as above |
 | Collect location, contacts, or a new permission | Data safety; Privacy Policy "what we collect"; content rating location question |
+| Push notifications (SHIPPED 27 Oct 2026 - paperwork pending) | Play Data safety: "Device or other IDs" collected (push tokens) - due at the NEXT Play upload; Apple App Privacy: Identifiers - due at the next App Store review submission. Privacy Policy already updated (push tokens section + Expo in the processors table) |
 | Add a new third-party service that receives user data | Privacy Policy processors table |
 | Add chat or direct messages | Content rating UGC + chat moderation answers |
 | Curate an Explore/Recommended shelf | Curated content is not user-generated, so the age-restriction answers stop being covered by the UGC exclusion. Alcohol content sits badly with the 13+ target audience - see the naming/rating notes |
@@ -322,6 +323,17 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
   when Instagram changes their pages it breaks quietly, but failures
   auto-file extraction reports, so a broken week shows up in the
   report queue.
+- **Push notifications** (`src/services/pushNotifications.js` +
+  `supabase/functions/send-push`): devices register Expo push tokens
+  into `push_tokens` (sql/add_push_tokens.sql); Supabase DATABASE
+  WEBHOOKS on inserts into shared_items / friend_requests /
+  shared_folder_members call send-push (deployed --no-verify-jwt,
+  guarded by the x-webhook-secret header = PUSH_WEBHOOK_SECRET
+  secret), which delivers via Expo's push API and prunes
+  DeviceNotRegistered tokens. Android push needs google-services.json
+  (Firebase) referenced from app.json; iOS needs the APNs key uploaded
+  via `eas credentials`. Registration is graceful: no permission or
+  missing Firebase config = no push, never an error.
 - `src/utils/pinterestImport.js` - same share flow for Pinterest pins
   (pin.it short links included). Preferred path: the pin's OUTBOUND
   source link (og:see_also / offsite anchor / state-JSON "link") goes
