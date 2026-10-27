@@ -74,9 +74,11 @@ export const createCookEvent = async (userId, {
   notes,
   isTakeout,
   takeoutName,
+  takeoutCalories,
   sortOrder,
 }) => {
   try {
+    const cals = Number(takeoutCalories);
     const { data, error } = await supabase
       .from('cook_events')
       .insert({
@@ -87,6 +89,9 @@ export const createCookEvent = async (userId, {
         notes: notes || null,
         is_takeout: !!isTakeout,
         takeout_name: takeoutName || null,
+        // User-stated calories PER SERVING for takeout - lets takeout
+        // meals count in the Stats tab instead of "no data"
+        takeout_calories: isFinite(cals) && cals > 0 ? cals : null,
         sort_order: sortOrder || 0,
       })
       .select()

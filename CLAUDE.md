@@ -210,12 +210,17 @@ calorie goal** on the Stats tab - an awareness marker with progress
 bar, stored in app settings as `dailyCalorieGoal`. Covered by the
 same pending declaration; no further filing needed.
 
-Also inside it (22 Oct 2026): **user-entered nutrition** on scans and
-custom recipes (RecipeDetail editor, stored as
-`local_edits.customNutrition`). Still pass-through - the recipe's
-AUTHOR states the values, the app never computes them - and web
-imports deliberately stay source-only (`canEditNutrition` gates on
-internal/no source URL). site/ privacy + terms describe it ("or that
+Also inside it (22 Oct 2026, extended 27 Oct): **user-entered
+nutrition** on scans, custom recipes, and social-caption imports
+(Instagram / link-less Pinterest - sources that never publish
+nutrition), via the RecipeDetail editor, stored as
+`local_edits.customNutrition` (the user's own layer, never the shared
+global). Takeout meals likewise take a user-stated calories-per-
+serving (`cook_events.takeout_calories`,
+sql/add_takeout_calories.sql) that counts in Stats. Still
+pass-through - the USER states the values, the app never computes
+them - and ordinary website imports stay source-only
+(`canEditNutrition`). site/ privacy + terms describe it ("or that
 you entered yourself"). No further filing needed.
 
 Lines still NOT crossed - each needs its own decision + same-sitting

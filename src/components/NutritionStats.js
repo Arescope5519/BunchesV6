@@ -184,7 +184,12 @@ const NutritionStats = ({ userId, recipes }) => {
       .map(m => {
         const cook = lookups.cooksById[m.cook_event_id];
         const recipe = cook && !cook.is_takeout ? lookups.recipesById[cook.recipe_id] : null;
-        const per = recipe ? perServingNutrition(recipe.nutrition) : null;
+        let per = recipe ? perServingNutrition(recipe.nutrition) : null;
+        // Takeout with a user-stated calories-per-serving counts too
+        if (!per && cook?.is_takeout) {
+          const cals = Number(cook.takeout_calories);
+          if (isFinite(cals) && cals > 0) per = { calories: cals };
+        }
         const servings = Number(m.servings_consumed) || 1;
         return {
           id: m.id,

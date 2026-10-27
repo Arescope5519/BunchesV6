@@ -24,6 +24,8 @@ import { formatDuration, formatServings, buildNutritionItems } from '../utils/re
 
 import { log } from '../utils/log';
 import { isInternalUrl, FIX_RECIPE_EMAIL } from '../constants/app';
+import { isInstagramUrl } from '../utils/instagramImport';
+import { isPinterestUrl } from '../utils/pinterestImport';
 import { MY_CREATIONS_FOLDER, SCANNED_FOLDER } from '../hooks/useFolders';
 import { printRecipe } from '../utils/printRecipe';
 import { imgSource } from '../utils/imageSource';
@@ -150,15 +152,20 @@ export const RecipeDetail = ({
   // Local editable copy of recipe - initialize with normalized data
   const [localRecipe, setLocalRecipe] = useState(() => normalizeRecipe(recipe));
 
-  // User-entered nutrition: scans and custom recipes only. Imported web
-  // recipes stay pass-through-only (the store-compliance line: we quote
-  // nutrition, we never produce it - but the AUTHOR of a recipe may
-  // state their own). Values are per serving, same as source nutrition.
+  // User-entered nutrition: scans, custom recipes, and social-caption
+  // imports (Instagram posts / link-less Pinterest pins - sources that
+  // structurally never publish nutrition). Ordinary website imports
+  // stay pass-through-only (the store-compliance line: we quote
+  // nutrition, we never produce it - but a USER may state their own
+  // where the source gave none). Values are per serving; they live in
+  // the user's own layer (local_edits.customNutrition), never the
+  // shared global.
   const nutritionSourceUrl = localRecipe.url || localRecipe.sourceUrl || localRecipe.source_url || null;
   const canEditNutrition =
     !isReadOnly && !!onUpdate &&
     (!nutritionSourceUrl || isInternalUrl(nutritionSourceUrl) ||
-      localRecipe.source === 'manual' || localRecipe.source === 'scan');
+      localRecipe.source === 'manual' || localRecipe.source === 'scan' ||
+      isInstagramUrl(nutritionSourceUrl) || isPinterestUrl(nutritionSourceUrl));
   const [showNutritionEditor, setShowNutritionEditor] = useState(false);
   const [nutritionDraft, setNutritionDraft] = useState({});
 

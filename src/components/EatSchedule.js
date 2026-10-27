@@ -409,13 +409,14 @@ const EatSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartP
     await load();
   };
 
-  const handleAddTakeout = async ({ name, servingsOrdered, servingsEaten }) => {
+  const handleAddTakeout = async ({ name, servingsOrdered, servingsEaten, caloriesPerServing }) => {
     if (!addingTo) return;
     // Create a cook event marked as takeout for the SAME date
     const cook = await createCookEvent(userId, {
       cookDate: addingTo.date,
       isTakeout: true,
       takeoutName: name,
+      takeoutCalories: caloriesPerServing,
       servingsProduced: servingsOrdered,
     });
     if (!cook) return;
@@ -783,6 +784,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
   const [servingsToEat, setServingsToEat] = useState(1); // numeric, using +/- buttons
   // Takeout state
   const [takeoutName, setTakeoutName] = useState('');
+  const [takeoutCalories, setTakeoutCalories] = useState(''); // per serving, optional
   const [takeoutOrdered, setTakeoutOrdered] = useState(1);
   const [takeoutEaten, setTakeoutEaten] = useState(1);
   // Cook state
@@ -799,6 +801,7 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
       setPickedFridgeItem(null);
       setServingsToEat(1);
       setTakeoutName('');
+      setTakeoutCalories('');
       setTakeoutOrdered(1);
       setTakeoutEaten(1);
       setCookRecipe(null);
@@ -839,7 +842,13 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
       Alert.alert('Invalid', 'Servings eaten cannot exceed servings ordered.');
       return;
     }
-    onAddTakeout({ name: takeoutName.trim(), servingsOrdered: takeoutOrdered, servingsEaten: takeoutEaten });
+    const cals = parseInt(takeoutCalories, 10);
+    onAddTakeout({
+      name: takeoutName.trim(),
+      servingsOrdered: takeoutOrdered,
+      servingsEaten: takeoutEaten,
+      caloriesPerServing: Number.isFinite(cals) && cals > 0 ? cals : null,
+    });
   };
 
   const adjustMultiplier = (delta) => {
@@ -1255,6 +1264,17 @@ const AddMealModal = ({ visible, onClose, slotLabel, inventory, recipes, eatDate
                   <Text style={styles.servingsButtonText}>+</Text>
                 </TouchableOpacity>
               </View>
+
+              <Text style={styles.inputLabel}>Calories per serving (optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={takeoutCalories}
+                onChangeText={(t) => setTakeoutCalories(t.replace(/[^0-9]/g, ''))}
+                keyboardType="number-pad"
+                maxLength={5}
+                placeholder="e.g. 650 - counts in your Stats"
+                placeholderTextColor={colors.textSecondary}
+              />
 
               <Text style={styles.helper}>
                 Any leftovers ({takeoutOrdered - takeoutEaten} serving{takeoutOrdered - takeoutEaten !== 1 ? 's' : ''}) will appear in your fridge as takeout.

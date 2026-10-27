@@ -4,9 +4,11 @@
  *
  * Sums SOURCE-PROVIDED per-serving nutrition (the same pass-through
  * values RecipeDetail displays - nothing is ever computed from
- * ingredients) across meal_events x servings_consumed. Takeout and
- * recipes without nutrition data count toward coverage ("N of M meals
- * had data") but contribute nothing to totals.
+ * ingredients) across meal_events x servings_consumed. Takeout with a
+ * USER-STATED calories-per-serving (cook_events.takeout_calories)
+ * contributes calories; takeout without it and recipes without
+ * nutrition data count toward coverage ("N of M meals had data") but
+ * contribute nothing to totals.
  *
  * STORE COMPLIANCE: shipping these summaries flips the Play health
  * declaration to "Nutrition and weight management" - see the health
@@ -90,8 +92,24 @@ export const aggregateNutrition = (mealEvents, cookEventsById, recipesById) => {
     mealsTotal += 1;
 
     const cook = cookEventsById[meal.cook_event_id];
-    const recipe = cook && !cook.is_takeout ? recipesById[cook.recipe_id] : null;
-    const per = recipe ? perServingNutrition(recipe.nutrition) : null;
+    let per = null;
+    let entryKey = null;
+    let entryTitle = null;
+    if (cook && cook.is_takeout) {
+      const cals = Number(cook.takeout_calories);
+      if (isFinite(cals) && cals > 0) {
+        per = { calories: cals };
+        entryTitle = cook.takeout_name || 'Takeout';
+        entryKey = `takeout:${entryTitle.toLowerCase()}`;
+      }
+    } else if (cook) {
+      const recipe = recipesById[cook.recipe_id];
+      per = recipe ? perServingNutrition(recipe.nutrition) : null;
+      if (per) {
+        entryKey = recipe.id;
+        entryTitle = recipe.title || 'Untitled';
+      }
+    }
     if (!per) continue;
 
     const servings = Number(meal.servings_consumed) || 1;
@@ -103,13 +121,13 @@ export const aggregateNutrition = (mealEvents, cookEventsById, recipesById) => {
       totals[key] = (totals[key] || 0) + add;
     }
 
-    const prev = perRecipeMap.get(recipe.id) || {
-      recipeId: recipe.id, title: recipe.title || 'Untitled', calories: 0, meals: 0, servings: 0,
+    const prev = perRecipeMap.get(entryKey) || {
+      recipeId: entryKey, title: entryTitle, calories: 0, meals: 0, servings: 0,
     };
     prev.calories += (per.calories || 0) * servings;
     prev.meals += 1;
     prev.servings += servings;
-    perRecipeMap.set(recipe.id, prev);
+    perRecipeMap.set(entryKey, prev);
   }
 
   const perRecipe = [...perRecipeMap.values()].sort((a, b) => b.calories - a.calories);
