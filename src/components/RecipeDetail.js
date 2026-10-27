@@ -1844,7 +1844,7 @@ export const RecipeDetail = ({
           <View style={styles.nutritionModalCard}>
             <Text style={styles.nutritionModalTitle}>Nutrition (per serving)</Text>
             <Text style={styles.nutritionModalHint}>
-              Optional - fill in what you know. Leave a field empty to skip it. These values show on the recipe and count in your Kitchen Stats.
+              Enter values for ONE serving, not the whole recipe. Fill in what you know and leave the rest empty. These values show on the recipe and count in your Kitchen Stats.
             </Text>
             <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
               {NUTRITION_EDIT_FIELDS.map(f => (
