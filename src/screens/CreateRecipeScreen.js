@@ -521,7 +521,7 @@ export const CreateRecipeScreen = ({ onSave, onClose, folders, userId }) => {
           {showNutrition && (
             <>
               <Text style={styles.nutritionHint}>
-                Enter values for ONE serving, not the whole recipe. Fill in what you know - these values show on the recipe and count in your Kitchen Stats.
+                Enter values for one serving. Fill in what you know - these values show on the recipe and count in your Kitchen Stats.
               </Text>
               {TRACKED_NUTRIENTS.map(n => (
                 <View key={n.key} style={styles.nutritionRow}>
