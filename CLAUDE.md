@@ -326,8 +326,9 @@ the correct version up in `node_modules/expo/bundledNativeModules.json`.
 - **Push notifications** (`src/services/pushNotifications.js` +
   `supabase/functions/send-push`): devices register Expo push tokens
   into `push_tokens` (sql/add_push_tokens.sql); Supabase DATABASE
-  WEBHOOKS on inserts into shared_items / friend_requests /
-  shared_folder_members call send-push (deployed --no-verify-jwt,
+  TRIGGERS (sql/add_push_webhooks.sql - pg_net, because the dashboard
+  webhook machinery was unprovisioned) on inserts into shared_items /
+  friend_requests / shared_folder_members call send-push (deployed --no-verify-jwt,
   guarded by the x-webhook-secret header = PUSH_WEBHOOK_SECRET
   secret), which delivers via Expo's push API and prunes
   DeviceNotRegistered tokens. Android push needs google-services.json
