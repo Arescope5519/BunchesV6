@@ -62,6 +62,10 @@ const SharedFolderView = ({
   const [showPicker, setShowPicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [busyIds, setBusyIds] = useState({});
+  // Browse controls, mirroring the normal folder page
+  const [folderSearch, setFolderSearch] = useState('');
+  const [folderSort, setFolderSort] = useState('newest'); // newest | alpha | member
+  const [folderTags, setFolderTags] = useState([]);
 
   const load = async () => {
     if (!folder?.id) return;
@@ -81,6 +85,38 @@ const SharedFolderView = ({
 
   const folderRecipes = detail?.recipes || [];
   const members = detail?.members || [];
+
+  // Every tag carried by the folder's recipes (shared auto-tags)
+  const availableTags = useMemo(() => {
+    const set = new Set();
+    folderRecipes.forEach(r => (r.tags || []).forEach(t => set.add(t)));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [folderRecipes]);
+
+  const toggleFolderTag = (tag) => {
+    setFolderTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
+
+  const visibleRecipes = useMemo(() => {
+    const q = folderSearch.trim().toLowerCase();
+    let list = folderRecipes.filter(r => {
+      if (q && !(r.title || '').toLowerCase().includes(q)) return false;
+      if (folderTags.length > 0) {
+        const tags = (r.tags || []).map(t => String(t).toLowerCase());
+        if (!folderTags.some(t => tags.includes(t.toLowerCase()))) return false;
+      }
+      return true;
+    });
+    if (folderSort === 'alpha') {
+      list = [...list].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else if (folderSort === 'member') {
+      list = [...list].sort((a, b) =>
+        (a.addedByUsername || '').localeCompare(b.addedByUsername || '') ||
+        (a.title || '').localeCompare(b.title || ''));
+    }
+    // 'newest' keeps the load order (added_at desc from the service)
+    return list;
+  }, [folderRecipes, folderSearch, folderSort, folderTags]);
   // My access level: live from the loaded roster, falling back to what
   // the cookbook list knew
   const myRole =
@@ -315,8 +351,55 @@ const SharedFolderView = ({
                 </Text>
               </View>
             ) : (
+              <>
+                {/* Browse controls - search, sort, tag filter */}
+                <TextInput
+                  style={styles.browseSearch}
+                  value={folderSearch}
+                  onChangeText={setFolderSearch}
+                  placeholder="Search this cookbook"
+                  placeholderTextColor={colors.textLight}
+                />
+                <View style={styles.sortRow}>
+                  {[
+                    { key: 'newest', label: 'Newest' },
+                    { key: 'alpha', label: 'A-Z' },
+                    { key: 'member', label: 'By Member' },
+                  ].map(opt => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[styles.sortChip, folderSort === opt.key && styles.sortChipActive]}
+                      onPress={() => setFolderSort(opt.key)}
+                    >
+                      <Text style={[styles.sortChipText, folderSort === opt.key && styles.sortChipTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {availableTags.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagRow}>
+                    {availableTags.map(tag => {
+                      const active = folderTags.includes(tag);
+                      return (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[styles.tagChip, active && styles.tagChipActive]}
+                          onPress={() => toggleFolderTag(tag)}
+                        >
+                          <Text style={[styles.tagChipText, active && styles.tagChipTextActive]}>
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+                {visibleRecipes.length === 0 && (
+                  <Text style={styles.emptyText}>No recipes match your search or filters.</Text>
+                )}
               <View style={styles.grid}>
-                {folderRecipes.map(r => (
+                {visibleRecipes.map(r => (
                   <TouchableOpacity
                     key={r.globalRecipeId}
                     style={styles.tile}
@@ -340,6 +423,7 @@ const SharedFolderView = ({
                   </TouchableOpacity>
                 ))}
               </View>
+              </>
             )}
             <Text style={styles.holdHint}>
               Tap a recipe to view it. Hold one to save a copy
@@ -566,6 +650,55 @@ const styles = StyleSheet.create({
   headerSub: { color: colors.onPrimary, fontSize: 11, opacity: 0.85, marginTop: 1 },
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scrollContent: { padding: 12, paddingBottom: 90 },
+  browseSearch: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: colors.text,
+    backgroundColor: colors.surface,
+    marginBottom: 8,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 8,
+  },
+  sortChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  sortChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sortChipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  sortChipTextActive: { color: colors.onPrimary },
+  tagRow: {
+    marginBottom: 10,
+    flexGrow: 0,
+  },
+  tagChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    marginRight: 6,
+  },
+  tagChipActive: {
+    backgroundColor: colors.accentLight,
+    borderColor: colors.accent,
+  },
+  tagChipText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  tagChipTextActive: { color: colors.accentDark },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   tile: { width: '33.33%', padding: 4, marginBottom: 6 },
   tileImage: { width: '100%', aspectRatio: 1, borderRadius: 10, backgroundColor: colors.lightGray },
