@@ -379,7 +379,9 @@ async function loadExtractionReports() {
   if (!reports.length) { box.innerHTML = '<div class="empty">No open extraction reports.</div>'; return; }
 
   const names = await usernamesFor(reports.map((r) => r.reporter_id));
-  box.innerHTML = '';
+  box.innerHTML = '<div class="meta" style="margin:0 2px 12px">' +
+    'Read-only queue: these clear when the reports are worked through in a Claude session ' +
+    '(fix the records and patch the extractor), not from here.</div>';
   for (const r of reports) {
     const snapImg = r.recipe_snapshot && r.recipe_snapshot.image_url;
     const card = document.createElement('div');
@@ -390,27 +392,12 @@ async function loadExtractionReports() {
       '<div class="meta">By @' + esc(names[r.reporter_id] || 'unknown') + ' &middot; ' + esc(fmtDate(r.created_at)) + '</div>' +
       (r.source_url ? '<div class="meta"><a href="' + esc(r.source_url) + '" target="_blank" rel="noopener noreferrer">' + esc(r.source_url) + '</a></div>' : '') +
       (snapImg ? '<div class="meta"><a href="' + esc(snapImg) + '" target="_blank" rel="noopener noreferrer">reported image</a></div>' : '') +
-      (r.recipe_snapshot ? '<details><summary class="meta">Stored text snapshot</summary><pre></pre></details>' : '') +
-      '<div class="actions">' +
-      '<button data-act="fixed" class="primary">Mark fixed</button>' +
-      '<button data-act="dismissed">Dismiss</button>' +
-      '</div>';
+      (r.recipe_snapshot ? '<details><summary class="meta">Stored text snapshot</summary><pre></pre></details>' : '');
     if (r.recipe_snapshot) {
       card.querySelector('pre').textContent = JSON.stringify(r.recipe_snapshot, null, 2);
     }
-    card.querySelector('[data-act="fixed"]').onclick = () => resolveExtraction(r.id, 'fixed');
-    card.querySelector('[data-act="dismissed"]').onclick = () => resolveExtraction(r.id, 'dismissed');
     box.appendChild(card);
   }
-}
-
-async function resolveExtraction(id, status) {
-  if (!confirm('Mark this extraction report as ' + status + '?')) return;
-  const { error } = await sb.from('extraction_reports')
-    .update({ status }).eq('id', id);
-  if (error) { toast('Failed: ' + error.message); return; }
-  toast('Report ' + status);
-  loadExtractionReports();
 }
 
 /* ---------------- users ---------------- */
