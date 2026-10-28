@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "243416537289",
+    "project_id": "melibri-3bf1b",
+    "storage_bucket": "melibri-3bf1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:243416537289:android:a7670ba084446c07759518",
+        "android_client_info": {
+          "package_name": "app.melibri"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChr_FUBKCGmlGN7GrAj17cLqmxW3Ee4h4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
