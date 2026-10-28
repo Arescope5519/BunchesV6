@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Melibri Admin</title>
+<link rel="icon" href="../favicon.png">
+<style>
+  /* Honey + Forest, matching the app palette. Theme-fixed hex is fine
+     here - the site is outside the app's colors.js rule. */
+  :root {
+    --bg: #FAFAF7; --card: #FFFFFF; --text: #1B1F1D; --text2: #4A524E;
+    --border: #DCE3DE; --primary: #2D6A4F; --accent: #E9B44C;
+    --accent-soft: #FBF0DA; --error: #C0392B; --success: #2D6A4F;
+    --on-primary: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121514; --card: #1C211F; --text: #E8ECEA; --text2: #B4BCB8;
+      --border: #2E3531; --primary: #4FA37A; --accent: #E9B44C;
+      --accent-soft: #3A2F1B; --error: #E05D4D; --success: #4FA37A;
+      --on-primary: #FFFFFF;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  a { color: var(--primary); word-break: break-all; }
+  button {
+    font: inherit; border: none; border-radius: 10px; cursor: pointer;
+    padding: 10px 14px; min-height: 44px; color: var(--text);
+    background: var(--card); border: 1px solid var(--border);
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--primary); color: var(--on-primary); border: none; }
+  button.danger { background: transparent; color: var(--error); border: 1px solid var(--error); }
+  input[type="text"], input[type="email"] {
+    font: inherit; width: 100%; padding: 12px 14px; min-height: 44px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card); color: var(--text);
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .hidden { display: none !important; }
+
+  /* ---- top bar (desktop) / bottom nav (mobile) ---- */
+  header {
+    position: sticky; top: 0; z-index: 10; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  header .wrap { display: flex; align-items: center; gap: 12px; padding-top: 12px; padding-bottom: 12px; }
+  .brand { font-weight: 700; font-size: 18px; color: var(--primary); margin-right: auto; }
+  .brand span { color: var(--accent); }
+  nav.desktop { display: flex; gap: 8px; }
+  nav.desktop button.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  nav.mobile {
+    display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    background: var(--card); border-top: 1px solid var(--border);
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  }
+  nav.mobile button {
+    flex: 1; background: none; border: none; min-height: 52px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    color: var(--text2); font-size: 12px; border-radius: 0;
+  }
+  nav.mobile button.active { color: var(--primary); font-weight: 600; }
+  nav.mobile svg { width: 22px; height: 22px; }
+  nav.mobile .row { display: flex; max-width: 860px; margin: 0 auto; }
+  @media (max-width: 760px) {
+    nav.desktop { display: none; }
+    nav.mobile { display: block; }
+    main.wrap { padding-bottom: 90px; }
+    #signOutBtn { padding: 8px 10px; min-height: 36px; font-size: 14px; }
+  }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 16px; }
+  .meta { color: var(--text2); font-size: 13px; margin: 2px 0; }
+  .badge {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    border-radius: 999px; padding: 3px 10px; margin: 0 6px 6px 0;
+    background: var(--accent-soft); color: var(--text);
+  }
+  .badge.red { background: transparent; border: 1px solid var(--error); color: var(--error); }
+  .badge.green { background: var(--primary); color: var(--on-primary); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .actions button { flex: 1 1 auto; }
+  .seg { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+  .seg button { flex: 1; border: none; border-radius: 0; background: var(--card); }
+  .seg button.active { background: var(--primary); color: var(--on-primary); }
+  .empty { text-align: center; color: var(--text2); padding: 40px 10px; }
+  .searchRow { display: flex; gap: 8px; margin-bottom: 14px; }
+  .searchRow input { flex: 1; }
+  details { margin-top: 8px; }
+  details pre {
+    white-space: pre-wrap; word-break: break-word; font-size: 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px; max-height: 300px; overflow: auto;
+  }
+  .center { max-width: 380px; margin: 10vh auto 0; padding: 16px; text-align: center; }
+  .center .card { text-align: left; }
+  .center h1 { color: var(--primary); }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  #toast {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: 100px; background: var(--text); color: var(--bg);
+    padding: 10px 18px; border-radius: 999px; font-size: 14px;
+    opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 50;
+    max-width: 90vw;
+  }
+  #toast.show { opacity: 1; }
+  .spin { text-align: center; color: var(--text2); padding: 30px; }
+</style>
+</head>
+<body>
+
+<!-- ======== sign-in ======== -->
+<div id="authView" class="center hidden">
+  <h1>Melibri <span style="color:var(--accent)">Admin</span></h1>
+  <div class="card stack">
+    <button class="primary" id="googleBtn">Sign in with Google</button>
+    <div class="meta" style="text-align:center">or get a magic link</div>
+    <input type="email" id="magicEmail" placeholder="you@example.com" autocomplete="email">
+    <button id="magicBtn">Email me a sign-in link</button>
+    <div class="meta">Use the same account you use in the app. Non-admin accounts can sign in but see nothing.</div>
+  </div>
+</div>
+
+<!-- ======== not an admin ======== -->
+<div id="deniedView" class="center hidden">
+  <h1>Melibri <span style="color:var(--accent)">Admin</span></h1>
+  <div class="card">
+    <p>This account isn't an admin.</p>
+    <button id="deniedSignOut">Sign out</button>
+  </div>
+</div>
+
+<!-- ======== console ======== -->
+<div id="appView" class="hidden">
+  <header>
+    <div class="wrap">
+      <div class="brand">Melibri <span>Admin</span></div>
+      <nav class="desktop">
+        <button data-tab="reports" class="active">Reports</button>
+        <button data-tab="users">Users</button>
+      </nav>
+      <button id="signOutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="tab-reports">
+      <div class="seg">
+        <button data-queue="content" class="active">Content <span id="contentCount"></span></button>
+        <button data-queue="extraction">Extraction <span id="extractionCount"></span></button>
+      </div>
+      <div id="queue-content"><div class="spin">Loading…</div></div>
+      <div id="queue-extraction" class="hidden"><div class="spin">Loading…</div></div>
+    </section>
+
+    <section id="tab-users" class="hidden">
+      <div class="searchRow">
+        <input type="text" id="userSearch" placeholder="Search username…" autocapitalize="none" autocorrect="off">
+        <button class="primary" id="userSearchBtn">Search</button>
+      </div>
+      <div id="userResults"><div class="empty">Search for a user to manage premium, flags, or bans.</div></div>
+    </section>
+  </main>
+
+  <nav class="mobile">
+    <div class="row">
+      <button data-tab="reports" class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V4m0 11h13l-3-5.5L17 4H4"/></svg>
+        Reports
+      </button>
+      <button data-tab="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5M16 9.5a3 3 0 1 0 2.6 4.6M18 15c2 .5 3.2 1.9 3.7 4"/></svg>
+        Users
+      </button>
+    </div>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+const SUPABASE_URL = 'https://azdhiunzwslogbaiwtgi.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_9bZ28FxZyT0G5T6_nM8GCg_qyyFVsEc';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(); } catch (_e) { return iso || ''; } };
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function show(view) {
+  for (const id of ['authView', 'deniedView', 'appView']) {
+    $(id).classList.toggle('hidden', id !== view);
+  }
+}
+
+/* ---------------- auth ---------------- */
+
+async function route() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { show('authView'); return; }
+  const { data, error } = await sb.from('user_profiles')
+    .select('is_admin, username').eq('user_id', session.user.id).maybeSingle();
+  if (error || !data || !data.is_admin) { show('deniedView'); return; }
+  show('appView');
+  loadContentReports();
+  loadExtractionReports();
+}
+
+$('googleBtn').onclick = async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: location.origin + location.pathname },
+  });
+  if (error) toast('Google sign-in failed: ' + error.message);
+};
+
+$('magicBtn').onclick = async () => {
+  const email = $('magicEmail').value.trim();
+  if (!email) { toast('Enter your email first'); return; }
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: location.origin + location.pathname },
+  });
+  toast(error ? 'Failed: ' + error.message : 'Link sent - check your email');
+};
+
+async function signOut() { await sb.auth.signOut(); show('authView'); }
+$('signOutBtn').onclick = signOut;
+$('deniedSignOut').onclick = signOut;
+
+sb.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') route();
+});
+
+/* ---------------- tabs ---------------- */
+
+document.querySelectorAll('[data-tab]').forEach((btn) => {
+  btn.onclick = () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('[data-tab]').forEach((b) =>
+      b.classList.toggle('active', b.dataset.tab === tab));
+    $('tab-reports').classList.toggle('hidden', tab !== 'reports');
+    $('tab-users').classList.toggle('hidden', tab !== 'users');
+  };
+});
+
+document.querySelectorAll('[data-queue]').forEach((btn) => {
+  btn.onclick = () => {
+    const q = btn.dataset.queue;
+    document.querySelectorAll('[data-queue]').forEach((b) =>
+      b.classList.toggle('active', b.dataset.queue === q));
+    $('queue-content').classList.toggle('hidden', q !== 'content');
+    $('queue-extraction').classList.toggle('hidden', q !== 'extraction');
+  };
+});
+
+/* ---------------- usernames ---------------- */
+
+async function usernamesFor(ids) {
+  const list = [...new Set(ids.filter(Boolean))];
+  if (list.length === 0) return {};
+  const { data } = await sb.from('user_profiles')
+    .select('user_id, username').in('user_id', list);
+  const map = {};
+  (data || []).forEach((p) => { map[p.user_id] = p.username; });
+  return map;
+}
+
+/* ---------------- content reports ---------------- */
+
+const REASONS = {
+  inappropriate: 'Inappropriate content',
+  hate_harassment: 'Hate or harassment',
+  spam: 'Spam or misleading',
+  other: 'Other',
+};
+
+async function loadContentReports() {
+  const box = $('queue-content');
+  box.innerHTML = '<div class="spin">Loading…</div>';
+  const { data: reports, error } = await sb.from('content_reports')
+    .select('*').eq('status', 'pending_review')
+    .order('created_at', { ascending: false });
+  if (error) { box.innerHTML = '<div class="empty">Failed to load: ' + esc(error.message) + '</div>'; return; }
+  $('contentCount').textContent = reports.length ? '(' + reports.length + ')' : '';
+  if (!reports.length) { box.innerHTML = '<div class="empty">No pending content reports. All caught up.</div>'; return; }
+
+  const names = await usernamesFor(reports.flatMap((r) => [r.reporter_id, r.reported_user_id]));
+  box.innerHTML = '';
+  for (const r of reports) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      '<span class="badge">' + esc(r.content_type === 'recipe' ? 'Recipe' : 'Profile') + '</span>' +
+      '<span class="badge red">' + esc(REASONS[r.reason] || r.reason) + '</span>' +
+      '<h3>@' + esc(names[r.reported_user_id] || 'unknown') + '</h3>' +
+      (r.details ? '<div class="meta">&ldquo;' + esc(r.details) + '&rdquo;</div>' : '') +
+      '<div class="meta">Reported by @' + esc(names[r.reporter_id] || 'unknown') + ' &middot; ' + esc(fmtDate(r.created_at)) + '</div>' +
+      '<div class="actions">' +
+      '<button data-act="dismiss">Dismiss</button>' +
+      (r.content_type === 'recipe' ? '<button data-act="remove" class="danger">Remove content</button>' : '') +
+      '<button data-act="ban" class="danger">Ban user</button>' +
+      '</div>';
+    card.querySelector('[data-act="dismiss"]').onclick = () => resolveContentReport(r, 'dismissed');
+    const rm = card.querySelector('[data-act="remove"]');
+    if (rm) rm.onclick = () => removeReportedContent(r);
+    card.querySelector('[data-act="ban"]').onclick = () => banFromReport(r, names[r.reported_user_id]);
+    box.appendChild(card);
+  }
+}
+
+async function setContentReportStatus(id, status, notes) {
+  const { error } = await sb.from('content_reports').update({
+    status,
+    reviewed_at: new Date().toISOString(),
+    reviewer_notes: notes || null,
+  }).eq('id', id);
+  if (error) { toast('Failed: ' + error.message); return false; }
+  return true;
+}
+
+async function resolveContentReport(r, status) {
+  if (!confirm('Mark this report as reviewed with no action taken?')) return;
+  if (await setContentReportStatus(r.id, status)) { toast('Report dismissed'); loadContentReports(); }
+}
+
+async function removeReportedContent(r) {
+  if (!confirm('Delete the reported recipe and resolve the report?')) return;
+  const { error } = await sb.rpc('admin_soft_delete_recipe', { recipe_id: r.content_id });
+  if (error) { toast('Delete failed: ' + error.message); return; }
+  if (await setContentReportStatus(r.id, 'content_removed')) { toast('Content removed'); loadContentReports(); }
+}
+
+async function banFromReport(r, username) {
+  if (!confirm('Ban @' + (username || 'unknown') + '? They will no longer be able to use the app.')) return;
+  const { error } = await sb.rpc('admin_set_ban', {
+    target: r.reported_user_id, banned: true,
+    reason: 'Ban issued from report ' + r.id,
+  });
+  if (error) { toast('Ban failed: ' + error.message); return; }
+  if (await setContentReportStatus(r.id, 'user_banned')) { toast('User banned'); loadContentReports(); }
+}
+
+/* ---------------- extraction reports ---------------- */
+
+async function loadExtractionReports() {
+  const box = $('queue-extraction');
+  box.innerHTML = '<div class="spin">Loading…</div>';
+  const { data: reports, error } = await sb.from('extraction_reports')
+    .select('id, created_at, reporter_id, source_url, recipe_title, issue_note, recipe_snapshot')
+    .eq('status', 'open').order('created_at', { ascending: true });
+  if (error) { box.innerHTML = '<div class="empty">Failed to load: ' + esc(error.message) + '</div>'; return; }
+  $('extractionCount').textContent = reports.length ? '(' + reports.length + ')' : '';
+  if (!reports.length) { box.innerHTML = '<div class="empty">No open extraction reports.</div>'; return; }
+
+  const names = await usernamesFor(reports.map((r) => r.reporter_id));
+  box.innerHTML = '';
+  for (const r of reports) {
+    const snapImg = r.recipe_snapshot && r.recipe_snapshot.image_url;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      '<h3>' + esc(r.recipe_title || 'Untitled recipe') + '</h3>' +
+      (r.issue_note ? '<div class="meta">&ldquo;' + esc(r.issue_note) + '&rdquo;</div>' : '') +
+      '<div class="meta">By @' + esc(names[r.reporter_id] || 'unknown') + ' &middot; ' + esc(fmtDate(r.created_at)) + '</div>' +
+      (r.source_url ? '<div class="meta"><a href="' + esc(r.source_url) + '" target="_blank" rel="noopener noreferrer">' + esc(r.source_url) + '</a></div>' : '') +
+      (snapImg ? '<div class="meta"><a href="' + esc(snapImg) + '" target="_blank" rel="noopener noreferrer">reported image</a></div>' : '') +
+      (r.recipe_snapshot ? '<details><summary class="meta">Stored text snapshot</summary><pre></pre></details>' : '') +
+      '<div class="actions">' +
+      '<button data-act="fixed" class="primary">Mark fixed</button>' +
+      '<button data-act="dismissed">Dismiss</button>' +
+      '</div>';
+    if (r.recipe_snapshot) {
+      card.querySelector('pre').textContent = JSON.stringify(r.recipe_snapshot, null, 2);
+    }
+    card.querySelector('[data-act="fixed"]').onclick = () => resolveExtraction(r.id, 'fixed');
+    card.querySelector('[data-act="dismissed"]').onclick = () => resolveExtraction(r.id, 'dismissed');
+    box.appendChild(card);
+  }
+}
+
+async function resolveExtraction(id, status) {
+  if (!confirm('Mark this extraction report as ' + status + '?')) return;
+  const { error } = await sb.from('extraction_reports')
+    .update({ status }).eq('id', id);
+  if (error) { toast('Failed: ' + error.message); return; }
+  toast('Report ' + status);
+  loadExtractionReports();
+}
+
+/* ---------------- users ---------------- */
+
+async function searchUsers() {
+  const q = $('userSearch').value.trim();
+  const box = $('userResults');
+  if (!q) { box.innerHTML = '<div class="empty">Type a username to search.</div>'; return; }
+  box.innerHTML = '<div class="spin">Searching…</div>';
+  const { data: users, error } = await sb.from('user_profiles')
+    .select('user_id, username, is_admin, is_premium, premium_until, is_banned, banned_reason, is_public, feature_flags, created_at')
+    .ilike('username', '%' + q + '%')
+    .order('username').limit(20);
+  if (error) { box.innerHTML = '<div class="empty">Search failed: ' + esc(error.message) + '</div>'; return; }
+  if (!users.length) { box.innerHTML = '<div class="empty">No users match &ldquo;' + esc(q) + '&rdquo;.</div>'; return; }
+  box.innerHTML = '';
+  users.forEach((u) => box.appendChild(userCard(u)));
+}
+
+$('userSearchBtn').onclick = searchUsers;
+$('userSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchUsers(); });
+
+function userCard(u) {
+  const premiumActive = u.is_premium &&
+    (!u.premium_until || new Date(u.premium_until) > new Date());
+  const flags = u.feature_flags || {};
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML =
+    '<h3>@' + esc(u.username || '(no username)') + '</h3>' +
+    '<div>' +
+    (u.is_admin ? '<span class="badge green">Admin</span>' : '') +
+    (premiumActive ? '<span class="badge">Premium' + (u.premium_until ? ' until ' + esc(new Date(u.premium_until).toLocaleDateString()) : '') + '</span>' : '') +
+    (u.is_banned ? '<span class="badge red">Banned</span>' : '') +
+    (u.is_public ? '<span class="badge">Public profile</span>' : '') +
+    (flags.discover ? '<span class="badge">discover flag</span>' : '') +
+    '</div>' +
+    (u.is_banned && u.banned_reason ? '<div class="meta">Ban reason: ' + esc(u.banned_reason) + '</div>' : '') +
+    (u.created_at ? '<div class="meta">Joined ' + esc(fmtDate(u.created_at)) + '</div>' : '') +
+    '<div class="actions">' +
+    '<button data-act="premium">' + (premiumActive ? 'Remove premium' : 'Grant premium') + '</button>' +
+    '<button data-act="discover">' + (flags.discover ? 'Disable discover' : 'Enable discover') + '</button>' +
+    '<button data-act="ban" class="danger">' + (u.is_banned ? 'Unban' : 'Ban') + '</button>' +
+    '</div>';
+  card.querySelector('[data-act="premium"]').onclick = async () => {
+    const next = !premiumActive;
+    if (!confirm((next ? 'Grant premium to @' : 'Remove premium from @') + u.username + '?')) return;
+    const { error } = await sb.rpc('admin_set_premium', {
+      target: u.user_id, premium: next, until_date: null,
+    });
+    if (error) { toast('Failed: ' + error.message); return; }
+    toast(next ? 'Premium granted' : 'Premium removed');
+    searchUsers();
+  };
+  card.querySelector('[data-act="discover"]').onclick = async () => {
+    const next = !flags.discover;
+    const { error } = await sb.rpc('admin_set_feature_flag', {
+      target: u.user_id, flag: 'discover', enabled: next,
+    });
+    if (error) { toast('Failed: ' + error.message); return; }
+    toast('Discover ' + (next ? 'enabled' : 'disabled'));
+    searchUsers();
+  };
+  card.querySelector('[data-act="ban"]').onclick = async () => {
+    const next = !u.is_banned;
+    let reason = null;
+    if (next) {
+      reason = prompt('Ban @' + u.username + ' - reason (stored on the profile):');
+      if (reason === null) return;
+    } else if (!confirm('Unban @' + u.username + '?')) {
+      return;
+    }
+    const { error } = await sb.rpc('admin_set_ban', {
+      target: u.user_id, banned: next, reason,
+    });
+    if (error) { toast('Failed: ' + error.message); return; }
+    toast(next ? 'User banned' : 'User unbanned');
+    searchUsers();
+  };
+  return card;
+}
+
+/* ---------------- boot ---------------- */
+route();
+</script>
+</body>
+</html>
