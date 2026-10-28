@@ -13,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   Alert,
   ActivityIndicator,
   StyleSheet,
@@ -3963,9 +3964,19 @@ export const HomeScreen = ({ user }) => {
                 </View>
               </View>
             )}
-            <ScrollView style={styles.recipeList}>
-          {/* Deleted cookbooks live in Recently Deleted too */}
-          {currentFolder === 'Recently Deleted' && getDeletedFolders().length > 0 && (
+            {/* Virtualized list: only the cards near the viewport are
+                mounted, so big libraries scroll smoothly on slow phones */}
+            <FlatList
+              style={styles.recipeList}
+              data={sortedRecipes}
+              keyExtractor={(recipe) => String(recipe.id)}
+              extraData={{ multiselectMode, selectedRecipes, expandedTagsRecipeId, viewMode, dietaryPrefs }}
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={7}
+              ListHeaderComponent={
+          /* Deleted cookbooks live in Recently Deleted too */
+          currentFolder === 'Recently Deleted' && getDeletedFolders().length > 0 ? (
             <View style={styles.deletedFoldersSection}>
               <Text style={styles.deletedFoldersTitle}>Deleted Cookbooks</Text>
               {getDeletedFolders().map(f => (
@@ -3987,8 +3998,9 @@ export const HomeScreen = ({ user }) => {
                 </View>
               ))}
             </View>
-          )}
-          {sortedRecipes.length === 0 ? (
+          ) : null
+              }
+              ListEmptyComponent={
             <View style={styles.emptyState}>
               {currentFolder === 'All Recipes' ? (
                 <>
@@ -4021,9 +4033,8 @@ export const HomeScreen = ({ user }) => {
                 </>
               )}
             </View>
-          ) : (
-            <>
-              {sortedRecipes.map((recipe) => {
+              }
+              renderItem={({ item: recipe }) => {
                 const isSelected = selectedRecipes.has(recipe.id);
                 const dietConflicts = getConflicts(analysisById.get(recipe.id), dietaryPrefs);
                 const cardTags = combineRecipeTags(recipe);
@@ -4161,10 +4172,8 @@ export const HomeScreen = ({ user }) => {
                     </View>
                   </TouchableOpacity>
                 );
-              })}
-            </>
-          )}
-        </ScrollView>
+              }}
+            />
           </View>
         )
       )}
