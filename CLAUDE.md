@@ -119,16 +119,6 @@ Traps that burned real time:
 
 ## Working agreements
 
-- **🚨 PLAY UPLOAD BLOCKER (ACTIVE): the health declaration is NOT
-  FILED YET.** The Kitchen Stats tab ships daily nutrition totals, so
-  the Play "Health features" answer flipped to **"Nutrition and
-  weight management"**. Until Daniel confirms he has filed it (App
-  content -> Health, plus the Data safety and Privacy Policy updates
-  in the health section below), EVERY reply that gives a Play
-  build/upload command MUST begin with a large, unmissable warning to
-  file the declaration before uploading. When he confirms it is
-  filed, delete this agreement and update the health section.
-
 - **All work lives on `master`.** Session branches must be created FROM
   master and merged back when done.
 - **Show SQL in chat**, never only in a file - Daniel runs it by hand in
@@ -171,7 +161,7 @@ describe the app in detail, so they go wrong the same way.
 | Add analytics, crash reporting or any tracking SDK | Data safety form; Privacy Policy "no analytics SDK" paragraph becomes FALSE; store listing short description says "no tracking" |
 | Add an ad network | Ads declaration -> Yes ("Contains ads" label appears); same listing/policy copy as above |
 | Collect location, contacts, or a new permission | Data safety; Privacy Policy "what we collect"; content rating location question |
-| Push notifications (SHIPPED 27 Oct 2026 - paperwork pending) | Play Data safety: "Device or other IDs" collected (push tokens) - due at the NEXT Play upload; Apple App Privacy: Identifiers - due at the next App Store review submission. Privacy Policy already updated (push tokens section + Expo in the processors table) |
+| Push notifications (SHIPPED 27 Oct 2026; paperwork DONE) | Play Data safety "Device or other IDs" filed 29 Oct 2026; Apple App Privacy Identifiers -> Device ID declared 28 Oct 2026; Privacy Policy has the push-tokens section + Expo in the processors table. Nothing pending |
 | Add a new third-party service that receives user data | Privacy Policy processors table |
 | Add chat or direct messages | Content rating UGC + chat moderation answers |
 | Curate an Explore/Recommended shelf | Curated content is not user-generated, so the age-restriction answers stop being covered by the UGC exclusion. Alcohol content sits badly with the 13+ target audience - see the naming/rating notes |
@@ -183,33 +173,30 @@ describe the app in detail, so they go wrong the same way.
 
 Content rating can be re-taken any time from the Content rating page.
 
-### The health-features line (CROSSED on 14 Oct 2026 - declaration pending)
+### The health-features line (CROSSED 14 Oct 2026; declared 29 Oct 2026)
 
 Play asks separately whether the app has health features. The answer
-is now **YES - "Nutrition and weight management"**: the Kitchen
+is **YES - "Nutrition and weight management"**: the Kitchen
 `Stats` tab (`src/components/NutritionStats.js`,
 `src/utils/nutritionMath.js`) sums daily/weekly calorie and macro
-intake across `meal_events`, which was the first bullet on the
-flips-it list. Daniel chose this knowingly (session 14 Oct 2026).
-What has to be filed in the SAME release as the first upload carrying
-the Stats tab (see the ACTIVE blocker in Working agreements):
+intake across `meal_events`. Daniel chose this knowingly (session
+14 Oct 2026) and FILED everything on 29 Oct 2026, with the
+versionCode 7 release:
 
-- Play Console -> App content -> **Health**: declare "Nutrition and
-  weight management" (routes the app into Google's health policy
-  review - expect extra listing requirements).
-- **Data safety**: Health info is already declared (allergens); add
-  that the app tracks nutrition/eating habits if the form asks at
-  that granularity.
-- **Privacy Policy + Terms** (`site/`): describe nutrition tracking -
-  what is summed (source-provided nutrition x servings eaten), stored
-  in the user's account (`meal_events` + recipe data), never shared.
-- Apple: update App Privacy if answers change (no gating declaration
-  equivalent, but honesty applies).
+- Play -> App content -> Health: "Nutrition and weight management"
+  declared (the app now sits in Google's health policy review lane -
+  expect occasional extra listing requirements).
+- Play Data safety: Health info collected, purposes App functionality
+  + **Personalization** (dietary prefs/allergen warnings customize
+  what recipes show - keep Personalization, it is the honest answer).
+- Apple App Privacy (28 Oct 2026): Health & Fitness -> Health
+  declared, App Functionality, linked, no tracking.
+- Privacy Policy + Terms (`site/`) describe nutrition tracking.
 
 Also inside the declared category (15 Oct 2026): a user-set **daily
 calorie goal** on the Stats tab - an awareness marker with progress
 bar, stored in app settings as `dailyCalorieGoal`. Covered by the
-same pending declaration; no further filing needed.
+declaration; no further filing needed.
 
 Also inside it (22 Oct 2026, extended 27 Oct): **user-entered
 nutrition** on scans, custom recipes, and social-caption imports
