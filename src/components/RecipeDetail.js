@@ -1484,7 +1484,9 @@ export const RecipeDetail = ({
       {/* Nutrition - at the bottom, after instructions */}
       {(() => {
         if (!showNutrition) return null;
-        const items = buildNutritionItems(localRecipe.nutrition, scaleFactor);
+        // Nutrition is per serving, and scaling a recipe makes MORE
+        // servings, not bigger ones - so these values never scale.
+        const items = buildNutritionItems(localRecipe.nutrition, 1);
         if (items.length === 0) {
           // Own work without nutrition: offer to enter it
           if (!canEditNutrition) return null;
@@ -1497,12 +1499,7 @@ export const RecipeDetail = ({
         }
 
         const perServing = localRecipe.nutrition?.servingSize || null;
-        // Source nutrition is per serving; scaling multiplies those
-        // values, so the label says exactly that rather than claiming
-        // a recipe total we can't actually compute
-        const perLabel = scaleFactor === 1
-          ? (perServing ? `per ${perServing}` : 'per serving')
-          : `per serving × ${scaleFactor}`;
+        const perLabel = perServing ? `per ${perServing}` : 'per serving';
 
         return (
           <View style={styles.nutritionContainer}>
@@ -1526,14 +1523,6 @@ export const RecipeDetail = ({
                 </View>
               ))}
             </View>
-            {scaleFactor !== 1 && (
-              <View style={[styles.disclaimer, { marginBottom: 0 }]}>
-                <Ionicons name="warning-outline" size={14} color={colors.warning} style={{ marginRight: 6 }} />
-                <Text style={styles.disclaimerText}>
-                  Note: Estimated - the source's per-serving values multiplied by {scaleFactor}
-                </Text>
-              </View>
-            )}
             {/* Someone else's hand-entered numbers deserve a caveat; the
                 person who can edit them (owner / copy holder) needs none */}
             {localRecipe.nutrition?.userProvided && !canEditNutrition && (
