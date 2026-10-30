@@ -318,7 +318,6 @@ export const RecipeDetail = ({
       return null;
     }
   });
-  const [scaledInstructions, setScaledInstructions] = useState(null);
 
   // Editing state
   const [editingItem, setEditingItem] = useState(null); // { type, sectionKey, index, value }
@@ -370,41 +369,10 @@ export const RecipeDetail = ({
     }
   }, [recipe]);
 
-  /**
-   * Scale numbers in instructions
-   */
-  const scaleInstructionNumbers = (instruction, scale) => {
-    if (scale === 1) return instruction;
-
-    // Match numbers (including decimals and fractions) followed by units
-    return instruction.replace(/(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s*(minutes?|mins?|hours?|hrs?|seconds?|secs?|degrees?|°[CF]?)/gi, (match, number, unit) => {
-      try {
-        // Handle fractions
-        let value;
-        if (number.includes('/')) {
-          const [num, den] = number.split('/').map(s => parseFloat(s.trim()));
-          value = num / den;
-        } else {
-          value = parseFloat(number);
-        }
-
-        // Scale the value
-        const scaled = value * scale;
-
-        // Format nicely
-        let formattedNumber;
-        if (scaled % 1 === 0) {
-          formattedNumber = scaled.toString();
-        } else {
-          formattedNumber = scaled.toFixed(1).replace(/\.0$/, '');
-        }
-
-        return `${formattedNumber} ${unit}`;
-      } catch (e) {
-        return match; // Return original if parsing fails
-      }
-    });
-  };
+  // Scaling deliberately touches INGREDIENTS ONLY. Instruction text is
+  // never rewritten: oven temperatures must not scale at all, and cook
+  // times do not scale linearly with quantity, so multiplying either
+  // produces dangerous nonsense ("bake at 1095 degrees").
 
   // Update displayed ingredients when scale or unit system changes
   useEffect(() => {
@@ -435,13 +403,7 @@ export const RecipeDetail = ({
     }
 
     setDisplayedIngredients(ingredients);
-
-    // Scale instructions
-    if (localRecipe?.instructions && Array.isArray(localRecipe.instructions)) {
-      const scaled = localRecipe.instructions.map(step => scaleInstructionNumbers(step, scaleFactor));
-      setScaledInstructions(scaled);
-    }
-  }, [parsedIngredients, scaleFactor, useMetric, localRecipe?.instructions]);
+  }, [parsedIngredients, scaleFactor, useMetric]);
 
 
   /**
@@ -1437,7 +1399,7 @@ export const RecipeDetail = ({
       })}
 
       <Text style={styles.sectionTitle}>Instructions</Text>
-      {(scaledInstructions || localRecipe?.instructions || []).map((step, idx) => (
+      {(localRecipe?.instructions || []).map((step, idx) => (
         <View key={`instruction-${idx}`}>
           <TouchableOpacity
             onLongPress={() => handleLongPress('instruction', null, idx, step)}
@@ -2164,7 +2126,7 @@ export const RecipeDetail = ({
         onClose={() => setShowCookMode(false)}
         recipe={localRecipe}
         ingredients={displayedIngredients || localRecipe.ingredients}
-        instructions={scaledInstructions || localRecipe.instructions}
+        instructions={localRecipe.instructions}
       />
 
       {swapMode && (
