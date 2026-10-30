@@ -113,6 +113,10 @@ extractable recipe" auto-report attaches the caption it failed on.
 Compare the stored recipe against that. An auto no-recipe report
 whose caption really has no recipe (recipe in comments, "link in
 bio") is working as intended - dismiss it.
+Same for a caption that lists ingredients but no method ("Comment
+'recipe' and I'll send it") - an empty Instructions section is
+faithful; the app warns "Ingredients Only" at import (30 Oct 2026).
+Dismiss.
 
 ## Roundup pages
 

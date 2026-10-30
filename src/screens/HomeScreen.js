@@ -2355,11 +2355,21 @@ export const HomeScreen = ({ user }) => {
       }));
       const [first, ...rest] = items;
       scanQueueRef.current = rest;
+      // Creators often post only the ingredient list and DM the method
+      // ("Comment 'recipe' and I'll send it" - One Pot French Onion
+      // Pasta). The import is faithful, but an empty Instructions
+      // section with no explanation reads like a bug.
+      const steps = first?.recipe?.instructions;
+      const noSteps = !steps || (Array.isArray(steps) ? steps.length === 0 : !String(steps).trim());
+      const noStepsCopy = 'The caption lists the ingredients but not the steps - creators often send the full method by message or keep it on their blog. You can add the steps yourself after saving.';
       if (rest.length > 0) {
         Alert.alert(
           'Multiple Recipes Found',
           `Found ${items.length} recipes in the post. You'll preview and save them one at a time.`
+            + (noSteps ? `\n\nThe first one has no steps: ${noStepsCopy}` : '')
         );
+      } else if (noSteps) {
+        Alert.alert('Ingredients Only', noStepsCopy);
       }
       previewScanResult(first);
       return;
