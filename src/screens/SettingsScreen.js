@@ -35,6 +35,7 @@ import { getDebugLog, clearDebugLog } from '../utils/debugLog';
 import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
 import { DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 import { THEME_OPTIONS, loadThemePreference, saveThemePreference } from '../utils/theme';
+import { loadPushEnabled, setPushEnabled } from '../services/pushNotifications';
 import { reloadAppAsync } from 'expo';
 
 import { log } from '../utils/log';
@@ -82,10 +83,28 @@ export const SettingsScreen = ({
   const [debugLogText, setDebugLogText] = useState('');
   // Device-level (read pre-sign-in at boot), so not part of appSettings
   const [themePref, setThemePref] = useState('system');
+  // Device-level too: silences THIS phone, not the account
+  const [pushEnabled, setPushEnabledState] = useState(true);
 
   useEffect(() => {
     loadThemePreference().then(setThemePref);
+    loadPushEnabled().then(setPushEnabledState);
   }, []);
+
+  const togglePush = async (next) => {
+    setPushEnabledState(next);
+    const registered = await setPushEnabled(next, user?.uid);
+    // Signed out there is nothing to register - the preference still
+    // saves and applies at the next sign-in
+    if (next && user?.uid && !registered) {
+      // Saved as on, but no token was created - almost always the OS
+      // permission was denied at some point
+      Alert.alert(
+        'Notifications Blocked',
+        `${APP_NAME} is not allowed to send notifications. Enable them for ${APP_NAME} in your phone's Settings, then turn this back on.`,
+      );
+    }
+  };
 
   const changeTheme = async (key) => {
     if (key === themePref) return;
@@ -986,6 +1005,21 @@ export const SettingsScreen = ({
                 style={styles.switchControl}
                 value={showNutrition !== false}
                 onValueChange={onToggleShowNutrition}
+                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                thumbColor={colors.onPrimary}
+              />
+            </View>
+            <View style={[styles.settingRow, styles.settingRowBorder]}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Phone Notifications</Text>
+                <Text style={styles.settingDescription}>
+                  Recipe shares, friend requests, and cookbook invites as notifications on this phone
+                </Text>
+              </View>
+              <Switch
+                style={styles.switchControl}
+                value={pushEnabled}
+                onValueChange={togglePush}
                 trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
                 thumbColor={colors.onPrimary}
               />

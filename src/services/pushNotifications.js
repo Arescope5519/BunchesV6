@@ -15,12 +15,42 @@
  */
 
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from './supabase/config';
 import { dbg } from '../utils/debugLog';
 import { log } from '../utils/log';
+
+// Device-level opt-out (Settings -> Phone Notifications). Default ON.
+// Stored per device, not per account: turning it off here silences THIS
+// phone and leaves the user's other devices alone.
+const PUSH_ENABLED_KEY = '@melibri_push_enabled';
+
+export const loadPushEnabled = async () => {
+  try {
+    return (await AsyncStorage.getItem(PUSH_ENABLED_KEY)) !== 'false';
+  } catch (_e) {
+    return true;
+  }
+};
+
+/**
+ * Settings toggle: persist the choice, then register or unregister this
+ * device accordingly. Returns what registerForPushNotifications returned
+ * (false can mean the OS permission is denied - caller may want to say so).
+ */
+export const setPushEnabled = async (enabled, userId) => {
+  try {
+    await AsyncStorage.setItem(PUSH_ENABLED_KEY, enabled ? 'true' : 'false');
+  } catch (_e) { /* keep going - worst case the pref resets to on */ }
+  if (enabled) {
+    return registerForPushNotifications(userId);
+  }
+  await unregisterPushNotifications(userId);
+  return true;
+};
 
 // Foreground behavior: show social pushes as banners even while the
 // app is open (they are rare and actionable)
@@ -41,6 +71,10 @@ Notifications.setNotificationHandler({
 export const registerForPushNotifications = async (userId) => {
   if (!userId) return false;
   try {
+    if (!(await loadPushEnabled())) {
+      dbg('[PUSH]', 'skipped: turned off in Settings');
+      return false;
+    }
     if (!Device.isDevice) {
       log('🔔 Push skipped: not a physical device');
       return false;
