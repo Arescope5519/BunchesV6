@@ -5244,9 +5244,12 @@ export const HomeScreen = ({ user }) => {
         </View>
       </Modal>
 
-      {/* Username Setup Modal */}
+      {/* Username Setup Modal. Never while the disclaimer is up - iOS
+          presents one modal at a time, and a second one going visible
+          during the first one's animation leaves a dead transparent
+          host view that eats every touch (first-install freeze) */}
       <UsernameSetupModal
-        visible={needsUsername && !!user}
+        visible={needsUsername && !!user && !showDisclaimer}
         onSetup={setupUsername}
         checkAvailability={checkUsernameAvailable}
       />
@@ -5278,12 +5281,13 @@ export const HomeScreen = ({ user }) => {
         colors={colors}
       />
 
-      {/* Welcome Modal for first-time users. Never while the username
-          modal is up: iOS can only present one modal at a time, and
-          two going visible in the same tick made the username prompt
-          silently lose the race and never appear */}
+      {/* Welcome Modal for first-time users. Strictly LAST in the
+          first-run modal chain (disclaimer -> username -> welcome):
+          iOS can only present one modal at a time, and two going
+          visible in the same tick made one silently lose the race -
+          or worse, leave a dead touch-eating host view */}
       <WelcomeModal
-        visible={showWelcomeModal && !(needsUsername && !!user)}
+        visible={showWelcomeModal && !showDisclaimer && !(needsUsername && !!user)}
         onClose={() => setShowWelcomeModal(false)}
         onDontShowAgain={handleWelcomeDontShowAgain}
       />
