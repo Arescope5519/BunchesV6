@@ -39,6 +39,7 @@ import {
 import { getBlockedUsers } from '../services/supabase/social';
 import { log } from '../utils/log';
 import { imgSource } from '../utils/imageSource';
+import { recipeSourceLabel } from '../utils/recipeFormat';
 
 const TABS = [
   { key: 'following', label: 'Following' },
@@ -306,6 +307,9 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
     const gid = item.globalRecipeId;
     const liked = gid ? likedSet.has(gid) : false;
     const count = gid ? (likeCounts[gid] || 0) : 0;
+    // Imports are credited to their SOURCE (domain / Instagram /
+    // Pinterest); the user is the collector, not the author
+    const sourceLabel = recipeSourceLabel(item);
     return (
       <View style={styles.feedCard}>
         <TouchableOpacity
@@ -321,8 +325,15 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
             <LetterPlaceholder title={item.title} size={64} style={styles.feedImage} />
           )}
           <View style={styles.feedBody}>
-            <Text style={styles.feedOwner} numberOfLines={1}>@{item.ownerUsername}</Text>
+            <Text style={styles.feedOwner} numberOfLines={1}>
+              {sourceLabel || `@${item.ownerUsername}`}
+            </Text>
             <Text style={styles.feedTitle} numberOfLines={2}>{item.title}</Text>
+            {sourceLabel ? (
+              <Text style={styles.feedLibrary} numberOfLines={1}>
+                From the library of @{item.ownerUsername}
+              </Text>
+            ) : null}
             <Text style={styles.feedIngredients} numberOfLines={INGREDIENT_PREVIEW_LINES}>
               {(item.ingredientLines || []).slice(0, INGREDIENT_PREVIEW_LINES).join('\n')}
             </Text>
@@ -379,7 +390,9 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
         <LetterPlaceholder title={card.title} size={36} style={styles.tileImage} />
       )}
       <Text style={styles.tileTitle} numberOfLines={2}>{card.title}</Text>
-      <Text style={styles.tileOwner} numberOfLines={1}>@{card.ownerUsername}</Text>
+      <Text style={styles.tileOwner} numberOfLines={1}>
+        {recipeSourceLabel(card) || `@${card.ownerUsername}`}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -541,6 +554,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     lineHeight: 25,
+    marginBottom: 6,
+  },
+  feedLibrary: {
+    fontSize: 12,
+    color: colors.textTertiary,
     marginBottom: 6,
   },
   feedIngredients: {

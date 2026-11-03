@@ -1573,19 +1573,35 @@ export const RecipeDetail = ({
           );
         }
 
-        // External URL: show link
+        // External URL: show link. The source owns the recipe; when this
+        // copy came from someone else's collection, credit them as the
+        // collector underneath, not as the author.
         if (sourceUrl) {
           return (
-            <View style={styles.sourceContainer}>
-              <Text style={styles.sourceLabel}>Source:</Text>
-              <TouchableOpacity onPress={() => {
-                Linking.openURL(sourceUrl).catch(() =>
-                  Alert.alert('Error', 'Could not open URL')
-                );
-              }}>
-                <Text style={styles.sourceUrl}>{sourceUrl}</Text>
-              </TouchableOpacity>
-            </View>
+            <>
+              <View style={styles.sourceContainer}>
+                <Text style={styles.sourceLabel}>Source:</Text>
+                <TouchableOpacity onPress={() => {
+                  Linking.openURL(sourceUrl).catch(() =>
+                    Alert.alert('Error', 'Could not open URL')
+                  );
+                }}>
+                  <Text style={styles.sourceUrl}>{sourceUrl}</Text>
+                </TouchableOpacity>
+              </View>
+              {isReadOnly && creatorUsername && (
+                <View style={styles.sourceContainer}>
+                  <Text style={styles.sourceLabel}>From the library of:</Text>
+                  {creatorUserId ? (
+                    <TouchableOpacity onPress={() => onViewOwnerProfile?.(creatorUserId, creatorUsername)}>
+                      <Text style={styles.sourceUrl}>@{creatorUsername}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.creatorName}>@{creatorUsername}</Text>
+                  )}
+                </View>
+              )}
+            </>
           );
         }
 

@@ -53,6 +53,9 @@ const mapRowToCard = (row, profileMap) => {
     ownerAvatarUrl: profile.avatar_url || null,
     title: local.title || row.global_recipes?.title || 'Untitled',
     imageUrl: local.image_url || local.imageUrl || row.global_recipes?.image_url || null,
+    // For source attribution on cards - a web/social import is credited
+    // to its source, with the owner as the collector
+    sourceUrl: local.url || local.source_url || local.sourceUrl || row.global_recipes?.source_url || null,
     ingredientLines: flattenIngredients(local.ingredients || row.global_recipes?.ingredients),
     tags: Array.isArray(row.global_recipes?.tags) ? row.global_recipes.tags : [],
     globalRecipeId: row.global_recipe_id || null,
@@ -238,7 +241,7 @@ export const getFeedShelves = async (userId) => {
       shelves.push({
         type: 'user',
         key: `user:${topOwner[0].ownerUserId}`,
-        title: `More from @${topOwner[0].ownerUsername}`,
+        title: `From the library of @${topOwner[0].ownerUsername}`,
         cards: topOwner.slice(0, SHELF_SIZE),
       });
     }

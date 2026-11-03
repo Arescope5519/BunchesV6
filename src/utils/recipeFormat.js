@@ -5,6 +5,31 @@
  * saved recipe view (RecipeDetail) so they always render identically.
  */
 
+import { isInternalUrl } from '../constants/app';
+
+/**
+ * Short credit for where a recipe CAME FROM: 'Instagram', 'Pinterest',
+ * or the source site's domain ("allrecipes.com"). Null when there is no
+ * external source (own creations, claimed scans, minted internal URLs) -
+ * those are credited to their creator instead. Feeds use this so a web
+ * import is never presented as the importer's work: the importer is the
+ * collector ("from the library of"), the source is the author.
+ */
+export const recipeSourceLabel = (recipe) => {
+  const url = recipe?.url || recipe?.sourceUrl || recipe?.source_url;
+  if (!url || isInternalUrl(url)) return null;
+  try {
+    const host = new URL(String(url)).hostname.replace(/^www\./i, '').toLowerCase();
+    if (!host) return null;
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'Instagram';
+    if (host === 'pin.it' || host === 'pinterest.com' ||
+        host.endsWith('.pinterest.com') || host.startsWith('pinterest.')) return 'Pinterest';
+    return host;
+  } catch (_e) {
+    return null;
+  }
+};
+
 /**
  * Format an ISO 8601 duration (e.g. "PT1H30M") or plain "30 minutes" into "1h 30 min".
  * Returns "?" for empty/zero durations.
