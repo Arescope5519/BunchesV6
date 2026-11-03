@@ -21,7 +21,11 @@ export const recipeSourceLabel = (recipe) => {
   try {
     const host = new URL(String(url)).hostname.replace(/^www\./i, '').toLowerCase();
     if (!host) return null;
-    if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'Instagram';
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+      // Caption imports store the poster's handle in author
+      const handle = String(recipe?.author || '').trim().replace(/^@/, '');
+      return /^[A-Za-z0-9_.]{1,30}$/.test(handle) ? `@${handle} on Instagram` : 'Instagram';
+    }
     if (host === 'pin.it' || host === 'pinterest.com' ||
         host.endsWith('.pinterest.com') || host.startsWith('pinterest.')) return 'Pinterest';
     return host;

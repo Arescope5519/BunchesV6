@@ -1586,7 +1586,11 @@ export const RecipeDetail = ({
                     Alert.alert('Error', 'Could not open URL')
                   );
                 }}>
-                  <Text style={styles.sourceUrl}>{sourceUrl}</Text>
+                  <Text style={styles.sourceUrl}>
+                    {isInstagramUrl(sourceUrl) && localRecipe.author
+                      ? `@${String(localRecipe.author).replace(/^@/, '')} on Instagram`
+                      : sourceUrl}
+                  </Text>
                 </TouchableOpacity>
               </View>
               {isReadOnly && creatorUsername && (

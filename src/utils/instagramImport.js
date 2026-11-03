@@ -32,6 +32,19 @@ const stripOgWrapper = (text) => {
   return text;
 };
 
+// Same prefix carries the poster's handle - a second chance at it when
+// the embed page didn't give one up
+const ogUsername = (text) => {
+  const m = String(text || '').match(/^[\d,.KM]+ likes?, [\d,.KM]+ comments? - ([A-Za-z0-9_.]+) on /);
+  return m ? m[1] : null;
+};
+
+// Only accept things that look like a real IG handle
+const cleanHandle = (raw) => {
+  const t = String(raw || '').trim().replace(/^@/, '');
+  return /^[A-Za-z0-9_.]{1,30}$/.test(t) ? t : null;
+};
+
 export const cleanCaption = (text) => {
   let t = String(text || '').replace(/\r/g, '').trim();
   // Collapse runs of blank lines; drop a pure-hashtag tail wall
@@ -46,7 +59,7 @@ export const cleanCaption = (text) => {
 };
 
 /**
- * @returns {Promise<{caption: string, imageUrl: string|null}>}
+ * @returns {Promise<{caption: string, imageUrl: string|null, username: string|null}>}
  * @throws when the caption cannot be read (private post, wall, markup change)
  */
 export const fetchInstagramPost = async (postUrl) => {
@@ -65,8 +78,9 @@ export const fetchInstagramPost = async (postUrl) => {
     const res = await fetchPage(embedUrl);
     const caption = cleanCaption(res?.caption);
     if (caption.length > 20) {
-      dbg('[IG]', 'embed caption:', caption.length, 'chars');
-      return { caption, imageUrl: res?.image || null };
+      const username = cleanHandle(res?.author);
+      dbg('[IG]', 'embed caption:', caption.length, 'chars', username ? `by @${username}` : '');
+      return { caption, imageUrl: res?.image || null, username };
     }
   } catch (e) {
     dbg('[IG]', 'embed fetch failed:', e?.message);
@@ -77,8 +91,9 @@ export const fetchInstagramPost = async (postUrl) => {
   const res2 = await fetchPage(`https://www.instagram.com/${kind}/${shortcode}/`);
   const caption2 = cleanCaption(stripOgWrapper(res2?.caption));
   if (caption2.length > 20) {
-    dbg('[IG]', 'og caption:', caption2.length, 'chars');
-    return { caption: caption2, imageUrl: res2?.image || null };
+    const username2 = cleanHandle(res2?.author) || cleanHandle(ogUsername(res2?.caption));
+    dbg('[IG]', 'og caption:', caption2.length, 'chars', username2 ? `by @${username2}` : '');
+    return { caption: caption2, imageUrl: res2?.image || null, username: username2 };
   }
   throw new Error('no readable caption - the post may be private');
 };

@@ -228,6 +228,9 @@ export const loadRecipesFromDatabase = async (userId) => {
         tags: row.tags || [],                       // user's own tags (editable)
         globalTags: globalRecipe?.tags || [],       // shared auto-tags (read-only)
         source: localData?.source || null,          // 'manual' | 'scan' | null
+        // Source-side author: a website's recipe author, or the
+        // Instagram handle a caption import came from
+        author: globalRecipe?.author || localData?.author || null,
         createdBy: localData?.createdBy || null,
         isFavorite: row.is_favorite || false,
         createdAt: new Date(row.created_at).getTime(),

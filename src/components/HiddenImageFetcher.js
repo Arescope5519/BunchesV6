@@ -77,12 +77,23 @@ const INJECTED_PAGE = `
       var caption = '';
       var image = '';
       var link = '';
+      var author = '';
       var cap = document.querySelector('.Caption');
       if (cap) {
+        // The poster's handle lives in the element we strip from the
+        // caption - read it first so imports can credit the account
+        var un = cap.querySelector('.CaptionUsername');
+        if (un) author = (un.innerText || '').trim();
         var clone = cap.cloneNode(true);
         var strip = clone.querySelectorAll('.CaptionUsername, .CaptionComments, .ViewMoreLink');
         for (var i = 0; i < strip.length; i++) strip[i].remove();
         caption = (clone.innerText || '').trim();
+      }
+      if (!author) {
+        // Post pages: og:title reads 'Name (@handle) • Instagram ...'
+        var ogt = document.querySelector('meta[property="og:title"]');
+        var am = ogt && ogt.content ? ogt.content.match(/\\(@([A-Za-z0-9_.]+)\\)/) : null;
+        if (am) author = am[1];
       }
       var img = document.querySelector('.EmbeddedMediaImage, img[class*="Media"]');
       if (img && img.src) image = img.src;
@@ -117,11 +128,11 @@ const INJECTED_PAGE = `
       // contain stray "link" fields while the caption is still rendering.
       var done = (caption && caption.length > 40) || (link && caption && tries >= 3);
       if (done) {
-        send({ ok: true, caption: caption.slice(0, 12000), image: image, link: link });
+        send({ ok: true, caption: caption.slice(0, 12000), image: image, link: link, author: author });
         return;
       }
       if (++tries < 16) { setTimeout(grab, 500); return; }
-      if (caption || link) send({ ok: true, caption: caption.slice(0, 12000), image: image, link: link });
+      if (caption || link) send({ ok: true, caption: caption.slice(0, 12000), image: image, link: link, author: author });
       else send({ ok: false, error: 'no caption found on page' });
     } catch (e) {
       send({ ok: false, error: String(e) });
@@ -200,7 +211,7 @@ const HiddenImageFetcher = () => {
             const msg = JSON.parse(e.nativeEvent.data);
             if (msg.ok && job.kind === 'page') {
               dbg('WEBVIEW', 'page extracted:', `${(msg.caption || '').length} chars`, msg.image ? '+image' : 'no image', msg.link ? '+link' : '');
-              finish({ caption: msg.caption || '', image: msg.image || '', link: msg.link || '' });
+              finish({ caption: msg.caption || '', image: msg.image || '', link: msg.link || '', author: msg.author || '' });
             } else if (msg.ok && msg.base64) {
               dbg('WEBVIEW', 'fetched', msg.type || 'no type', `${msg.base64.length} b64 chars`);
               finish({ base64: msg.base64, contentType: msg.type || '' });

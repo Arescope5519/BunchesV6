@@ -2330,7 +2330,8 @@ export const HomeScreen = ({ user }) => {
         postUrl,
         post.caption,
         post.imageUrl,
-        'This post\'s caption does not contain the recipe itself. Many posts keep the recipe in the comments or behind "link in bio" - those cannot be imported.'
+        'This post\'s caption does not contain the recipe itself. Many posts keep the recipe in the comments or behind "link in bio" - those cannot be imported.',
+        post.username
       );
     } finally {
       setScanning(false);
@@ -2340,7 +2341,7 @@ export const HomeScreen = ({ user }) => {
   // Shared tail of a caption-based import (Instagram, Pinterest): run
   // the AI text extractor and route the result through the scan
   // preview flow
-  const runCaptionImport = async (sourceUrl, caption, imageUrl, noRecipeCopy) => {
+  const runCaptionImport = async (sourceUrl, caption, imageUrl, noRecipeCopy, sourceAuthor = null) => {
     const result = await scanRecipeText(caption);
 
     if (result.success) {
@@ -2351,6 +2352,8 @@ export const HomeScreen = ({ user }) => {
           url: sourceUrl,
           source_url: sourceUrl,
           image_url: imageUrl || '',
+          // The post's real handle beats whatever the extractor guessed
+          ...(sourceAuthor ? { author: sourceAuthor } : {}),
         },
       }));
       const [first, ...rest] = items;

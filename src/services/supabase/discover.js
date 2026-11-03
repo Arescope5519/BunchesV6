@@ -56,6 +56,7 @@ const mapRowToCard = (row, profileMap) => {
     // For source attribution on cards - a web/social import is credited
     // to its source, with the owner as the collector
     sourceUrl: local.url || local.source_url || local.sourceUrl || row.global_recipes?.source_url || null,
+    author: row.global_recipes?.author || local.author || null,
     ingredientLines: flattenIngredients(local.ingredients || row.global_recipes?.ingredients),
     tags: Array.isArray(row.global_recipes?.tags) ? row.global_recipes.tags : [],
     globalRecipeId: row.global_recipe_id || null,
@@ -110,6 +111,7 @@ const fetchRecipesForUsers = async (userIds, profileMap, offset, limit, seed = n
         title,
         image_url,
         source_url,
+        author,
         ingredients,
         tags
       )
@@ -340,6 +342,7 @@ export const getLikedFeed = async (userId, { offset = 0, limit = DISCOVER_PAGE_S
           title,
           image_url,
           source_url,
+          author,
           ingredients,
           tags
         )
