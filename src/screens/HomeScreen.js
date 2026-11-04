@@ -598,7 +598,7 @@ export const HomeScreen = ({ user }) => {
           }
         } catch (error) {
           console.error('Error handling friend link:', error);
-          Alert.alert('Error', 'Failed to process friend request. Please try again.');
+          Alert.alert('Error', 'Failed to process follow request. Please try again.');
         }
         setPendingFriendUsername(null);
       };

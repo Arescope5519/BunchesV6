@@ -495,7 +495,7 @@ const UserProfile = ({
           <Ionicons name="lock-closed" size={44} color={colors.textLight} style={styles.privateProfileIcon} />
           <Text style={styles.privateProfileTitle}>Private Profile</Text>
           <Text style={styles.privateProfileText}>
-            This user's profile is private. Send a friend request to view their recipes.
+            This profile is private. Tap Follow to request access - you'll see their recipes once they confirm.
           </Text>
         </View>
       );

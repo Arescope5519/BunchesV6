@@ -967,7 +967,7 @@ export const SocialModal = ({
           }}
         >
           <Ionicons name="person-add" size={14} color={colors.onPrimary} style={{ marginRight: 5 }} />
-          <Text style={styles.headerAddFriendsText}>Add Friends</Text>
+          <Text style={styles.headerAddFriendsText}>Find People</Text>
         </TouchableOpacity>
       </View>
 

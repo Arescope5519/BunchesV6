@@ -241,7 +241,7 @@ export const sendFriendRequest = async (fromUserId, toUserId) => {
       .single();
 
     if (existing) {
-      throw new Error('Friend request already sent');
+      throw new Error('Follow request already sent');
     }
 
     const { data, error } = await supabase
@@ -1184,7 +1184,7 @@ export const followUser = async (currentUserId, targetUserId) => {
       .maybeSingle();
 
     if (!target?.is_public) {
-      throw new Error('This profile is private - send a friend request instead');
+      throw new Error('This profile is private - follow requests need their approval');
     }
 
     const { error } = await supabase

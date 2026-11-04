@@ -958,9 +958,9 @@ export const SettingsScreen = ({
               </View>
               <View style={[styles.settingRow, styles.settingRowBorder]}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>Accepting Friend Requests</Text>
+                  <Text style={styles.settingLabel}>Accepting Follow Requests</Text>
                   <Text style={styles.settingDescription}>
-                    Allow others to send you friend requests
+                    Allow others to send you follow requests
                   </Text>
                 </View>
                 <Switch

@@ -203,11 +203,11 @@ export const useSocial = (user) => {
 
     try {
       await socialModule.sendFriendRequest(user.uid, toUserId);
-      Alert.alert('Success', 'Friend request sent!');
+      Alert.alert('Request Sent', 'Follow request sent!');
       return true;
     } catch (error) {
       console.error('Error sending friend request:', error);
-      Alert.alert('Error', error.message || 'Failed to send friend request');
+      Alert.alert('Error', error.message || 'Failed to send follow request');
       return false;
     }
   };
@@ -221,11 +221,11 @@ export const useSocial = (user) => {
     try {
       await socialModule.acceptFriendRequest(requestId, user.uid);
       await refreshSocialData();
-      Alert.alert('Success', 'Friend request accepted!');
+      Alert.alert('Confirmed', 'You now follow each other - that makes you friends!');
       return true;
     } catch (error) {
       console.error('Error accepting friend request:', error);
-      Alert.alert('Error', error.message || 'Failed to accept friend request');
+      Alert.alert('Error', error.message || 'Failed to confirm follow request');
       return false;
     }
   };
@@ -287,7 +287,7 @@ export const useSocial = (user) => {
       return true;
     } catch (error) {
       console.error('Error declining friend request:', error);
-      Alert.alert('Error', error.message || 'Failed to decline friend request');
+      Alert.alert('Error', error.message || 'Failed to delete follow request');
       return false;
     }
   };
