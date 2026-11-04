@@ -375,14 +375,22 @@ async function loadExtractionReports() {
     .select('id, created_at, reporter_id, source_url, recipe_title, issue_note, recipe_snapshot')
     .eq('status', 'open').order('created_at', { ascending: true });
   if (error) { box.innerHTML = '<div class="empty">Failed to load: ' + esc(error.message) + '</div>'; return; }
-  $('extractionCount').textContent = reports.length ? '(' + reports.length + ')' : '';
+
+  // Auto-filed rows (failed social imports, 'no recipe in caption')
+  // are a canary for silent scraper breakage, not work items - they
+  // live in a collapsed section so the real queue stays user reports
+  const userReports = reports.filter((r) => !String(r.issue_note || '').startsWith('auto:'));
+  const autoReports = reports.filter((r) => String(r.issue_note || '').startsWith('auto:'));
+
+  $('extractionCount').textContent = userReports.length ? '(' + userReports.length + ')' : '';
   if (!reports.length) { box.innerHTML = '<div class="empty">No open extraction reports.</div>'; return; }
 
   const names = await usernamesFor(reports.map((r) => r.reporter_id));
   box.innerHTML = '<div class="meta" style="margin:0 2px 12px">' +
     'Read-only queue: these clear when the reports are worked through in a Claude session ' +
     '(fix the records and patch the extractor), not from here.</div>';
-  for (const r of reports) {
+
+  const reportCard = (r) => {
     const snapImg = r.recipe_snapshot && r.recipe_snapshot.image_url;
     const card = document.createElement('div');
     card.className = 'card';
@@ -396,7 +404,27 @@ async function loadExtractionReports() {
     if (r.recipe_snapshot) {
       card.querySelector('pre').textContent = JSON.stringify(r.recipe_snapshot, null, 2);
     }
-    box.appendChild(card);
+    return card;
+  };
+
+  if (!userReports.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'No user-filed extraction reports.';
+    box.appendChild(empty);
+  }
+  for (const r of userReports) box.appendChild(reportCard(r));
+
+  if (autoReports.length) {
+    const wrap = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.className = 'meta';
+    summary.style.cssText = 'cursor:pointer;padding:10px 2px;';
+    summary.textContent = 'Auto-filed import failures (' + autoReports.length + ') - the scraper canary. ' +
+      'A sudden pile of these means Instagram or Pinterest changed their pages.';
+    wrap.appendChild(summary);
+    for (const r of autoReports) wrap.appendChild(reportCard(r));
+    box.appendChild(wrap);
   }
 }
 
