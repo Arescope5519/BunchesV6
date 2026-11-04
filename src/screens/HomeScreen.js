@@ -586,9 +586,9 @@ export const HomeScreen = ({ user }) => {
               } else if (foundUser.requestSent) {
                 Alert.alert('Request Pending', `You already have a pending request to @${foundUser.username}.`);
               } else {
-                // Send friend request
+                // Send follow request (mutual follow = friendship)
                 await sendFriendRequest(foundUser.id);
-                Alert.alert('Request Sent!', `Friend request sent to @${foundUser.username}!`);
+                Alert.alert('Request Sent!', `Follow request sent to @${foundUser.username}!`);
               }
             } else {
               Alert.alert('User Not Found', `Could not find user @${pendingFriendUsername}`);

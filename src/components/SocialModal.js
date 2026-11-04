@@ -21,6 +21,11 @@ import { UserAvatar } from './UserAvatar';
 import UserProfile from './UserProfile';
 import MyProfile from './MyProfile';
 import DiscoverFeed from './DiscoverFeed';
+import {
+  followUser,
+  sendFriendRequest,
+  getFollowBackCandidates,
+} from '../services/supabase/social';
 
 export const SocialModal = ({
   visible,
@@ -77,6 +82,30 @@ export const SocialModal = ({
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showAddFriends, setShowAddFriends] = useState(false);
+  // People who follow me that I haven't followed back (Notifications)
+  const [followBack, setFollowBack] = useState([]);
+
+  useEffect(() => {
+    if (visible && currentUserId) {
+      getFollowBackCandidates(currentUserId).then(setFollowBack).catch(() => {});
+    }
+  }, [visible, currentUserId]);
+
+  const handleFollowBack = async (person) => {
+    try {
+      if (person.isPublic) {
+        await followUser(currentUserId, person.id);
+      } else {
+        // Their profile is private, so following back needs their
+        // approval - send the follow request
+        await sendFriendRequest(currentUserId, person.id);
+      }
+      setFollowBack(prev => prev.filter(p => p.id !== person.id));
+      onRefresh?.();
+    } catch (e) {
+      Alert.alert('Could Not Follow', e?.message || 'Please try again.');
+    }
+  };
   const [showFriendsPage, setShowFriendsPage] = useState(false);
   const [selectedThread, setSelectedThread] = useState(null); // For threaded inbox
   const [previewRecipe, setPreviewRecipe] = useState(null); // For recipe preview
@@ -125,11 +154,24 @@ export const SocialModal = ({
     }
   };
 
-  const handleSendRequest = async (userId) => {
-    const success = await onSendFriendRequest(userId);
-    if (success) {
-      // Remove from search results
-      setSearchResults(prev => prev.filter(u => u.id !== userId));
+  // Instagram-style: public profiles are followed instantly; private
+  // ones get a follow request (the old friend request) and show
+  // "Requested" until they confirm. Mutual follow is friendship.
+  const handleFollowFromSearch = async (person) => {
+    try {
+      if (person.isPrivate) {
+        const success = await onSendFriendRequest(person.id);
+        if (success) {
+          setSearchResults(prev => prev.map(u =>
+            u.id === person.id ? { ...u, requestSent: true } : u));
+        }
+      } else {
+        await followUser(currentUserId, person.id);
+        setSearchResults(prev => prev.map(u =>
+          u.id === person.id ? { ...u, nowFollowing: true } : u));
+      }
+    } catch (e) {
+      Alert.alert('Could Not Follow', e?.message || 'Please try again.');
     }
   };
 
@@ -284,13 +326,15 @@ export const SocialModal = ({
                   {user.isFriend ? (
                     <Text style={styles.alreadyFriendsText}>Friends</Text>
                   ) : user.requestSent ? (
-                    <Text style={styles.requestSentText}>Pending</Text>
+                    <Text style={styles.requestSentText}>Requested</Text>
+                  ) : user.nowFollowing ? (
+                    <Text style={styles.alreadyFriendsText}>Following</Text>
                   ) : (
                     <TouchableOpacity
-                      onPress={() => handleSendRequest(user.id)}
+                      onPress={() => handleFollowFromSearch(user)}
                       style={styles.addButton}
                     >
-                      <Text style={styles.addButtonText}>Add</Text>
+                      <Text style={styles.addButtonText}>Follow</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -311,7 +355,7 @@ export const SocialModal = ({
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>No friends yet</Text>
           <Text style={styles.emptyStateSubtext}>
-            Click "Add Friends" above to get started
+            Tap "Find People" above and follow each other to become friends
           </Text>
         </View>
       ) : (
@@ -370,7 +414,7 @@ export const SocialModal = ({
         }}
       >
         <Text style={styles.addFriendsButtonText}>
-          {showAddFriends ? 'Close Search' : '+ Add Friends'}
+          {showAddFriends ? 'Close Search' : '+ Find People'}
         </Text>
       </TouchableOpacity>
 
@@ -390,7 +434,7 @@ export const SocialModal = ({
     }
 
     const nothingAtAll = friendRequests.length === 0 && threadedInbox.length === 0 &&
-      sharedFolderInvites.length === 0;
+      sharedFolderInvites.length === 0 && followBack.length === 0;
 
     return (
       <ScrollView style={styles.tabContent}>
@@ -398,32 +442,55 @@ export const SocialModal = ({
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No notifications</Text>
             <Text style={styles.emptyStateSubtext}>
-              Friend requests, shared cookbook invites, and recipes shared with you will appear here
+              Follow requests, new followers, shared cookbook invites, and recipes shared with you will appear here
             </Text>
           </View>
         ) : (
           <>
             {friendRequests.length > 0 && (
               <>
-                <Text style={styles.notifSectionTitle}>Friend Requests</Text>
+                <Text style={styles.notifSectionTitle}>Follow Requests</Text>
                 {friendRequests.map(request => (
                   <View key={request.id} style={styles.listItem}>
                     <UserAvatar username={request.senderUsername} icon={request.senderAvatarIcon} size={36} style={styles.avatar} />
                     <View style={styles.userInfo}>
                       <Text style={styles.usernameText}>@{request.senderUsername}</Text>
+                      <Text style={styles.sharedInviteSub}>requested to follow you</Text>
                     </View>
                     <View style={styles.requestActions}>
                       <TouchableOpacity
                         onPress={() => onAcceptFriendRequest(request.id)}
                         style={styles.acceptButton}
                       >
-                        <Text style={styles.acceptButtonText}>Accept</Text>
+                        <Text style={styles.acceptButtonText}>Confirm</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => onDeclineFriendRequest(request.id)}
                         style={styles.declineButton}
                       >
-                        <Text style={styles.declineButtonText}>Decline</Text>
+                        <Text style={styles.declineButtonText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {followBack.length > 0 && (
+              <>
+                <Text style={styles.notifSectionTitle}>New Followers</Text>
+                {followBack.map(person => (
+                  <View key={person.id} style={styles.listItem}>
+                    <UserAvatar username={person.username} icon={person.avatarIcon} size={36} style={styles.avatar} />
+                    <View style={styles.userInfo}>
+                      <Text style={styles.usernameText}>@{person.username}</Text>
+                      <Text style={styles.sharedInviteSub}>follows you</Text>
+                    </View>
+                    <View style={styles.requestActions}>
+                      <TouchableOpacity
+                        onPress={() => handleFollowBack(person)}
+                        style={styles.acceptButton}
+                      >
+                        <Text style={styles.acceptButtonText}>Follow Back</Text>
                       </TouchableOpacity>
                     </View>
                   </View>

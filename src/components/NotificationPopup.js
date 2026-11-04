@@ -88,9 +88,9 @@ const NotificationPopup = ({
         <View style={styles.header}>
           <Ionicons name="people" size={22} color={colors.primary} />
           <View style={styles.textContainer}>
-            <Text style={styles.title}>Friend Request</Text>
+            <Text style={styles.title}>Follow Request</Text>
             <Text style={styles.subtitle}>
-              {request.senderUsername} wants to be friends
+              {request.senderUsername} requested to follow you
             </Text>
           </View>
         </View>
@@ -100,14 +100,14 @@ const NotificationPopup = ({
             style={[styles.button, styles.declineButton]}
             onPress={handleDecline}
           >
-            <Text style={styles.declineText}>Decline</Text>
+            <Text style={styles.declineText}>Delete</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.acceptButton]}
             onPress={handleAccept}
           >
-            <Text style={styles.acceptText}>Accept</Text>
+            <Text style={styles.acceptText}>Confirm</Text>
           </TouchableOpacity>
         </View>
 

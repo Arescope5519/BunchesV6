@@ -39,6 +39,8 @@ import {
   isFollowing as checkIsFollowing,
   followUser,
   unfollowUser,
+  sendFriendRequest,
+  getOutgoingRequest,
   blockUser,
   unblockUser,
   getBlockStatus,
@@ -70,6 +72,8 @@ const UserProfile = ({
   const [uncategorizedRecipes, setUncategorizedRecipes] = useState([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  // Private profiles: a pending follow request shows as "Requested"
+  const [requestPending, setRequestPending] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [blockStatus, setBlockStatus] = useState({ blocking: false, blockedBy: false });
@@ -109,13 +113,15 @@ const UserProfile = ({
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const [profileData, following, blocks] = await Promise.all([
+      const [profileData, following, blocks, outgoing] = await Promise.all([
         getPublicProfile(targetUserId, currentUserId),
         checkIsFollowing(currentUserId, targetUserId),
         getBlockStatus(currentUserId, targetUserId),
+        getOutgoingRequest(currentUserId, targetUserId),
       ]);
       setProfile(profileData);
       setIsFollowing(following);
+      setRequestPending(!!outgoing);
       setBlockStatus(blocks);
 
       if (profileData?.canView) {
@@ -177,7 +183,7 @@ const UserProfile = ({
       if (profile?.isFriend) {
         Alert.alert(
           'Remove Friend?',
-          `You and @${profile?.username} are friends. Unfollowing ends the friendship - they will no longer see your private recipes, and you will need a new friend request to reconnect.`,
+          `You and @${profile?.username} are friends. Unfollowing ends the friendship - they will no longer see your private recipes, and you will need a new follow request to reconnect.`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Unfollow', style: 'destructive', onPress: performUnfollow },
@@ -188,16 +194,35 @@ const UserProfile = ({
       }
       return;
     }
+    if (requestPending) {
+      Alert.alert(
+        'Request Pending',
+        `@${profile?.username} will see your follow request in their notifications.`
+      );
+      return;
+    }
     setFollowLoading(true);
     try {
-      await followUser(currentUserId, targetUserId);
-      setIsFollowing(true);
-      setProfile(prev => ({
-        ...prev,
-        followerCount: (prev.followerCount || 0) + 1,
-      }));
+      if (profile?.isPublic) {
+        await followUser(currentUserId, targetUserId);
+        setIsFollowing(true);
+        setProfile(prev => ({
+          ...prev,
+          followerCount: (prev.followerCount || 0) + 1,
+        }));
+      } else {
+        // Private profile: following needs their approval - the follow
+        // request IS the old friend request, approved from Notifications
+        await sendFriendRequest(currentUserId, targetUserId);
+        setRequestPending(true);
+      }
     } catch (error) {
       console.error('Error toggling follow:', error);
+      if (/already sent/i.test(error?.message || '')) {
+        setRequestPending(true);
+      } else if (error?.message) {
+        Alert.alert('Could Not Follow', error.message);
+      }
     } finally {
       setFollowLoading(false);
     }
@@ -642,23 +667,24 @@ const UserProfile = ({
                   )}
                 </View>
               </View>
-              {/* Follow Button - public profiles only. Private users are
-                  reached through friend requests; friendship with them is
-                  managed from the Friends tab, not this toggle */}
-              {currentUserId !== targetUserId && !blockStatus.blocking && (profile.isPublic || isFollowing) && (
+              {/* Follow Button - Instagram-style on every profile.
+                  Public: follows instantly. Private: sends a follow
+                  request ("Requested" until they confirm); mutual
+                  follow is friendship either way */}
+              {currentUserId !== targetUserId && !blockStatus.blocking && (
                 <TouchableOpacity
                   style={[
                     styles.followButton,
-                    isFollowing && styles.followingButton,
+                    (isFollowing || requestPending) && styles.followingButton,
                   ]}
                   onPress={handleFollowToggle}
                   disabled={followLoading}
                 >
                   <Text style={[
                     styles.followButtonText,
-                    isFollowing && styles.followingButtonText,
+                    (isFollowing || requestPending) && styles.followingButtonText,
                   ]}>
-                    {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+                    {followLoading ? '...' : isFollowing ? 'Following' : requestPending ? 'Requested' : 'Follow'}
                   </Text>
                 </TouchableOpacity>
               )}

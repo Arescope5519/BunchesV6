@@ -266,6 +266,70 @@ export const sendFriendRequest = async (fromUserId, toUserId) => {
 };
 
 /**
+ * Has the current user already sent a pending follow request to this
+ * person? Powers the "Requested" button state on private profiles.
+ */
+export const getOutgoingRequest = async (fromUserId, toUserId) => {
+  try {
+    const { data } = await supabase
+      .from('friend_requests')
+      .select('id')
+      .eq('from_user_id', fromUserId)
+      .eq('to_user_id', toUserId)
+      .eq('status', 'pending')
+      .maybeSingle();
+    return data || null;
+  } catch (_e) {
+    return null;
+  }
+};
+
+/**
+ * Recent followers the user does not follow back - the "Follow Back"
+ * rows in Notifications. Mutuals (= friends) drop out automatically.
+ */
+export const getFollowBackCandidates = async (userId) => {
+  try {
+    const { data: fRows, error } = await supabase
+      .from('user_followers')
+      .select('follower_id, created_at')
+      .eq('following_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+    const ids = (fRows || []).map(r => r.follower_id);
+    if (!ids.length) return [];
+
+    const { data: mine } = await supabase
+      .from('user_followers')
+      .select('following_id')
+      .eq('follower_id', userId)
+      .in('following_id', ids);
+    const alreadyFollowing = new Set((mine || []).map(r => r.following_id));
+    const candidates = ids.filter(id => !alreadyFollowing.has(id));
+    if (!candidates.length) return [];
+
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, username, avatar_icon, is_public')
+      .in('user_id', candidates);
+    const byId = {};
+    (profiles || []).forEach(p => { byId[p.user_id] = p; });
+    return candidates
+      .filter(id => byId[id]?.username)
+      .map(id => ({
+        id,
+        username: byId[id].username,
+        avatarIcon: byId[id].avatar_icon || null,
+        isPublic: !!byId[id].is_public,
+      }));
+  } catch (error) {
+    console.error('Error loading follow-back candidates:', error);
+    return [];
+  }
+};
+
+/**
  * Accept friend request
  */
 export const acceptFriendRequest = async (requestId, currentUserId) => {

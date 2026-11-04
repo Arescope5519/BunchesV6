@@ -72,8 +72,8 @@ Deno.serve(async (req: Request) => {
       toUserId = rec.to_user_id;
       const from = await username(rec.from_user_id);
       kind = 'friend_request';
-      title = 'New friend request';
-      body = `${from} wants to be friends`;
+      title = 'New follow request';
+      body = `${from} requested to follow you`;
     } else if (table === 'shared_folder_members') {
       if (rec.status !== 'invited') {
         return json({ ok: true, skipped: 'not an invite' });
