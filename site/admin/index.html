@@ -167,10 +167,10 @@
 
     <section id="tab-users" class="hidden">
       <div class="searchRow">
-        <input type="text" id="userSearch" placeholder="Search username…" autocapitalize="none" autocorrect="off">
+        <input type="text" id="userSearch" placeholder="Search username (empty = everyone)…" autocapitalize="none" autocorrect="off">
         <button class="primary" id="userSearchBtn">Search</button>
       </div>
-      <div id="userResults"><div class="empty">Search for a user to manage premium, flags, or bans.</div></div>
+      <div id="userResults"><div class="empty">Loading users…</div></div>
     </section>
   </main>
 
@@ -266,6 +266,8 @@ document.querySelectorAll('[data-tab]').forEach((btn) => {
       b.classList.toggle('active', b.dataset.tab === tab));
     $('tab-reports').classList.toggle('hidden', tab !== 'reports');
     $('tab-users').classList.toggle('hidden', tab !== 'users');
+    // First visit to Users loads the full list without needing a search
+    if (tab === 'users' && !$('userResults').dataset.loaded) searchUsers();
   };
 });
 
@@ -430,18 +432,28 @@ async function loadExtractionReports() {
 
 /* ---------------- users ---------------- */
 
+// Empty search = browse everyone, newest account first
 async function searchUsers() {
   const q = $('userSearch').value.trim();
   const box = $('userResults');
-  if (!q) { box.innerHTML = '<div class="empty">Type a username to search.</div>'; return; }
-  box.innerHTML = '<div class="spin">Searching…</div>';
-  const { data: users, error } = await sb.from('user_profiles')
-    .select('user_id, username, is_admin, is_premium, premium_until, is_banned, banned_reason, is_public, feature_flags, created_at')
-    .ilike('username', '%' + q + '%')
-    .order('username').limit(20);
-  if (error) { box.innerHTML = '<div class="empty">Search failed: ' + esc(error.message) + '</div>'; return; }
-  if (!users.length) { box.innerHTML = '<div class="empty">No users match &ldquo;' + esc(q) + '&rdquo;.</div>'; return; }
-  box.innerHTML = '';
+  box.dataset.loaded = '1';
+  box.innerHTML = '<div class="spin">Loading…</div>';
+  let query = sb.from('user_profiles')
+    .select('user_id, username, is_admin, is_premium, premium_until, is_banned, banned_reason, is_public, feature_flags, created_at');
+  query = q
+    ? query.ilike('username', '%' + q + '%').order('username').limit(50)
+    : query.order('created_at', { ascending: false }).limit(200);
+  const { data: users, error } = await query;
+  if (error) { box.innerHTML = '<div class="empty">Failed to load users: ' + esc(error.message) + '</div>'; return; }
+  if (!users.length) {
+    box.innerHTML = q
+      ? '<div class="empty">No users match &ldquo;' + esc(q) + '&rdquo;.</div>'
+      : '<div class="empty">No users yet.</div>';
+    return;
+  }
+  box.innerHTML = '<div class="meta" style="margin:0 2px 12px">' +
+    (q ? users.length + ' match' + (users.length === 1 ? '' : 'es')
+       : 'All users, newest first (' + users.length + ')') + '</div>';
   users.forEach((u) => box.appendChild(userCard(u)));
 }
 
