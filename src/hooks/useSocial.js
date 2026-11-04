@@ -221,7 +221,8 @@ export const useSocial = (user) => {
     try {
       await socialModule.acceptFriendRequest(requestId, user.uid);
       await refreshSocialData();
-      Alert.alert('Confirmed', 'You now follow each other - that makes you friends!');
+      // No success popup - the request row disappearing and the new
+      // friend appearing in the list say it already
       return true;
     } catch (error) {
       console.error('Error accepting friend request:', error);
