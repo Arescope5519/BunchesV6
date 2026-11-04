@@ -24,9 +24,9 @@ const VOLUME_CONVERSIONS = {
   'fluid ounces': 29.574,
   'fl oz': 29.574,
   'fl. oz': 29.574,
-  'ounce': 29.574,
-  'ounces': 29.574,
-  'oz': 29.574,
+  // NOTE: bare "ounce"/"oz" is deliberately NOT here. In recipes it
+  // almost always means weight ("8 oz cream cheese"); treating it as
+  // volume converted those to milliliters. Liquids say "fl oz".
   'pint': 473.176,
   'pints': 473.176,
   'pt': 473.176,
@@ -114,6 +114,18 @@ function decimalToFraction(decimal) {
 }
 
 /**
+ * Metric amounts read as plain numbers, never kitchen fractions
+ * ("355 ml", not "354 ⅞ ml"): ml and g round to whole numbers,
+ * l and kg keep up to 2 decimals.
+ */
+function formatMetricQuantity(num, unit) {
+  if (unit === 'ml' || unit === 'g') {
+    return String(Math.round(num));
+  }
+  return String(Math.round(num * 100) / 100);
+}
+
+/**
  * Format number as mixed fraction with unicode
  */
 export function formatQuantity(num) {
@@ -148,13 +160,13 @@ export function parseIngredient(ingredientString) {
   // Regex patterns for ingredient parsing
   const patterns = [
     // "2 1/2 cups flour" or "2½ cups flour"
-    /^(\d+)\s*([¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+)?\s*(cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\. oz)s?\s+(.+)/i,
+    /^(\d+)\s*([¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+)?\s*(cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\. oz)s?\.?\s+(.+)/i,
 
     // "1/2 cup flour" or "½ cup flour"
-    /^([¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+)\s*(cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\. oz)s?\s+(.+)/i,
+    /^([¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+)\s*(cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\. oz)s?\.?\s+(.+)/i,
 
     // "2 cups flour" (no fraction)
-    /^(\d+(?:\.\d+)?)\s*(cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\. oz)s?\s+(.+)/i,
+    /^(\d+(?:\.\d+)?)\s*(cup|cups|tablespoon|tablespoons|tbsp|tbs|tb|teaspoon|teaspoons|tsp|ts|ounce|ounces|oz|pound|pounds|lb|lbs|gram|grams|g|kilogram|kilograms|kg|milliliter|milliliters|ml|liter|liters|l|pint|pints|pt|quart|quarts|qt|gallon|gallons|gal|fluid ounce|fluid ounces|fl oz|fl\. oz)s?\.?\s+(.+)/i,
 
     // "2 eggs" (number + ingredient, no unit)
     /^(\d+(?:\.\d+)?)\s+(.+)/i,
@@ -322,7 +334,7 @@ export function convertIngredientUnits(parsedIngredient, toMetric = true) {
   let convertedQuantity;
   let convertedUnit;
 
-  // Volume conversion
+  // Volume conversion ("fl oz" is here; bare "oz" is weight)
   if (VOLUME_CONVERSIONS[unit]) {
     const ml = parsedIngredient.quantity * VOLUME_CONVERSIONS[unit];
 
@@ -387,7 +399,16 @@ export function convertIngredientUnits(parsedIngredient, toMetric = true) {
     return parsedIngredient.original;
   }
 
-  const formattedQuantity = formatQuantity(convertedQuantity);
+  let formattedQuantity;
+  if (toMetric) {
+    formattedQuantity = formatMetricQuantity(convertedQuantity, convertedUnit);
+  } else {
+    // Imperial amounts snap to the nearest eighth - that is what
+    // measuring cups and spoons can actually hold ("1 cup", not
+    // "1.06 pint"; "8 ⅞ oz", not "8.82 oz")
+    const snapped = Math.round(convertedQuantity * 8) / 8;
+    formattedQuantity = formatQuantity(snapped > 0 ? snapped : convertedQuantity);
+  }
   return `${formattedQuantity} ${convertedUnit} ${parsedIngredient.ingredient}`;
 }
 
