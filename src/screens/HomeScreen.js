@@ -2261,7 +2261,7 @@ export const HomeScreen = ({ user }) => {
         if (e?.embedDisabled) {
           Alert.alert(
             'Embedding Turned Off',
-            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, screenshot it and use the photo scanner. Or open the post in a browser, copy the caption text there, and paste it into the import box (the link button at the top).'
+            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, screenshot it and use the photo scanner.'
           );
           return;
         }
@@ -5052,15 +5052,16 @@ export const HomeScreen = ({ user }) => {
             </View>
 
             <Text style={styles.importInstructions}>
-              Paste a recipe link, a share code, or the recipe text itself:
+              Paste a recipe link or share code:
             </Text>
             <TextInput
               style={styles.importInput}
-              placeholder={'Paste here...\n\nA link (website, Instagram, Pinterest), a share code, or a full recipe - like a copied Instagram caption.'}
+              placeholder="Paste a link (website, Instagram, Pinterest) or a share code here..."
               placeholderTextColor={colors.textSecondary}
               value={importText}
               onChangeText={setImportText}
               multiline
+              numberOfLines={6}
             />
             <View style={styles.addFolderButtons}>
               <TouchableOpacity
@@ -5116,27 +5117,13 @@ export const HomeScreen = ({ user }) => {
                       await importRecipe(importText);
                       setImportText('');
                       setShowImport(false);
-                    } else if (importText.trim().length >= 40) {
-                      // A pasted body of text (copied caption, emailed
-                      // recipe...) - same AI pipeline as social imports
-                      const pastedText = importText.trim();
-                      setImportText('');
-                      setShowImport(false);
-                      setScanning(true);
-                      try {
-                        await runCaptionImport(
-                          null,
-                          pastedText,
-                          null,
-                          'No recipe was found in the pasted text. Paste the full recipe - ingredients and steps - and try again.'
-                        );
-                      } finally {
-                        setScanning(false);
-                      }
                     } else {
+                      // Deliberately NOT a free-text AI importer - that
+                      // would hide a paid AI call inside a free-tier
+                      // feature. Recipe text goes through the scanner.
                       Alert.alert(
-                        'Nothing to Import',
-                        'Paste a recipe link, a share code, or the full recipe text.'
+                        'Links and Codes Only',
+                        'Paste a recipe link or a share code here. To import a recipe from its text, screenshot it and use the photo scanner.'
                       );
                     }
                   }
@@ -6148,11 +6135,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
-    width: '94%',
-    maxWidth: 560,
-    // Near-full-screen: the paste box inside flexes to fill it, so
-    // whole captions are visible while pasting
-    height: '82%',
+    width: '90%',
+    maxWidth: 500,
   },
   importInstructions: {
     fontSize: 14,
@@ -6167,7 +6151,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     marginBottom: 15,
-    flex: 1,
+    minHeight: 150,
     textAlignVertical: 'top',
     color: colors.text,
   },
