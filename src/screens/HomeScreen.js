@@ -5017,7 +5017,13 @@ export const HomeScreen = ({ user }) => {
           setShowImport(false);
         }}
       >
-        <View style={styles.modalOverlay}>
+        {/* KeyboardAvoidingView so the tall paste box and the Import
+            button compress above the iOS keyboard instead of hiding
+            behind it; Android resizes the window natively */}
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.importModal}>
             <Text style={styles.addFolderTitle}>Import Recipe or Cookbook</Text>
 
@@ -5140,7 +5146,7 @@ export const HomeScreen = ({ user }) => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Username Setup Modal. Never while the disclaimer is up - iOS
