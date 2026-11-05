@@ -2261,7 +2261,7 @@ export const HomeScreen = ({ user }) => {
         if (e?.embedDisabled) {
           Alert.alert(
             'Embedding Turned Off',
-            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, copy the caption text and paste it into the import box (the link button at the top), or screenshot it and use the photo scanner.'
+            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, screenshot it and use the photo scanner. Or open the post in a browser, copy the caption text there, and paste it into the import box (the link button at the top).'
           );
           return;
         }
