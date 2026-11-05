@@ -2319,6 +2319,13 @@ export const HomeScreen = ({ user }) => {
         dbg('[IG]', 'caption fetch failed:', e?.message);
         reportExtractionIssue(user.uid, { title: 'Instagram import', url: postUrl },
           `auto: instagram caption fetch failed - ${e?.message || 'unknown'}`).catch(() => {});
+        if (e?.embedDisabled) {
+          Alert.alert(
+            'Embedding Turned Off',
+            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, screenshot it and use the photo scanner instead.'
+          );
+          return;
+        }
         Alert.alert(
           'Could Not Read the Post',
           'The caption could not be read - the post may be private, or Instagram may be blocking the lookup right now.'

@@ -74,6 +74,14 @@ const INJECTED_PAGE = `
   var tries = 0;
   function grab() {
     try {
+      // Embeds disabled by the creator (or licensed audio) render an
+      // "unavailable" shell even for perfectly public posts - bail
+      // out with a distinct error instead of polling for 8 seconds
+      var bodyText = (document.body && document.body.innerText) || '';
+      if (bodyText.indexOf('may be broken, or the post may have been removed') > -1) {
+        send({ ok: false, error: 'embed unavailable' });
+        return;
+      }
       var caption = '';
       var image = '';
       var link = '';

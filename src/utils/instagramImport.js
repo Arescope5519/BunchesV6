@@ -74,6 +74,7 @@ export const fetchInstagramPost = async (postUrl) => {
   // The public embed page renders the FULL caption for public posts
   const embedUrl = `https://www.instagram.com/${kind}/${shortcode}/embed/captioned/`;
   dbg('[IG]', 'fetching caption via embed:', shortcode);
+  let embedDisabled = false;
   try {
     const res = await fetchPage(embedUrl);
     const caption = cleanCaption(res?.caption);
@@ -84,6 +85,10 @@ export const fetchInstagramPost = async (postUrl) => {
     }
   } catch (e) {
     dbg('[IG]', 'embed fetch failed:', e?.message);
+    // The creator turned off embedding (or the audio license blocks
+    // it) - the post is fine in the Instagram app, but its public
+    // pages have nothing for us to read
+    if (/embed unavailable/i.test(e?.message || '')) embedDisabled = true;
   }
 
   // Fallback: the post page's og:description (may be truncated)
@@ -94,6 +99,11 @@ export const fetchInstagramPost = async (postUrl) => {
     const username2 = cleanHandle(res2?.author) || cleanHandle(ogUsername(res2?.caption));
     dbg('[IG]', 'og caption:', caption2.length, 'chars', username2 ? `by @${username2}` : '');
     return { caption: caption2, imageUrl: res2?.image || null, username: username2 };
+  }
+  if (embedDisabled) {
+    const err = new Error('this creator does not allow their posts to be embedded');
+    err.embedDisabled = true;
+    throw err;
   }
   throw new Error('no readable caption - the post may be private');
 };
