@@ -981,21 +981,6 @@ export const SettingsScreen = ({
           <View style={styles.infoCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Quick Link Button</Text>
-                <Text style={styles.settingDescription}>
-                  Show a link button on the home screen to quickly add recipes by URL
-                </Text>
-              </View>
-              <Switch
-                style={styles.switchControl}
-                value={showQuickLinkButton || false}
-                onValueChange={onToggleQuickLinkButton}
-                trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
-                thumbColor={colors.onPrimary}
-              />
-            </View>
-            <View style={[styles.settingRow, styles.settingRowBorder]}>
-              <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Show Nutrition</Text>
                 <Text style={styles.settingDescription}>
                   Show the nutrition panel at the bottom of recipes that include it

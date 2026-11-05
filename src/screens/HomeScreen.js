@@ -237,9 +237,6 @@ export const HomeScreen = ({ user }) => {
   const [showNewSharedInput, setShowNewSharedInput] = useState(false);
   const [newSharedName, setNewSharedName] = useState('');
   const [creatingShared, setCreatingShared] = useState(false);
-  const [showQuickLinkModal, setShowQuickLinkModal] = useState(false);
-  const [quickLinkUrl, setQuickLinkUrl] = useState('');
-  const [quickLinkLoading, setQuickLinkLoading] = useState(false);
 
   // Welcome modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -607,64 +604,6 @@ export const HomeScreen = ({ user }) => {
   }, [pendingFriendUsername, searchUsers, sendFriendRequest, user]);
 
   // Handle quick link URL submission
-  const handleQuickLinkSubmit = async () => {
-    if (!quickLinkUrl.trim()) {
-      Alert.alert('Error', 'Please enter a URL');
-      return;
-    }
-
-    setQuickLinkLoading(true);
-    try {
-      const extractor = new RecipeExtractor();
-      const result = await extractor.extract(quickLinkUrl.trim());
-
-      if (result.success && result.data) {
-        const extracted = result.data;
-
-        // Convert to app format
-        let ingredients = { main: [] };
-        if (typeof extracted.ingredients === 'object' && !Array.isArray(extracted.ingredients)) {
-          ingredients = extracted.ingredients;
-        } else if (Array.isArray(extracted.ingredients)) {
-          ingredients = { main: extracted.ingredients };
-        } else if (typeof extracted.ingredients === 'string') {
-          ingredients = { main: extracted.ingredients.split('\n').filter(line => line.trim()) };
-        }
-
-        let instructions = [];
-        if (Array.isArray(extracted.instructions)) {
-          instructions = extracted.instructions;
-        } else if (typeof extracted.instructions === 'string') {
-          instructions = extracted.instructions.split('\n').filter(line => line.trim());
-        }
-
-        const recipeData = {
-          title: extracted.title || 'Untitled Recipe',
-          ingredients,
-          instructions,
-          prepTime: extracted.prepTime || extracted.prep_time || '',
-          cookTime: extracted.cookTime || extracted.cook_time || '',
-          servings: extracted.servings || '',
-          image_url: extracted.image || extracted.image_url || '',
-          source_url: quickLinkUrl.trim(),
-          notes: '',
-        };
-
-        setExtractedRecipe(recipeData);
-        setShowQuickLinkModal(false);
-        setQuickLinkUrl('');
-        setCurrentScreen('saveRecipe');
-      } else {
-        Alert.alert('Error', result.error || 'Could not extract recipe from this URL');
-      }
-    } catch (error) {
-      console.error('Quick link extraction error:', error);
-      Alert.alert('Error', 'Failed to extract recipe. Please check the URL and try again.');
-    } finally {
-      setQuickLinkLoading(false);
-    }
-  };
-
   // Track if we're currently importing to prevent duplicate imports
   const isImportingRef = useRef(false);
 
@@ -2322,7 +2261,7 @@ export const HomeScreen = ({ user }) => {
         if (e?.embedDisabled) {
           Alert.alert(
             'Embedding Turned Off',
-            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, screenshot it and use the photo scanner instead.'
+            'This creator does not allow their posts to be viewed outside Instagram, so the caption cannot be read. If the recipe is in the caption, copy the caption text and paste it into the import box (the link button at the top), or screenshot it and use the photo scanner.'
           );
           return;
         }
@@ -2356,8 +2295,9 @@ export const HomeScreen = ({ user }) => {
         ...item,
         recipe: {
           ...item.recipe,
-          url: sourceUrl,
-          source_url: sourceUrl,
+          // Pasted text has no source URL - the recipe saves source-less,
+          // like a manual recipe
+          ...(sourceUrl ? { url: sourceUrl, source_url: sourceUrl } : {}),
           image_url: imageUrl || '',
           // The post's real handle beats whatever the extractor guessed
           ...(sourceAuthor ? { author: sourceAuthor } : {}),
@@ -2393,8 +2333,10 @@ export const HomeScreen = ({ user }) => {
       console.error('📸 [SOCIAL] AI failure detail:', result.detail);
     }
     if (result.error === 'no_recipe') {
-      reportExtractionIssue(user.uid, { title: 'Social import', url: sourceUrl },
-        'auto: social caption had no extractable recipe', caption).catch(() => {});
+      if (sourceUrl) {
+        reportExtractionIssue(user.uid, { title: 'Social import', url: sourceUrl },
+          'auto: social caption had no extractable recipe', caption).catch(() => {});
+      }
       Alert.alert('No Recipe Found', noRecipeCopy);
       return;
     }
@@ -3192,11 +3134,6 @@ export const HomeScreen = ({ user }) => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       // Priority order for back button
-      if (showQuickLinkModal) {
-        setShowQuickLinkModal(false);
-        setQuickLinkUrl('');
-        return true;
-      }
       if (showIngredientSearch) {
         setShowIngredientSearch(false);
         return true;
@@ -3501,14 +3438,12 @@ export const HomeScreen = ({ user }) => {
             >
               <Ionicons name="scan" size={22} color={colors.primary} />
             </TouchableOpacity>
-            {showQuickLinkButton && (
-              <TouchableOpacity
-                style={styles.actionBarButton}
-                onPress={() => setShowQuickLinkModal(true)}
-              >
-                <Ionicons name="link" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.actionBarButton}
+              onPress={() => setShowImport(true)}
+            >
+              <Ionicons name="link" size={22} color={colors.primary} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBarButton}
               onPress={() => setShowIngredientSearch(true)}
@@ -3852,8 +3787,6 @@ export const HomeScreen = ({ user }) => {
           recipes={recipes}
           folders={folders}
           onRestoreBackup={handleRestoreBackup}
-          showQuickLinkButton={showQuickLinkButton}
-          onToggleQuickLinkButton={(value) => updateAppSetting('showQuickLinkButton', value)}
           printFontSize={printFontSize}
           onChangePrintFontSize={(value) => updateAppSetting('printFontSize', value)}
           showNutrition={showNutrition}
@@ -4936,69 +4869,6 @@ export const HomeScreen = ({ user }) => {
         onSelectRecipe={(recipe) => setSelectedRecipe(recipe)}
       />
 
-      {/* Quick Link Modal */}
-      <Modal
-        visible={showQuickLinkModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => {
-          setShowQuickLinkModal(false);
-          setQuickLinkUrl('');
-        }}
-      >
-        <View style={styles.quickLinkOverlay}>
-          <View style={styles.quickLinkContainer}>
-            <View style={styles.quickLinkHeader}>
-              <Text style={styles.quickLinkTitle}>Add Recipe from URL</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowQuickLinkModal(false);
-                  setQuickLinkUrl('');
-                }}
-              >
-                <Ionicons name="close" size={22} color={colors.textSecondary} style={{ padding: 4 }} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.quickLinkDescription}>
-              Paste a recipe URL to extract and save it
-            </Text>
-            <TextInput
-              style={styles.quickLinkInput}
-              placeholder="https://example.com/recipe"
-              placeholderTextColor={colors.textSecondary}
-              value={quickLinkUrl}
-              onChangeText={setQuickLinkUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              autoFocus
-            />
-            <View style={styles.quickLinkActions}>
-              <TouchableOpacity
-                style={styles.quickLinkCancelButton}
-                onPress={() => {
-                  setShowQuickLinkModal(false);
-                  setQuickLinkUrl('');
-                }}
-              >
-                <Text style={styles.quickLinkCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.quickLinkSubmitButton, quickLinkLoading && styles.quickLinkButtonDisabled]}
-                onPress={handleQuickLinkSubmit}
-                disabled={quickLinkLoading}
-              >
-                {quickLinkLoading ? (
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                ) : (
-                  <Text style={styles.quickLinkSubmitText}>Extract Recipe</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* Add Folder Modal */}
       <Modal
         visible={showAddFolder}
@@ -5176,15 +5046,15 @@ export const HomeScreen = ({ user }) => {
             </View>
 
             <Text style={styles.importInstructions}>
-              Paste code or URL below:
+              Paste a recipe link, a share code, or the recipe text itself:
             </Text>
             <TextInput
               style={styles.importInput}
-              placeholder="Paste URL or code here... (BUNCHES_RECIPE:... or BUNCHES_COOKBOOK:...)"
+              placeholder={'Paste here...\n\nA link (website, Instagram, Pinterest), a share code, or a full recipe - like a copied Instagram caption.'}
+              placeholderTextColor={colors.textSecondary}
               value={importText}
               onChangeText={setImportText}
               multiline
-              numberOfLines={6}
             />
             <View style={styles.addFolderButtons}>
               <TouchableOpacity
@@ -5235,11 +5105,33 @@ export const HomeScreen = ({ user }) => {
                       await extractRecipe(pasted);
                       setImportText('');
                       setShowImport(false);
-                    } else {
-                      // It's a code, use import
+                    } else if (!/\s/.test(importText.trim())) {
+                      // No whitespace = a share code
                       await importRecipe(importText);
                       setImportText('');
                       setShowImport(false);
+                    } else if (importText.trim().length >= 40) {
+                      // A pasted body of text (copied caption, emailed
+                      // recipe...) - same AI pipeline as social imports
+                      const pastedText = importText.trim();
+                      setImportText('');
+                      setShowImport(false);
+                      setScanning(true);
+                      try {
+                        await runCaptionImport(
+                          null,
+                          pastedText,
+                          null,
+                          'No recipe was found in the pasted text. Paste the full recipe - ingredients and steps - and try again.'
+                        );
+                      } finally {
+                        setScanning(false);
+                      }
+                    } else {
+                      Alert.alert(
+                        'Nothing to Import',
+                        'Paste a recipe link, a share code, or the full recipe text.'
+                      );
                     }
                   }
                 }}
@@ -6250,8 +6142,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 20,
-    width: '90%',
-    maxWidth: 500,
+    width: '94%',
+    maxWidth: 560,
+    // Near-full-screen: the paste box inside flexes to fill it, so
+    // whole captions are visible while pasting
+    height: '82%',
   },
   importInstructions: {
     fontSize: 14,
@@ -6264,11 +6159,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     padding: 12,
-    fontSize: 13,
+    fontSize: 14,
     marginBottom: 15,
-    minHeight: 150,
+    flex: 1,
     textAlignVertical: 'top',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     color: colors.text,
   },
   importSection: {
