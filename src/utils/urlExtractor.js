@@ -128,6 +128,23 @@ export const normalizeRecipeUrl = (url) => {
     parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
     parsed.protocol = parsed.protocol.toLowerCase();
 
+    // Instagram posts: the SHORTCODE is the identity. Every share mints
+    // a fresh tracking token under a new name (srtk, vrfl, obrf, xtok,
+    // psln, ...), so keeping any query at all let the same post import
+    // twice. Same for Pinterest pins and their numeric id.
+    if (parsed.hostname === 'instagram.com' || parsed.hostname.endsWith('.instagram.com')) {
+      const m = parsed.pathname.match(/\/(?:[A-Za-z0-9_.]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+      if (m) {
+        const kind = m[1].toLowerCase() === 'reels' ? 'reel' : m[1].toLowerCase();
+        return `https://instagram.com/${kind}/${m[2]}`;
+      }
+    }
+    if (parsed.hostname === 'pinterest.com' || parsed.hostname.endsWith('.pinterest.com') ||
+        parsed.hostname.startsWith('pinterest.')) {
+      const m = parsed.pathname.match(/\/pin\/(\d+)/);
+      if (m) return `https://pinterest.com/pin/${m[1]}`;
+    }
+
     for (const key of [...parsed.searchParams.keys()]) {
       if (isTracking(key)) parsed.searchParams.delete(key);
     }
