@@ -899,6 +899,38 @@ export const HomeScreen = ({ user }) => {
   const handleSaveExtractedRecipe = async (selectedFolder, modifiedRecipe) => {
     if (!modifiedRecipe) return;
 
+    // Duplicate guard BY TITLE: URL dedupe cannot catch these - every
+    // scan save mints a fresh internal URL, and the same dish arrives
+    // under different URLs (scan + Instagram import, or two different
+    // posts of it). Confirm instead of silently blocking: same-named
+    // but genuinely different recipes are legitimate.
+    const normTitle = (modifiedRecipe.title || '').trim().toLowerCase();
+    const twin = normTitle
+      ? recipes.find(r => !r.deletedAt && (r.title || '').trim().toLowerCase() === normTitle)
+      : null;
+    if (twin) {
+      const choice = await new Promise(resolve => Alert.alert(
+        'Possible Duplicate',
+        `You already have "${twin.title}" in your recipes. Save this one as well?`,
+        [
+          { text: 'View Existing', onPress: () => resolve('view') },
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+          { text: 'Save Anyway', onPress: () => resolve('save') },
+        ],
+        { cancelable: true, onDismiss: () => resolve('cancel') }
+      ));
+      if (choice === 'view') {
+        setExtractedRecipe(null);
+        setUrl('');
+        if (!advanceScanQueue()) {
+          setCurrentScreen('recipes');
+          setSelectedRecipe(twin);
+        }
+        return;
+      }
+      if (choice !== 'save') return; // stay on the save screen
+    }
+
     // A web import is owned by the website - only recipes without an
     // external source (paper scans) carry the user as their creator
     const externalUrl = modifiedRecipe.url || modifiedRecipe.sourceUrl || modifiedRecipe.source_url;
