@@ -859,7 +859,15 @@ export const RecipeDetail = ({
     (!photoSourceUrl || isInternalUrl(String(photoSourceUrl)));
 
   const applyPhotoUrl = (url) => {
-    const updated = { ...localRecipe, image_url: url, imageUrl: url, image: url };
+    // customImage persists in local_edits - on global-linked rows
+    // (scans) image_url alone has nowhere to live and the photo
+    // reverts on the next reload. Removing falls back to the
+    // recipe's original image.
+    const updated = {
+      ...localRecipe,
+      image_url: url, imageUrl: url, image: url,
+      customImage: url,
+    };
     setLocalRecipe(updated);
     if (onUpdate) onUpdate(updated);
   };

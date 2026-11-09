@@ -214,7 +214,12 @@ export const loadRecipesFromDatabase = async (userId) => {
         folders: folders,       // New: array of all folders
         url: sourceUrl,
         source_url: sourceUrl,
-        image_url: baseImageUrl,
+        // A photo the user attached wins over the global layer's image.
+        // It rides in local_edits (like customNutrition) because
+        // global-linked rows - scans included - have no
+        // local_recipe_data to keep it in
+        image_url: localEdits.customImage || baseImageUrl,
+        customImage: localEdits.customImage || null,
         notes: row.notes,
         prep_time: globalRecipe?.prep_time || localData?.prep_time || null,
         cook_time: globalRecipe?.cook_time || localData?.cook_time || null,
@@ -1517,6 +1522,11 @@ export const saveToUserRecipesV2 = async (userId, recipe, globalRecipeId = null,
     // global-linked rows (scans/customs), where local_recipe_data is null
     if (recipe.customNutrition) {
       localEdits = { ...(localEdits || {}), customNutrition: recipe.customNutrition };
+    }
+    // Same for a photo the user attached to a scanned/custom recipe -
+    // without this it reverts to the global image on the next reload
+    if (recipe.customImage) {
+      localEdits = { ...(localEdits || {}), customImage: recipe.customImage };
     }
 
     const { error } = await supabase
