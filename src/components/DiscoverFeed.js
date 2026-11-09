@@ -234,6 +234,12 @@ const DiscoverFeed = ({ userId, onOpenRecipe, onSaveRecipe, onShareRecipe }) => 
   // into rows of three (a numColumns grid can't host a full-width row),
   // with shelves after the 2nd and 5th row - a couple of scrolls in.
   const displayData = useMemo(() => {
+    // No feed content = an EMPTY list, even when shelves loaded:
+    // otherwise a lone shelf blocks ListEmptyComponent while the
+    // centered empty-state container lays it out off-screen (the
+    // iOS hidden-shelf-above-the-fold bug)
+    if (!items.length) return [];
+
     if (activeTab === 'following') {
       if (!shelves.length) return items;
       const out = [...items];
