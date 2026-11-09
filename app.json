@@ -60,7 +60,7 @@
       },
       "usesAppleSignIn": true,
       "appleTeamId": "7GR63UZM2Y",
-      "buildNumber": "10"
+      "buildNumber": "11"
     },
     "android": {
       "package": "app.melibri",
