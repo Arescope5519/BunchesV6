@@ -193,9 +193,11 @@ versionCode 7 release:
   declared, App Functionality, linked, no tracking.
 - Privacy Policy + Terms (`site/`) describe nutrition tracking.
 
-Also inside the declared category (15 Oct 2026): a user-set **daily
-calorie goal** on the Stats tab - an awareness marker with progress
-bar, stored in app settings as `dailyCalorieGoal`. Covered by the
+Also inside the declared category (15 Oct 2026; range added 9 Nov):
+a user-set **daily calorie goal** on the Stats tab - an awareness
+marker with progress bar, stored in app settings as
+`dailyCalorieGoal` (upper end / single value) plus optional
+`dailyCalorieGoalMin` for a min-max range. Covered by the
 declaration; no further filing needed.
 
 Also inside it (22 Oct 2026, extended 27 Oct): **user-entered

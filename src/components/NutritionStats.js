@@ -60,9 +60,13 @@ const NutritionStats = ({ userId, recipes }) => {
   // Daily calorie goal: an awareness marker, stored in app settings.
   // Covered by the already-declared "Nutrition and weight management"
   // health category - see CLAUDE.md before extending goals further.
+  // calorieGoal is the UPPER end (and the stored legacy single value);
+  // calorieGoalMin is the optional lower end that turns it into a range
   const [calorieGoal, setCalorieGoal] = useState(null);
+  const [calorieGoalMin, setCalorieGoalMin] = useState(null);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalDraft, setGoalDraft] = useState('');
+  const [goalDraftMin, setGoalDraftMin] = useState('');
   const [selectedDay, setSelectedDay] = useState(null); // date string from the calendar
 
   const todayStr = toDateString(new Date());
@@ -70,15 +74,34 @@ const NutritionStats = ({ userId, recipes }) => {
   useEffect(() => {
     loadAppSettings(userId).then(s => {
       if (s.dailyCalorieGoal) setCalorieGoal(s.dailyCalorieGoal);
+      if (s.dailyCalorieGoalMin) setCalorieGoalMin(s.dailyCalorieGoalMin);
     });
   }, [userId]);
 
-  const saveGoal = async (value) => {
-    const goal = value ? Math.max(0, Math.round(Number(value))) || null : null;
-    setCalorieGoal(goal);
+  // "1800-2200" with a range, "2000" with a single goal
+  const goalLabel = calorieGoal
+    ? (calorieGoalMin ? `${calorieGoalMin}-${calorieGoal}` : String(calorieGoal))
+    : null;
+
+  const saveGoal = async (minValue, maxValue) => {
+    const toN = (v) => {
+      const n = Math.round(Number(v));
+      return v && isFinite(n) && n > 0 ? n : null;
+    };
+    let min = toN(minValue);
+    let max = toN(maxValue);
+    if (min && !max) { max = min; min = null; } // one number in the min box
+    if (min && max && min > max) { const t = min; min = max; max = t; }
+    if (min && max && min === max) min = null;
+    setCalorieGoal(max);
+    setCalorieGoalMin(max ? min : null);
     setEditingGoal(false);
     const settings = await loadAppSettings(userId);
-    await saveAppSettings({ ...settings, dailyCalorieGoal: goal }, userId);
+    await saveAppSettings({
+      ...settings,
+      dailyCalorieGoal: max,
+      dailyCalorieGoalMin: max ? min : null,
+    }, userId);
   };
 
   const load = useCallback(async (isRefresh = false) => {
@@ -230,6 +253,7 @@ const NutritionStats = ({ userId, recipes }) => {
               style={styles.goalEdit}
               onPress={() => {
                 setGoalDraft(String(calorieGoal));
+                setGoalDraftMin(calorieGoalMin ? String(calorieGoalMin) : '');
                 setEditingGoal(true);
               }}
             >
@@ -241,13 +265,14 @@ const NutritionStats = ({ userId, recipes }) => {
         <View style={styles.todayRow}>
           <Text style={styles.todayCalories}>{Math.round(today?.totals?.calories || 0)}</Text>
           <Text style={styles.todayCaloriesUnit}>
-            {calorieGoal ? `/ ${calorieGoal} cal` : 'cal'}
+            {goalLabel ? `/ ${goalLabel} cal` : 'cal'}
           </Text>
         </View>
         {calorieGoal ? (() => {
           const eaten = today?.totals?.calories || 0;
           const pct = Math.min(eaten / calorieGoal, 1);
           const over = eaten > calorieGoal;
+          const inRange = !over && calorieGoalMin && eaten >= calorieGoalMin;
           return (
             <View style={styles.goalBlock}>
               <View style={styles.goalTrack}>
@@ -262,7 +287,9 @@ const NutritionStats = ({ userId, recipes }) => {
               <Text style={[styles.goalRemaining, over && styles.goalRemainingOver]}>
                 {over
                   ? `${Math.round(eaten - calorieGoal)} over goal`
-                  : `${Math.round(calorieGoal - eaten)} left`}
+                  : inRange
+                    ? 'in your goal range'
+                    : `${Math.round((calorieGoalMin || calorieGoal) - eaten)} ${calorieGoalMin ? 'to goal range' : 'left'}`}
               </Text>
             </View>
           );
@@ -271,6 +298,7 @@ const NutritionStats = ({ userId, recipes }) => {
             style={styles.setGoalButton}
             onPress={() => {
               setGoalDraft('');
+              setGoalDraftMin('');
               setEditingGoal(true);
             }}
           >
@@ -443,7 +471,7 @@ const NutritionStats = ({ userId, recipes }) => {
                     {Math.round(selectedDayDetail.day?.totals?.calories || 0)}
                   </Text>
                   <Text style={styles.dayCaloriesUnit}>
-                    {calorieGoal ? `/ ${calorieGoal} cal` : 'cal'}
+                    {goalLabel ? `/ ${goalLabel} cal` : 'cal'}
                   </Text>
                 </View>
                 <View style={styles.macroRow}>
@@ -500,23 +528,36 @@ const NutritionStats = ({ userId, recipes }) => {
           <View style={styles.goalModalCard}>
             <Text style={styles.goalModalTitle}>Daily Calorie Goal</Text>
             <Text style={styles.goalModalHint}>
-              A personal awareness marker, not dietary advice. Leave empty to remove.
+              A personal awareness marker, not dietary advice. Set one number,
+              or a range like 1800-2200. Leave empty to remove.
             </Text>
-            <TextInput
-              style={styles.goalInput}
-              value={goalDraft}
-              onChangeText={setGoalDraft}
-              keyboardType="number-pad"
-              placeholder="e.g. 2000"
-              placeholderTextColor={colors.textLight}
-              autoFocus
-              maxLength={5}
-            />
+            <View style={styles.goalRangeRow}>
+              <TextInput
+                style={[styles.goalInput, styles.goalInputRange]}
+                value={goalDraftMin}
+                onChangeText={setGoalDraftMin}
+                keyboardType="number-pad"
+                placeholder="min (optional)"
+                placeholderTextColor={colors.textLight}
+                maxLength={5}
+              />
+              <Text style={styles.goalRangeDash}>-</Text>
+              <TextInput
+                style={[styles.goalInput, styles.goalInputRange]}
+                value={goalDraft}
+                onChangeText={setGoalDraft}
+                keyboardType="number-pad"
+                placeholder="e.g. 2000"
+                placeholderTextColor={colors.textLight}
+                autoFocus
+                maxLength={5}
+              />
+            </View>
             <View style={styles.goalModalButtons}>
               <TouchableOpacity style={styles.goalModalCancel} onPress={() => setEditingGoal(false)}>
                 <Text style={styles.goalModalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.goalModalSave} onPress={() => saveGoal(goalDraft)}>
+              <TouchableOpacity style={styles.goalModalSave} onPress={() => saveGoal(goalDraftMin, goalDraft)}>
                 <Text style={styles.goalModalSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
@@ -646,6 +687,21 @@ const styles = StyleSheet.create({
   },
   goalModalTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 },
   goalModalHint: { fontSize: 12, color: colors.textSecondary, marginBottom: 12, lineHeight: 16 },
+  goalRangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  goalRangeDash: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginHorizontal: 8,
+    marginBottom: 14,
+  },
+  goalInputRange: {
+    flex: 1,
+    fontSize: 16,
+  },
   goalInput: {
     borderWidth: 1,
     borderColor: colors.border,
