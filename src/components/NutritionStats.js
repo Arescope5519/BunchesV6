@@ -226,14 +226,23 @@ const NutritionStats = ({ userId, recipes }) => {
   }, [monthAnchor, monthRange, monthAgg, calorieGoal, todayStr]);
 
   // Horizontal swipe between months; vertical movement stays with the
-  // surrounding ScrollView
+  // surrounding ScrollView. The iOS ScrollView fights hard for every
+  // touch: claim clearly-horizontal moves in the CAPTURE phase, refuse
+  // termination requests once claimed, and if the native side
+  // terminates us anyway, still honor the swipe on the way out.
+  const monthSwipe = (g) => {
+    if (g.dx <= -40) changeMonth(1);
+    else if (g.dx >= 40) changeMonth(-1);
+  };
   const monthPan = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_e, g) =>
-      Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-    onPanResponderRelease: (_e, g) => {
-      if (g.dx <= -48) changeMonth(1);
-      else if (g.dx >= 48) changeMonth(-1);
-    },
+      Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
+    onMoveShouldSetPanResponderCapture: (_e, g) =>
+      Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
+    onPanResponderRelease: (_e, g) => monthSwipe(g),
+    onPanResponderTerminate: (_e, g) => monthSwipe(g),
   })).current;
 
   // Last 7 calendar days for the bars, oldest first, zero-filled
