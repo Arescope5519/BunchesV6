@@ -176,6 +176,8 @@ export const HomeScreen = ({ user }) => {
   const [sortBy, setSortBy] = useState('dateAdded'); // dateAdded, dateModified, alphabetical
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  // Live name filter for the main recipe list
+  const [recipeSearch, setRecipeSearch] = useState('');
 
   // View mode state
   const [viewMode, setViewMode] = useState('photo'); // 'list' or 'photo'
@@ -3345,6 +3347,12 @@ export const HomeScreen = ({ user }) => {
   const sortedRecipes = useMemo(() => {
     let recipesToSort = [...filteredRecipes];
 
+    // Live name search - keeps only titles containing the keyword
+    const q = recipeSearch.trim().toLowerCase();
+    if (q) {
+      recipesToSort = recipesToSort.filter(r => (r.title || '').toLowerCase().includes(q));
+    }
+
     // Filter by selected tags (show recipes that have ANY of the selected
     // tags, counting both user tags and global auto-tags)
     if (selectedTags.length > 0) {
@@ -3395,7 +3403,7 @@ export const HomeScreen = ({ user }) => {
     }
 
     return recipesToSort;
-  }, [filteredRecipes, sortBy, sortOrder, selectedTags, selectedDiets, analysisById]);
+  }, [filteredRecipes, sortBy, sortOrder, selectedTags, selectedDiets, analysisById, recipeSearch]);
 
 
   // Render different screens based on currentScreen state
@@ -3488,6 +3496,30 @@ export const HomeScreen = ({ user }) => {
             >
               <Ionicons name="folder-open" size={22} color={colors.primary} />
             </TouchableOpacity>
+          </View>
+
+          {/* Name search - filters the list live as you type */}
+          <View style={styles.recipeSearchBar}>
+            <Ionicons name="search" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.recipeSearchInput}
+              placeholder="Search recipes by name..."
+              placeholderTextColor={colors.textSecondary}
+              value={recipeSearch}
+              onChangeText={setRecipeSearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              clearButtonMode="never"
+            />
+            {recipeSearch.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setRecipeSearch('')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Sort + Tags Bar */}
@@ -3987,7 +4019,14 @@ export const HomeScreen = ({ user }) => {
               }
               ListEmptyComponent={
             <View style={styles.emptyState}>
-              {currentFolder === 'All Recipes' ? (
+              {recipeSearch.trim() ? (
+                <>
+                  <Text style={styles.emptyStateText}>No recipes match "{recipeSearch.trim()}"</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Try a different name, or clear the search
+                  </Text>
+                </>
+              ) : currentFolder === 'All Recipes' ? (
                 <>
                   <Text style={styles.emptyStateText}>No recipes yet</Text>
                   <Text style={styles.emptyStateSubtext}>
@@ -5522,6 +5561,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  recipeSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    marginHorizontal: 15,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 9 : 2,
+  },
+  recipeSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+    padding: 0,
   },
   actionBarButton: {
     flex: 1,
