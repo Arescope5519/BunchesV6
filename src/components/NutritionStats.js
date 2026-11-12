@@ -11,8 +11,8 @@
  * "Nutrition and weight management" - see CLAUDE.md.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, TextInput, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { loadAppSettings, saveAppSettings } from '../utils/storage';
@@ -144,41 +144,97 @@ const NutritionStats = ({ userId, recipes }) => {
     return aggregateNutrition(inRange, lookups.cooksById, lookups.recipesById);
   }, [mealEvents, lookups, rangeDays, todayStr]);
 
-  // Full 28-day aggregate for the calendar, independent of the
-  // 7/28 averages toggle
-  const aggAll = useMemo(
-    () => aggregateNutrition(mealEvents, lookups.cooksById, lookups.recipesById),
-    [mealEvents, lookups]
+  // Calendar: a real month view - the displayed month padded to whole
+  // Sunday-Saturday weeks, so boundary weeks show the neighboring
+  // month's days dimmed (Google Calendar style). Swipe or use the
+  // chevrons to move between months.
+  const [monthAnchor, setMonthAnchor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [monthEvents, setMonthEvents] = useState([]);
+  const [monthCooks, setMonthCooks] = useState([]);
+
+  const changeMonth = (delta) => {
+    setMonthAnchor(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  // The padded grid range for the displayed month
+  const monthRange = useMemo(() => {
+    const first = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1);
+    const last = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    const end = new Date(last);
+    end.setDate(last.getDate() + (6 - last.getDay()));
+    return { start, end };
+  }, [monthAnchor]);
+
+  // The displayed month's data is fetched on its own - the main load
+  // only covers the recent window the Today/averages cards need.
+  // Re-runs after a pull-to-refresh (mealEvents identity changes).
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const cookStart = new Date(monthRange.start);
+    cookStart.setDate(cookStart.getDate() - 60); // cooks can predate their meals
+    Promise.all([
+      getMealEvents(userId, toDateString(monthRange.start), toDateString(monthRange.end)),
+      getCookEvents(userId, toDateString(cookStart), toDateString(monthRange.end)),
+    ]).then(([m, c]) => {
+      if (!cancelled) {
+        setMonthEvents(m || []);
+        setMonthCooks(c || []);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [userId, monthRange, mealEvents]);
+
+  const monthLookups = useMemo(() => {
+    const cooksById = { ...lookups.cooksById };
+    monthCooks.forEach(c => { cooksById[c.id] = c; });
+    return { cooksById, recipesById: lookups.recipesById };
+  }, [lookups, monthCooks]);
+
+  const monthAgg = useMemo(
+    () => aggregateNutrition(monthEvents, monthLookups.cooksById, monthLookups.recipesById),
+    [monthEvents, monthLookups]
   );
 
-  // Calendar: last 28 days ending today, padded to Sunday columns.
-  // Always built - days with data get the goal gradient when a goal
-  // exists (a flat logged-day tint otherwise), empty days stay gray
   const calendarWeeks = useMemo(() => {
     const cells = [];
-    for (let i = 27; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+    const month = monthAnchor.getMonth();
+    const d = new Date(monthRange.start);
+    while (d <= monthRange.end) {
       const dateStr = toDateString(d);
-      const day = aggAll.byDate[dateStr];
+      const day = monthAgg.byDate[dateStr];
       const hasMeals = (day?.mealsTotal || 0) > 0;
       const eaten = day?.mealsCounted > 0 ? (day.totals.calories || 0) : null;
       cells.push({
         dateStr,
-        dayNum: parseLocalDate(dateStr).getDate(),
+        dayNum: d.getDate(),
+        outside: d.getMonth() !== month,
         hasMeals,
         ratio: eaten != null && calorieGoal > 0 ? eaten / calorieGoal : null,
         isToday: dateStr === todayStr,
       });
+      d.setDate(d.getDate() + 1);
     }
-    // Pad the front so columns align to weekdays
-    const firstDow = parseLocalDate(cells[0].dateStr).getDay();
-    const padded = [...Array(firstDow).fill(null), ...cells];
-    while (padded.length % 7 !== 0) padded.push(null);
     const weeks = [];
-    for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
     return weeks;
-  }, [aggAll, calorieGoal, todayStr]);
+  }, [monthAnchor, monthRange, monthAgg, calorieGoal, todayStr]);
+
+  // Horizontal swipe between months; vertical movement stays with the
+  // surrounding ScrollView
+  const monthPan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_e, g) =>
+      Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+    onPanResponderRelease: (_e, g) => {
+      if (g.dx <= -48) changeMonth(1);
+      else if (g.dx >= 48) changeMonth(-1);
+    },
+  })).current;
 
   // Last 7 calendar days for the bars, oldest first, zero-filled
   const barDays = useMemo(() => {
@@ -202,11 +258,14 @@ const NutritionStats = ({ userId, recipes }) => {
   // where the recipe's source provided nutrition
   const selectedDayDetail = useMemo(() => {
     if (!selectedDay) return null;
-    const meals = mealEvents
+    // The calendar is the only entry point, so month-fetched data
+    // covers every selectable day - any displayed month, not just
+    // the recent window
+    const meals = monthEvents
       .filter(m => m.meal_date === selectedDay)
       .map(m => {
-        const cook = lookups.cooksById[m.cook_event_id];
-        const recipe = cook && !cook.is_takeout ? lookups.recipesById[cook.recipe_id] : null;
+        const cook = monthLookups.cooksById[m.cook_event_id];
+        const recipe = cook && !cook.is_takeout ? monthLookups.recipesById[cook.recipe_id] : null;
         let per = recipe ? perServingNutrition(recipe.nutrition) : null;
         // Takeout with a user-stated calories-per-serving counts too
         if (!per && cook?.is_takeout) {
@@ -222,8 +281,8 @@ const NutritionStats = ({ userId, recipes }) => {
           calories: per?.calories != null ? per.calories * servings : null,
         };
       });
-    return { meals, day: aggAll.byDate[selectedDay] || null };
-  }, [selectedDay, mealEvents, lookups, aggAll]);
+    return { meals, day: monthAgg.byDate[selectedDay] || null };
+  }, [selectedDay, monthEvents, monthLookups, monthAgg]);
 
   const today = agg.byDate[todayStr];
   const daysWithData = Object.values(agg.byDate).filter(d => d.mealsCounted > 0).length;
@@ -405,9 +464,26 @@ const NutritionStats = ({ userId, recipes }) => {
         </View>
       )}
 
-      {/* Calendar - tap a day for its meals; gradient when a goal exists */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Calendar</Text>
+      {/* Calendar - tap a day for its meals; gradient when a goal exists.
+          Swipe or chevron between months */}
+      <View style={styles.card} {...monthPan.panHandlers}>
+        <View style={styles.calMonthHeader}>
+          <TouchableOpacity
+            onPress={() => changeMonth(-1)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.cardTitle}>
+            {monthAnchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Text>
+          <TouchableOpacity
+            onPress={() => changeMonth(1)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.calHeaderRow}>
           {DAY_LETTERS.map((l, i) => (
             <Text key={i} style={styles.calHeaderText}>{l}</Text>
@@ -428,6 +504,7 @@ const NutritionStats = ({ userId, recipes }) => {
                       ? { backgroundColor: gradeColor(cell.ratio), borderColor: 'transparent' }
                       : cell.hasMeals && styles.calCellLogged,
                     cell.isToday && styles.calCellToday,
+                    cell.outside && styles.calCellOutside,
                   ]}
                   onPress={() => setSelectedDay(cell.dateStr)}
                 >
@@ -630,6 +707,13 @@ const styles = StyleSheet.create({
   calHeaderRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
   calHeaderText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600', color: colors.textTertiary },
   calWeekRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
+  calMonthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  calCellOutside: { opacity: 0.35 },
   calCell: { flex: 1, aspectRatio: 1 },
   calCellDay: {
     borderRadius: 8,
