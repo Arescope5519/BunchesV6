@@ -68,7 +68,7 @@ export const ShareToFriendsModal = ({
               <Text style={styles.cancelButton}>Cancel</Text>
             </TouchableOpacity>
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Share {itemType === 'recipe' ? 'Recipe' : 'Cookbook'}</Text>
+              <Text style={styles.headerTitle}>Share {itemType === 'recipe' ? 'Recipe' : itemType === 'grocery_list' ? 'Shopping List' : 'Cookbook'}</Text>
               <Text style={styles.itemName} numberOfLines={1}>{displayItemName}</Text>
             </View>
             <TouchableOpacity

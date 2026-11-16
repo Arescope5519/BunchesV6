@@ -44,7 +44,7 @@ const addDays = (dateStr, n) => {
   return toDateString(d);
 };
 
-const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartProp, onChangeWeek }) => {
+const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStartProp, onChangeWeek, planRecipe = null, onPlanHandled }) => {
   // Controlled by KitchenScreen when provided, so Cook and Eat share
   // the same viewed week; falls back to local state when standalone
   const [localWeekStart, setLocalWeekStart] = useState(getWeekStart());
@@ -276,6 +276,50 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
 
   const shiftWeek = (deltaDays) => {
     setWeekStart(addDays(weekStart, deltaDays));
+  };
+
+  // "Add to Cook Plan" from a recipe page: the recipe arrives chosen,
+  // the user picks the day (next 7 days) and servings here
+  const [planServings, setPlanServings] = useState(4);
+  useEffect(() => {
+    if (planRecipe) {
+      const n = parseInt(String(planRecipe.servings || ''), 10);
+      setPlanServings(isFinite(n) && n > 0 ? n : 4);
+    }
+  }, [planRecipe]);
+
+  const planDays = useMemo(() => {
+    const out = [];
+    const today = toDateString(new Date());
+    for (let i = 0; i < 7; i++) {
+      const dateStr = addDays(today, i);
+      const d = parseLocalDate(dateStr);
+      const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow'
+        : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      out.push({ dateStr, label });
+    }
+    return out;
+  }, [planRecipe]);
+
+  const handlePlanDay = async (day) => {
+    if (!planRecipe || !userId) return;
+    const created = await createCookEvent(userId, {
+      cookDate: day.dateStr,
+      recipeId: planRecipe.id,
+      servingsProduced: planServings,
+      sortOrder: cookEventsForDate(day.dateStr).length,
+    });
+    if (created) {
+      if (weekDays.includes(day.dateStr)) {
+        setCookEvents(prev => [...prev, created]);
+      } else {
+        setWeekStart(getWeekStart(parseLocalDate(day.dateStr)));
+      }
+      Alert.alert('Added to Cook Plan', `"${planRecipe.title}" is planned for ${day.label.toLowerCase() === 'today' || day.label.toLowerCase() === 'tomorrow' ? day.label.toLowerCase() : day.label}.`);
+    } else {
+      Alert.alert('Error', 'Could not add to the Cook plan. Please try again.');
+    }
+    onPlanHandled?.();
   };
 
   const handleAdd = async (recipe, servings) => {
@@ -571,6 +615,48 @@ const CookSchedule = ({ userId, recipes = [], onOpenRecipe, weekStart: weekStart
         recipes={recipes}
         onChanged={loadCookEvents}
       />
+
+      {/* "Add to Cook Plan" day picker - the recipe came from its page,
+          pick when to cook it */}
+      <Modal visible={!!planRecipe} transparent animationType="fade" onRequestClose={() => onPlanHandled?.()}>
+        <View style={styles.planOverlay}>
+          <View style={styles.planCard}>
+            <Text style={styles.planTitle} numberOfLines={2}>
+              Cook "{planRecipe?.title}" on...
+            </Text>
+            <View style={styles.planServingsRow}>
+              <Text style={styles.planServingsLabel}>Servings</Text>
+              <TouchableOpacity
+                style={styles.planServingsBtn}
+                onPress={() => setPlanServings(s => Math.max(1, s - 1))}
+              >
+                <Ionicons name="remove" size={18} color={colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.planServingsValue}>{planServings}</Text>
+              <TouchableOpacity
+                style={styles.planServingsBtn}
+                onPress={() => setPlanServings(s => Math.min(99, s + 1))}
+              >
+                <Ionicons name="add" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {planDays.map(day => (
+                <TouchableOpacity
+                  key={day.dateStr}
+                  style={styles.planDayBtn}
+                  onPress={() => handlePlanDay(day)}
+                >
+                  <Text style={styles.planDayText}>{day.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.planCancelBtn} onPress={() => onPlanHandled?.()}>
+              <Text style={styles.planCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -794,6 +880,74 @@ const RecipePicker = ({ visible, onClose, onPick, recipes = [], dateLabel }) => 
 };
 
 const styles = StyleSheet.create({
+  planOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  planCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 18,
+    width: '88%',
+    maxWidth: 420,
+  },
+  planTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  planServingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  planServingsLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginRight: 'auto',
+  },
+  planServingsBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planServingsValue: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginHorizontal: 14,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  planDayBtn: {
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    marginBottom: 8,
+  },
+  planDayText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  planCancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 2,
+  },
+  planCancelText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
   container: { flex: 1, backgroundColor: colors.background },
   weekNav: {
     flexDirection: 'row',

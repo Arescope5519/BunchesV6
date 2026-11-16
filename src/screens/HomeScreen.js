@@ -216,6 +216,8 @@ export const HomeScreen = ({ user }) => {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showShareToFriends, setShowShareToFriends] = useState(false);
   const [shareItem, setShareItem] = useState(null); // { type, data, name }
+  // Recipe handed to the Kitchen Cook tab via "Add to Cook Plan"
+  const [planRecipeTarget, setPlanRecipeTarget] = useState(null);
   const [followedCookbooks, setFollowedCookbooks] = useState([]);
 
   // Notification popup state
@@ -3820,6 +3822,19 @@ export const HomeScreen = ({ user }) => {
           onRemoveFriend={removeFriend}
           onImportSharedItem={importSharedItem}
           onDeclineSharedItem={declineSharedItem}
+          onImportGroceryList={async (item) => {
+            const texts = (Array.isArray(item.data) ? item.data : [])
+              .map(i => (typeof i === 'string' ? i : i?.text))
+              .filter(Boolean);
+            if (texts.length) {
+              await addItemsToGroceryList(texts, {
+                id: `shared-${item.id}`,
+                title: `@${item.fromUsername}'s list`,
+              });
+            }
+            await importSharedItem(item.id);
+            Alert.alert('Imported', `${texts.length} item${texts.length !== 1 ? 's' : ''} added to your grocery list.`);
+          }}
           onImportRecipe={saveRecipe}
           onFollowCookbook={handleFollowCookbook}
           profile={profile}
@@ -3915,6 +3930,17 @@ export const HomeScreen = ({ user }) => {
           onClearAll={handleClearAllItems}
           onAddCustomItem={addCustomGroceryItem}
           onAddItemsToGroceryList={addItemsToGroceryList}
+          onShareList={() => {
+            if (!groceryList.length) return;
+            setShareItem({
+              type: 'grocery_list',
+              data: groceryList,
+              name: `Shopping list (${groceryList.length} item${groceryList.length !== 1 ? 's' : ''})`,
+            });
+            setShowShareToFriends(true);
+          }}
+          planRecipe={planRecipeTarget}
+          onPlanHandled={() => setPlanRecipeTarget(null)}
         />
       )}
 
@@ -4875,6 +4901,13 @@ export const HomeScreen = ({ user }) => {
                 onCookModeAutoOpened={() => setResumeCookRecipeId(null)}
                 onUpdate={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : updateRecipe}
                 onAddToGroceryList={selectedRecipe.deletedAt ? null : handleAddToGroceryList}
+                onAddToCookPlan={isPremium && !selectedRecipe.deletedAt && !selectedRecipe.isReadOnly
+                  ? (r) => {
+                      setSelectedRecipe(null);
+                      setPlanRecipeTarget(r);
+                      setCurrentScreen('grocery');
+                    }
+                  : null}
                 allRecipes={recipes}
                 isFolderPrivate={isFolderPrivate(selectedRecipe.folder)}
                 onToggleVersion={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : toggleRecipeVersion}

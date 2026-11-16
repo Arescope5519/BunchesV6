@@ -133,6 +133,7 @@ export const RecipeDetail = ({
   recipe,
   onUpdate,
   onAddToGroceryList,
+  onAddToCookPlan,
   allRecipes = [],
   isFolderPrivate = false,
   onToggleVersion, // For switching between original and edited versions
@@ -1147,6 +1148,18 @@ export const RecipeDetail = ({
         >
           <Ionicons name="cart" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.addToGroceryListMainButtonText}>Add Ingredients to Grocery List</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Add to Cook Plan - premium only (handler is only passed then):
+          jumps to the Kitchen Cook tab with a day picker for this recipe */}
+      {!selectionMode && !editingItem && !swapMode && !isReadOnly && onAddToCookPlan && (
+        <TouchableOpacity
+          style={styles.addToGroceryListMainButton}
+          onPress={() => onAddToCookPlan(localRecipe)}
+        >
+          <Ionicons name="calendar" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
+          <Text style={styles.addToGroceryListMainButtonText}>Add to Cook Plan</Text>
         </TouchableOpacity>
       )}
 

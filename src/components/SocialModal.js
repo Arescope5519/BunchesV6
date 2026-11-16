@@ -42,6 +42,7 @@ export const SocialModal = ({
   onRemoveFriend,
   onImportSharedItem,
   onDeclineSharedItem,
+  onImportGroceryList,
   onImportRecipe,
   onFollowCookbook,
   profile,
@@ -198,6 +199,11 @@ export const SocialModal = ({
 
   const handleImport = async (item) => {
     try {
+      // Shared shopping lists merge into the grocery list, not recipes
+      if (item.type === 'grocery_list') {
+        await onImportGroceryList?.(item);
+        return;
+      }
       // Import the recipe(s) to local storage
       if (item.type === 'recipe') {
         if (!item.data) {
@@ -825,16 +831,38 @@ export const SocialModal = ({
             <TouchableOpacity
               key={item.id}
               style={styles.threadRecipeCard}
-              onPress={() => setPreviewRecipe(item)}
+              onPress={() => {
+                // Shopping lists have no recipe preview - offer the
+                // import directly
+                if (item.type === 'grocery_list') {
+                  const n = Array.isArray(item.data) ? item.data.length : 0;
+                  Alert.alert(
+                    'Shared Shopping List',
+                    `Add ${n} item${n !== 1 ? 's' : ''} from @${item.fromUsername}'s list to your grocery list?`,
+                    [
+                      { text: 'Decline', style: 'destructive', onPress: () => onDeclineSharedItem(item.id) },
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Import', onPress: () => handleImport(item) },
+                    ]
+                  );
+                  return;
+                }
+                setPreviewRecipe(item);
+              }}
             >
               <View style={styles.threadRecipeInfo}>
                 <Text style={styles.threadRecipeType}>
-                  {item.type === 'recipe' ? 'Recipe' : 'Cookbook'}
+                  {item.type === 'recipe' ? 'Recipe' : item.type === 'grocery_list' ? 'Shopping List' : 'Cookbook'}
                 </Text>
                 <Text style={styles.threadRecipeName}>{getDisplayName(item.name)}</Text>
                 {item.type === 'cookbook' && (
                   <Text style={styles.threadRecipeCount}>
                     {item.data?.length || 0} recipes
+                  </Text>
+                )}
+                {item.type === 'grocery_list' && (
+                  <Text style={styles.threadRecipeCount}>
+                    {Array.isArray(item.data) ? item.data.length : 0} items
                   </Text>
                 )}
                 <Text style={styles.threadRecipeTime}>{formatTimeAgo(item.createdAt)}</Text>

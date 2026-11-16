@@ -56,12 +56,21 @@ const KitchenScreen = ({
   onClearAll,
   onAddCustomItem,
   onAddItemsToGroceryList,
+  onShareList,
+  // "Add to Cook Plan" handoff from a recipe page (premium)
+  planRecipe = null,
+  onPlanHandled,
 }) => {
   // Free users default to Shop tab; premium users can default to Cook
   const [activeTab, setActiveTab] = useState(isPremium ? 'cook' : 'shop');
   // Shared between the Cook and Eat tabs so switching tabs stays on the
   // same week instead of resetting to the current one
   const [weekStart, setWeekStart] = useState(getWeekStart());
+
+  // A recipe arriving via Add to Cook Plan lands on the Cook tab
+  useEffect(() => {
+    if (planRecipe && isPremium) setActiveTab('cook');
+  }, [planRecipe, isPremium]);
 
   useEffect(() => {
     // If user's premium status changes mid-session, keep them on their current tab
@@ -90,6 +99,7 @@ const KitchenScreen = ({
           onClearChecked={onClearChecked}
           onClearAll={onClearAll}
           onAddCustomItem={onAddCustomItem}
+          onShareList={onShareList}
           embedded={true}
         />
       );
@@ -121,6 +131,8 @@ const KitchenScreen = ({
           onAddItemsToGroceryList={onAddItemsToGroceryList}
           weekStart={weekStart}
           onChangeWeek={setWeekStart}
+          planRecipe={planRecipe}
+          onPlanHandled={onPlanHandled}
         />
       );
     }

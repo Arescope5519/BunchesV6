@@ -64,6 +64,9 @@ Deno.serve(async (req: Request) => {
       if (rec.type === 'cookbook') {
         title = 'Cookbook shared with you';
         body = `${from} shared the cookbook "${rec.name || 'a cookbook'}"`;
+      } else if (rec.type === 'grocery_list') {
+        title = 'Shopping list shared with you';
+        body = `${from} shared their shopping list`;
       } else {
         title = 'Recipe shared with you';
         body = `${from} shared ${rec.name ? `"${rec.name}"` : 'a recipe'}`;

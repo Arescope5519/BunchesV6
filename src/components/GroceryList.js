@@ -17,7 +17,7 @@ import {
 import { colors } from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 
-export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onAddCustomItem, onOpenMealPlan, embedded = false }) => {
+export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRemoveItem, onClearChecked, onClearAll, onAddCustomItem, onOpenMealPlan, onShareList, embedded = false }) => {
   const [groupBy, setGroupBy] = useState('recipe'); // 'recipe' or 'flat'
   const [customItemText, setCustomItemText] = useState('');
   const inputRef = useRef(null);
@@ -246,6 +246,11 @@ export const GroceryList = ({ visible, onClose, groceryList, onToggleItem, onRem
               {groupBy === 'recipe' ? 'List View' : 'Group by Recipe'}
             </Text>
           </TouchableOpacity>
+          {onShareList && groceryList.length > 0 && (
+            <TouchableOpacity style={styles.toggleButton} onPress={onShareList}>
+              <Text style={styles.toggleButtonText}>Share</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.clearButton} onPress={handleClearChecked}>
             <Text style={styles.clearButtonText}>Clear Checked</Text>
           </TouchableOpacity>
