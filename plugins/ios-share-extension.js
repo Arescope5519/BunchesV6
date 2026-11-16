@@ -16,328 +16,123 @@ const APP_GROUP_ID = 'group.app.melibri';
  */
 function getShareViewControllerContent(bundleId, appGroupId) {
   return `import UIKit
-import Social
 import MobileCoreServices
 import UniformTypeIdentifiers
 
+// Fire-and-forget share sheet: the share is handed to the app's queue
+// immediately and this UI only reports that handoff - a green check
+// ("Sent to Melibri") or a red X when the share carried no link. The
+// APP does the real import (and the save/duplicate decisions) on next
+// open, so a preview and Save/Cancel step here only added confusion
+// when sites could not be previewed.
 class ShareViewController: UIViewController {
 
-    private let containerView = UIView()
-    private let titleLabel = UILabel()
-    private let recipeNameLabel = UILabel()
+    private let cardView = UIView()
+    private let iconView = UIImageView()
     private let statusLabel = UILabel()
-    private let ingredientsTextView = UITextView()
-    private let instructionsTextView = UITextView()
-    private let saveButton = UIButton(type: .system)
-    private let cancelButton = UIButton(type: .system)
-    private let loadingIndicator = UIActivityIndicatorView(style: .large)
-    private let segmentedControl = UISegmentedControl(items: ["Ingredients", "Instructions"])
-
-    private var recipeData: [String: Any]?
-    private var sharedURL: String?
+    private let spinner = UIActivityIndicatorView(style: .medium)
     private let appGroupIdentifier = "${appGroupId}"
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        extractSharedContent()
+        extractAndStore()
     }
 
     private func setupUI() {
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.5)
-        containerView.backgroundColor = .systemBackground
-        containerView.layer.cornerRadius = 16
-        containerView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(containerView)
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.35)
 
-        titleLabel.text = "Save to Melibri"
-        titleLabel.font = .boldSystemFont(ofSize: 20)
-        titleLabel.textAlignment = .center
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(titleLabel)
+        cardView.backgroundColor = UIColor.systemBackground
+        cardView.layer.cornerRadius = 16
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(cardView)
 
-        recipeNameLabel.text = "Loading recipe..."
-        recipeNameLabel.font = .systemFont(ofSize: 16, weight: .medium)
-        recipeNameLabel.textAlignment = .center
-        recipeNameLabel.numberOfLines = 2
-        recipeNameLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(recipeNameLabel)
+        iconView.contentMode = .scaleAspectFit
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        cardView.addSubview(iconView)
 
-        statusLabel.font = .systemFont(ofSize: 14)
-        statusLabel.textColor = .secondaryLabel
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.startAnimating()
+        cardView.addSubview(spinner)
+
+        statusLabel.font = .boldSystemFont(ofSize: 17)
         statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 0
+        statusLabel.text = "Sending to Melibri..."
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(statusLabel)
-
-        segmentedControl.selectedSegmentIndex = 0
-        segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
-        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(segmentedControl)
-
-        ingredientsTextView.isEditable = false
-        ingredientsTextView.font = .systemFont(ofSize: 14)
-        ingredientsTextView.backgroundColor = .secondarySystemBackground
-        ingredientsTextView.layer.cornerRadius = 8
-        ingredientsTextView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(ingredientsTextView)
-
-        instructionsTextView.isEditable = false
-        instructionsTextView.font = .systemFont(ofSize: 14)
-        instructionsTextView.backgroundColor = .secondarySystemBackground
-        instructionsTextView.layer.cornerRadius = 8
-        instructionsTextView.isHidden = true
-        instructionsTextView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(instructionsTextView)
-
-        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
-        loadingIndicator.hidesWhenStopped = true
-        containerView.addSubview(loadingIndicator)
-
-        cancelButton.setTitle("Cancel", for: .normal)
-        cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(cancelButton)
-
-        saveButton.setTitle("Save Recipe", for: .normal)
-        saveButton.titleLabel?.font = .boldSystemFont(ofSize: 17)
-        saveButton.backgroundColor = UIColor(red: 0.36, green: 0.68, blue: 0.49, alpha: 1.0)
-        saveButton.setTitleColor(.white, for: .normal)
-        saveButton.layer.cornerRadius = 10
-        saveButton.isEnabled = false
-        saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
-        containerView.addSubview(saveButton)
+        cardView.addSubview(statusLabel)
 
         NSLayoutConstraint.activate([
-            containerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            containerView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            containerView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.9),
-            containerView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.7),
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            recipeNameLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-            recipeNameLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            recipeNameLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            statusLabel.topAnchor.constraint(equalTo: recipeNameLabel.bottomAnchor, constant: 4),
-            statusLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            statusLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            segmentedControl.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 12),
-            segmentedControl.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            segmentedControl.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            ingredientsTextView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 12),
-            ingredientsTextView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            ingredientsTextView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            ingredientsTextView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -16),
-            instructionsTextView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 12),
-            instructionsTextView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            instructionsTextView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            instructionsTextView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -16),
-            loadingIndicator.centerXAnchor.constraint(equalTo: ingredientsTextView.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: ingredientsTextView.centerYAnchor),
-            cancelButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            cancelButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
-            cancelButton.widthAnchor.constraint(equalToConstant: 80),
-            cancelButton.heightAnchor.constraint(equalToConstant: 44),
-            saveButton.leadingAnchor.constraint(equalTo: cancelButton.trailingAnchor, constant: 16),
-            saveButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            saveButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
-            saveButton.heightAnchor.constraint(equalToConstant: 44),
+            cardView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            cardView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            cardView.widthAnchor.constraint(equalToConstant: 250),
+            cardView.heightAnchor.constraint(equalToConstant: 160),
+
+            iconView.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
+            iconView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 26),
+            iconView.widthAnchor.constraint(equalToConstant: 50),
+            iconView.heightAnchor.constraint(equalToConstant: 50),
+
+            spinner.centerXAnchor.constraint(equalTo: iconView.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: iconView.centerYAnchor),
+
+            statusLabel.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 12),
+            statusLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
+            statusLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
         ])
     }
 
-    @objc private func segmentChanged() {
-        ingredientsTextView.isHidden = segmentedControl.selectedSegmentIndex == 1
-        instructionsTextView.isHidden = segmentedControl.selectedSegmentIndex == 0
-    }
-
-    private func extractSharedContent() {
-        loadingIndicator.startAnimating()
+    private func extractAndStore() {
         guard let extensionItems = extensionContext?.inputItems as? [NSExtensionItem] else {
-            showError("No content to share")
+            showResult(ok: false)
             return
         }
         for item in extensionItems {
             guard let attachments = item.attachments else { continue }
             for provider in attachments {
                 if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                    provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, error) in
-                        if let url = data as? URL {
-                            self?.sharedURL = url.absoluteString
-                            self?.fetchRecipe(from: url.absoluteString)
+                    provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (data, _) in
+                        DispatchQueue.main.async {
+                            if let url = data as? URL {
+                                self?.store(url: url.absoluteString)
+                            } else {
+                                self?.showResult(ok: false)
+                            }
                         }
                     }
                     return
                 }
             }
         }
+        showResult(ok: false)
     }
 
-    private func fetchRecipe(from urlString: String) {
-        guard let url = URL(string: urlString) else { return }
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self else { return }
-            // Social pages (Instagram, Pinterest) and bot-walled sites
-            // cannot be previewed here - the MAIN APP does the real
-            // import, so a failed preview must still allow saving
-            guard let data = data, let html = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async { self.showNoPreview() }
-                return
-            }
-            let recipe = self.parseRecipe(from: html, url: urlString)
-            DispatchQueue.main.async {
-                self.loadingIndicator.stopAnimating()
-                if let recipe = recipe {
-                    self.recipeData = recipe
-                    self.displayRecipe(recipe)
-                } else {
-                    self.showNoPreview()
-                }
-            }
-        }.resume()
-    }
-
-    private func showNoPreview() {
-        loadingIndicator.stopAnimating()
-        recipeNameLabel.text = "No Preview Available"
-        ingredientsTextView.text = "This page can't be previewed here. Tap Save anyway - Melibri will import it the next time you open the app."
-        instructionsTextView.text = ""
-        saveButton.isEnabled = (sharedURL != nil)
-    }
-
-    private func parseRecipe(from html: String, url: String) -> [String: Any]? {
-        var recipe: [String: Any] = ["source_url": url, "id": UUID().uuidString]
-        if let jsonLD = parseJSONLD(from: html) { recipe.merge(jsonLD) { _, new in new } }
-        if recipe["title"] == nil { recipe["title"] = extractTitle(from: html) }
-        return recipe["title"] != nil ? recipe : nil
-    }
-
-    private func parseJSONLD(from html: String) -> [String: Any]? {
-        let pattern = "<script[^>]*type=[\\"']application/ld\\\\+json[\\"'][^>]*>(.*?)</script>"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]) else { return nil }
-        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
-        for match in matches {
-            guard let jsonRange = Range(match.range(at: 1), in: html),
-                  let jsonData = String(html[jsonRange]).data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else { continue }
-            if let recipe = extractRecipeFromJSONLD(json) { return recipe }
-            if let graph = json["@graph"] as? [[String: Any]] {
-                for item in graph { if let recipe = extractRecipeFromJSONLD(item) { return recipe } }
-            }
+    private func store(url: String) {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
+            showResult(ok: false)
+            return
         }
-        return nil
-    }
-
-    private func extractRecipeFromJSONLD(_ json: [String: Any]) -> [String: Any]? {
-        let typeValue = json["@type"]
-        var isRecipe = false
-        if let typeString = typeValue as? String { isRecipe = typeString.lowercased().contains("recipe") }
-        else if let typeArray = typeValue as? [String] { isRecipe = typeArray.contains { $0.lowercased().contains("recipe") } }
-
-        // Check @graph for nested recipes
-        if !isRecipe, let graph = json["@graph"] as? [[String: Any]] {
-            for item in graph { if let recipe = extractRecipeFromJSONLD(item) { return recipe } }
-            return nil
-        }
-        guard isRecipe else { return nil }
-
-        var recipe: [String: Any] = [:]
-        recipe["title"] = json["name"] as? String
-        if let ingredients = json["recipeIngredient"] as? [String] { recipe["ingredients"] = ingredients.joined(separator: "\\n") }
-
-        // Handle multiple instruction formats (HowToSection, HowToStep, plain objects, strings)
-        if let instructions = json["recipeInstructions"] {
-            var steps: [String] = []
-            if let instructionString = instructions as? String { steps.append(instructionString) }
-            else if let instructionArray = instructions as? [Any] {
-                for instruction in instructionArray {
-                    if let stepString = instruction as? String {
-                        let cleaned = stepString.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !cleaned.isEmpty { steps.append(cleaned) }
-                    } else if let stepObject = instruction as? [String: Any] {
-                        let stepType = stepObject["@type"] as? String ?? ""
-                        if stepType == "HowToSection" {
-                            if let itemList = stepObject["itemListElement"] as? [Any] {
-                                for item in itemList {
-                                    if let itemStr = item as? String { steps.append(itemStr.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                                    else if let itemObj = item as? [String: Any] {
-                                        if let text = itemObj["text"] as? String { steps.append(text.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                                        else if let name = itemObj["name"] as? String { steps.append(name.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                                    }
-                                }
-                            }
-                        } else {
-                            if let text = stepObject["text"] as? String { steps.append(text.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                            else if let name = stepObject["name"] as? String { steps.append(name.trimmingCharacters(in: .whitespacesAndNewlines)) }
-                        }
-                    }
-                }
-            }
-            let cleanedSteps = steps.compactMap { step -> String? in
-                var cleaned = step.replacingOccurrences(of: "^(Step\\\\s+)?\\\\d+[.:\\\\s]+", with: "", options: .regularExpression)
-                cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-                return cleaned.count > 5 ? cleaned : nil
-            }
-            if !cleanedSteps.isEmpty {
-                recipe["instructions"] = cleanedSteps.enumerated().map { "\\($0.offset + 1). \\($0.element)" }.joined(separator: "\\n")
-            }
-        }
-
-        if let image = json["image"] as? String { recipe["image_url"] = image }
-        else if let images = json["image"] as? [String] { recipe["image_url"] = images.first }
-        else if let imageObj = json["image"] as? [String: Any], let url = imageObj["url"] as? String { recipe["image_url"] = url }
-        return recipe
-    }
-
-    private func extractTitle(from html: String) -> String? {
-        let pattern = "<title[^>]*>([^<]+)</title>"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-              let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
-              let range = Range(match.range(at: 1), in: html) else { return nil }
-        return String(html[range]).trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func displayRecipe(_ recipe: [String: Any]) {
-        recipeNameLabel.text = recipe["title"] as? String ?? "Recipe"
-        ingredientsTextView.text = recipe["ingredients"] as? String ?? "No ingredients found"
-        instructionsTextView.text = recipe["instructions"] as? String ?? "No instructions found"
-        saveButton.isEnabled = true
-    }
-
-    private func showError(_ message: String) {
-        loadingIndicator.stopAnimating()
-        recipeNameLabel.text = "Error"
-        ingredientsTextView.text = message
-    }
-
-    @objc private func cancelTapped() {
-        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
-    }
-
-    @objc private func saveTapped() {
-        guard let url = sharedURL, let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
         var queue = userDefaults.array(forKey: "pendingRecipes") as? [[String: Any]] ?? []
-
-        // Save URL only - main app will use JS RecipeExtractor for full parsing
-        // This ensures consistent parsing between iOS and Android
-        var pendingItem: [String: Any] = [
+        queue.append([
             "id": UUID().uuidString,
             "url": url,
             "created_at": ISO8601DateFormatter().string(from: Date()),
-            "needs_parsing": true
-        ]
-
-        // Include preview data for display while parsing
-        if let preview = recipeData {
-            pendingItem["preview_title"] = preview["title"]
-            pendingItem["preview_image"] = preview["image_url"]
-        }
-
-        queue.append(pendingItem)
+            "needs_parsing": true,
+        ])
         userDefaults.set(queue, forKey: "pendingRecipes")
-        saveButton.setTitle("Saved!", for: .normal)
-        saveButton.isEnabled = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        showResult(ok: true)
+    }
+
+    private func showResult(ok: Bool) {
+        spinner.stopAnimating()
+        iconView.image = UIImage(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+        iconView.tintColor = ok
+            ? UIColor(red: 0.18, green: 0.42, blue: 0.31, alpha: 1.0)
+            : UIColor(red: 0.75, green: 0.22, blue: 0.17, alpha: 1.0)
+        statusLabel.text = ok
+            ? "Sent to Melibri"
+            : "Nothing to send - no link in this share"
+        DispatchQueue.main.asyncAfter(deadline: .now() + (ok ? 1.0 : 1.7)) {
             self.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
         }
     }

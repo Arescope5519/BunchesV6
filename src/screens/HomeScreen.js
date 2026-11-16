@@ -608,6 +608,10 @@ export const HomeScreen = ({ user }) => {
   // Handle quick link URL submission
   // Track if we're currently importing to prevent duplicate imports
   const isImportingRef = useRef(false);
+  // Fresh recipes list for the share-import dedupe checks - the effect
+  // below would otherwise close over a stale (often still-empty) array
+  const recipesRef = useRef(recipes);
+  recipesRef.current = recipes;
 
   // Check for pending recipes from iOS Share Extension
   useEffect(() => {
@@ -627,6 +631,15 @@ export const HomeScreen = ({ user }) => {
         return;
       }
 
+      // The dedupe checks compare against the recipe list - importing
+      // before it loads re-saved recipes the user already had (the
+      // "duplicate appeared when I reopened the app" bug). The effect
+      // re-runs when loading finishes.
+      if (loadingRecipes) {
+        log('[HomeScreen] Recipes still loading - pending import deferred');
+        return;
+      }
+
       try {
         log('[HomeScreen] Fetching pending recipes...');
         const pending = await getPendingRecipes();
@@ -641,6 +654,7 @@ export const HomeScreen = ({ user }) => {
           // Auto-import without prompt (user already confirmed in Share Extension)
           let imported = 0;
           let failed = 0;
+          let diverted = 0;
 
           for (const item of pending) {
             try {
@@ -714,6 +728,21 @@ export const HomeScreen = ({ user }) => {
                 };
               }
 
+              // A same-named recipe already in the library: don't
+              // silently stack a copy (same dish arrives under many
+              // URLs - scan, Instagram, different sites). Queue it for
+              // interactive review instead - the save screen's
+              // Possible Duplicate prompt lets the user decide.
+              const normT = (recipeData.title || '').trim().toLowerCase();
+              const twin = normT
+                ? recipesRef.current.find(r => !r.deletedAt && (r.title || '').trim().toLowerCase() === normT)
+                : null;
+              if (twin) {
+                scanQueueRef.current = [...scanQueueRef.current, { recipe: recipeData }];
+                diverted++;
+                continue;
+              }
+
               await saveRecipe(recipeData);
               imported++;
             } catch (err) {
@@ -723,6 +752,12 @@ export const HomeScreen = ({ user }) => {
           }
 
           await clearPendingRecipes();
+
+          // Shared recipes that matched an existing title wait in the
+          // review queue - surface the first one now
+          if (diverted > 0) {
+            advanceScanQueue();
+          }
 
           // Reset importing flag
           isImportingRef.current = false;
@@ -757,7 +792,7 @@ export const HomeScreen = ({ user }) => {
     return () => {
       subscription.remove();
     };
-  }, [saveRecipe]);
+  }, [saveRecipe, loadingRecipes]);
 
   const { loading, extractRecipe, findExistingRecipeByUrl } = useRecipeExtraction(
     (recipe, options = {}) => {
