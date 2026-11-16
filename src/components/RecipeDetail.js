@@ -655,16 +655,18 @@ export const RecipeDetail = ({
     let updated = { ...localRecipe };
 
     if (type === 'ingredient') {
-      const items = [...updated.ingredients[sectionKey]];
+      const items = [...(updated.ingredients?.[sectionKey] || [])];
       items.splice(index + 1, 0, newItemValue.trim());
-      updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
+      updated.ingredients = { ...(updated.ingredients || {}), [sectionKey]: items };
     } else if (type === 'section') {
-      // Add ingredient to the beginning of this section
-      const items = [...(updated.ingredients[sectionKey] || [])];
+      // Add ingredient to the beginning of this section (creates the
+      // section - scans can arrive with no ingredients at all)
+      const items = [...(updated.ingredients?.[sectionKey] || [])];
       items.unshift(newItemValue.trim());
-      updated.ingredients = { ...updated.ingredients, [sectionKey]: items };
+      updated.ingredients = { ...(updated.ingredients || {}), [sectionKey]: items };
     } else if (type === 'instruction') {
-      const items = [...updated.instructions];
+      // index -1 (empty-recipe entry point) inserts at position 0
+      const items = [...(updated.instructions || [])];
       items.splice(index + 1, 0, newItemValue.trim());
       updated.instructions = items;
     }
@@ -1406,6 +1408,56 @@ export const RecipeDetail = ({
         );
       })}
 
+      {/* Empty ingredients: the long-press editor needs a row to press,
+          so offer an explicit entry point (scans sometimes come back
+          with nothing here) */}
+      {!isReadOnly && (() => {
+        const ingSections = displayedIngredients ? Object.entries(displayedIngredients) : [];
+        const totalIng = ingSections.reduce((n, [, items]) => n + (items?.length || 0), 0);
+        if (totalIng > 0) return null;
+        const targetSection = ingSections[0]?.[0] || 'main';
+        // With an existing (empty) section, the input renders under its
+        // header inside the section map - only render one here when
+        // there is no section at all
+        if (ingSections.length === 0 &&
+            addingBelow?.type === 'section' && addingBelow?.sectionKey === targetSection) {
+          return (
+            <View style={styles.addBelowContainer}>
+              <TextInput
+                style={styles.addBelowInput}
+                placeholder="First ingredient..."
+                value={newItemValue}
+                onChangeText={setNewItemValue}
+                onSubmitEditing={saveNewItem}
+                autoFocus
+                multiline
+              />
+              <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
+                <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        if (addingBelow?.type === 'section' && addingBelow?.sectionKey === targetSection) return null;
+        return (
+          <TouchableOpacity
+            style={styles.addNutritionBtn}
+            onPress={() => {
+              setEditingItem(null);
+              setSwapMode(null);
+              setNewItemValue('');
+              setAddingBelow({ type: 'section', sectionKey: targetSection, index: 0 });
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.addNutritionText}>Add the first ingredient</Text>
+          </TouchableOpacity>
+        );
+      })()}
+
       <Text style={styles.sectionTitle}>Instructions</Text>
       {(localRecipe?.instructions || []).map((step, idx) => (
         <View key={`instruction-${idx}`}>
@@ -1488,6 +1540,44 @@ export const RecipeDetail = ({
           )}
         </View>
       ))}
+
+      {/* Empty instructions: same explicit entry point - common on
+          Instagram caption imports where creators post ingredients
+          only. Index -1 inserts at position 0 via the normal flow */}
+      {!isReadOnly && (localRecipe?.instructions || []).length === 0 && (
+        addingBelow?.type === 'instruction' && addingBelow?.index === -1 ? (
+          <View style={styles.addBelowContainer}>
+            <TextInput
+              style={styles.addBelowInput}
+              placeholder="First step..."
+              value={newItemValue}
+              onChangeText={setNewItemValue}
+              onSubmitEditing={saveNewItem}
+              autoFocus
+              multiline
+            />
+            <TouchableOpacity onPress={saveNewItem} style={styles.saveButton}>
+              <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={cancelAddBelow} style={styles.cancelButton}>
+              <Ionicons name="close" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.addNutritionBtn}
+            onPress={() => {
+              setEditingItem(null);
+              setSwapMode(null);
+              setNewItemValue('');
+              setAddingBelow({ type: 'instruction', sectionKey: null, index: -1 });
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.addNutritionText}>Add the first step</Text>
+          </TouchableOpacity>
+        )
+      )}
 
       {/* Nutrition - at the bottom, after instructions */}
       {(() => {
