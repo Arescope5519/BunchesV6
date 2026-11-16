@@ -33,6 +33,7 @@ import {
   addRecipeToSharedFolder,
   addRecipesToSharedFolder,
   removeRecipeFromSharedFolder,
+  removeSharedVariant,
   deleteSharedFolder,
 } from '../services/supabase/sharedFolders';
 
@@ -60,6 +61,8 @@ const SharedFolderView = ({
   const [loading, setLoading] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  // Recipe whose published versions are being browsed
+  const [versionsFor, setVersionsFor] = useState(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [busyIds, setBusyIds] = useState({});
   // Browse controls, mirroring the normal folder page
@@ -195,11 +198,45 @@ const SharedFolderView = ({
     }
   };
 
+  // Open a published version read-only: the shared base recipe with the
+  // version's edits laid over it
+  const openSharedVariant = (recipe, variant) => {
+    const e = variant.edits || {};
+    setVersionsFor(null);
+    onOpenRecipe?.({
+      ...recipe,
+      title: e.title || recipe.title,
+      ingredients: e.ingredients || recipe.ingredients,
+      instructions: e.instructions || recipe.instructions,
+      _sharedVersionLabel: `"${variant.name}" by @${variant.byUsername}`,
+    });
+  };
+
+  const handleRemoveVariant = async (recipe, variant) => {
+    const ok = await removeSharedVariant(folder.id, recipe.globalRecipeId, variant.id);
+    if (ok) {
+      await load();
+      // Keep the modal in sync without waiting for state to settle
+      setVersionsFor(prev => prev && {
+        ...prev,
+        sharedVariants: (prev.sharedVariants || []).filter(v => v.id !== variant.id),
+      });
+    } else {
+      Alert.alert('Error', 'Could not remove that version.');
+    }
+  };
+
   const handleRecipeLongPress = (recipe) => {
     const canRemove = canRemoveAny || (canAdd && recipe.addedBy === userId);
     const buttons = [
       { text: 'Save to My Cookbook', onPress: () => onSaveCopy?.(recipe) },
     ];
+    if ((recipe.sharedVariants || []).length > 0) {
+      buttons.push({
+        text: `Versions (${recipe.sharedVariants.length})`,
+        onPress: () => setVersionsFor(recipe),
+      });
+    }
     if (canRemove) {
       buttons.push({
         text: 'Remove from This Cookbook',
@@ -420,6 +457,18 @@ const SharedFolderView = ({
                         {r.addedBy === userId ? 'added by you' : `@${r.addedByUsername}`}
                       </Text>
                     ) : null}
+                    {(r.sharedVariants || []).length > 0 && (
+                      <TouchableOpacity
+                        style={styles.tileVersions}
+                        onPress={() => setVersionsFor(r)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="git-branch-outline" size={11} color={colors.primary} style={{ marginRight: 3 }} />
+                        <Text style={styles.tileVersionsText}>
+                          {r.sharedVariants.length} version{r.sharedVariants.length !== 1 ? 's' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -442,6 +491,58 @@ const SharedFolderView = ({
             <Text style={styles.addButtonText}>Add Recipes</Text>
           </TouchableOpacity>
         )}
+
+        {/* Published versions of one recipe */}
+        <Modal
+          visible={!!versionsFor}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setVersionsFor(null)}
+        >
+          <View style={styles.versionsOverlay}>
+            <View style={styles.versionsCard}>
+              <Text style={styles.versionsTitle} numberOfLines={2}>
+                Versions of "{versionsFor?.title}"
+              </Text>
+              <ScrollView style={{ maxHeight: 360 }}>
+                {(versionsFor?.sharedVariants || []).map(variant => {
+                  const mine = variant.byUserId === userId;
+                  const canDelete = mine || canRemoveAny;
+                  return (
+                    <View key={variant.id} style={styles.versionRow}>
+                      <TouchableOpacity
+                        style={{ flex: 1 }}
+                        onPress={() => openSharedVariant(versionsFor, variant)}
+                      >
+                        <Text style={styles.versionName} numberOfLines={1}>{variant.name}</Text>
+                        <Text style={styles.versionMeta} numberOfLines={1}>
+                          by {mine ? 'you' : `@${variant.byUsername}`}
+                        </Text>
+                      </TouchableOpacity>
+                      {canDelete && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveVariant(versionsFor, variant)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="trash-outline" size={18} color={colors.error} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+                {(versionsFor?.sharedVariants || []).length === 0 && (
+                  <Text style={styles.versionMeta}>No versions left.</Text>
+                )}
+              </ScrollView>
+              <Text style={styles.versionsHint}>
+                Tap a version to read it. Publish your own from the recipe's page in your library.
+              </Text>
+              <TouchableOpacity style={styles.versionsClose} onPress={() => setVersionsFor(null)}>
+                <Text style={styles.versionsCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Recipe picker */}
         <Modal visible={showPicker} animationType="slide" onRequestClose={() => setShowPicker(false)}>
@@ -705,6 +806,43 @@ const styles = StyleSheet.create({
   tilePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   tileTitle: { fontSize: 12, fontWeight: '600', color: colors.text, marginTop: 4, lineHeight: 16 },
   tileBy: { fontSize: 10, color: colors.textTertiary, marginTop: 1 },
+  tileVersions: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  tileVersionsText: { fontSize: 10, color: colors.primary, fontWeight: '600' },
+  versionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  versionsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 18,
+    width: '88%',
+    maxWidth: 440,
+  },
+  versionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  versionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  versionName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  versionMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  versionsHint: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 12,
+  },
+  versionsClose: { alignItems: 'center', paddingVertical: 12, marginTop: 2 },
+  versionsCloseText: { fontSize: 15, fontWeight: '600', color: colors.primary },
   emptyWrap: { alignItems: 'center', paddingVertical: 50, paddingHorizontal: 30 },
   emptyText: {
     fontSize: 14,

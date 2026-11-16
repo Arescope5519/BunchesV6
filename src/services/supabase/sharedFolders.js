@@ -75,6 +75,8 @@ const formatSharedRecipe = (row, usernames) => {
     addedBy: row.added_by,
     addedByUsername: usernames[row.added_by] || null,
     addedAt: row.added_at,
+    // Named edit versions members published to this cookbook
+    sharedVariants: Array.isArray(row.shared_variants) ? row.shared_variants : [],
     ownerUserId: row.added_by,
     ownerUsername: usernames[row.added_by] || null,
     isReadOnly: true,
@@ -190,7 +192,7 @@ export const getSharedFolderDetail = async (folderId) => {
         .eq('folder_id', folderId),
       supabase.from('shared_folder_recipes')
         .select(`
-          global_recipe_id, added_by, added_at,
+          global_recipe_id, added_by, added_at, shared_variants,
           global_recipes (
             id, title, image_url, source_url, ingredients, instructions,
             servings, total_time, nutrition, author, tags
@@ -350,6 +352,51 @@ export const addRecipesToSharedFolder = async (folderId, globalRecipeIds, userId
   } catch (err) {
     console.error('❌ addRecipesToSharedFolder error:', err);
     return { success: false };
+  }
+};
+
+/**
+ * Publish a named edit version onto a cookbook's recipe (editor+).
+ * edits: { title, ingredients, instructions } in app shape.
+ * Returns the created variant object or null.
+ */
+export const publishSharedVariant = async (folderId, globalRecipeId, name, edits) => {
+  try {
+    const { data, error } = await supabase.rpc('publish_shared_variant', {
+      p_folder_id: folderId,
+      p_global_recipe_id: globalRecipeId,
+      p_name: name,
+      p_edits: edits,
+    });
+    if (error) {
+      console.error('❌ publishSharedVariant error:', error);
+      return { variant: null, error: error.message };
+    }
+    return { variant: data, error: null };
+  } catch (err) {
+    console.error('❌ publishSharedVariant error:', err);
+    return { variant: null, error: err?.message || 'failed' };
+  }
+};
+
+/**
+ * Remove a published version - its author, a manager, or the owner.
+ */
+export const removeSharedVariant = async (folderId, globalRecipeId, variantId) => {
+  try {
+    const { error } = await supabase.rpc('remove_shared_variant', {
+      p_folder_id: folderId,
+      p_global_recipe_id: globalRecipeId,
+      p_variant_id: variantId,
+    });
+    if (error) {
+      console.error('❌ removeSharedVariant error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('❌ removeSharedVariant error:', err);
+    return false;
   }
 };
 

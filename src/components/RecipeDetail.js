@@ -134,6 +134,7 @@ export const RecipeDetail = ({
   onUpdate,
   onAddToGroceryList,
   onAddToCookPlan,
+  onPublishEditsToShared,
   allRecipes = [],
   isFolderPrivate = false,
   onToggleVersion, // For switching between original and edited versions
@@ -959,6 +960,14 @@ export const RecipeDetail = ({
       )}
       <Text style={styles.modalTitle}>{localRecipe.title}</Text>
 
+      {/* Viewing a published version from a shared cookbook */}
+      {!!localRecipe._sharedVersionLabel && (
+        <View style={styles.sharedVersionBanner}>
+          <Ionicons name="git-branch-outline" size={13} color={colors.primary} style={{ marginRight: 5 }} />
+          <Text style={styles.sharedVersionBannerText}>{localRecipe._sharedVersionLabel}</Text>
+        </View>
+      )}
+
       {/* Tags - right below title (auto diet chips + global auto-tags + user tags) */}
       {(dietaryAnalysis.displayDiets.length > 0 || displayTags.length > 0) && (
         <View style={styles.tagsRow}>
@@ -1160,6 +1169,28 @@ export const RecipeDetail = ({
         >
           <Ionicons name="calendar" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.addToGroceryListMainButtonText}>Add to Cook Plan</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Publish the viewed version (with its edits) to a shared
+          cookbook - only offered once the recipe HAS edits */}
+      {!selectionMode && !editingItem && !swapMode && !isReadOnly && onPublishEditsToShared &&
+        (localRecipe.hasEdits || (localRecipe.variants || []).length > 0) && (
+        <TouchableOpacity
+          style={styles.addToGroceryListMainButton}
+          onPress={() => {
+            const current = (localRecipe.variants || []).find(v => v.id === localRecipe.selectedVariantId);
+            onPublishEditsToShared({
+              globalRecipeId: localRecipe.globalRecipeId,
+              title: localRecipe.title,
+              ingredients: localRecipe.ingredients,
+              instructions: localRecipe.instructions,
+              suggestedName: current?.name || 'My version',
+            });
+          }}
+        >
+          <Ionicons name="people" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
+          <Text style={styles.addToGroceryListMainButtonText}>Publish Version to Shared Cookbook</Text>
         </TouchableOpacity>
       )}
 
@@ -2507,6 +2538,18 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
+  },
+  sharedVersionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  sharedVersionBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+    flexShrink: 1,
   },
   modalTitle: {
     fontSize: 24,
