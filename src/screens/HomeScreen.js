@@ -106,7 +106,6 @@ import {
   getSharedFoldersContainingRecipe,
   addRecipeToSharedFolder,
   removeRecipeFromSharedFolder,
-  publishSharedVariant,
 } from '../services/supabase/sharedFolders';
 import { containsProfanityAsync } from '../services/profanityFilter';
 import ReorderFolderList from '../components/ReorderFolderList';
@@ -219,58 +218,6 @@ export const HomeScreen = ({ user }) => {
   const [shareItem, setShareItem] = useState(null); // { type, data, name }
   // Recipe handed to the Kitchen Cook tab via "Add to Cook Plan"
   const [planRecipeTarget, setPlanRecipeTarget] = useState(null);
-  // Publishing an edit version to a shared cookbook:
-  // { payload: {globalRecipeId, title, ingredients, instructions},
-  //   folders: [...eligible], folderId, name }
-  const [publishShared, setPublishShared] = useState(null);
-  const [publishingShared, setPublishingShared] = useState(false);
-
-  const openPublishEdits = async (payload) => {
-    if (!user?.uid || !payload?.globalRecipeId) return;
-    const [{ folders }, containingIds] = await Promise.all([
-      getMySharedFolders(user.uid),
-      getSharedFoldersContainingRecipe(payload.globalRecipeId),
-    ]);
-    const containing = new Set(containingIds || []);
-    const eligible = (folders || []).filter(f =>
-      containing.has(f.id) && ['owner', 'manager', 'editor'].includes(f.role));
-    if (eligible.length === 0) {
-      Alert.alert(
-        'No Shared Cookbook',
-        'Add this recipe to a shared cookbook you can edit first - then you can publish your version of it there.'
-      );
-      return;
-    }
-    setSelectedRecipe(null);
-    setPublishShared({
-      payload,
-      folders: eligible,
-      folderId: eligible[0].id,
-      name: payload.suggestedName || 'My version',
-    });
-  };
-
-  const confirmPublishShared = async () => {
-    if (!publishShared || publishingShared) return;
-    setPublishingShared(true);
-    try {
-      const { payload, folderId, name } = publishShared;
-      const { variant, error } = await publishSharedVariant(folderId, payload.globalRecipeId, name, {
-        title: payload.title,
-        ingredients: payload.ingredients,
-        instructions: payload.instructions,
-      });
-      if (variant) {
-        const folderName = publishShared.folders.find(f => f.id === folderId)?.name || 'the cookbook';
-        setPublishShared(null);
-        Alert.alert('Published', `"${name}" is now visible to everyone in ${folderName}.`);
-      } else {
-        Alert.alert('Could Not Publish', error || 'Please try again.');
-      }
-    } finally {
-      setPublishingShared(false);
-    }
-  };
   const [followedCookbooks, setFollowedCookbooks] = useState([]);
 
   // Notification popup state
@@ -4961,9 +4908,6 @@ export const HomeScreen = ({ user }) => {
                       setCurrentScreen('grocery');
                     }
                   : null}
-                onPublishEditsToShared={!selectedRecipe.deletedAt && !selectedRecipe.isReadOnly && selectedRecipe.globalRecipeId
-                  ? openPublishEdits
-                  : null}
                 allRecipes={recipes}
                 isFolderPrivate={isFolderPrivate(selectedRecipe.folder)}
                 onToggleVersion={selectedRecipe.deletedAt || selectedRecipe.isReadOnly ? null : toggleRecipeVersion}
@@ -5329,63 +5273,6 @@ export const HomeScreen = ({ user }) => {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Publish an edit version to a shared cookbook */}
-      <Modal
-        visible={!!publishShared}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPublishShared(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.addFolderModal}>
-            <Text style={styles.addFolderTitle}>Publish a Version</Text>
-            <Text style={styles.sharedPickHint}>
-              Shares the version you were viewing - title, ingredients, and steps - with everyone in the cookbook. Your notes stay private.
-            </Text>
-            <TextInput
-              style={styles.addFolderInput}
-              placeholder="Version name (e.g. Extra Spicy)"
-              placeholderTextColor={colors.textSecondary}
-              value={publishShared?.name || ''}
-              onChangeText={(t) => setPublishShared(prev => prev && { ...prev, name: t })}
-              maxLength={60}
-            />
-            {(publishShared?.folders || []).map(f => (
-              <TouchableOpacity
-                key={f.id}
-                style={[styles.folderItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-                onPress={() => setPublishShared(prev => prev && { ...prev, folderId: f.id })}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                  <Ionicons name="people" size={15} color={colors.primary} style={{ marginRight: 7 }} />
-                  <Text style={styles.folderItemText} numberOfLines={1}>{f.name}</Text>
-                </View>
-                <Ionicons
-                  name={publishShared?.folderId === f.id ? 'radio-button-on' : 'radio-button-off'}
-                  size={18}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            ))}
-            <View style={styles.addFolderButtons}>
-              <TouchableOpacity
-                style={[styles.addFolderButton, styles.cancelButton]}
-                onPress={() => setPublishShared(null)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.addFolderButton, styles.createButton]}
-                onPress={confirmPublishShared}
-                disabled={publishingShared || !(publishShared?.name || '').trim()}
-              >
-                <Text style={styles.createButtonText}>{publishingShared ? 'Publishing...' : 'Publish'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
 
       {/* Username Setup Modal. Never while the disclaimer is up - iOS

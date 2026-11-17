@@ -134,7 +134,6 @@ export const RecipeDetail = ({
   onUpdate,
   onAddToGroceryList,
   onAddToCookPlan,
-  onPublishEditsToShared,
   allRecipes = [],
   isFolderPrivate = false,
   onToggleVersion, // For switching between original and edited versions
@@ -1169,28 +1168,6 @@ export const RecipeDetail = ({
         >
           <Ionicons name="calendar" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.addToGroceryListMainButtonText}>Add to Cook Plan</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Publish the viewed version (with its edits) to a shared
-          cookbook - only offered once the recipe HAS edits */}
-      {!selectionMode && !editingItem && !swapMode && !isReadOnly && onPublishEditsToShared &&
-        (localRecipe.hasEdits || (localRecipe.variants || []).length > 0) && (
-        <TouchableOpacity
-          style={styles.addToGroceryListMainButton}
-          onPress={() => {
-            const current = (localRecipe.variants || []).find(v => v.id === localRecipe.selectedVariantId);
-            onPublishEditsToShared({
-              globalRecipeId: localRecipe.globalRecipeId,
-              title: localRecipe.title,
-              ingredients: localRecipe.ingredients,
-              instructions: localRecipe.instructions,
-              suggestedName: current?.name || 'My version',
-            });
-          }}
-        >
-          <Ionicons name="people" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
-          <Text style={styles.addToGroceryListMainButtonText}>Publish Version to Shared Cookbook</Text>
         </TouchableOpacity>
       )}
 

@@ -34,6 +34,7 @@ import {
   addRecipesToSharedFolder,
   removeRecipeFromSharedFolder,
   removeSharedVariant,
+  publishSharedVariant,
   deleteSharedFolder,
 } from '../services/supabase/sharedFolders';
 
@@ -63,6 +64,10 @@ const SharedFolderView = ({
   const [showPicker, setShowPicker] = useState(false);
   // Recipe whose published versions are being browsed
   const [versionsFor, setVersionsFor] = useState(null);
+  // Publishing my local edited version onto a cookbook recipe:
+  // { recipe (shared), local, variantId, name }
+  const [publishFor, setPublishFor] = useState(null);
+  const [publishing, setPublishing] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [busyIds, setBusyIds] = useState({});
   // Browse controls, mirroring the normal folder page
@@ -212,6 +217,63 @@ const SharedFolderView = ({
     });
   };
 
+  // My library's copy of a cookbook recipe, if I have one WITH edits -
+  // that is what "Publish My Version" offers to share
+  const myEditedCopy = (shared) =>
+    (recipes || []).find(r =>
+      !r.deletedAt &&
+      r.globalRecipeId === shared.globalRecipeId &&
+      (r.variants || []).length > 0);
+
+  const openPublish = (shared) => {
+    const local = myEditedCopy(shared);
+    if (!local) return;
+    const variants = local.variants || [];
+    const current =
+      variants.find(v => v.id === local.selectedVariantId) || variants[0];
+    const next = {
+      recipe: shared,
+      local,
+      variantId: current.id,
+      name: current.name || 'My version',
+    };
+    // iOS presents one modal at a time: when coming from the versions
+    // modal, let it finish dismissing before this one goes visible
+    if (versionsFor) {
+      setVersionsFor(null);
+      setTimeout(() => setPublishFor(next), 350);
+    } else {
+      setPublishFor(next);
+    }
+  };
+
+  const confirmPublish = async () => {
+    if (!publishFor || publishing) return;
+    const { recipe, local, variantId, name } = publishFor;
+    const variant = (local.variants || []).find(v => v.id === variantId);
+    if (!variant) return;
+    const e = variant.edits || {};
+    setPublishing(true);
+    const { variant: published, error } = await publishSharedVariant(
+      folder.id,
+      recipe.globalRecipeId,
+      name,
+      {
+        title: e.title || local.title,
+        ingredients: e.ingredients || local.ingredients,
+        instructions: e.instructions || local.instructions,
+      }
+    );
+    setPublishing(false);
+    if (published) {
+      setPublishFor(null);
+      await load();
+      Alert.alert('Published', `"${name.trim()}" is now visible to everyone in this cookbook.`);
+    } else {
+      Alert.alert('Could Not Publish', error || 'Please try again.');
+    }
+  };
+
   const handleRemoveVariant = async (recipe, variant) => {
     const ok = await removeSharedVariant(folder.id, recipe.globalRecipeId, variant.id);
     if (ok) {
@@ -235,6 +297,12 @@ const SharedFolderView = ({
       buttons.push({
         text: `Versions (${recipe.sharedVariants.length})`,
         onPress: () => setVersionsFor(recipe),
+      });
+    }
+    if (canAdd && myEditedCopy(recipe)) {
+      buttons.push({
+        text: 'Publish My Version',
+        onPress: () => openPublish(recipe),
       });
     }
     if (canRemove) {
@@ -534,11 +602,83 @@ const SharedFolderView = ({
                   <Text style={styles.versionMeta}>No versions left.</Text>
                 )}
               </ScrollView>
-              <Text style={styles.versionsHint}>
-                Tap a version to read it. Publish your own from the recipe's page in your library.
-              </Text>
+              {versionsFor && canAdd && myEditedCopy(versionsFor) ? (
+                <TouchableOpacity
+                  style={styles.versionsPublish}
+                  onPress={() => openPublish(versionsFor)}
+                >
+                  <Ionicons name="cloud-upload-outline" size={15} color={colors.onPrimary} style={{ marginRight: 6 }} />
+                  <Text style={styles.versionsPublishText}>Publish My Version</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.versionsHint}>
+                  Tap a version to read it. Edit your own copy of this recipe to publish a version here.
+                </Text>
+              )}
               <TouchableOpacity style={styles.versionsClose} onPress={() => setVersionsFor(null)}>
                 <Text style={styles.versionsCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Publish my local edited version onto a cookbook recipe */}
+        <Modal
+          visible={!!publishFor}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPublishFor(null)}
+        >
+          <View style={styles.versionsOverlay}>
+            <View style={styles.versionsCard}>
+              <Text style={styles.versionsTitle} numberOfLines={2}>
+                Publish a Version of "{publishFor?.recipe?.title}"
+              </Text>
+              <Text style={styles.versionsHint}>
+                Members of this cookbook will see your version's title, ingredients, and steps. Your notes stay private.
+              </Text>
+              {(publishFor?.local?.variants || []).length > 1 && (
+                <ScrollView style={{ maxHeight: 220, marginTop: 8 }}>
+                  {(publishFor?.local?.variants || []).map(v => (
+                    <TouchableOpacity
+                      key={v.id}
+                      style={styles.versionRow}
+                      onPress={() => setPublishFor(prev => prev && {
+                        ...prev,
+                        variantId: v.id,
+                        name: v.name || prev.name,
+                      })}
+                    >
+                      <Text style={[styles.versionName, { flex: 1 }]} numberOfLines={1}>
+                        {v.name || 'Unnamed edit'}
+                      </Text>
+                      <Ionicons
+                        name={publishFor?.variantId === v.id ? 'radio-button-on' : 'radio-button-off'}
+                        size={18}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+              <TextInput
+                style={styles.publishInput}
+                placeholder="Version name (e.g. Extra Spicy)"
+                placeholderTextColor={colors.textSecondary}
+                value={publishFor?.name || ''}
+                onChangeText={(t) => setPublishFor(prev => prev && { ...prev, name: t })}
+                maxLength={60}
+              />
+              <TouchableOpacity
+                style={[styles.versionsPublish, (publishing || !(publishFor?.name || '').trim()) && { opacity: 0.5 }]}
+                onPress={confirmPublish}
+                disabled={publishing || !(publishFor?.name || '').trim()}
+              >
+                <Ionicons name="cloud-upload-outline" size={15} color={colors.onPrimary} style={{ marginRight: 6 }} />
+                <Text style={styles.versionsPublishText}>{publishing ? 'Publishing...' : 'Publish'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.versionsClose} onPress={() => setPublishFor(null)}>
+                <Text style={styles.versionsCloseText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -839,6 +979,31 @@ const styles = StyleSheet.create({
   versionsHint: {
     fontSize: 12,
     color: colors.textTertiary,
+    marginTop: 12,
+  },
+  versionsPublish: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 11,
+    marginTop: 14,
+  },
+  versionsPublishText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.onPrimary,
+  },
+  publishInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.surface,
     marginTop: 12,
   },
   versionsClose: { alignItems: 'center', paddingVertical: 12, marginTop: 2 },
