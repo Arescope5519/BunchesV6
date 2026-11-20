@@ -474,11 +474,18 @@ for phonetic analysis against famous marks, not just a knockout search.
 ## Extraction-quality reports
 
 Users flag badly-formatted imports from the recipe page; reports land
-in `extraction_reports` with a snapshot of the stored text. Nothing
-runs automatically - when Daniel asks to "work through the extraction
-reports", follow `tools/FIX_EXTRACTION_REPORTS.md`: fix the records
-(SQL in chat) AND patch RecipeExtractor so that mistake stops
-happening.
+in `extraction_reports` with a snapshot of the stored text. Working
+them follows `tools/FIX_EXTRACTION_REPORTS.md`: fix the records AND
+patch RecipeExtractor so that mistake stops happening, delivering all
+record SQL as ONE begin/commit block.
+
+A **weekly scheduled Claude run** (Sundays 10:32pm ET - timed so its
+usage window clears before Monday morning) works the queue
+automatically with the autonomy Daniel approved 19 Nov 2026: it
+applies record fixes directly via the REST proxy and closes reports,
+but extractor patches go on a review branch, NEVER to master - Daniel
+merges from a chat. On-demand "work through the extraction reports"
+sessions still work the same playbook any time.
 
 ## See also
 
