@@ -45,6 +45,7 @@ import {
   unregisterPushNotifications,
   addNotificationTapListener,
 } from '../services/pushNotifications';
+import { updatePinnedListNotification } from '../services/pinnedListNotification';
 import { dbg } from '../utils/debugLog';
 import { useShareIntent } from '../hooks/useShareIntent';
 import { resolveShareUrl, normalizeRecipeUrl } from '../utils/urlExtractor';
@@ -218,6 +219,9 @@ export const HomeScreen = ({ user }) => {
   const [shareItem, setShareItem] = useState(null); // { type, data, name }
   // Recipe handed to the Kitchen Cook tab via "Add to Cook Plan"
   const [planRecipeTarget, setPlanRecipeTarget] = useState(null);
+  // Bumped when the pinned shopping-list notification is tapped, so the
+  // Kitchen screen lands on the Shop tab (premium users default to Cook)
+  const [focusShopTab, setFocusShopTab] = useState(0);
   const [followedCookbooks, setFollowedCookbooks] = useState([]);
 
   // Notification popup state
@@ -1291,14 +1295,27 @@ export const HomeScreen = ({ user }) => {
   }, [user?.uid]);
 
   useEffect(() => {
-    const sub = addNotificationTapListener(() => {
-      // All three kinds (share / friend request / cookbook invite)
-      // live on the social screen's Notifications tab
+    const sub = addNotificationTapListener((data) => {
+      if (data?.kind === 'pinned_list') {
+        // The pinned shopping list opens the Shop tab directly
+        setFocusShopTab(Date.now());
+        setCurrentScreen('grocery');
+        return;
+      }
+      // All three social kinds (share / friend request / cookbook
+      // invite) live on the social screen's Notifications tab
       setCurrentScreen('social');
     });
     return () => sub?.remove?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the pinned shopping-list notification in step with the list
+  // (no-op off Android or while the Settings toggle is off)
+  useEffect(() => {
+    if (groceryListLoading) return;
+    updatePinnedListNotification(groceryList);
+  }, [groceryList, groceryListLoading]);
 
   const handleSignOut = async () => {
     try {
@@ -3941,6 +3958,7 @@ export const HomeScreen = ({ user }) => {
           }}
           planRecipe={planRecipeTarget}
           onPlanHandled={() => setPlanRecipeTarget(null)}
+          focusShop={focusShopTab}
         />
       )}
 

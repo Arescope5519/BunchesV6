@@ -36,6 +36,7 @@ import { TEXT_SIZE_OPTIONS } from '../utils/textScale';
 import { DEFAULT_FRIDGE_EXPIRE_DAYS } from '../services/supabase/kitchen';
 import { THEME_OPTIONS, loadThemePreference, saveThemePreference } from '../utils/theme';
 import { loadPushEnabled, setPushEnabled } from '../services/pushNotifications';
+import { isPinSupported, loadPinListEnabled, setPinListEnabled } from '../services/pinnedListNotification';
 import { reloadAppAsync } from 'expo';
 
 import { log } from '../utils/log';
@@ -85,11 +86,26 @@ export const SettingsScreen = ({
   const [themePref, setThemePref] = useState('system');
   // Device-level too: silences THIS phone, not the account
   const [pushEnabled, setPushEnabledState] = useState(true);
+  // Device-level, Android only: pinned shopping-list notification
+  const [pinListEnabled, setPinListEnabledState] = useState(false);
 
   useEffect(() => {
     loadThemePreference().then(setThemePref);
     loadPushEnabled().then(setPushEnabledState);
+    if (isPinSupported) loadPinListEnabled().then(setPinListEnabledState);
   }, []);
+
+  const togglePinList = async (next) => {
+    setPinListEnabledState(next);
+    const ok = await setPinListEnabled(next);
+    if (next && !ok) {
+      setPinListEnabledState(false);
+      Alert.alert(
+        'Notifications Blocked',
+        `${APP_NAME} is not allowed to show notifications. Enable them for ${APP_NAME} in your phone's Settings, then turn this back on.`,
+      );
+    }
+  };
 
   const togglePush = async (next) => {
     setPushEnabledState(next);
@@ -1009,6 +1025,23 @@ export const SettingsScreen = ({
                 thumbColor={colors.onPrimary}
               />
             </View>
+            {isPinSupported && (
+              <View style={[styles.settingRow, styles.settingRowBorder]}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Pin Shopping List</Text>
+                  <Text style={styles.settingDescription}>
+                    Keeps your shopping list in the notification bar. Tap it there to open the list
+                  </Text>
+                </View>
+                <Switch
+                  style={styles.switchControl}
+                  value={pinListEnabled}
+                  onValueChange={togglePinList}
+                  trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                  thumbColor={colors.onPrimary}
+                />
+              </View>
+            )}
             <View style={[styles.settingRow, styles.settingRowBorder]}>
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Appearance</Text>

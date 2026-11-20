@@ -53,14 +53,19 @@ export const setPushEnabled = async (enabled, userId) => {
 };
 
 // Foreground behavior: show social pushes as banners even while the
-// app is open (they are rare and actionable)
+// app is open (they are rare and actionable). The pinned shopping list
+// reposts on every list change, so it goes to the tray silently.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const kind = notification?.request?.content?.data?.kind;
+    const isPinnedList = kind === 'pinned_list';
+    return {
+      shouldShowBanner: !isPinnedList,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 /**

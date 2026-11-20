@@ -60,6 +60,9 @@ const KitchenScreen = ({
   // "Add to Cook Plan" handoff from a recipe page (premium)
   planRecipe = null,
   onPlanHandled,
+  // Bumped (timestamp) when something outside wants the Shop tab open,
+  // e.g. tapping the pinned shopping-list notification
+  focusShop = 0,
 }) => {
   // Free users default to Shop tab; premium users can default to Cook
   const [activeTab, setActiveTab] = useState(isPremium ? 'cook' : 'shop');
@@ -71,6 +74,12 @@ const KitchenScreen = ({
   useEffect(() => {
     if (planRecipe && isPremium) setActiveTab('cook');
   }, [planRecipe, isPremium]);
+
+  useEffect(() => {
+    if (focusShop) setActiveTab('shop');
+  }, [focusShop]);
+
+  const uncheckedCount = (groceryList || []).filter(i => !i.checked).length;
 
   useEffect(() => {
     // If user's premium status changes mid-session, keep them on their current tab
@@ -171,12 +180,20 @@ const KitchenScreen = ({
               style={[styles.tab, active && styles.tabActive]}
               onPress={() => handleTabPress(tab)}
             >
-              <Ionicons
-                name={tab.icon}
-                size={22}
-                color={active ? '#fff' : 'rgba(255,255,255,0.6)'}
-                style={{ marginBottom: 4 }}
-              />
+              <View style={{ marginBottom: 4 }}>
+                <Ionicons
+                  name={tab.icon}
+                  size={22}
+                  color={active ? '#fff' : 'rgba(255,255,255,0.6)'}
+                />
+                {tab.key === 'shop' && uncheckedCount > 0 && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>
+                      {uncheckedCount > 99 ? '99+' : uncheckedCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
                   {tab.label}
@@ -224,6 +241,25 @@ const styles = StyleSheet.create({
   },
   tabIconActive: {
     opacity: 1,
+  },
+  // White-on-the-green-bar so it reads in both themes (the bar is a
+  // colored fill, like its '#fff' icons)
+  tabBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -12,
+    backgroundColor: '#fff',
+    borderRadius: 9,
+    minWidth: 17,
+    height: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   tabLabel: {
     fontSize: 12,
