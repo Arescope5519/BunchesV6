@@ -33,6 +33,70 @@ Notes:
   conflicts before. If the tree gets stuck:
   `git merge --abort && git reset --hard && git fetch origin <branch> && git checkout -B <branch> origin/<branch>`
 
+## Build (iOS - from the PC via EAS; the Mac is gone, Nov 2026)
+
+The Mac only ever built/signed the binary and ran Metro. EAS cloud
+builds replace the first; Metro on the PC replaces the second. Each
+command is its own box so the right one can be grabbed alone - after
+every code change, give the Android block above PLUS whichever iOS
+boxes apply (always the TestFlight pair; the dev-client loop when
+relevant).
+
+Always start from a fresh pull:
+
+```cmd
+Y:
+cd Y:\BunchesV6
+git pull origin master
+npm install
+```
+
+**TestFlight / App Store upload** (needs a buildNumber bump in app.json
+first - Claude bumps and pushes it when giving this command; never
+reuse a number):
+
+```cmd
+npx eas-cli build --platform ios --profile production
+```
+
+```cmd
+npx eas-cli submit --platform ios --latest
+```
+
+**Direct-install test build** (ad-hoc, skips App Store Connect
+entirely; installs from the link/QR EAS prints; device must be
+registered):
+
+```cmd
+npx eas-cli build --platform ios --profile preview
+```
+
+**Dev client + Metro loop** (day-to-day: JS changes reload in seconds,
+no build at all; needs the dev-client build installed once):
+
+```cmd
+npx expo start
+```
+
+(`npx expo start --tunnel` if the phone can't find the PC on Wi-Fi.)
+
+**Dev client build** (rebuild only when something NATIVE changed -
+Claude flags that; requires expo-dev-client in package.json):
+
+```cmd
+npx eas-cli build --platform ios --profile development
+```
+
+**Register a new iPhone** (one-time per device, before any
+internal-distribution install):
+
+```cmd
+npx eas-cli device:create
+```
+
+EAS free tier: ~30 builds/month, max 15 iOS, low-priority queue -
+plenty, since the Metro loop and local Android builds consume none.
+
 ## Release signing (Play uploads)
 
 Expo signs release builds with the DEBUG keystore, which Play rejects.
@@ -125,11 +189,13 @@ Traps that burned real time:
   the Supabase dashboard.
 - **Give the full build command block after every code change.**
   ALWAYS both platforms together: the Android block above AND the iOS
-  Mac pull (`cd ~/BunchesV6 && git pull origin master` + `r` in Metro;
-  full `npx expo prebuild --clean --platform ios` + `npx expo run:ios
-  --device` only when something native changed - flag it when so).
-- iOS is dormant but intentionally preserved (ios/ folder, app.json
-  config, eas.json). Revive at launch prep; needs a Mac or EAS.
+  EAS boxes (see "Build (iOS - from the PC via EAS)") - each command
+  in its OWN copy box so Daniel can grab just the one he needs. For a
+  TestFlight/App Store push, bump ios.buildNumber in app.json and push
+  it BEFORE giving the command. Flag native changes - they mean a new
+  EAS build instead of a Metro reload.
+- The Mac is gone (Nov 2026). All iOS building goes through EAS from
+  the PC; the ios/ folder, app.json config, and eas.json stay.
 
 ## Versioning
 
