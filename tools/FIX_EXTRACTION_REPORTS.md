@@ -52,6 +52,20 @@ WHERE id IN ('...');
 -- or 'dismissed' for reports that aren't real problems
 ```
 
+## Output format: ONE compiled SQL block
+
+Deliver every record fix for the whole session as a SINGLE block
+Daniel pastes once: `begin;` ... all the UPDATEs ... the
+extraction_reports closes ... `commit;`. Per-report snippets scattered
+through the chat are the old way - don't. A commented header line
+above each report's section (`-- report <id>: <title> - <what was
+wrong>`) keeps the block reviewable before running.
+
+Claude can also pull the open reports itself through the Supabase REST
+proxy (same service-credential path used for duplicate diagnosis), so
+step 1's paste is optional - only `raw_ld_json`-null missing-content
+cases still need Daniel to paste page HTML.
+
 ## User reports carry what kind of problem
 
 Since Oct 2026 the in-app report flow asks what is wrong before
